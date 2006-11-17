@@ -1,0 +1,212 @@
+npplreg <-
+  function(bws = stop(paste("bandwidths are required to perform the estimate!",
+             "please set 'bws'")), ...){
+    args = list(...)
+    
+    if (!is.null(bws$formula) && is.null(args$txdat))
+      UseMethod("npplreg",bws$formula)
+    else if (!is.null(args$data) || !is.null(args$newdata))
+      stop("data and newdata specified, but bws has no formula")
+    else if (!is.null(bws$call) && is.null(args$txdat))
+      UseMethod("npplreg",bws$call)
+    else
+      UseMethod("npplreg",bws)
+
+  }
+
+npplreg.formula <-
+  function(bws, data = NULL, newdata = NULL, ...){
+    
+    tt <- terms(bws)
+    m <- match(c("formula", "data", "subset", "na.action"),
+               names(bws$call), nomatch = 0)
+    tmf <- bws$call[c(1,m)]
+    tmf[[1]] <- as.name("model.frame")
+    tmf[["formula"]] <- tt
+    umf <- tmf <- eval(tmf)
+    
+    tydat <- model.response(tmf)
+    txdat <- tmf[, bws$chromoly[[2]], drop = FALSE]
+    tzdat <- tmf[, bws$chromoly[[3]], drop = FALSE]
+
+    if ((has.eval <- !is.null(newdata))) {
+      if (!(has.ey <- (length(newdata) == length(tmf))))
+        tt <- delete.response(tt)
+      
+      umf <- emf <- model.frame(tt, data = newdata)
+
+      if (has.ey)
+        eydat <- model.response(emf)
+
+      exdat <- emf[, bws$chromoly[[2]], drop = FALSE]
+      ezdat <- emf[, bws$chromoly[[3]], drop = FALSE]
+    }
+
+    ev <-
+      eval(parse(text=paste("npplreg(txdat = txdat, tydat = tydat, tzdat = tzdat,",
+                   ifelse(has.eval,paste("exdat = exdat, ezdat = ezdat,",
+                                         ifelse(has.ey,"eydat = eydat,","")),""),
+                   "bws = bws, ...)")))
+    ev$rows.omit <- as.vector(attr(umf,"na.action"))
+    ev$nobs.omit <- length(ev$rows.omit)
+    ev
+  }
+
+npplreg.call <-
+  function(bws, ...) {
+    npplreg(txdat = eval(bws$call[["xdat"]], environment(bws$call)),
+            tydat = eval(bws$call[["ydat"]], environment(bws$call)),
+            tzdat = eval(bws$call[["zdat"]], environment(bws$call)),
+            bws = bws, ...)
+  }
+
+
+npplreg.plbandwidth <- 
+  function(bws,
+           txdat = stop("training data txdat missing"),
+           tydat = stop("training data tydat missing"),
+           tzdat = stop("training data tzdat missing"),
+           exdat, eydat, ezdat, residuals = FALSE, ...){
+
+    txdat = toFrame(txdat)
+    tzdat = toFrame(tzdat)
+    
+    ## catch and destroy NA's, part 1
+    goodrows = 1:dim(txdat)[1]
+    rows.omit = attr(na.omit(data.frame(txdat,tydat,tzdat)), "na.action")
+    goodrows[rows.omit] = 0
+
+    if (all(goodrows==0))
+      stop("Training data has no rows without NAs")
+
+    txdat = txdat[goodrows,,drop = FALSE]
+    tydat = tydat[goodrows]
+    tzdat = tzdat[goodrows,,drop = FALSE]
+
+    no.exz = missing(exdat)
+    no.ey = missing(eydat)
+
+    if (!no.exz){
+      exdat = toFrame(exdat)
+      ezdat = toFrame(ezdat)
+      if (!no.ey)
+        eydat = as.double(eydat)
+
+      ## c& d NA's, part 2
+
+      goodrows = 1:dim(exdat)[1]
+      rows.omit = eval(parse(text=paste('attr(na.omit(data.frame(exdat,',
+                               ifelse(no.ey,"","eydat,"),'ezdat)), "na.action")')))
+      goodrows[rows.omit] = 0
+
+      if (all(goodrows==0))
+        stop("Evaluation data has no rows without NAs")
+
+      exdat = exdat[goodrows,,drop = FALSE]
+      if (!no.ey)
+        eydat = eydat[goodrows]
+      ezdat = ezdat[goodrows,,drop = FALSE]
+    }
+
+    ## tmp.ty and tmp.ey are the numeric representations of tydat and eydat
+    if (is.factor(tydat)){
+      tmp.ty <- relevel(data.frame(tydat), bws$bw$yzbw$ydati)
+      tmp.ty <- (bws$bw$yzbw$ydati$all.dlev[[1]])[as.integer(tmp.ty)]
+    } else {
+      tmp.ty <- as.double(tydat)
+    }
+
+    if (!no.ey){
+      if (is.factor(tydat)){
+        tmp.ey <- relevel(data.frame(eydat), bws$bw$yzbw$ydati)
+        tmp.ey <- (bws$bw$yzbw$ydati$all.dlev[[1]])[as.integer(tmp.ey)]
+      } else {
+        temp.ey <- as.double(eydat)
+      }
+    }
+    
+    ## y on z
+    mmy = npreg(txdat = tzdat, tydat = tydat, bws = bws$bw$yzbw)
+
+    resy <- tmp.ty - mmy$mean
+
+    if (!no.exz)
+      mmy.eval = npreg(txdat = tzdat, tydat = tydat, exdat = ezdat, bws = bws$bw$yzbw)
+
+    
+    ## x on z
+    nrow = nrow(txdat)
+    nrow.eval = ifelse(no.exz,0,nrow(exdat))
+    ncol = ncol(txdat)
+    B = double(ncol)
+    resx = matrix(data = 0, nrow = nrow, ncol = ncol)
+    resx.eval = matrix(data = 0, nrow = nrow.eval, ncol = ncol)
+
+    for (i in 1:ncol){
+      mm = npreg(txdat=tzdat, tydat=txdat[,i], bws = bws$bw[[i+1]])
+
+      if (is.factor(txdat[1,i])){
+        tmp.dat <- relevel(txdat[,i, drop=FALSE], bws$bw[[i+1]]$ydati)
+        resx[,i] <- (bws$bw[[i+1]]$ydati$all.dlev[[1]])[as.integer(tmp.dat[,1])] - mm$mean
+      } else {
+        resx[,i] <- txdat[,i] - mm$mean
+      }
+
+      if(!no.exz) {
+        mm = npreg(txdat=tzdat, tydat=txdat[,i], exdat=ezdat, bws = bws$bw[[i+1]])
+
+        if (is.factor(txdat[1,i])){
+          tmp.dat <- relevel(exdat[,i, drop=FALSE], bws$bw[[i+1]]$ydati)
+          resx.eval[,i] <- (bws$bw[[i+1]]$ydati$all.dlev[[1]])[as.integer(tmp.dat[,1])] - mm$mean
+        } else {
+          resx.eval[,i] <- exdat[,i] - mm$mean
+        }
+      }
+    }
+
+    B = coef((model = lm(resy ~ resx - 1)))
+
+    ## computes the standard errors of B using the model matrix
+    ## and the MSE of the training data predictions
+
+    Berr = sqrt(sum((tmp.ty-(mmy$mean + resx  %*% B))^2)/
+      (dim(txdat)[1]-dim(txdat)[2]-dim(tzdat)[2])*
+      diag(solve(t(model.matrix(model))%*%model.matrix(model))))
+
+    if (!no.ey) {
+      ply = mmy.eval$mean + resx.eval %*% B
+      RSQ = RSQfunc(tmp.ey,ply)
+      MSE = MSEfunc(tmp.ey,ply)
+      MAE = MAEfunc(tmp.ey,ply)
+      MAPE = MAPEfunc(tmp.ey,ply)
+      CORR = CORRfunc(tmp.ey,ply)
+      SIGN = SIGNfunc(tmp.ey,ply)
+
+    } else {
+      ply =  mmy$mean + resx %*% B
+      RSQ = RSQfunc(tmp.ty,ply)
+      MSE = MSEfunc(tmp.ty,ply)
+      MAE = MAEfunc(tmp.ty,ply)
+      MAPE = MAPEfunc(tmp.ty,ply)
+      CORR = CORRfunc(tmp.ty,ply)
+      SIGN = SIGNfunc(tmp.ty,ply)
+
+      if (!no.exz)
+        ply = mmy.eval$mean + resx.eval %*% B
+    }
+
+    ev <- eval(parse(text = paste("plregression(bws = bws,",
+                       "xcoef = B, xcoeferr = Berr,",
+                       "evalx =  if (no.exz) txdat else exdat,",
+                       "evalz =  if (no.exz) tzdat else ezdat,",
+                       "mean = ply, ntrain = nrow,",
+                       ifelse(residuals, "resid = tmp.ty - ply,", ""),
+                       "trainiseval = no.exz,",
+                       "residuals = residuals,",
+                       "xtra=c(RSQ,MSE,MAE,MAPE,CORR,SIGN))")))
+
+    
+    ev$call <- match.call(expand.dots = FALSE)
+    environment(ev$call) <- parent.frame()
+    return(ev)
+  }
