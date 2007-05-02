@@ -98,12 +98,12 @@ scbandwidth <-
       liracine = "Li and Racine"),
     nobs = nobs,
     ndim = ndim,
-    ncon = sum(xdati$icon),
-    nuno = sum(xdati$iuno),
-    nord = sum(xdati$iord),
-    icon = xdati$icon,
-    iuno = xdati$iuno,
-    iord = xdati$iord,
+    ncon = sum(tdati$icon),
+    nuno = sum(tdati$iuno),
+    nord = sum(tdati$iord),
+    icon = tdati$icon,
+    iuno = tdati$iuno,
+    iord = tdati$iord,
     xnames = xnames,
     ynames = ynames,
     znames = znames,
@@ -111,9 +111,9 @@ scbandwidth <-
     ydati = ydati,
     zdati = zdati,
     xmcv = mcvConstruct(xdati),
-    sfactor = list(z = sfactor),
-    bandwidth = list(z = bandwidth),
-    sumNum = list(z = sumNum),
+    sfactor = list(sfactor),
+    bandwidth = list(bandwidth),
+    sumNum = list(sumNum),
     dati = list(x = xdati, y = ydati, z = zdati),
     varnames = list(x = xnames, y = ynames, z = znames),
     vartitle = list(x = "Explanatory", y = "Dependent", z = "Explanatory"),
@@ -122,14 +122,25 @@ scbandwidth <-
     nobs.omit = ifelse(identical(rows.omit,NA), 0, length(rows.omit)))
 
   mybw$klist <-
-    list(z =
-         list(ckertype = ckertype,
-              pckertype = mybw$pckertype))
+      list(list(ckertype = ckertype,
+                pckertype = mybw$pckertype,
+                ukertype = ukertype,
+                pukertype = mybw$pukertype,
+                okertype = okertype,
+                pokertype = mybw$pokertype))
+
+  zorx <- ifelse(is.null(zdati), "x", "z")
+  names(mybw$sfactor) <- zorx
+  names(mybw$bandwidth) <- zorx 
+  names(mybw$sumNum) <- zorx
+  names(mybw$klist) <- zorx
   
   if(!bandwidth.compute)
     mybw$pmethod <- "Manual"
 
   class(mybw) = "scbandwidth"
+  if(!any(is.na(mybw$bandwidth)))
+    validateBandwidth(mybw)
   mybw
   
 }
@@ -141,7 +152,8 @@ as.double.scbandwidth <- function(x, ...){
 print.scbandwidth <- function(x, digits=NULL, ...){
   cat("\nSmooth Coefficient Model",
       "\nRegression Data (",x$nobs," observations, ",x$ndim," variable(s)):\n\n",sep="")
-  print(matrix(x$bw,ncol=x$ndim,dimnames=list(paste(x$pscaling,":",sep=""),x$xnames)))
+  print(matrix(x$bw,ncol=x$ndim,dimnames=list(paste(x$pscaling,":",sep=""),
+                                  if(is.null(x$znames)) x$xnames else x$znames)))
 
   cat(genBwSelStr(x))
   cat(genBwKerStrs(x))

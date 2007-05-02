@@ -393,7 +393,7 @@ Sys.sleep(5)
 
 # Supply your own bandwidth...
 
-bw <- npregbw(formula=gdp~ordered(year), bws=c(3.14),
+bw <- npregbw(formula=gdp~ordered(year), bws=c(0.75),
               bandwidth.compute=FALSE)
 
 summary(bw)
@@ -402,9 +402,10 @@ summary(bw)
 
 Sys.sleep(5)
 
-# Supply your own scaling factor c in c sigma n^{-1/(2p+q)}
+# Treat year as continuous and supply your own scaling factor c in
+# c sigma n^{-1/(2p+q)}
 
-bw <- npregbw(formula=gdp~ordered(year), bws=c(1.06),
+bw <- npregbw(formula=gdp~year, bws=c(1.06),
               bandwidth.compute=FALSE, 
               bwscaling=TRUE)
 
@@ -436,7 +437,7 @@ Sys.sleep(5)
 
 # Supply your own bandwidth...
 
-bw <- npregbw(xdat=ordered(year), ydat=gdp, bws=c(3.14),
+bw <- npregbw(xdat=ordered(year), ydat=gdp, bws=c(0.75),
               bandwidth.compute=FALSE)
 
 summary(bw)
@@ -445,9 +446,10 @@ summary(bw)
 
 Sys.sleep(5)
 
-# Supply your own scaling factor c in c sigma n^{-1/(2p+q)}
+# Treat year as continuous and supply your own scaling factor c in
+# c sigma n^{-1/(2p+q)}
 
-bw <- npregbw(xdat=ordered(year), ydat=gdp, bws=c(1.06),
+bw <- npregbw(xdat=year, ydat=gdp, bws=c(1.06),
               bandwidth.compute=FALSE, 
               bwscaling=TRUE)
 

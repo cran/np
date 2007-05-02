@@ -32,7 +32,11 @@ npregbw.formula <-
     tbw$nobs.omit <- length(tbw$rows.omit)
     tbw$terms <- attr(mf,"terms")
 
-    tbw$ynames <- attr(mf, "names")[attr(tbw$terms, "response")]
+    tbw <-
+      updateBwNameMetadata(nameList =
+                           list(ynames =
+                                attr(mf, "names")[attr(tbw$terms, "response")]),
+                           bws = tbw)
     
     tbw
   }
@@ -53,7 +57,9 @@ npregbw.NULL <-
     environment(mc) <- parent.frame()
     tbw$call <- mc
 
-    tbw$ynames <- deparse(substitute(ydat))
+    tbw <- updateBwNameMetadata(nameList =
+                                list(ynames = deparse(substitute(ydat))),
+                                bws = tbw)
     
     tbw
   }

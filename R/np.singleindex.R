@@ -36,15 +36,19 @@ npindex <-
   function(bws = stop(paste("bandwidths are required to perform the estimate!",
              "please set 'bws'")), ...){
     args = list(...)
-    
-    if (!is.null(bws$formula) && is.null(args$txdat))
-      UseMethod("npindex",bws$formula)
-    else if (!is.null(args$data) || !is.null(args$newdata))
-      stop("data and newdata specified, but bws has no formula")
-    else if (!is.null(bws$call) && is.null(args$txdat))
-      UseMethod("npindex",bws$call)
-    else
+
+    if (is.recursive(bws)){
+      if (!is.null(bws$formula) && is.null(args$txdat))
+        UseMethod("npindex",bws$formula)
+      else if (!is.null(args$data) || !is.null(args$newdata))
+        stop("data and newdata specified, but bws has no formula")
+      else if (!is.null(bws$call) && is.null(args$txdat))
+        UseMethod("npindex",bws$call)
+      else
+        UseMethod("npindex",bws)
+    } else {
       UseMethod("npindex",bws)
+    }
 
   }
 
@@ -63,7 +67,7 @@ npindex.formula <-
     txdat <- tmf[, attr(attr(tmf, "terms"),"term.labels"), drop = FALSE]
 
     if ((has.eval <- !is.null(newdata))) {
-      if (!(has.ey <- (length(newdata) == length(tmf))))
+      if (!(has.ey <- succeedWithResponse(tt, newdata)))
         tt <- delete.response(tt)
       
       umf <- emf <- model.frame(tt, data = newdata)
@@ -108,13 +112,14 @@ npindex.default <-
     if(!(is.vector(tydat) | is.factor(tydat)))
       stop("'tydat' must be a vector")
 
-    tbw <- sibandwidth(beta = bws[1:ncol(txdat)],
-                       h = bws[ncol(txdat)+1],
-                       ...,
-                       xdati = untangle(txdat),
-                       ydati = untangle(data.frame(tydat)),
-                       xnames = names(txdat),
-                       ynames = deparse(substitute(tydat)))
+    tbw <- npindexbw(bws = bws,
+                     xdat = txdat,
+                     ydat = tydat,
+                     bandwidth.compute = FALSE,
+                     ...)
+    tbw <- updateBwNameMetadata(nameList =
+                                list(ynames = deparse(substitute(tydat))),
+                                bws = tbw)
 
     mc.names <- names(match.call(expand.dots = FALSE))
     margs <- c("exdat", "eydat", "gradients", "residuals", "errors", "boot.num")
@@ -208,7 +213,7 @@ npindex.sibandwidth <-
     ## used during bandwidth selection.
 
     if (is.factor(tydat)){
-      tydat <- relevel(data.frame(tydat), bws$ydati)[,1]
+      tydat <- adjustLevels(data.frame(tydat), bws$ydati)[,1]
       tydat <- (bws$ydati$all.dlev[[1]])[as.integer(tydat)]
     }
     else
@@ -219,7 +224,7 @@ npindex.sibandwidth <-
       eydat <- double()
     else {
       if (is.factor(eydat)){
-        eydat <- relevel(data.frame(eydat), bws$ydati)[,1]
+        eydat <- adjustLevels(data.frame(eydat), bws$ydati)[,1]
         eydat <- (bws$ydati$all.dlev[[1]])[as.integer(eydat)]
       }
       else
@@ -229,10 +234,10 @@ npindex.sibandwidth <-
     ## re-assign levels in training and evaluation data to ensure correct
     ## conversion to numeric type.
     
-    txdat <- relevel(txdat, bws$xdati)
+    txdat <- adjustLevels(txdat, bws$xdati)
       
     if (!no.ex)
-      exdat <- relevel(exdat, bws$xdati)
+      exdat <- adjustLevels(exdat, bws$xdati)
 
     ## grab the evaluation data before it is converted to numeric
     if(no.ex)
@@ -364,11 +369,11 @@ npindex.sibandwidth <-
         index.gerr[,] = sqrt(diag(cov(boot.out$t[,(length(index.eval)+1):(2*length(index.eval))])))
 
         for (i in ncol(txdat))
-          index.gerr[,i] = bws$beta[i]*index.gerr[,i]
+          index.gerr[,i] = abs(bws$beta[i])*index.gerr[,i]
 
 
         index.mgerr = sd(boot.out$t[,2*length(index.eval)+1])
-        index.mgerr = bws$beta*index.mgerr
+        index.mgerr = abs(bws$beta)*index.mgerr
       }
     }
     ## goodness of fit

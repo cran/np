@@ -1,19 +1,23 @@
 ## what is a badord? ... an ordered factor of numeric values
-## to treat them properly one must preserve the numeric value, not just their
-## sorted order
+## to treat them properly one must preserve the numeric value, ie. scale
+## not just their sorted order
 ## Actually, the ord/badord paradigm must go, in place of levels caching
 
-numNotIn = function(x){
+numNotIn <- function(x){
   while(is.element(num <- rnorm(1),x)){}
   num
 }
 
-dlev = function(x) {
+dlev <- function(x){
   if(is.ordered(x))
     x.dlev <- suppressWarnings(as.numeric(levels(x)))
   if (!is.ordered(x) || any(is.na(x.dlev)))
     x.dlev <- as.numeric(1:nlevels(x))
   x.dlev
+}
+
+isNum <- function(x){
+  return(!any(is.na(suppressWarnings(as.numeric(x)))))
 }
 
 untangle <- function(frame){
@@ -70,6 +74,43 @@ untangle <- function(frame){
        all.ulev = all.ulev,
        all.dlev = all.dlev,
        all.nlev = all.nlev)
+}
+
+validateBandwidth <- function(bws){
+  vari <- names(bws$bandwidth)
+  bchecker <- function(j){
+    v <- vari[j]
+    dati <- bws$dati[[v]]
+    bwv <- bws$bandwidth[[j]]
+    stopifnot(length(bwv) == length(dati$iord))
+    
+    vb <- sapply(1:length(bwv), function(i){
+      falg <- (bwv[i] < 0)
+
+      if (dati$icon[i] && (falg || (!is.finite(bwv[i])))){
+        stop(paste("Invalid bandwidth supplied for continuous",
+                   "variable", bws$varnames[[v]][i], ":",bwv[i]))
+      }
+      
+      if (dati$iord[i] &&
+          (falg || (bwv[i] > oMaxL(dati$all.nlev[[i]],
+                         kertype = bws$klist[[v]]$okertype)))){
+        stop(paste("Invalid bandwidth supplied for ordered",
+                   "variable", bws$varnames[[v]][i], ":",bwv[i]))
+      }
+      
+      if (dati$iuno[i] &&
+          (falg || (bwv[i] > uMaxL(dati$all.nlev[[i]],
+                         kertype = bws$klist[[v]]$ukertype)))){
+        stop(paste("Invalid bandwidth supplied for unordered",
+                   "variable", bws$varnames[[v]][i], ":",bwv[i]))
+      }
+      return(TRUE)
+    })
+    return(vb)
+  }
+  vbl <- lapply(1:length(vari), bchecker)
+  invisible(vbl)
 }
 
 explodeFormula <- function(formula){
@@ -172,12 +213,42 @@ mcvConstruct <- function(dati){
   mcv
 }
 
+## when admitting new categories, adjustLevels will attempt to catch possible mistakes:
+## if an unordered variable contains more than one new category, warn
+## if an ordered, but scaleless variable contains a new category, error
+## if an ordered, scale-possessing variable contains a new category lacking scale, error
 
-relevel <- function(data, dati){
+adjustLevels <- function(data, dati, allowNewCells = FALSE){
   for (i in w(dati$iord | dati$iuno)){
-    if (!all(is.element(levels(data[,i]), dati$all.lev[[i]])))
-      stop("data contains unknown factors (wrong dataset provided?)")
-    data[,i] <- factor(data[,i], levels = dati$all.lev[[i]])
+    if (allowNewCells){
+      newCats <- setdiff(levels(data[,i]),dati$all.lev[[i]])
+      if (length(newCats) >= 1){
+        if (dati$iuno[i]){
+          if (length(newCats) > 1)
+            warning(paste("more than one 'new' category is redundant when estimating on unordered data.\n",
+                          "training data categories: ", paste(dati$all.lev[[i]], collapse=" "),"\n",
+                          "redundant estimation data categories: ", paste(newCats, collapse=" "), "\n", sep=""))
+          data[,i] <- factor(data[,i], levels = c(dati$all.lev[[i]], newCats))
+        } else {
+          if (dati$inumord[i]){
+            if (!isNum(newCats))
+              stop(paste("estimation data contains a new qualitative category, but training data is\n",
+                         "ordered, and numeric.\n",
+                         "training data categories: ", paste(dati$all.lev[[i]], collapse=" "),"\n",
+                         "conflicting estimation data categories: ", paste(newCats, collapse=" "), "\n", sep=""))
+          } else {
+            stop(paste("estimation beyond the support of training data of an ordered,\n",
+                       "categorical, qualitative variable is not supported.\n"))
+          }
+
+          data[,i] <- ordered(data[,i], levels = sort(as.numeric(c(dati$all.lev[[i]], newCats))))
+        }
+      }
+    } else {
+      if (!all(is.element(levels(data[,i]), dati$all.lev[[i]])))
+        stop("data contains unknown factors (wrong dataset provided?)")
+      data[,i] <- factor(data[,i], levels = dati$all.lev[[i]])
+    }
   }
 
   data
@@ -188,33 +259,60 @@ toMatrix <- function(data) {
     if(is.factor(y))
       y <- dlev(y)[as.integer(y)]
     y})
-  dim(tq) <- dim(data)
+  dim(tq) <- dim(data) ## cover the corner case of single element d.f.
   tq
+}
+
+## this doesn't just strictly check for the response, but does tell you
+## that evaluating with response fails ... in principle the evaluation
+## could fail without the response too, but then the calling routine is about
+## to die a noisy death anyhow ...
+succeedWithResponse <- function(tt, frame){
+  !any(class(try(eval(expr = attr(tt, "variables"),
+                      envir = frame, encl = NULL), silen = TRUE)) == "try-error")
 }
 
 ## determine whether a bandwidth
 ## matches a data set
-bwMatch <- function(bws, data){
-  if (length(bws$bw) != ncol(data))
+bwMatch <- function(data, dati){
+  if (length(dati$icon) != ncol(data))
     stop("bandwidth vector is of improper length")
 
-  dati <- untangle(data)
+  test.dati <- untangle(data)
 
-  if (any(xor(bws$icon,dati$icon)) || any(xor(bws$iord,dati$iord)) ||
-      any(xor(bws$iuno,dati$iuno)))
+  if (any(xor(dati$icon,test.dati$icon)) ||
+      any(xor(dati$iord,test.dati$iord)) ||
+      any(xor(dati$iuno,test.dati$iuno)))
     stop(paste("supplied bandwidths do not match","data", "in type"))
 }
 
 uMaxL <- function(c, kertype = c("aitchisonaitken","liracine")){
   switch(kertype,
          aitchisonaitken = (c-1.0)/c,
-         liracine = Inf)
+         liracine = 1.0)
 }
 
 oMaxL <- function(c, kertype = c("wangvanryzin", "liracine")){
   switch(kertype,
          wangvanryzin = 1.0,
-         liracine = Inf)
+         liracine = 1.0)
+}
+
+## tested with: rbandwidth
+## right now all bandwidth objects have some crusty
+## vistiges of their evolution, ie. non-list metadata
+## such as xnames or ynames. The new metadata system is
+## for the most part list based and facilitates generic
+## operations
+
+updateBwNameMetadata <- function(nameList, bws){
+  ## names of 'old' metadata in bw object
+  onames <- names(nameList)
+  lapply(1:length(nameList), function(i) {
+    bws[[onames[i]]] <<- nameList[[i]]
+    bws$varnames[[substr(onames[i],1,1)]] <<- nameList[[i]]
+  })
+  return(bws)
 }
 
 ## some string utility functions
@@ -527,8 +625,10 @@ SIGNfunc <- function(y,y.fit) {
 
 EssDee <- function(y){
   t.ret <- numeric(0)
-  if ((n <- length(y)) > 0)
-    t.ret <- n*sd(y)/(n-1.0)
+  if(ifelse(is.vector(y), length(y), prod(dim(y))) > 0){
+    n <- ifelse(is.vector(y), length(y), nrow(y))
+    t.ret <- sqrt((n-1.0)/n)*sd(y)
+  }
   return(t.ret)
 }
 ### holding place for some generic methods

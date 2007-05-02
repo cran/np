@@ -3,14 +3,18 @@ npplreg <-
              "please set 'bws'")), ...){
     args = list(...)
     
-    if (!is.null(bws$formula) && is.null(args$txdat))
-      UseMethod("npplreg",bws$formula)
-    else if (!is.null(args$data) || !is.null(args$newdata))
-      stop("data and newdata specified, but bws has no formula")
-    else if (!is.null(bws$call) && is.null(args$txdat))
-      UseMethod("npplreg",bws$call)
-    else
+    if (is.recursive(bws)){
+      if (!is.null(bws$formula) && is.null(args$txdat))
+        UseMethod("npplreg",bws$formula)
+      else if (!is.null(args$data) || !is.null(args$newdata))
+        stop("data and newdata specified, but bws has no formula")
+      else if (!is.null(bws$call) && is.null(args$txdat))
+        UseMethod("npplreg",bws$call)
+      else
+        UseMethod("npplreg",bws)
+    } else {
       UseMethod("npplreg",bws)
+    }
 
   }
 
@@ -30,7 +34,7 @@ npplreg.formula <-
     tzdat <- tmf[, bws$chromoly[[3]], drop = FALSE]
 
     if ((has.eval <- !is.null(newdata))) {
-      if (!(has.ey <- (length(newdata) == length(tmf))))
+      if (!(has.ey <- succeedWithResponse(tt, newdata)))
         tt <- delete.response(tt)
       
       umf <- emf <- model.frame(tt, data = newdata)
@@ -110,7 +114,7 @@ npplreg.plbandwidth <-
 
     ## tmp.ty and tmp.ey are the numeric representations of tydat and eydat
     if (is.factor(tydat)){
-      tmp.ty <- relevel(data.frame(tydat), bws$bw$yzbw$ydati)
+      tmp.ty <- adjustLevels(data.frame(tydat), bws$bw$yzbw$ydati)
       tmp.ty <- (bws$bw$yzbw$ydati$all.dlev[[1]])[as.integer(tmp.ty)]
     } else {
       tmp.ty <- as.double(tydat)
@@ -118,7 +122,7 @@ npplreg.plbandwidth <-
 
     if (!no.ey){
       if (is.factor(tydat)){
-        tmp.ey <- relevel(data.frame(eydat), bws$bw$yzbw$ydati)
+        tmp.ey <- adjustLevels(data.frame(eydat), bws$bw$yzbw$ydati)
         tmp.ey <- (bws$bw$yzbw$ydati$all.dlev[[1]])[as.integer(tmp.ey)]
       } else {
         temp.ey <- as.double(eydat)
@@ -146,7 +150,7 @@ npplreg.plbandwidth <-
       mm = npreg(txdat=tzdat, tydat=txdat[,i], bws = bws$bw[[i+1]])
 
       if (is.factor(txdat[1,i])){
-        tmp.dat <- relevel(txdat[,i, drop=FALSE], bws$bw[[i+1]]$ydati)
+        tmp.dat <- adjustLevels(txdat[,i, drop=FALSE], bws$bw[[i+1]]$ydati)
         resx[,i] <- (bws$bw[[i+1]]$ydati$all.dlev[[1]])[as.integer(tmp.dat[,1])] - mm$mean
       } else {
         resx[,i] <- txdat[,i] - mm$mean
@@ -156,7 +160,7 @@ npplreg.plbandwidth <-
         mm = npreg(txdat=tzdat, tydat=txdat[,i], exdat=ezdat, bws = bws$bw[[i+1]])
 
         if (is.factor(txdat[1,i])){
-          tmp.dat <- relevel(exdat[,i, drop=FALSE], bws$bw[[i+1]]$ydati)
+          tmp.dat <- adjustLevels(exdat[,i, drop=FALSE], bws$bw[[i+1]]$ydati)
           resx.eval[,i] <- (bws$bw[[i+1]]$ydati$all.dlev[[1]])[as.integer(tmp.dat[,1])] - mm$mean
         } else {
           resx.eval[,i] <- exdat[,i] - mm$mean
@@ -169,9 +173,11 @@ npplreg.plbandwidth <-
     ## computes the standard errors of B using the model matrix
     ## and the MSE of the training data predictions
 
-    Berr = sqrt(sum((tmp.ty-(mmy$mean + resx  %*% B))^2)/
+    Bvcov = sum((tmp.ty-(mmy$mean + resx  %*% B))^2)/
       (dim(txdat)[1]-dim(txdat)[2]-dim(tzdat)[2])*
-      diag(solve(t(model.matrix(model))%*%model.matrix(model))))
+      solve(t(model.matrix(model))%*%model.matrix(model))
+
+    Berr = sqrt(diag(Bvcov))
 
     if (!no.ey) {
       ply = mmy.eval$mean + resx.eval %*% B
@@ -196,7 +202,7 @@ npplreg.plbandwidth <-
     }
 
     ev <- eval(parse(text = paste("plregression(bws = bws,",
-                       "xcoef = B, xcoeferr = Berr,",
+                       "xcoef = B, xcoeferr = Berr, xcoefvcov = Bvcov,",
                        "evalx =  if (no.exz) txdat else exdat,",
                        "evalz =  if (no.exz) tzdat else ezdat,",
                        "mean = ply, ntrain = nrow,",

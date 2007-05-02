@@ -81,8 +81,13 @@ gradients.npregression <- function(x, errors = FALSE, ...) {
   else
     return(x$gerr)
 }
-predict.npregression <- function(object, ...) {
-  fitted(eval(npreg(bws = object$bws, ...), env = parent.frame()) )
+predict.npregression <- function(object, se.fit = FALSE, ...) {
+  tr <- eval(npreg(bws = object$bws, ...), env = parent.frame())
+  if(se.fit)
+    return(list(fit = fitted(tr), se.fit = se(tr), 
+                df = tr$nobs, residual.scale = tr$MSE))
+  else
+    return(fitted(tr))
 }
 plot.npregression <- function(x, ...) { npplot(bws = x$bws, ...) }
 

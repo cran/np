@@ -107,6 +107,8 @@ plbandwidth <-
       mybw$pmethod <- "Manual"
 
     class(mybw) = "plbandwidth"
+    if(!any(is.na(mybw$bandwidth)))
+      validateBandwidth(mybw)
     mybw
     
   }

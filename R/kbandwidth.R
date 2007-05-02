@@ -15,9 +15,9 @@ kbandwidth.default <- function(bw, ...){
                      ukertype = bw$ukertype,
                      okertype = bw$okertype,
                      nobs = bw$nobs,
-                     xdati = bw$xdati,
+                     xdati = if(is.null(bw$zdati)) bw$xdati else bw$zdati,
                      ydati = bw$ydati,
-                     xnames = bw$xnames,
+                     xnames = if(is.null(bw$zdati)) bw$xnames else bw$znames,
                      ynames = bw$ynames,
                      ...)
 }

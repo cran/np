@@ -2,16 +2,19 @@ npreg <-
   function(bws = stop(paste("bandwidths are required to perform the estimate!",
              "please set 'bws'")), ...){
     args = list(...)
-    
-    if (!is.null(bws$formula) && is.null(args$txdat))
-      UseMethod("npreg",bws$formula)
-    else if (!is.null(args$data) || !is.null(args$newdata))
-      stop("data and newdata specified, but bws has no formula")
-    else if (!is.null(bws$call) && is.null(args$txdat))
-      UseMethod("npreg",bws$call)
-    else
-      UseMethod("npreg",bws)
 
+    if (is.recursive(bws)){    
+      if (!is.null(bws$formula) && is.null(args$txdat))
+        UseMethod("npreg",bws$formula)
+      else if (!is.null(args$data) || !is.null(args$newdata))
+        stop("data and newdata specified, but bws has no formula")
+      else if (!is.null(bws$call) && is.null(args$txdat))
+        UseMethod("npreg",bws$call)
+      else
+        UseMethod("npreg",bws)
+    } else {
+      UseMethod("npreg",bws)
+    }
   }
 
 npreg.formula <-
@@ -29,7 +32,7 @@ npreg.formula <-
     txdat <- tmf[, attr(attr(tmf, "terms"),"term.labels"), drop = FALSE]
 
     if ((has.eval <- !is.null(newdata))) {
-      if (!(has.ey <- (length(newdata) == length(tmf))))
+      if (!(has.ey <- succeedWithResponse(tt, newdata)))
         tt <- delete.response(tt)
       
       umf <- emf <- model.frame(tt, data = newdata)
@@ -161,7 +164,7 @@ npreg.rbandwidth <-
     ## used during bandwidth selection.
     
     if (is.factor(tydat)){
-      tydat <- relevel(data.frame(tydat), bws$ydati)[,1]
+      tydat <- adjustLevels(data.frame(tydat), bws$ydati)[,1]
       tydat <- (bws$ydati$all.dlev[[1]])[as.integer(tydat)]
     }
     else
@@ -172,8 +175,8 @@ npreg.rbandwidth <-
       eydat <- double()
     else {
       if (is.factor(eydat)){
-        eydat <- relevel(data.frame(eydat), bws$ydati)[,1]
-        eydat <- (bws$ydati$all.dlev[[1]])[as.integer(eydat)]
+        eydat <- adjustLevels(data.frame(eydat), bws$ydati, allowNewCells = TRUE)
+        eydat <- toMatrix(eydat)[,1]
       }
       else
         eydat <- as.double(eydat)
@@ -182,10 +185,10 @@ npreg.rbandwidth <-
     ## re-assign levels in training and evaluation data to ensure correct
     ## conversion to numeric type.
     
-    txdat <- relevel(txdat, bws$xdati)
+    txdat <- adjustLevels(txdat, bws$xdati)
       
     if (!no.ex)
-      exdat <- relevel(exdat, bws$xdati)
+      exdat <- adjustLevels(exdat, bws$xdati, allowNewCells = TRUE)
 
     ## grab the evaluation data before it is converted to numeric
     if(no.ex)
@@ -265,6 +268,9 @@ npreg.rbandwidth <-
       rorder = numeric(ncol)
       rorder[c((1:ncol)[bws$icon], (1:ncol)[bws$iuno], (1:ncol)[bws$iord])]=1:ncol
       myout$g = as.matrix(myout$g[,rorder])
+
+      myout$gerr = matrix(data=myout$gerr, nrow = enrow, ncol = ncol, byrow = FALSE) 
+      myout$gerr = as.matrix(myout$gerr[,rorder])
     }
 
 
@@ -298,13 +304,16 @@ npreg.default <-
     if(!(is.vector(tydat) | is.factor(tydat)))
       stop("'tydat' must be a vector")
 
-    tbw = rbandwidth(bws,
-      ...,
-      nobs = 0,
-      xdati = untangle(txdat),
-      ydati = untangle(data.frame(tydat)),
-      xnames = names(txdat),
-      ynames = deparse(substitute(tydat)))
+    tbw <- npregbw(bws = bws,
+                   xdat = txdat,
+                   ydat = tydat,
+                   bandwidth.compute = FALSE,
+                   ...)
+
+    ## xnames = names(txdat)
+    tbw <- updateBwNameMetadata(nameList =
+                                list(ynames = deparse(substitute(tydat))),
+                                bws = tbw)
 
     mc.names <- names(match.call(expand.dots = FALSE))
     margs <- c("exdat", "eydat", "gradients", "residuals")

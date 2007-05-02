@@ -141,10 +141,11 @@ npqreg(bws, \dots)
 \value{
   \code{npqreg} returns a \code{npqregression} object.
   The generic
-  accessor functions \code{\link{fitted}} (or \code{\link{quantile}}),
-  \code{\link{se}}, and
-  \code{\link{gradients}}, extract estimated values, asymptotic standard
-  errors on estimates, and gradients, respectively, from
+  functions \code{\link{fitted}} (or \code{\link{quantile}}),
+  \code{\link{se}}, \code{\link{predict}}, and
+  \code{\link{gradients}}, extract (or generate) estimated values,
+  asymptotic standard 
+  errors on estimates, predictions, and gradients, respectively, from
   the returned object. Furthermore, the functions \code{\link{summary}}
   and \code{\link{plot}} support objects of this type. The returned object
   has the following components:

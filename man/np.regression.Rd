@@ -157,11 +157,11 @@ npreg(bws, \dots)
 
 
   \item{eval}{ evaluation points }
-  \item{mean}{ estimation of the regression function (conditional mean) at the
+  \item{mean}{ estimates of the regression function (conditional mean) at the
   evaluation points } 
-  \item{merr}{ standard errors of the regression estimates } 
-  \item{grad}{ gradients at each evaluation point }
-  \item{gerr}{ estimated errors on the gradients }
+  \item{merr}{ standard errors of the regression function estimates } 
+  \item{grad}{ estimates of the gradients at each evaluation point }
+  \item{gerr}{ standard errors of the gradient estimates }
   \item{resid}{ if \code{residuals = TRUE}, in-sample or out-of-sample
     residuals where appropriate (or possible) }
   \item{R2}{ coefficient of determination }
@@ -424,7 +424,7 @@ detach(oecdpanel)
 library("datasets")
 attach(ToothGrowth)
 
-# Note - in this examples, there are six cells. 
+# Note - in this example, there are six cells. 
 
 bw <- npregbw(formula=len~factor(supp)+ordered(dose))
 
@@ -460,7 +460,7 @@ detach(ToothGrowth)
 library("datasets")
 attach(ToothGrowth)
 
-# Note - in this examples, there are six cells. 
+# Note - in this example, there are six cells. 
 
 y <- len
 X <- data.frame(supp=factor(supp), dose=ordered(dose))

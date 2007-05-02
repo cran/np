@@ -74,7 +74,9 @@ print.singleindex <- function(x, digits=NULL, ...){
 }
 
 coef.singleindex <- function(object, ...) {
- object$beta 
+  tc <- object$beta
+  names(tc) <- object$xnames
+  return(tc)
 }
 fitted.singleindex <- function(object, ...){
  object$mean 
@@ -82,8 +84,14 @@ fitted.singleindex <- function(object, ...){
 residuals.singleindex <- function(object, ...) {
  if(object$residuals) { return(object$resid) } else { return(npindex(bws = object$bws, residuals =TRUE)$resid) } 
 }
-predict.singleindex <- function(object, ...) {
-  fitted(eval(npindex(bws = object$bws, ...), env = parent.frame()) )
+predict.singleindex <- function(object, se.fit = FALSE, ...) {
+  tr <- eval(npindex(bws = object$bws, errors = se.fit, boot.num = 99, ...),
+             env = parent.frame())
+  if(se.fit)
+    return(list(fit = fitted(tr), se.fit = se(tr), 
+                df = tr$nobs, residual.scale = tr$MSE))
+  else
+    return(fitted(tr))
 }
 plot.singleindex <- function(x, ...) { npplot(bws = x$bws, ...) }
 se.singleindex <- function(x){ x$merr }

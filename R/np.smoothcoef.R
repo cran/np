@@ -3,6 +3,7 @@ npscoef <-
              "please set 'bws'")), ...){
     args = list(...)
     
+if (is.recursive(bws)){
     if (!is.null(bws$formula) && is.null(args$txdat))
       UseMethod("npscoef",bws$formula)
     else if (!is.null(args$data) || !is.null(args$newdata))
@@ -11,6 +12,9 @@ npscoef <-
       UseMethod("npscoef",bws$call)
     else
       UseMethod("npscoef",bws)
+} else {
+      UseMethod("npscoef",bws)
+}
 
   }
 
@@ -32,7 +36,7 @@ npscoef.formula <-
     
 
     if ((has.eval <- !is.null(newdata))) {
-      if (!(has.ey <- (length(newdata) == length(tmf))))
+      if (!(has.ey <- succeedWithResponse(tt, newdata)))
         tt <- delete.response(tt)
       
       umf <- emf <- model.frame(tt, data = newdata)
@@ -84,14 +88,13 @@ npscoef.default <-
     if(!(is.vector(tydat) | is.factor(tydat)))
       stop("'tydat' must be a vector")
 
-    tbw <- scbandwidth(bw = bws,
-                       ...,
-                       xdati = untangle(txdat),
-                       ydati = untangle(as.data.frame(tydat)),
-                       zdati = untangle(tzdat),
-                       xnames = names(txdat),
-                       ynames = deparse(substitute(tydat)),
-                       znames = names(tzdat))
+    tbw <- eval(parse(text=paste("npscoefbw(bws = bws, xdat = txdat, ydat = tydat,",
+                     ifelse(miss.z,"","zdat = tzdat,"),
+                     "bandwidth.compute = FALSE, ...)")))
+
+    tbw <-
+      updateBwNameMetadata(nameList = list(ynames = deparse(substitute(tydat))),
+                           bws = tbw)
 
     mc.names <- names(match.call(expand.dots = FALSE))
     margs <- c("tzdat", "exdat", "eydat", "ezdat",  "residuals", "errors")
@@ -207,7 +210,7 @@ npscoef.scbandwidth <-
     ## used during bandwidth selection.
 
     if (is.factor(tydat)){
-      tydat <- relevel(as.data.frame(tydat), bws$ydati)[,1]
+      tydat <- adjustLevels(as.data.frame(tydat), bws$ydati)[,1]
       tydat <- (bws$ydati$all.dlev[[1]])[as.integer(tydat)]
     }
     else
@@ -218,7 +221,7 @@ npscoef.scbandwidth <-
       eydat <- double()
     else {
       if (is.factor(eydat)){
-        eydat <- relevel(as.data.frame(eydat), bws$ydati)[,1]
+        eydat <- adjustLevels(as.data.frame(eydat), bws$ydati)[,1]
         eydat <- (bws$ydati$all.dlev[[1]])[as.integer(eydat)]
       }
       else
@@ -228,14 +231,14 @@ npscoef.scbandwidth <-
     ## re-assign levels in training and evaluation data to ensure correct
     ## conversion to numeric type.
     
-    txdat <- relevel(txdat, bws$xdati)
+    txdat <- adjustLevels(txdat, bws$xdati)
     if (!miss.z)
-      tzdat <- relevel(tzdat, bws$zdati)
+      tzdat <- adjustLevels(tzdat, bws$zdati)
       
     if (!miss.ex){
-      exdat <- relevel(exdat, bws$xdati)
+      exdat <- adjustLevels(exdat, bws$xdati)
       if (!miss.z)
-        ezdat <- relevel(ezdat, bws$zdati)
+        ezdat <- adjustLevels(ezdat, bws$zdati)
     }
 
     ## grab the evaluation data before it is converted to numeric
@@ -254,13 +257,9 @@ npscoef.scbandwidth <-
     ## data that is not a factor is continuous.
     
     txdat <- toMatrix(txdat)
-    if (!miss.z)
-      tzdat <- toMatrix(tzdat)
 
     if (!miss.ex){
       exdat <- toMatrix(exdat)
-      if (!miss.z)
-        ezdat <- toMatrix(ezdat)
     }
 
     ## from this point on txdat and exdat have been recast as matrices
@@ -299,9 +298,12 @@ npscoef.scbandwidth <-
       i = 0
       max.err <- .Machine$double.xmax
       aydat <- abs(tydat) + .Machine$double.eps
+
+      n.part <- (ncol(txdat)+1)
+ 
       while((max.err > tol) & ((i <- i + 1) <= maxiter)){
         resid.old <- resid
-        for(j in 1:(length(bws$bw)+1)){
+        for(j in 1:n.part){
           ## estimate partial residuals
           partial <- W[,j] * coef.mat[j,] + resid
           
@@ -327,6 +329,22 @@ npscoef.scbandwidth <-
       mean <- sapply(1:enrow, function(i) { W[i,, drop = FALSE] %*% coef.mat[,i] })
     }
 
+    if (!miss.ey) {
+      RSQ = RSQfunc(eydat, mean)
+      MSE = MSEfunc(eydat, mean)
+      MAE = MAEfunc(eydat, mean)
+      MAPE = MAPEfunc(eydat, mean)
+      CORR = CORRfunc(eydat, mean)
+      SIGN = SIGNfunc(eydat, mean)
+    } else if(miss.ex) {
+      RSQ = RSQfunc(tydat, mean)
+      MSE = MSEfunc(tydat, mean)
+      MAE = MAEfunc(tydat, mean)
+      MAPE = MAPEfunc(tydat, mean)
+      CORR = CORRfunc(tydat, mean)
+      SIGN = SIGNfunc(tydat, mean)
+    }
+      
     if(errors | (residuals & miss.ex)){
       tyw <- npksum(txdat = tzdat, tydat = tydat, weights = W.train, bws = bws)$ksum
       tm <- npksum(txdat = tzdat, tydat = W.train, weights = W.train, bws = bws)$ksum
@@ -360,9 +378,11 @@ npscoef.scbandwidth <-
     eval(parse(text=paste("smoothcoefficient(bws = bws, eval = teval",
                  ", mean = mean,",
                  ifelse(errors & !do.iterate,"merr = merr,",""),
-                 ifelse(betas, "beta = coef.mat,",""),
+                 ifelse(betas, "beta = t(coef.mat),",""),
                  ifelse(residuals, "resid = resid,",""),
                  "residuals = residuals, betas = betas,",
-                 "ntrain = nrow(txdat), trainiseval = miss.ex)")))
+                 "ntrain = nrow(txdat), trainiseval = miss.ex,",
+                 ifelse(miss.ey && !miss.ex, "",
+                        "xtra=c(RSQ,MSE,MAE,MAPE,CORR,SIGN)"),")")))
   
   }

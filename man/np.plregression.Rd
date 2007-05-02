@@ -162,9 +162,10 @@ npplreg(bws, \dots)
 \value{
   \code{npplreg} returns a \code{plregression} object. The generic
   accessor functions \code{\link{coef}}, \code{\link{fitted}},
-  \code{\link{residuals}}, and \code{\link{predict}}, extract (or
-  estimate) coefficients, estimated values, residuals, and
-  predictions,
+  \code{\link{residuals}}, \code{\link{predict}}, and
+  \code{\link{vcov}}, extract (or
+  estimate) coefficients, estimated values, residuals,
+  predictions, and variance-covariance matrices,
   respectively, from
   the returned object. Furthermore, the functions \code{summary}
   and \code{plot} support objects of this type. The returned object
@@ -177,6 +178,7 @@ npplreg(bws, \dots)
   \item{xcoef}{ coefficient(s) corresponding to the components
     \eqn{\beta_i}{B[i]} in the model }
   \item{xcoeferr}{ standard errors of the coefficients }
+  \item{xcoefvcov}{ covariance matrix of the coefficients }
   \item{bw}{ the bandwidths, stored as a \code{plbandwidth} object }
   \item{resid}{ if \code{residuals = TRUE}, in-sample or out-of-sample
     residuals where appropriate (or possible) }

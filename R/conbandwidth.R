@@ -205,6 +205,8 @@ conbandwidth <-
 
 
   class(mybw) = "conbandwidth"
+  if(!any(is.na(mybw$bandwidth)))
+    validateBandwidth(mybw)
   mybw
 }
 

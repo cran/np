@@ -88,6 +88,8 @@ sibandwidth <-
     mybw$pmethod <- "Manual"
 
   class(mybw) = "sibandwidth"
+  if(!any(is.na(mybw$bandwidth)))
+    validateBandwidth(mybw)
   mybw
   
 }
@@ -109,7 +111,9 @@ print.sibandwidth <- function(x, digits=NULL, ...){
 }
 
 coef.sibandwidth <- function(object, ...) {
- object$beta 
+ tc <- object$beta
+ names(tc) <- object$xnames
+ return(tc)
 }
 plot.sibandwidth <- function(...) { npplot(...) }
 predict.sibandwidth <- function(...) { eval(npindex(...), env = parent.frame()) }

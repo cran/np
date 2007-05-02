@@ -13,7 +13,8 @@ smoothcoefficient <-
       bws = bws,
       xnames = bws$xnames,
       ynames = bws$ynames,
-      nobs = nrow(eval),
+      znames = bws$znames,
+      nobs = if(is.data.frame(eval)) nrow(eval) else nrow(eval[[1]]),
       ndim = bws$ndim,
       nord = bws$nord,
       nuno = bws$nuno,
@@ -53,8 +54,10 @@ print.smoothcoefficient <- function(x, digits=NULL, ...){
       ifelse(x$trainiseval, "",
              paste(" and ", x$nobs," evaluation points,", sep="")),
       " in ",x$ndim," variable(s)\n",sep="")
+  print(matrix(x$bw,ncol=x$ndim,dimnames=list(paste(x$pscaling,":",sep=""),
+                                  if(is.null(x$znames)) x$xnames else x$znames)))
 
-  print(matrix(x$bw,ncol=x$ndim,dimnames=list(paste(x$pscaling,":",sep=""),x$xnames)))
+  ## print(matrix(x$bw,ncol=x$ndim,dimnames=list(paste(x$pscaling,":",sep=""),x$xnames)))
 
   cat(genRegEstStr(x))
 
@@ -67,8 +70,12 @@ print.smoothcoefficient <- function(x, digits=NULL, ...){
 }
 
 coef.smoothcoefficient <- function(object, ...) {
- object$beta 
+  tc <- object$beta
+  if(object$betas)
+    dimnames(tc) <- list(NULL,c("Intercept",object$xnames))
+  return(tc)
 }
+
 fitted.smoothcoefficient <- function(object, ...){
  object$mean 
 }
@@ -77,8 +84,13 @@ residuals.smoothcoefficient <- function(object, ...) {
  if(object$residuals) { return(object$resid) } else { return(npscoef(bws = object$bws, residuals =TRUE)$resid) } 
 }
 se.smoothcoefficient <- function(x){ x$merr }
-predict.smoothcoefficient <- function(object, ...) {
-  fitted(eval(npscoef(bws = object$bws, ...), env = parent.frame()) )
+predict.smoothcoefficient <- function(object, se.fit = FALSE, ...) {
+  tr <- eval(npscoef(bws = object$bws, ...), env = parent.frame())
+  if(se.fit)
+    return(list(fit = fitted(tr), se.fit = se(tr), 
+                df = tr$nobs, residual.scale = tr$MSE))
+  else
+    return(fitted(tr))
 }
 
 summary.smoothcoefficient <- function(object, ...){
@@ -91,7 +103,8 @@ summary.smoothcoefficient <- function(object, ...){
   cat(genOmitStr(object))
   cat("\n")
 
-  print(matrix(object$bw,ncol=object$ndim,dimnames=list(paste(object$pscaling,":",sep=""),object$xnames)))
+  print(matrix(object$bw,ncol=object$ndim,dimnames=list(paste(object$pscaling,":",sep=""),
+                                  if(is.null(object$znames)) object$xnames else object$znames)))
 
   cat(genRegEstStr(object))
   cat("\n")

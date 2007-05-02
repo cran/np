@@ -131,6 +131,8 @@ rbandwidth <-
     mybw$pmethod <- "Manual"
 
   class(mybw) = "rbandwidth"
+  if(!any(is.na(mybw$bandwidth)))
+    validateBandwidth(mybw)
   mybw
   
 }
@@ -139,6 +141,8 @@ as.double.rbandwidth <- function(x, ...){
   x$bw
 }
 
+## feature: when using dataframe interface, summary and print methods don't 
+## provide info on the dependent variable
 print.rbandwidth <- function(x, digits=NULL, ...){
   cat("\nRegression Data (",x$nobs," observations, ",x$ndim," variable(s)):\n\n",sep="")
   print(matrix(x$bw,ncol=x$ndim,dimnames=list(paste(x$pscaling,":",sep=""),x$xnames)))

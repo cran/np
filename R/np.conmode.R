@@ -3,14 +3,18 @@ npconmode <-
              "please set 'bws'")), ...){
     args = list(...)
 
-    if (!is.null(bws$formula) && is.null(args$txdat))
-      UseMethod("npconmode",bws$formula)
-    else if (!is.null(args$data) || !is.null(args$newdata))
-      stop("data and newdata specified, but bws has no formula")
-    else if (!is.null(bws$call) && is.null(args$txdat))
-      UseMethod("npconmode",bws$call)
-    else
+    if (is.recursive(bws)){
+      if (!is.null(bws$formula) && is.null(args$txdat))
+        UseMethod("npconmode",bws$formula)
+      else if (!is.null(args$data) || !is.null(args$newdata))
+        stop("data and newdata specified, but bws has no formula")
+      else if (!is.null(bws$call) && is.null(args$txdat))
+        UseMethod("npconmode",bws$call)
+      else
+        UseMethod("npconmode",bws)
+    } else {
       UseMethod("npconmode",bws)
+    }
 
   }
 
@@ -29,12 +33,15 @@ npconmode.formula <-
     txdat <- tmf[, bws$variableNames[["terms"]], drop = FALSE]
 
     if ((has.eval <- !is.null(newdata))) {
-      has.ey <- (length(newdata) == length(tmf))
-      
-      umf <- emf <- model.frame(tt, data = newdata)
+      has.ey <- succeedWithResponse(tt, newdata)
 
-      if (has.ey)
+      if (has.ey){
+        umf <- emf <- model.frame(tt, data = newdata)
         eydat <- emf[, bws$variableNames[["response"]], drop = FALSE]
+      } else {
+        umf <- emf <- model.frame(formula(bws)[-2], data = newdata)
+      }
+
       exdat <- emf[, bws$variableNames[["terms"]], drop = FALSE]
     }
     
@@ -173,16 +180,11 @@ npconmode.default <-
     ## maintain y names and 'toFrame'
     tydat <- toFrame(tydat)
 
-
-    tbw = conbandwidth(
-      xbw = bws[length(tydat)+1:length(txdat)],
-      ybw = bws[1:length(tydat)],
-      ...,
-      nobs = dim(tydat)[1],
-      xdati = untangle(txdat),
-      ydati = untangle(tydat),
-      xnames = names(txdat),
-      ynames = names(tydat))
+    tbw <- npcdensbw(bws = bws,
+                     xdat = txdat,
+                     ydat = tydat,
+                     bandwidth.compute = FALSE,
+                     ...)
 
     mc.names <- names(match.call(expand.dots = FALSE))
     margs <- c("exdat", "eydat")

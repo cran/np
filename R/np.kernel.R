@@ -168,9 +168,9 @@ npksum.default <-
 
     dim.in = c(twncol, tyncol, enrow)
 
-    dim.out = c(ncol(weights), ncol(tydat), enrow)
+    dim.out = c(max(ncol(weights),0), max(ncol(tydat),0), enrow)
     
-    length.out = prod(dim.out)
+    length.out = prod(dim.out[w(dim.out > 0)])
 
     
     ##dim.out = dim.out[dim.out > 1]
@@ -178,10 +178,10 @@ npksum.default <-
     ## re-assign levels in training and evaluation data to ensure correct
     ## conversion to numeric type.
     
-    txdat <- relevel(txdat, bws$xdati)
+    txdat <- adjustLevels(txdat, bws$xdati)
     
     if (!miss.ex)
-      exdat <- relevel(exdat, bws$xdati)
+      exdat <- adjustLevels(exdat, bws$xdati)
 
     ## grab the evaluation data before it is converted to numeric
     if(miss.ex)
@@ -256,12 +256,16 @@ npksum.default <-
          ksum = double(length.out),
          PACKAGE="np" )[["ksum"]]
 
-    if (length(dim.out[dim.out > 1]) > 1){
+    if (dim.out[1] > 1){
+      dim(myout) <- dim.out
+      if (dim.out[2] < 2)
+        dim(myout) <- dim(myout)[-2]
+    } else if (max(dim.out) > 1) {
       dim(myout) <- dim.out[dim.out > 1]
       if (miss.weights)
         myout <- aperm(myout)
     }
-    
+        
     return( npkernelsum(bws = bws,
                         eval = teval,
                         ksum = myout,

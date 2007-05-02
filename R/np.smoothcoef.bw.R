@@ -46,7 +46,11 @@ npscoefbw.formula <-
     tbw$terms <- attr(mf,"terms")
     tbw$chromoly <- chromoly
 
-    tbw$ynames <- attr(mf, "names")[attr(tbw$terms, "response")]
+    tbw <-
+      updateBwNameMetadata(nameList =
+                           list(ynames =
+                                attr(mf, "names")[attr(tbw$terms, "response")]),
+                           bws = tbw)
     
     tbw
   }
@@ -75,8 +79,10 @@ npscoefbw.NULL <-
     environment(mc) <- parent.frame()
     tbw$call <- mc
 
-    tbw$ynames <- deparse(substitute(ydat))
-    
+    tbw <-
+      updateBwNameMetadata(nameList = list(ynames = deparse(substitute(ydat))),
+                           bws = tbw)
+
     tbw
   }
 
@@ -109,8 +115,8 @@ npscoefbw.scbandwidth <-
     if (!(is.vector(ydat) | is.factor(ydat)))
       stop("'ydat' must be a vector")
 
-    eval(parse(text = paste("bwMatch(bws,",
-                 ifelse(miss.z, "xdat", "zdat"),")")))
+    eval(parse(text = paste("bwMatch(",
+                 ifelse(miss.z, "xdat, bws$xdati", "zdat, bws$zdati"),")")))
     
     if (dim(xdat)[1] != length(ydat))
       stop("number of regression data and response data do not match")
@@ -122,8 +128,8 @@ npscoefbw.scbandwidth <-
       stop("invalid number of iterations specified")
     }
 
-    if (!all(bws$xdati$icon) || (!miss.z && !all(bws$zdati$icon)))
-      stop("Only continuous regressors are supported in this version.")
+    if (!all(bws$xdati$icon))
+      stop("Only continuous 'x' regressors are supported in this version.")
       
     ## catch and destroy NA's
     goodrows = 1:dim(xdat)[1]
@@ -155,8 +161,8 @@ npscoefbw.scbandwidth <-
 
     xdat <- toMatrix(xdat)
 
-    if (!miss.z)
-      zdat <- toMatrix(zdat)
+    ## if (!miss.z)
+    ##  zdat <- toMatrix(zdat)
     
     ## bad data
     if (qr(xdat)$rank < ncol(xdat)){
@@ -173,13 +179,18 @@ npscoefbw.scbandwidth <-
 
     W <- as.matrix(data.frame(1,xdat))
 
-    if (miss.z)
+    if (miss.z){
       zdat <- xdat
+      dati <- bws$xdati
+    }
+    else
+      dati <- bws$zdati
 
     if (bandwidth.compute){
+      maxPenalty <- sqrt(.Machine$double.xmax)
       overall.cv.ls <- function(param) {
-        if (any(param < 0))
-          return(.Machine$double.xmax)
+        if (any(param < 0) || ((bws$nord+bws$nuno > 0) && any(param[!bws$icon] > 2.0*x.scale[!bws$icon])))
+          return(maxPenalty)
         
         bws$bw <- param
         
@@ -192,21 +203,22 @@ npscoefbw.scbandwidth <-
         mean.loo <- tryCatch(sapply(1:n, function(i) {
           W[i,, drop = FALSE] %*% solve(tww[,,i], tyw[,i])
         }), error = function(e){
-          return(.Machine$double.xmax)
+          return(maxPenalty)
         })
 
         cv.console <<- printClear(cv.console)
         ##cv.console <<- printPush(msg = paste("param:", param), console = cv.console)
 
-        if (!identical(mean.loo, .Machine$double.xmax)){
+        if (!identical(mean.loo, maxPenalty)){
           fv <- sum((ydat-mean.loo)^2)/n
           cv.console <<- printPush(msg = paste("fval:", signif(fv, digits = options('digits')$digits)), console = cv.console)
         } else {
           cv.console <<- printPush(msg = "near-singular system encountered, penalizing", console = cv.console)
-          fv <- mean.loo
+          fv <- maxPenalty
         }
 
-        return(fv)
+        return(ifelse(is.finite(fv),fv,maxPenalty))
+
       }
 
       scoef.looE <- parse(text = paste('npscoef(bws = bws, txdat = xdat, tydat = ydat,',
@@ -216,13 +228,13 @@ npscoefbw.scbandwidth <-
                             'betas = TRUE)'))
       
       partial.cv.ls <- function(param, partial.index) {
-        if (any(param < 0))
-          return(.Machine$double.xmax)
+        if (any(param < 0) || ((bws$nord+bws$nuno > 0) && any(param[!bws$icon] > 2.0*x.scale[!bws$icon])))
+          return(maxPenalty)
         
         if (backfit.iterate){
           bws$bw.fitted[,partial.index] <- param
           scoef.loo <- eval(scoef.looE)
-          partial.loo <- W[,partial.index]*scoef.loo$beta[partial.index,]
+          partial.loo <- W[,partial.index]*scoef.loo$beta[,partial.index]
         } else {
           bws$bw <- param
           partial.loo <- W[,partial.index]*
@@ -243,7 +255,7 @@ npscoefbw.scbandwidth <-
         cv.console <<- printPush(msg = paste("fval:",
                                    signif(fv, digits = options('digits')$digits)),
                                  console = cv.console)
-        return(fv)
+        return(ifelse(is.finite(fv),fv,maxPenalty))
       }
 
       ## Now we implement multistarting
@@ -252,9 +264,19 @@ npscoefbw.scbandwidth <-
       numimp <- 0
       value.overall <- numeric(nmulti)
 
-      x.scale <- ifelse(bws$scaling, 1.0,
-                        min(sd(zdat), IQR(zdat)/1.34) *
-                        n^(-1.0/(2.0*bws$ckerorder+length(bws$bw))))
+      x.scale <- sapply(1:bws$ndim, function(i){
+        if (dati$icon[i]){
+          return(1.06*(ifelse(bws$scaling, 1.0,
+                              min(sd(zdat[,i]), IQR(zdat[,i])/1.34) *
+                              n^(-1.0/(2.0*bws$ckerorder+bws$ncon)))))
+        }
+        
+        if (dati$iord[i])
+          return(0.5*oMaxL(dati$all.nlev[[i]], kertype = bws$okertype))
+        
+        if (dati$iuno[i])
+          return(0.5*uMaxL(dati$all.nlev[[i]], kertype = bws$ukertype))       
+      })
 
       console <- newLineConsole()
 
@@ -264,14 +286,15 @@ npscoefbw.scbandwidth <-
         cv.console <- newLineConsole(console)
         
         if (i == 1) {
-          tbw <- rep(1.06, length(bws$bw))*x.scale
+          tbw <- x.scale
           if(all(bws$bw != 0))
             tbw <- bws$bw
         } else {
-          tbw <- 1.06*runif(length(bws$bw),min=0.5,max=1.5)*x.scale
+            tbw <- runif(bws$ndim, min=0.5, max=1.5)*x.scale
         }
 
-        suppressWarnings(nlm.return <- nlm(overall.cv.ls, tbw, gradtol = ftol, steptol = tol))
+        suppressWarnings(nlm.return <- nlm(f = overall.cv.ls, p = tbw, gradtol = ftol, steptol = tol))
+
         cv.console <- printClear(cv.console)
 
         value.overall[i] <- nlm.return$minimum
@@ -292,7 +315,9 @@ npscoefbw.scbandwidth <-
       param.overall <- bws$bw <- param
 
       if(cv.iterate){
-        bws$bw.fitted <- matrix(data = bws$bw, nrow = length(bws$bw), ncol = length(bws$bw)+1)
+        n.part <- (ncol(xdat)+1)
+        
+        bws$bw.fitted <- matrix(data = bws$bw, nrow = length(bws$bw), ncol = n.part)
         ## obtain matrix of alpha.hat | h0 and beta.hat | h0
 
         scoef <- eval(parse(text = paste('npscoef(bws = bws, txdat = xdat, tydat = ydat,',
@@ -300,16 +325,17 @@ npscoefbw.scbandwidth <-
                               'iterate = FALSE, betas = TRUE)')))
         
         resid.full <- ydat - scoef$mean
+
         
         for(i in 1:cv.num.iterations){
           console <- printPush(msg = paste(sep="", "backfitting iteration ", i, " of ", cv.num.iterations, "... "), console)
 
-          for(j in 1:(length(bws$bw)+1)){
-            console <- printPush(msg = paste(sep="", "partial residual ", j, " of ", length(bws$bw)+1, "... "), console)
+          for(j in 1:n.part){
+            console <- printPush(msg = paste(sep="", "partial residual ", j, " of ", n.part, "... "), console)
             cv.console <- newLineConsole(console)
 
             ## estimate partial residuals
-            partial.orig <- W[,j] * scoef$beta[j,] + resid.full
+            partial.orig <- W[,j] * scoef$beta[,j] + resid.full
             
             ## minimise
             suppressWarnings(nlm.return <-
@@ -331,7 +357,7 @@ npscoefbw.scbandwidth <-
             } else {
               bws$bw <- bws$bw.fitted[,j]
               ## estimate new beta.hats
-              scoef$beta[j,] <-
+              scoef$beta[,j] <-
                 npksum(txdat = zdat,
                        tydat = partial.orig * W[,j],
                        bws = bws)$ksum/
@@ -340,7 +366,7 @@ npscoefbw.scbandwidth <-
                                 bws = bws)$ksum
               bws$bw <- param.overall
               ## estimate new full residuals 
-              resid.full <- partial.orig - W[,j] * scoef$beta[j,]
+              resid.full <- partial.orig - W[,j] * scoef$beta[,j]
             }
 
             console <- printPop(console)
@@ -363,12 +389,7 @@ npscoefbw.scbandwidth <-
     
     bws$sfactor <- bws$bandwidth <- bws$bw
 
-    if (miss.z)
-      dati <- bws$xdati
-    else
-      dati <- bws$zdati
-
-    dfactor <- EssDee(zdat)*nrow^(-1.0/(2.0*bws$ckerorder+sum(dati$icon)))
+    dfactor <- EssDee(zdat[, dati$icon, drop = FALSE])*nrow^(-1.0/(2.0*bws$ckerorder+sum(dati$icon)))
 
     if (bws$scaling) {
       bws$bandwidth[dati$icon] <- bws$bandwidth[dati$icon]*dfactor

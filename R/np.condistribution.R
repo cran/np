@@ -3,14 +3,18 @@ npcdist <-
              "please set 'bws'")), ...){
     args = list(...)
 
-    if (!is.null(bws$formula) && is.null(args$txdat))
-      UseMethod("npcdist",bws$formula)
-    else if (!is.null(args$data) || !is.null(args$newdata))
-      stop("data and newdata specified, but bws has no formula")
-    else if (!is.null(bws$call) && is.null(args$txdat))
-      UseMethod("npcdist",bws$call)
-    else
+    if (is.recursive(bws)){
+      if (!is.null(bws$formula) && is.null(args$txdat))
+        UseMethod("npcdist",bws$formula)
+      else if (!is.null(args$data) || !is.null(args$newdata))
+        stop("data and newdata specified, but bws has no formula")
+      else if (!is.null(bws$call) && is.null(args$txdat))
+        UseMethod("npcdist",bws$call)
+      else
+        UseMethod("npcdist",bws)
+    } else {
       UseMethod("npcdist",bws)
+    }
 
   }
 
@@ -28,8 +32,6 @@ npcdist.formula <-
     txdat <- tmf[, bws$variableNames[["terms"]], drop = FALSE]
 
     if ((has.eval <- !is.null(newdata))) {
-      if (length(newdata) != length(tmf))
-        stop("newdata must contain all variables in the model")
       umf <- emf <- model.frame(tt, data = newdata)
       
       eydat <- emf[, bws$variableNames[["response"]], drop = FALSE]
@@ -37,7 +39,7 @@ npcdist.formula <-
     }
 
     ev <-
-    eval(parse(text=paste("npcdens(txdat = txdat, tydat = tydat,",
+    eval(parse(text=paste("npcdist(txdat = txdat, tydat = tydat,",
                  ifelse(has.eval,"exdat = exdat, eydat = eydat,",""), "bws = bws, ...)")))
     ev$rows.omit <- as.vector(attr(umf,"na.action"))
     ev$nobs.omit <- length(ev$rows.omit)
@@ -130,12 +132,12 @@ npcdist.conbandwidth <-
     ## re-assign levels in training and evaluation data to ensure correct
     ## conversion to numeric type.
     
-    txdat <- relevel(txdat, bws$xdati)
-    tydat <- relevel(tydat, bws$ydati)
+    txdat <- adjustLevels(txdat, bws$xdati)
+    tydat <- adjustLevels(tydat, bws$ydati)
     
     if (!no.exy){
-      exdat <- relevel(exdat, bws$xdati)
-      eydat <- relevel(eydat, bws$ydati)
+      exdat <- adjustLevels(exdat, bws$xdati)
+      eydat <- adjustLevels(eydat, bws$ydati)
     }
 
     ## grab the evaluation data before it is converted to numeric
@@ -280,16 +282,11 @@ npcdist.default <- function(bws,
   ## maintain y names and 'toFrame'
   tydat <- toFrame(tydat)
 
-
-  tbw = conbandwidth(
-    xbw = bws[length(tydat)+1:length(txdat)],
-    ybw = bws[1:length(tydat)],
-    ...,
-    nobs = dim(tydat)[1],
-    xdati = untangle(txdat),
-    ydati = untangle(tydat),
-    xnames = names(txdat),
-    ynames = names(tydat))
+  tbw <- npcdensbw(bws = bws,
+                   xdat = txdat,
+                   ydat = tydat,
+                   bandwidth.compute = FALSE,
+                   ...)
 
   mc.names <- names(match.call(expand.dots = FALSE))
   margs <- c("exdat", "eydat", "gradients")

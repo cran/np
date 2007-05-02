@@ -44,7 +44,7 @@ print.sigtest <- function(x, ...){
       "\nType ", x$ptype," Test with ", x$pmethod, " Bootstrap (",x$boot.num,
       " replications)",
       "\nExplanatory variables tested for significance:\n",
-      paste(x$bws$xnames[x$ixvar]," (",x$ixvar,"), ",sep=""),"\b\b\n\n",
+      paste(paste(x$bws$xnames[x$ixvar]," (",x$ixvar,")", sep=""), collapse=", "),"\n\n",
       sep="")
       
 
@@ -55,7 +55,7 @@ print.sigtest <- function(x, ...){
   maxNameLen <- max(nc <- nchar(nm <- x$bws$xnames[x$ixvar]))
 
   cat("\nSignificance Tests\n")
-  cat("P Value:", paste("\n", nm, blank(maxNameLen-nc), sprintf(fmt = '%e', x$P),
+  cat("P Value:", paste("\n", nm, ' ', blank(maxNameLen-nc), sprintf(fmt = '%e', x$P),
                         " ", x$reject, sep=''))
   cat("\n---\nSignif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1\n\n")
 }

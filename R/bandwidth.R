@@ -122,6 +122,8 @@ bandwidth <-
     
 
     class(mybw) = "bandwidth"
+    if(!any(is.na(mybw$bandwidth)))
+    validateBandwidth(mybw)
     mybw
     
   }

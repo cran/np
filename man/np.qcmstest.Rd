@@ -164,7 +164,7 @@ npqcmstest(formula,
 
   Racine, J.S. (2006), \dQuote{Consistent specification testing of
     heteroskedastic parametric regression quantile models with mixed
-    data,} Manuscript.
+    data,} manuscript.
 
   Wang, M.C. and J. van Ryzin (1981), \dQuote{A class of smooth estimators
     for discrete distributions,}  Biometrika, 68, 301-309.

@@ -3,14 +3,18 @@ npqreg  <-
              "please set 'bws'")), ...){
     args = list(...)
     
-    if (!is.null(bws$formula) && is.null(args$txdat))
-      UseMethod("npqreg",bws$formula)
-    else if (!is.null(args$data) || !is.null(args$newdata))
-      stop("data and newdata specified, but bws has no formula")
-    else if (!is.null(bws$call) && is.null(args$txdat))
-      UseMethod("npqreg",bws$call)
-    else
+    if (is.recursive(bws)){
+      if (!is.null(bws$formula) && is.null(args$txdat))
+        UseMethod("npqreg",bws$formula)
+      else if (!is.null(args$data) || !is.null(args$newdata))
+        stop("data and newdata specified, but bws has no formula")
+      else if (!is.null(bws$call) && is.null(args$txdat))
+        UseMethod("npqreg",bws$call)
+      else
+        UseMethod("npqreg",bws)
+    } else {
       UseMethod("npqreg",bws)
+    }
 
   }
 
@@ -113,11 +117,11 @@ npqreg.conbandwidth <-
     ## re-assign levels in training and evaluation data to ensure correct
     ## conversion to numeric type.
     
-    txdat <- relevel(txdat, bws$xdati)
-    tydat <- relevel(tydat, bws$ydati)
+    txdat <- adjustLevels(txdat, bws$xdati)
+    tydat <- adjustLevels(tydat, bws$ydati)
     
     if (!no.ex){
-      exdat <- relevel(exdat, bws$xdati)
+      exdat <- adjustLevels(exdat, bws$xdati)
     }
 
     ## grab the evaluation data before it is converted to numeric
@@ -249,17 +253,11 @@ npqreg.default <-
     ## maintain y names and 'toFrame'
     tydat <- toFrame(tydat)
 
-
-    tbw = conbandwidth(
-      xbw = bws[length(tydat)+1:length(txdat)],
-      ybw = bws[1:length(tydat)],
-      ...,
-      nobs = dim(tydat)[1],
-      xdati = untangle(txdat),
-      ydati = untangle(tydat),
-      xnames = names(txdat),
-      ynames = names(tydat))
-
+    tbw <- npcdensbw(bws = bws,
+                     xdat = txdat,
+                     ydat = tydat,
+                     bandwidth.compute = FALSE,
+                     ...)
     
     mc.names <- names(match.call(expand.dots = FALSE))
     margs <- c("exdat", "tau", "gradients", "ftol", "tol", "small", "itmax")

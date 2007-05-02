@@ -779,7 +779,7 @@ npplot.rbandwidth <-
         nrow = x1.neval, ncol = x2.neval, byrow = FALSE)
 
       if (plot.errors.method == "bootstrap"){
-        terr = compute.bootstrap.errors(xdat = xdat, ydat = ydat,
+        terr <- compute.bootstrap.errors(xdat = xdat, ydat = ydat,
           exdat = x.eval,
           gradients = FALSE,
           slice.index = 0,
@@ -1000,7 +1000,7 @@ npplot.rbandwidth <-
 
         if (plot.errors){
           if (plot.errors.method == "asymptotic")
-            temp.err[1:xi.neval,1:2] = replicate(2,2.0*tr$merr)
+            temp.err[1:xi.neval,1:2] = replicate(2,2.0*(if(gradients) tr$gerr[,i] else tr$merr))
           else if (plot.errors.method == "bootstrap"){
             temp.boot <- compute.bootstrap.errors(
                       xdat = xdat, ydat = ydat,
@@ -1992,7 +1992,7 @@ npplot.plbandwidth <-
         nrow = x1.neval, ncol = z1.neval, byrow = FALSE)
 
       if (plot.errors.method == "bootstrap"){
-        terr = compute.bootstrap.errors(
+        terr <- compute.bootstrap.errors(
           xdat = xdat, ydat = ydat, zdat = zdat,
           exdat = x.eval[,1], ezdat = x.eval[,2],
           gradients = FALSE,
@@ -2003,7 +2003,7 @@ npplot.plbandwidth <-
           plot.errors.center = plot.errors.center,
           plot.errors.type = plot.errors.type,
           plot.errors.quantiles = plot.errors.quantiles,
-          bws = bws)
+          bws = bws)[["boot.err"]]
 
         pc = (plot.errors.center == "bias-corrected")
 
@@ -2622,7 +2622,7 @@ npplot.bandwidth <-
       terr[,3] = NA
       
       if (plot.errors.method == "bootstrap"){
-        terr = compute.bootstrap.errors(xdat = xdat, 
+        terr <- compute.bootstrap.errors(xdat = xdat, 
           exdat = x.eval,
           cdf = cdf,
           slice.index = 0,
@@ -2632,7 +2632,7 @@ npplot.bandwidth <-
           plot.errors.center = plot.errors.center,
           plot.errors.type = plot.errors.type,
           plot.errors.quantiles = plot.errors.quantiles,
-          bws = bws)
+          bws = bws)[["boot.err"]]
 
         pc = (plot.errors.center == "bias-corrected")
 
@@ -3167,7 +3167,7 @@ npplot.conbandwidth <-
       terr[,3] = NA
       
       if (plot.errors.method == "bootstrap"){
-        terr = compute.bootstrap.errors(xdat = xdat, ydat = ydat,
+        terr <- compute.bootstrap.errors(xdat = xdat, ydat = ydat,
           exdat = eval(tex), eydat = eval(tey),
           cdf = cdf,
           quantreg = quantreg,
@@ -3181,7 +3181,7 @@ npplot.conbandwidth <-
           plot.errors.center = plot.errors.center,
           plot.errors.type = plot.errors.type,
           plot.errors.quantiles = plot.errors.quantiles,
-          bws = bws)
+          bws = bws)[["boot.err"]]
 
         pc = (plot.errors.center == "bias-corrected")
 

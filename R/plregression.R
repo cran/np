@@ -1,5 +1,5 @@
 plregression = 
-  function(bws, xcoef, xcoeferr = 0, evalx, evalz, mean, resid = NA,
+  function(bws, xcoef, xcoeferr = 0, xcoefvcov, evalx, evalz, mean, resid = NA,
            ntrain, trainiseval = FALSE, residuals = FALSE,
            xtra = double(6)){
 
@@ -11,6 +11,7 @@ plregression =
       bw = bws,
       xcoef = xcoef,
       xcoeferr = xcoeferr,
+      xcoefvcov = xcoefvcov,      
       pregtype = bws$pregtype,
       data.znames = names(evalz),
       data.xnames = names(evalx),
@@ -37,8 +38,11 @@ plregression =
       SIGN = xtra[6]
       )
 
+    names(d$xcoeferr) <- names(d$xcoef) <- d$data.xnames
+    dimnames(d$xcoefvcov) <- list(d$data.xnames, d$data.xnames)
+    
     class(d) = "plregression"
-
+    
     d
   }
 
@@ -84,14 +88,23 @@ coef.plregression <- function(object, errors = FALSE, ...) {
     return(object$xcoeferr)
 }
 
+vcov.plregression <- function(object,...) {
+  return(object$xcoefvcov)
+}
+
 fitted.plregression <- function(object, ...){
  object$mean 
 }
 residuals.plregression <- function(object, ...) {
  if(object$residuals) { return(object$resid) } else { return(npplreg(bws = object$bws, residuals =TRUE)$resid) } 
 }
-predict.plregression <- function(object, ...) {
-  fitted(eval(npplreg(bws = object$bws, ...), env = parent.frame()) )
+predict.plregression <- function(object, se.fit = FALSE, ...) {
+  tr <- eval(npplreg(bws = object$bws, ...), env = parent.frame())
+  if(se.fit)
+    return(list(fit = fitted(tr), se.fit = se(tr), 
+                df = tr$nobs, residual.scale = tr$MSE))
+  else
+    return(fitted(tr))
 }
 plot.plregression <- function(x, ...) { npplot(bws = x$bws, ...) }
 summary.plregression <- function(object, ...){

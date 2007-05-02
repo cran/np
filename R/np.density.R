@@ -3,6 +3,7 @@ npudens <-
              "please set 'bws'")), ...){
     args = list(...)
     
+if (is.recursive(bws)){
     if (!is.null(bws$formula) && is.null(args$tdat))
       UseMethod("npudens",bws$formula)
     else if (!is.null(args$data) || !is.null(args$newdata))
@@ -11,6 +12,9 @@ npudens <-
       UseMethod("npudens",bws$call)
     else
       UseMethod("npudens",bws)
+} else {
+      UseMethod("npudens",bws)
+}
   }
 
 npudens.formula <-
@@ -88,10 +92,10 @@ npudens.bandwidth <-
   ## re-assign levels in training and evaluation data to ensure correct
   ## conversion to numeric type.
     
-  tdat <- relevel(tdat, bws$xdati)
+  tdat <- adjustLevels(tdat, bws$xdati)
   
   if (!no.e)
-    edat <- relevel(edat, bws$xdati)
+    edat <- adjustLevels(edat, bws$xdati)
 
   ## grab the evaluation data before it is converted to numeric
   if(no.e)
@@ -165,12 +169,11 @@ npudens.default <-
            tdat = stop("invoked without training data 'tdat'"),
            edat, ...){
     tdat <- toFrame(tdat)
-
-    tbw = bandwidth( bws,
-      ...,
-      nobs = 0,
-      xdati = untangle(tdat),
-      xnames = names(tdat) )
+    
+    tbw <- npudensbw(bws = bws,
+                     dat = tdat,
+                     bandwidth.compute = FALSE,
+                     ...)
 
     eval(parse(text=paste("npudens.bandwidth(tdat = tdat, bws = tbw",
                  ifelse(missing(edat), "",", edat = edat"), ")")))

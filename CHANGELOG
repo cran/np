@@ -1,0 +1,31 @@
+* Bandwidths are now checked for validity based on their variable and kernel 
+  types
+* np now does a better job of preserving names of some 'y' data
+* Names of coefficients returned from coef() now match variable names
+* Fixed some corner cases in npksum involving the dimensionality
+  of ouputs
+* Fixed deprecation warnings in R 2.5.0 caused by use of $ on atomic objects
+* Various and sundry bug fixes in npscoef
+* npscoef now handles discrete 'z' data
+* Predict now accepts the argument 'se.fit', like predict.lm
+* Fixed bug where incorrect asymptotic standard errors of gradients for 
+  regression objects were being displayed in npplot()
+* Fixed bug where errors of gradients of regression objects were not being
+  returned in matrix form
+* vcov() now works with partially linear regression objects 
+* Fixed detection of evaluation responses when using the formula interface
+* Pre-computed bandwidth objects are now provided for some of the more 
+  computationally burdensome examples
+* Added Jeffrey Wooldridge's WAGE1 dataset with qualitative variables (married, 
+  female, nonwhite)
+* Predictions outside of discrete support for regressions and conditional 
+  densities are now allowed
+* Fixed sign issue with scaling of standard errors in the single index model
+* Fixed error when calculating some bandwidths/scale factors for display purposes
+* Bug in passing certain arguments to npcdensbw fixed
+* Added predict method for qregression objects
+* Proper normalisation for liracine kernel shown in summary
+* Fixed output bug (^H) in summary method for sigtest objects
+* Fixed regression with plotting of bootstrapped errors in perspective plots
+* npcdist no longer incorrectly calls npcdens
+* Fixed spacing between var name and p-value in significance test summaries

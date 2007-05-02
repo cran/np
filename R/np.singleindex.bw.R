@@ -32,8 +32,12 @@ npindexbw.formula <-
     tbw$nobs.omit <- length(tbw$rows.omit)
     tbw$terms <- attr(mf,"terms")
 
-    tbw$ynames <- attr(mf, "names")[attr(tbw$terms, "response")]
-    
+    tbw <-
+      updateBwNameMetadata(nameList =
+                           list(ynames =
+                                attr(mf, "names")[attr(tbw$terms, "response")]),
+                           bws = tbw)
+
     tbw
   }
 
@@ -56,8 +60,10 @@ npindexbw.NULL <-
     environment(mc) <- parent.frame()
     tbw$call <- mc
 
-    tbw$ynames <- deparse(substitute(ydat))
-    
+    tbw <- updateBwNameMetadata(nameList =
+                                list(ynames = deparse(substitute(ydat))),
+                                bws = tbw)
+
     tbw
   }
   
@@ -92,6 +98,7 @@ npindexbw.default <-
                        ydati = untangle(data.frame(ydat)),
                        xnames = names(xdat),
                        ynames = deparse(substitute(ydat)),
+                       bandwidth = bws[ncol(xdat)+1],
                        bandwidth.compute = bandwidth.compute)
 
 
@@ -370,6 +377,7 @@ npindexbw.sibandwidth <-
                        ydati = bws$ydati,
                        xnames = bws$xnames,
                        ynames = bws$ynames,
+                       bandwidth = param[ncol(xdat)],
                        rows.omit = rows.omit)
 
 

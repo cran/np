@@ -2,6 +2,7 @@
 \name{oecdpanel}
 \docType{data}
 \alias{oecdpanel}
+\alias{bw}
 \title{ Cross Country Growth Panel }
 \description{
   Cross country GDP growth panel covering the period 1960-1995

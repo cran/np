@@ -152,14 +152,14 @@ npindex(bws, \dots)
   has the following components:
 
   \item{eval}{ evaluation points }
-  \item{mean}{ estimation of the regression function (conditional mean) at the
-    evaluation points }
+  \item{mean}{ estimates of the regression function (conditional mean) at the
+  evaluation points } 
   \item{beta} { the model coefficients }
-  \item{merr}{ standard errors of the regression estimates } 
-  \item{grad}{ gradients at each evaluation point }
-  \item{gerr}{ estimated errors on the gradients }
-  \item{mean.grad}{ mean gradient }
-  \item{mean.gerr}{ bootstrapped standard error of the mean gradient estimate }
+  \item{merr}{ standard errors of the regression function estimates } 
+  \item{grad}{ estimates of the gradients at each evaluation point }
+  \item{gerr}{ standard errors of the gradient estimates }
+  \item{mean.grad}{ mean (average) gradient over the evaluation points}
+  \item{mean.gerr}{ bootstrapped standard error of the mean gradient estimates }
   \item{R2}{ if \code{method="ichimura"}, coefficient of determination }
   \item{MSE}{if \code{method="ichimura"}, mean squared error }
   \item{MAE}{if \code{method="ichimura"}, mean absolute error }
