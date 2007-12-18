@@ -6,7 +6,7 @@ npcdensbw <-
     else if (!is.null(args$formula))
       UseMethod("npcdensbw",args$formula)
     else
-      UseMethod("npcdensbw",args[[w(names(args)=="bws")[1]]])
+      UseMethod("npcdensbw",args[[which(names(args)=="bws")[1]]])
   }
 
 npcdensbw.formula <-
@@ -49,15 +49,17 @@ npcdensbw.conbandwidth <-
   function(xdat = stop("data 'xdat' missing"),
            ydat = stop("data 'ydat' missing"),
            bws, bandwidth.compute = TRUE,
-           fast = FALSE, nmulti, remin = TRUE, itmax = 10000,
+           fast = FALSE, auto = TRUE,
+           nmulti, remin = TRUE, itmax = 10000,
            ftol=1.19209e-07, tol=1.49012e-08, small=2.22045e-16,
            ...){
 
     ydat = toFrame(ydat)
     xdat = toFrame(xdat)
 
-    if (missing(nmulti))
-      nmulti = (dim(ydat)[2]+dim(xdat)[2])
+    if (missing(nmulti)){
+      nmulti <- min(5,(dim(ydat)[2]+dim(xdat)[2]))
+    }
 
     if (length(bws$ybw) != dim(ydat)[2])
       stop(paste("length of bandwidth vector does not match number of columns of", "'ydat'"))
@@ -83,13 +85,6 @@ npcdensbw.conbandwidth <-
         (any(bws$ixuno) && !all(unlist(lapply(as.data.frame(xdat[,bws$ixuno]),class)) ==
                                class(factor(0)))))
       stop(paste("supplied bandwidths do not match", "'xdat'", "in type"))
-
-    if (bws$method == "cv.ls" & missing(fast)){
-      cat("Warning: least-squares cross-validation may be significantly accelerated",
-          "\nby setting 'fast=TRUE', at the expense of additional memory usage.",
-          "\nTo disable this warning, set 'fast' explicitly.")
-      flush.console()
-    }
 
     ## catch and destroy NA's
     goodrows <- 1:dim(xdat)[1]
@@ -168,7 +163,8 @@ npcdensbw.conbandwidth <-
         xnuno = dim(xuno)[2],
         xnord = dim(xord)[2],
         xncon = dim(xcon)[2],
-        fast = fast)
+        fast = fast,
+        auto = auto)
       
       myoptd = list(ftol=ftol, tol=tol, small=small)
 
@@ -217,31 +213,49 @@ npcdensbw.conbandwidth <-
 
       tbw$fval = myout$fval[1]
       tbw$ifval = myout$fval[2]
-
     }
     
     ## bandwidth metadata
     tbw$sfactor <- tbw$bandwidth <- list(x = tbw$xbw, y = tbw$ybw)
 
+    bwf <- function(i){
+      tbw$bandwidth[[i]][tl[[i]]] <<- (tbw$bandwidth[[i]])[tl[[i]]]*dfactor[[i]]
+    }
+
+    sff <- function(i){
+      tbw$sfactor[[i]][tl[[i]]] <<- (tbw$sfactor[[i]])[tl[[i]]]/dfactor[[i]]
+    }
+
+    myf <- if(tbw$scaling) bwf else sff
+    
+    if ((tbw$xnuno+tbw$ynuno) > 0){
+      dfactor <- nrow^(-2.0/(2.0*tbw$cxkerorder+tbw$ncon))
+      dfactor <- list(x = dfactor, y = dfactor)
+
+      tl <- list(x = tbw$xdati$iuno, y = tbw$ydati$iuno)
+
+      lapply(1:length(tl), myf)
+    }
+
+    if ((tbw$xnord+tbw$ynord) > 0){
+      dfactor <- nrow^(-2.0/(2.0*tbw$cxkerorder+tbw$ncon))
+      dfactor <- list(x = dfactor, y = dfactor)
+
+      tl <- list(x = tbw$xdati$iord, y = tbw$ydati$iord)
+
+      lapply(1:length(tl), myf)
+    }
+
+      
     if (tbw$ncon > 0){
       dfactor <- nrow^(-1.0/(2.0*tbw$cxkerorder+tbw$ncon))
       dfactor <- list(x = EssDee(xcon)*dfactor, y = EssDee(ycon)*dfactor)
 
       tl <- list(x = tbw$xdati$icon, y = tbw$ydati$icon)
 
-      if (tbw$scaling) {
-        lapply(1:length(tl), function(i){
-          tbw$bandwidth[[i]][tl[[i]]] <<- (tbw$bandwidth[[i]])[tl[[i]]]*dfactor[[i]]
-        })
-        ##tbw$bandwidth[tbw$xdati$icon] <- tbw$bandwidth[tbw$xdati$icon]*dfactor
-      } else {
-        lapply(1:length(tl), function(i){
-          tbw$sfactor[[i]][tl[[i]]] <<- (tbw$sfactor[[i]])[tl[[i]]]/dfactor[[i]]
-        })
-        ##tbw$sfactor[tbw$xdati$icon] <- tbw$sfactor[tbw$xdati$icon]/dfactor
-      }
+      lapply(1:length(tl), myf)
     }
-
+  
     tbw <- conbandwidth(xbw = tbw$xbw,
                         ybw = tbw$ybw,
                         bwmethod = tbw$method,
@@ -300,7 +314,7 @@ npcdensbw.default <-
            ydat = stop("data 'ydat' missing"),
            bws, 
            bandwidth.compute = TRUE,
-           fast, nmulti, remin, itmax,
+           fast, auto, nmulti, remin, itmax,
            ftol, tol, small,
            ## dummy arguments for conbandwidth() function call
            bwmethod, bwscaling, bwtype,
@@ -342,7 +356,7 @@ npcdensbw.default <-
     ## next grab dummies for actual bandwidth selection and perform call
 
     mc.names <- names(match.call(expand.dots = FALSE))
-    margs <- c("bandwidth.compute", "fast", "nmulti", "remin", "itmax", "ftol",
+    margs <- c("bandwidth.compute", "fast", "auto", "nmulti", "remin", "itmax", "ftol",
                "tol", "small")
     m <- match(margs, mc.names, nomatch = 0)
     any.m <- any(m != 0)

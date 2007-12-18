@@ -107,6 +107,7 @@ validateBandwidth <- function(bws){
       }
       return(TRUE)
     })
+    
     return(vb)
   }
   vbl <- lapply(1:length(vari), bchecker)
@@ -132,12 +133,12 @@ explodePipe <- function(formula){
                'strsplit(strsplit(tf," *[|] *")[[1]]," *[+] *"))')))
 }
 
-"%~%" = function(a,b) {
+"%~%" <- function(a,b) {
   all(class(a) == class(b)) && (length(a) == length(b)) &&
   all(unlist(lapply(a,coarseclass)) == unlist(lapply(b,coarseclass)))
 }
 
-coarseclass = function(a) {
+coarseclass <- function(a) {
   ifelse(class(a) == "integer", "numeric", class(a))
 }
 
@@ -160,7 +161,7 @@ toFrame <- function(frame) {
 }
 
 
-cast = function(a, b){
+cast <- function(a, b){
   if (is.ordered(b))
     ordered(a, levels = levels(b))
   else if (is.factor(b))
@@ -177,13 +178,7 @@ cast = function(a, b){
   }
 }
 
-w = function(x) {
-  if(identical(r <- (1:length(x))[x], numeric(0)))
-    r <- NULL
-  return(r)
-}
-
-subcol = function(x, v, i){
+subcol <- function(x, v, i){
   x[,i] = cast(v,x[,i])
   x
 }
@@ -202,12 +197,12 @@ mcvConstruct <- function(dati){
 
   cnt <- 0
   if (nuno > 0)
-    for (i in w(dati$iuno)) 
+    for (i in which(dati$iuno)) 
       mcv[1:length(dati$all.lev[[i]]), (cnt <- cnt+1)] <- dati$all.dlev[[i]]
 
   cnt <- 0
   if (nord > 0)
-    for (i in w(dati$iord))
+    for (i in which(dati$iord))
       mcv[1:length(dati$all.lev[[i]]), (cnt <- cnt+1)+nuno] <- dati$all.dlev[[i]]
 
   mcv
@@ -219,7 +214,7 @@ mcvConstruct <- function(dati){
 ## if an ordered, scale-possessing variable contains a new category lacking scale, error
 
 adjustLevels <- function(data, dati, allowNewCells = FALSE){
-  for (i in w(dati$iord | dati$iuno)){
+  for (i in which(dati$iord | dati$iuno)){
     if (allowNewCells){
       newCats <- setdiff(levels(data[,i]),dati$all.lev[[i]])
       if (length(newCats) >= 1){
@@ -243,6 +238,8 @@ adjustLevels <- function(data, dati, allowNewCells = FALSE){
 
           data[,i] <- ordered(data[,i], levels = sort(as.numeric(c(dati$all.lev[[i]], newCats))))
         }
+      } else {
+        data[,i] <- factor(data[,i], levels = dati$all.lev[[i]])
       }
     } else {
       if (!all(is.element(levels(data[,i]), dati$all.lev[[i]])))
@@ -331,8 +328,8 @@ blank <- function(len){
   })
 }
 
-sprintv <- function(fmt, v){
-  sapply(1:length(fmt), function(j){ sprintf(fmt[j], v[j]) })
+formatv <- function(v){
+  sapply(1:length(v), function(j){ format(v[j]) })
 }
 
 ## strings used in various report generating functions
@@ -350,9 +347,9 @@ genOmitStr <- function(x){
 ## Estimation-related rgf's
 genGofStr <- function(x){
   paste(ifelse(is.na(x$MSE),"",paste("\nResidual standard error:",
-                                     sprintf(fmt = '%e', x$MSE))),
+                                     format(x$MSE))),
         ifelse(is.na(x$R2),"",paste("\nR-squared:",
-                                    sprintf(fmt = '%e', x$R2))), sep="")
+                                    format(x$R2))), sep="")
 }
 
 pCatGofStr <- function(x){
@@ -362,13 +359,15 @@ pCatGofStr <- function(x){
   }
 
   if (!identical(x$CCR.overall,NA))
-    cat("\nOverall Correct Classification Ratio: ", sprintf(fmt = '%e', x$CCR.overall))
+    cat("\nOverall Correct Classification Ratio: ", format(x$CCR.overall))
 
-  if (!identical(x$CCR.byoutcome,NA))
-    cat("\nCorrect Classification Ratio By Outcome: ", sprintf(fmt = '%e', x$CCR.byoutcome))
+  if (!identical(x$CCR.byoutcome,NA)){
+    cat("\nCorrect Classification Ratio By Outcome:\n")
+    print(x$CCR.byoutcome)
+  }
 
   if (!identical(x$fit.mcfadden,NA))
-    cat("\nMcFadden-Puig-Kerschner performance measure from prediction-realization tables: ", sprintf(fmt = '%e', x$fit.mcfadden))
+    cat("\nMcFadden-Puig-Kerschner performance measure from prediction-realization tables: ", format(x$fit.mcfadden))
 
 }
 
@@ -376,7 +375,7 @@ genDenEstStr <- function(x){
   paste("\nBandwidth Type: ",x$ptype,
         ifelse(is.null(x$log_likelihood) || identical(x$log_likelihood, NA),"",
                paste("\nLog Likelihood:",
-                     sprintf(fmt = '%e', x$log_likelihood))),
+                     format(x$log_likelihood))),
         sep="")
 }
 
@@ -384,7 +383,7 @@ genRegEstStr <- function(x){
   paste(ifelse(is.null(x$pregtype),"",
                paste("\nKernel Regression Estimator:",x$pregtype)),
         ifelse(is.null(x$ptype), "",
-               paste("\nBandwidth Type:",x$ptype,sep="")),
+               paste("\nBandwidth Type:",x$ptype)),
         ifelse(is.null(x$tau), "", paste("\nTau:", x$tau)),
         sep = "")
 }
@@ -400,7 +399,7 @@ genBwSelStr <- function(x){
         ifelse(is.null(x$ptype), "",
                paste("\nBandwidth Type: ",x$ptype, sep="")),
         ifelse(identical(x$fval,NA),"",
-               paste("\nObjective Function Value: ", sprintf(fmt = '%e', x$fval),
+               paste("\nObjective Function Value: ", format(x$fval),
                " (achieved on multistart ", x$ifval, ")", sep="")), sep="")
 }
 
@@ -440,13 +439,16 @@ genBwScaleStrs <- function(x){
   })
 
   return(sapply(1:length(t.nchar), function(j){
-    paste(vatText[[j]], " Bandwidth: ", sprintv(fmt = ifelse(print.sumText[[j]],'%e','%d'), x$bandwidth[[j]]), " ",
+    paste(vatText[[j]], " Bandwidth: ", npFormat(x$bandwidth[[j]]), " ",
           ifelse(print.sumText[[j]],
-                 paste(sumText[[j]], " ", sprintf(fmt = '%e', x$sumNum[[j]]), sep=""), ""),
+                 paste(sumText[[j]], " ", npFormat(x$sumNum[[j]]), sep=""), ""),
           sep="", collapse="")
   }))
 }
 
+npFormat <- function(x){
+  format(sapply(x,format))
+}
 
 genBwKerStrs <- function(x){
   vari <- names(x$klist)
@@ -610,7 +612,7 @@ MAEfunc <- function(y,y.fit) {
 }
 
 MAPEfunc <- function(y,y.fit) {
-  jj = w(y != 0)
+  jj = which(y != 0)
   
   mean(c(abs((y[jj]-y.fit[jj])/y[jj]), as.numeric(replicate(length(y)-length(jj),2))))
 }

@@ -6,7 +6,7 @@ npksum <-
     else if (!is.null(args$formula))
       UseMethod("npksum",args$formula)
     else
-      UseMethod("npksum",args[[w(names(args)=="bws")[1]]])
+      UseMethod("npksum",args[[which(names(args)=="bws")[1]]])
   }
 
 npksum.formula <-
@@ -170,7 +170,7 @@ npksum.default <-
 
     dim.out = c(max(ncol(weights),0), max(ncol(tydat),0), enrow)
     
-    length.out = prod(dim.out[w(dim.out > 0)])
+    length.out = prod(dim.out[which(dim.out > 0)])
 
     
     ##dim.out = dim.out[dim.out > 1]

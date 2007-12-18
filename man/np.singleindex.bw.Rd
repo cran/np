@@ -22,7 +22,6 @@ npindexbw(\dots)
 \method{npindexbw}{NULL}(xdat = stop("training data xdat missing"),
           ydat = stop("training data ydat missing"),
           bws,
-          bandwidth.compute = TRUE,
           \dots)
 
 \method{npindexbw}{default}(xdat = stop("training data xdat missing"),
@@ -30,13 +29,25 @@ npindexbw(\dots)
           bws,
           bandwidth.compute = TRUE,
           nmulti,
+          random.seed,
+          optim.method,
+          optim.maxattempts,
+          optim.reltol,
+          optim.abstol,
+          optim.maxit,
           \dots)
 
 \method{npindexbw}{sibandwidth}(xdat = stop("training data xdat missing"),
           ydat = stop("training data ydat missing"),
           bws,
+          bandwidth.compute = TRUE,
           nmulti,
           random.seed = 42,
+          optim.method = c("Nelder-Mead", "BFGS", "CG"),
+          optim.maxattempts = 10,
+          optim.reltol = sqrt(.Machine$double.eps),
+          optim.abstol = .Machine$double.eps,
+          optim.maxit = 500,
           \dots)
 
 }
@@ -103,7 +114,7 @@ npindexbw(\dots)
   \item{nmulti}{
     integer number of times to restart the process of finding extrema of
     the cross-validation function from different (random) initial
-    points. Defaults to \code{ncol(xdat)}.
+    points. Defaults to \code{min(5,ncol(xdat))}.
   }
 
   \item{random.seed}{
@@ -118,11 +129,59 @@ npindexbw(\dots)
     in \code{bws}. Defaults to \code{TRUE}.
   }
 
+  \item{optim.method}{ method used by \code{\link{optim}} for minimization of
+    the objective function. See \code{?optim} for references. Defaults
+    to \code{"Nelder-Mead"}.
+
+    the default method is an implementation of that of Nelder and Mead
+    (1965), that uses only function values and is robust but relatively
+    slow.  It will work reasonably well for non-differentiable
+    functions.
+
+    method \code{"BFGS"} is a quasi-Newton method (also known as a
+    variable metric algorithm), specifically that published
+    simultaneously in 1970 by Broyden, Fletcher, Goldfarb and Shanno.
+    This uses function values and gradients to build up a picture of the
+    surface to be optimized.
+
+    method \code{"CG"} is a conjugate gradients method based
+    on that by Fletcher and Reeves (1964) (but with the option of
+    Polak-Ribiere or Beale-Sorenson updates).  Conjugate gradient
+    methods will generally be more fragile than the BFGS method, but as
+    they do not store a matrix they may be successful in much larger
+    optimization problems.
+  }
+
+  \item{optim.maxattempts}{
+    maximum number of attempts taken trying to achieve successful
+    convergence in \code{\link{optim}}. Defaults to \code{100}.
+  }
+
+  \item{optim.abstol}{
+    the absolute convergence tolerance used by \code{\link{optim}}. Only useful
+    for non-negative functions, as a tolerance for reaching
+    zero. Defaults to \code{.Machine$double.eps}.
+  }
+
+  \item{optim.reltol}{
+    relative convergence tolerance used by \code{\link{optim}}.  The algorithm
+    stops if it is unable to reduce the value by a factor of 'reltol *
+    (abs(val) + reltol)' at a step.  Defaults to
+    \code{sqrt(.Machine$double.eps)}, typically about \code{1e-8}.
+  }
+
+  \item{optim.maxit}{
+    maximum number of iterations used by \code{\link{optim}}. Defaults
+     to \code{500}.
+   }
+
   \item{\dots}{
     additional arguments supplied to specify the parameters to the
     \code{sibandwidth} S3 method, which is called during the numerical
     search. 
-  }  
+  }
+
+  
 
 }
 
@@ -142,29 +201,29 @@ npindexbw(\dots)
   continuous variable.
 
   \code{npindexbw} may be invoked \emph{either} with a formula-like
-  symbolic 
-  description of variables on which bandwidth selection is to be
-  performed \emph{or} through a simpler interface whereby data is passed
-  directly to the function via the \code{xdat} and \code{ydat}
+  symbolic description of variables on which bandwidth selection is to
+  be performed \emph{or} through a simpler interface whereby data is
+  passed directly to the function via the \code{xdat} and \code{ydat}
   parameters. Use of these two interfaces is \bold{mutually exclusive}.
   
   Note that, unlike most other bandwidth methods in the \code{np}
-  package, this implementation uses the R \code{\link{nlm}} nonlinear
+  package, this implementation uses the R \code{\link{optim}} nonlinear
   minimization routines and \code{\link{npksum}}. We have implemented
-  multistarting and strongly encourage its use in practice (the number
-  of multistarts defaults to the number of columns in \code{xdat}).
+  multistarting and strongly encourage its use in practice. For
+  exploratory purposes, you may wish to override the default search
+  tolerances, say, setting \code{optim.reltol=.1} and conduct
+  multistarting (the default is to restart min(5, ncol(xdat)) times) as is done
+  for a number of examples.
 
   Data for which bandwidths are to be estimated may be specified
   symbolically. A typical description has the form \code{dependent data
-    ~ explanatory data},
-  where \code{dependent data} is a univariate response, and
-  \code{explanatory data} is a
-  series of variables specified by name, separated by 
-  the separation character '+'. For example, \code{ y1 ~ x1 + x2 }
-  specifies that the bandwidth object for the regression of response \code{y1}
-  and 
-  semiparametric regressors \code{x1} and \code{x2} are to be estimated.
-  See below for further examples. 
+  ~ explanatory data}, where \code{dependent data} is a univariate
+  response, and \code{explanatory data} is a series of variables
+  specified by name, separated by the separation character '+'. For
+  example \code{ y1 ~ x1 + x2 } specifies that the bandwidth object for
+  the regression of response \code{y1} and semiparametric regressors
+  \code{x1} and \code{x2} are to be estimated.  See below for further
+  examples.
   
 }
 
@@ -177,10 +236,9 @@ npindexbw(\dots)
   \item{beta}{ coefficients of the model }
   \item{fval}{ objective function value at minimum }
 
-  If \code{bwtype} is set to \code{fixed}, an object containing
-  a scalar bandwidth (or scalar scale factor if \code{bwscaling = TRUE})
-  for the function \eqn{G(X\beta)}{G(XB)} and an estimate of the
-  parameter vector \eqn{\beta}{B} is returned.
+  If \code{bwtype} is set to \code{fixed}, an object containing a scalar
+  bandwidth for the function \eqn{G(X\beta)}{G(XB)} and an estimate of
+  the parameter vector \eqn{\beta}{B} is returned.
 
   If \code{bwtype} is set to \code{generalized_nn} or
   \code{adaptive_nn}, then instead the scalar \eqn{k}th nearest neighbor
@@ -213,7 +271,7 @@ npindexbw(\dots)
     
 
 \author{
-  Tristen Hayfield \email{hayfietj@mcmaster.ca}, Jeffrey S. Racine \email{racinej@mcmaster.ca}
+  Tristen Hayfield \email{hayfield@phys.ethz.ch}, Jeffrey S. Racine \email{racinej@mcmaster.ca}
 }
 
 \section{Usage Issues}{
@@ -225,30 +283,30 @@ npindexbw(\dots)
 
   Caution: multivariate data-driven bandwidth selection methods are, by
   their nature, \emph{computationally intensive}. Virtually all methods
-  require dropping the \eqn{i}th observation from the data set, computing an
-  object, repeating this for all observations in the sample, then
-  averaging each of these leave-one-out estimates for a \emph{given}
-  value of the bandwidth vector, and only then repeating this a large
-  number of times in order to conduct multivariate numerical
-  minimization/maximization. Furthermore, due to the potential for local
-  minima/maxima, \emph{restarting this procedure a large number of times may
-  often be necessary}. This can be frustrating for users possessing
-  large datasets. For exploratory purposes, you may wish to override the
-  default search tolerances, say, setting ftol=.01 and tol=.01 and
-  conduct multistarting (the default is to restart ncol(xdat)
-  times) as is done for a number of examples. Once the procedure
-  terminates, you can restart search with default tolerances using those
-  bandwidths obtained from the less rigorous search (i.e., set
-  \code{bws=bw} on subsequent calls to this routine where \code{bw} is
-  the initial bandwidth object).  A version of this package using the
-  \code{Rmpi} wrapper is under development that allows one to deploy
-  this software in a clustered computing environment to facilitate
-  computation involving large datasets.
-}
+  require dropping the \eqn{i}th observation from the data set,
+  computing an object, repeating this for all observations in the
+  sample, then averaging each of these leave-one-out estimates for a
+  \emph{given} value of the bandwidth vector, and only then repeating
+  this a large number of times in order to conduct multivariate
+  numerical minimization/maximization. Furthermore, due to the potential
+  for local minima/maxima, \emph{restarting this procedure a large
+  number of times may often be necessary}. This can be frustrating for
+  users possessing large datasets. For exploratory purposes, you may
+  wish to override the default search tolerances, say, setting
+  \code{optim.reltol=.1} and conduct multistarting (the default is to
+  restart min(5, ncol(xdat)) times). Once the procedure terminates, you can
+  restart search with default tolerances using those bandwidths obtained
+  from the less rigorous search (i.e., set \code{bws=bw} on subsequent
+  calls to this routine where \code{bw} is the initial bandwidth
+  object).  A version of this package using the \code{Rmpi} wrapper is
+  under development that allows one to deploy this software in a
+  clustered computing environment to facilitate computation involving
+  large datasets.  }
 
 \seealso{}
 
 \examples{
+\dontrun{
 # EXAMPLE 1 (INTERFACE=FORMULA): Generate a simple linear model then
 # compute coefficients and the bandwidth using Ichimura's nonlinear
 # least squares approach.
@@ -342,5 +400,6 @@ X <- cbind(x1, x2)
 bw <- npindexbw(xdat=X, ydat=y, method="kleinspady")
 
 summary(bw)
+} % enddontrun
 }
 \keyword{nonparametric}

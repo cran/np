@@ -3,62 +3,65 @@
 \docType{package}
 \title{Nonparametric Kernel Smoothing Methods for Mixed Datatypes}
 \description{
-	This package provides a variety of nonparametric kernel
-	methods that seamlessly handle a mix of continuous, unordered, and
-	ordered factor datatypes (unordered and ordered factors are often
+
+	This package provides a variety of nonparametric and semiparametric
+	kernel methods that seamlessly handle a mix of continuous, unordered,
+	and ordered factor datatypes (unordered and ordered factors are often
 	referred to as `nominal' and `ordinal' categorical variables
 	respectively).
 
-  Bandwidth selection is a key aspect of sound nonparametric kernel
-  estimation. \code{np} is designed from the ground up to make 
-  bandwidth selection the focus of attention. To this end, one typically
-  begins by creating a `bandwidth object' which embodies all aspects of
-  the method, including specific kernel functions, data names, datatypes,
-  and the like. One then passes these bandwidth objects to other
-  functions, and those functions can grab the specifics from the
-  bandwidth object thereby removing potential inconsistencies and
-  unnecessary repetition.
+  Bandwidth selection is a key aspect of sound nonparametric and
+  semiparametric kernel estimation. \code{np} is designed from the
+  ground up to make bandwidth selection the focus of attention. To this
+  end, one typically begins by creating a `bandwidth object' which
+  embodies all aspects of the method, including specific kernel
+  functions, data names, datatypes, and the like. One then passes these
+  bandwidth objects to other functions, and those functions can grab the
+  specifics from the bandwidth object thereby removing potential
+  inconsistencies and unnecessary repetition.
 
   There are two ways in which you can interact with functions in
   \code{np}, either i) using dataframes, or ii) using a formula
   interface, where appropriate.
 
   To some, it may be natural to use the dataframe interface.  The R
-  \code{\link{data.frame}} function preserves a variable's type once it has
-  been cast (unlike \code{\link{cbind}}, which we avoid for this reason).  If
-  you find this most natural for your project, you first create a
-  dataframe casting data according to their type (i.e., one of
-  continuous (default), \code{\link{factor}}, \code{\link{ordered}}) Then you
-  would simply pass this dataframe to the appropriate \code{np}
+  \code{\link{data.frame}} function preserves a variable's type once it
+  has been cast (unlike \code{\link{cbind}}, which we avoid for this
+  reason).  If you find this most natural for your project, you first
+  create a dataframe casting data according to their type (i.e., one of
+  continuous (default), \code{\link{factor}}, \code{\link{ordered}})
+  Then you would simply pass this dataframe to the appropriate \code{np}
   function, for example \code{npudensbw(dat=data)}.
 
   To others, however, it may be natural to use the formula interface
   that is used for the regression examples, among others. For
-  nonparametric regression functions such as \code{\link{npreg}}, you would
-  proceed just as you would using \code{\link{lm}} (e.g.,
-  \code{npregbw(y~factor(x1)+x2))} except that you would of course
-  not need to specify, e.g., polynomials in variables, interaction
-  terms, or create a number of dummy variables for a factor.  Every
-  function in np supports both interfaces, where appropriate.
+  nonparametric regression functions such as \code{\link{npreg}}, you
+  would proceed as you would using \code{\link{lm}} (e.g., \code{bw <-
+  npregbw(y~factor(x1)+x2))} except that you would of course not need to
+  specify, e.g., polynomials in variables, interaction terms, or create
+  a number of dummy variables for a factor.  Every function in np
+  supports both interfaces, where appropriate.
 
-  Note that if your factor is in fact a character string such
-	as, say, \code{X} being either \code{"MALE"} or \code{"FEMALE"}, np
-  will handle this directly, i.e., there is no need to map the string
-  values into unique integers. Once the user casts a variable
-	as a particular datatype (i.e., \code{\link{factor}}, \code{\link{ordered}}, or
-	\code{continuous} (default)), all subsequent methods automatically
-	detect the type and use the appropriate kernel function and method where
-	appropriate.
+  Note that if your factor is in fact a character string such as, say,
+	\code{X} being either \code{"MALE"} or \code{"FEMALE"}, np will handle
+	this directly, i.e., there is no need to map the string values into
+	unique integers such as (0,1). Once the user casts a variable as a
+	particular datatype (i.e., \code{\link{factor}},
+	\code{\link{ordered}}, or continuous (default)), all subsequent
+	methods automatically detect the type and use the appropriate kernel
+	function and method where appropriate.
 
 	All estimation methods are fully multivariate, i.e., there are no
 	limitations on the number of variables one can model (or number of
-	observations for that matter).
+	observations for that matter). Execution time for most routines is,
+	however, exponentially increasing in the number of observations and
+	increases with the number of variables involved.
 
 	Nonparametric methods include unconditional density (distribution),
 	conditional density (distribution), regression, mode, and quantile
-	estimators along with gradients where appropriate, while semiparametric
-	methods include single index, partially linear, and smooth (i.e.,
-  varying) coefficient models.
+	estimators along with gradients where appropriate, while
+	semiparametric methods include single index, partially linear, and
+	smooth (i.e., varying) coefficient models.
 	
 	A number of tests are included such as consistent specification tests
 	for parametric regression and quantile regression models along with
@@ -71,14 +74,14 @@
 	A variety of bandwidth methods are implemented including fixed,
 	nearest-neighbor, and adaptive nearest-neighbor.
 
-	A variety of data-driven methods of bandwidth selection are implemented,
-	while the user can specify their own bandwidths should they so choose
-	(either a raw bandwidth or scaling factor).
+	A variety of data-driven methods of bandwidth selection are
+	implemented, while the user can specify their own bandwidths should
+	they so choose (either a raw bandwidth or scaling factor).
 
-	A flexible plotting utility, \code{\link{npplot}}, facilitates graphing of
-	multivariate objects. An example for creating postscript graphs using
-	the \code{\link{npplot}} utility and pulling this into a LaTeX document is
-	provided.
+	A flexible plotting utility, \code{\link{npplot}}, facilitates
+	graphing of multivariate objects. An example for creating postscript
+	graphs using the \code{\link{npplot}} utility and pulling this into a
+	LaTeX document is provided.
 
 	The function \code{\link{npksum}} allows users to create or implement
 	their own kernel estimators or tests should they so desire.
@@ -191,14 +194,17 @@
 }
 
 \author{
-  Tristen Hayfield <hayfietj@mcmaster.ca>, Jeffrey S. Racine
+  Tristen Hayfield <hayfield@phys.ethz.ch>, Jeffrey S. Racine
   <racinej@mcmaster.ca>
 
   Maintainer: Jeffrey S. Racine <racinej@mcmaster.ca>
 
   We are grateful to John Fox and Achim Zeleis for their valuable input
-  and encouragement. We would like to gratefully acknowledge support 
-  from NSERC, SHARCNET, and SSHRC.
+  and encouragement. We would like to gratefully acknowledge support
+  from the Natural Sciences and Engineering Research Council of Canada
+  (NSERC:www.nserc.ca), the Social Sciences and Humanities Research
+  Council of Canada (SSHRC:www.sshrc.ca), and the Shared Hierarchical
+  Academic Research Computing Network (SHARCNET:www.sharcnet.ca)
 
   
 }

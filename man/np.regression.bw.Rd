@@ -193,7 +193,7 @@ npregbw(\dots)
   \item{nmulti}{
     integer number of times to restart the process of finding extrema of
     the cross-validation function from different (random) initial
-    points. Defaults to \code{ncol(xdat}.
+    points. Defaults to \code{min(5,ncol(xdat))}.
   }
 
   \item{remin}{
@@ -335,7 +335,7 @@ npregbw(\dots)
     for discrete distributions,}  Biometrika, 68, 301-309.
 }
 \author{
-    Tristen Hayfield \email{hayfietj@mcmaster.ca}, Jeffrey S. Racine
+    Tristen Hayfield \email{hayfield@phys.ethz.ch}, Jeffrey S. Racine
     \email{racinej@mcmaster.ca}
 }
 
@@ -358,7 +358,7 @@ npregbw(\dots)
   often be necessary}. This can be frustrating for users possessing
   large datasets. For exploratory purposes, you may wish to override the
   default search tolerances, say, setting ftol=.01 and tol=.01 and
-  conduct multistarting (the default is to restart ncol(xdat)
+  conduct multistarting (the default is to restart min(5, ncol(xdat))
   times) as is done for a number of examples. Once the procedure
   terminates, you can restart search with default tolerances using those
   bandwidths obtained from the less rigorous search (i.e., set
@@ -373,6 +373,7 @@ npregbw(\dots)
   \code{\link{npreg}}
 }
 \examples{
+\dontrun{
 # EXAMPLE 1 (INTERFACE=FORMULA): For this example, we compute a
 # Bivariate nonparametric regression estimate for Giovanni Baiocchi's
 # Italian income panel (see Italy for details)
@@ -460,5 +461,6 @@ summary(bw)
 # order, bandwidth type and so forth.
 
 detach(Italy)
+} % enddontrun
 }
 \keyword{nonparametric}

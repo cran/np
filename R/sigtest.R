@@ -55,7 +55,7 @@ print.sigtest <- function(x, ...){
   maxNameLen <- max(nc <- nchar(nm <- x$bws$xnames[x$ixvar]))
 
   cat("\nSignificance Tests\n")
-  cat("P Value:", paste("\n", nm, ' ', blank(maxNameLen-nc), sprintf(fmt = '%e', x$P),
+  cat("P Value:", paste("\n", nm, ' ', blank(maxNameLen-nc), format.pval(x$P),
                         " ", x$reject, sep=''))
   cat("\n---\nSignif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1\n\n")
 }

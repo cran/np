@@ -2,18 +2,24 @@
 \name{wage1}
 \docType{data}
 \alias{wage1}
-\alias{bw.all}
 \alias{bw.subset}
+\alias{bw.all}
 \title{ Cross-Sectional Data on Wages }
-\description{
-	 Cross-section wage data consisting of a random sample taken from the
-   U.S. Current Population Survey for the year 1976. There are 526
-   observations in total.
- }
+\description{ Cross-section wage data consisting of a random sample
+taken from the U.S. Current Population Survey for the year 1976. There
+are 526 observations in total. \code{data("wage1")} makes available the
+dataset \code{"wage"} plus additional objects \code{"bw.all"} and
+\code{"bw.subset"}.}
 
 \usage{data("wage1")}
 
 \format{ A data frame with 24 columns, and 526 rows.
+
+    Two local-linear \code{rbandwidth} objects (`\code{bw.all}' and
+    `\code{bw.subset}') have been computed for the user's convenience
+    which can be used to visualize this dataset using
+    \code{\link{npplot}(bws=bw.all)}
+  
 \describe{
     \item{wage}{column 1, of type \code{numeric}, average hourly earnings}
     \item{educ}{column 2, of type \code{numeric}, years of education}
@@ -43,10 +49,12 @@
 }
 \source{ Jeffrey M. Wooldridge }
 \examples{
+\dontrun{
 data("wage1")
 attach(wage1)
 summary(wage1)
 detach(wage1)
+} % enddontrun
 }
 
 

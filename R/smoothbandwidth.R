@@ -20,7 +20,8 @@ scbandwidth <-
            znames = NULL,
            sfactor = NA, bandwidth = NA,
            rows.omit = NA,
-           bandwidth.compute = TRUE){
+           bandwidth.compute = TRUE,
+           optim.method = "NA"){
 
   ndim = length(bw)
   bwmethod = match.arg(bwmethod)
@@ -73,6 +74,10 @@ scbandwidth <-
     pmethod = switch( bwmethod,
       manual = "Manual",
       cv.ls = "Least Squares Cross-Validation" ),
+    pomethod = switch(optim.method,
+      "Nelder-Mead" = "Nelder-Mead",
+      "BFGS" = "BFGS",
+      "CG" = "CG", "NA"),
     fval = fval,
     ifval = ifval,
     scaling = bwscaling,
@@ -170,6 +175,8 @@ predict.scbandwidth <- function(...) { eval(npscoef(...), env = parent.frame()) 
 summary.scbandwidth <- function(object, ...){
   cat("\nSmooth Coefficient Regression",
       "\nRegression Data (",object$nobs," observations, ",object$ndim," variable(s)):\n",sep="")
+
+  cat("\nOptimisation Method: ", object$pomethod)
 
   cat(genOmitStr(object))
   cat(genBwSelStr(object))

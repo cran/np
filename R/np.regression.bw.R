@@ -6,7 +6,7 @@ npregbw <-
     else if (!is.null(args$formula))
       UseMethod("npregbw",args$formula)
     else
-      UseMethod("npregbw",args[[w(names(args)=="bws")[1]]])
+      UseMethod("npregbw",args[[which(names(args)=="bws")[1]]])
   }
 
 npregbw.formula <-
@@ -73,8 +73,9 @@ npregbw.rbandwidth <-
 
     xdat <- toFrame(xdat)
 
-    if (missing(nmulti))
-      nmulti = dim(xdat)[2]
+    if (missing(nmulti)){
+      nmulti <- min(5,dim(xdat)[2])
+    }
 
     if(!(is.vector(ydat) | is.factor(ydat)))
       stop("'ydat' must be a vector")
@@ -172,10 +173,27 @@ npregbw.rbandwidth <-
       tbw$bw <- myout$bw[rorder]
       tbw$fval <- myout$fval[1]
       tbw$ifval <- myout$fval[2]
+    }
 
+    tbw$sfactor <- tbw$bandwidth <- tbw$bw
+
+    nfactor <- nrow^(-2.0/(2.0*tbw$ckerorder+tbw$ncon))
+
+    if (tbw$nuno > 0){
+      if(tbw$scaling){ 
+        tbw$bandwidth[tbw$xdati$iuno] <- tbw$bandwidth[tbw$xdati$iuno]*nfactor
+      } else {
+        tbw$sfactor[tbw$xdati$iuno] <- tbw$sfactor[tbw$xdati$iuno]/nfactor
+      }
     }
     
-    tbw$sfactor <- tbw$bandwidth <- tbw$bw
+    if (tbw$nord > 0){
+      if(tbw$scaling){
+        tbw$bandwidth[tbw$xdati$iord] <- tbw$bandwidth[tbw$xdati$iord]*nfactor
+      } else {
+        tbw$sfactor[tbw$xdati$iord] <- tbw$sfactor[tbw$xdati$iord]/nfactor
+      }
+    }
 
     if (tbw$ncon > 0){
       dfactor <- EssDee(rcon)*nrow^(-1.0/(2.0*tbw$ckerorder+tbw$ncon))
@@ -186,6 +204,8 @@ npregbw.rbandwidth <-
         tbw$sfactor[tbw$xdati$icon] <- tbw$sfactor[tbw$xdati$icon]/dfactor
       }
     }
+    
+
 
     tbw <- rbandwidth(bw = tbw$bw,
                       regtype = tbw$regtype,

@@ -74,11 +74,11 @@ npindex(bws, \dots)
   }
 
   \item{errors}{
-    a logical value indicating that you want (bootstrapped) standard
-    errors for the conditional means, gradients, and mean gradients,
-    computed and
-    returned in the resulting \code{singleindex} object. Defaults to
-    \code{FALSE}.
+    a logical value indicating that you want (bootstrapped)
+    standard errors for the conditional mean, gradients (when
+    \code{gradients=TRUE} is set), and average gradients (when
+    \code{gradients=TRUE} is set), computed and returned in the
+    resulting \code{singleindex} object. Defaults to \code{FALSE}.
   }
 
   \item{boot.num}{
@@ -207,7 +207,7 @@ npindex(bws, \dots)
     
 
 \author{
-  Tristen Hayfield \email{hayfietj@mcmaster.ca}, Jeffrey S. Racine \email{racinej@mcmaster.ca}
+  Tristen Hayfield \email{hayfield@phys.ethz.ch}, Jeffrey S. Racine \email{racinej@mcmaster.ca}
 }
 
 \section{Usage Issues}{
@@ -221,6 +221,7 @@ npindex(bws, \dots)
 \seealso{}
 
 \examples{
+\dontrun{
 # EXAMPLE 1 (INTERFACE=FORMULA): Generate a simple linear model then
 # estimate it using a semiparametric single index specification and
 # Ichimura's nonlinear least squares coefficients and bandwidth
@@ -502,7 +503,6 @@ persp(x1.seq,
       main="Estimated Semiparametric Probability Perspective", 
       theta=310, 
       phi=25)
-
-
+} % enddontrun
 }
 \keyword{nonparametric}

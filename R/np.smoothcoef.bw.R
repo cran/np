@@ -6,7 +6,7 @@ npscoefbw <-
     else if (!is.null(args$formula))
       UseMethod("npscoefbw",args$formula)
     else
-      UseMethod("npscoefbw",args[[w(names(args)=="bws")[1]]])
+      UseMethod("npscoefbw",args[[which(names(args)=="bws")[1]]])
   }
 
 npscoefbw.formula <-
@@ -97,9 +97,12 @@ npscoefbw.scbandwidth <-
            backfit.iterate = FALSE,
            backfit.maxiter = 100,
            backfit.tol = .Machine$double.eps,
-           ftol = .Machine$double.eps,
-           tol = sqrt(.Machine$double.eps),
            bandwidth.compute = TRUE,
+           optim.method = c("Nelder-Mead", "BFGS", "CG"),
+           optim.maxattempts = 10,
+           optim.reltol = sqrt(.Machine$double.eps),
+           optim.abstol = .Machine$double.eps,
+           optim.maxit = 500,
            ...){
 
     miss.z <- missing(zdat)
@@ -109,8 +112,9 @@ npscoefbw.scbandwidth <-
     if (!miss.z)
       zdat <- toFrame(zdat)
     
-    if (missing(nmulti))
-      nmulti <- length(bws$bw)
+    if (missing(nmulti)){
+      nmulti <- min(5,length(bws$bw))
+    }
 
     if (!(is.vector(ydat) | is.factor(ydat)))
       stop("'ydat' must be a vector")
@@ -130,6 +134,8 @@ npscoefbw.scbandwidth <-
 
     if (!all(bws$xdati$icon))
       stop("Only continuous 'x' regressors are supported in this version.")
+
+    optim.method <- match.arg(optim.method)
       
     ## catch and destroy NA's
     goodrows = 1:dim(xdat)[1]
@@ -178,7 +184,8 @@ npscoefbw.scbandwidth <-
     ## to emulate W
 
     W <- as.matrix(data.frame(1,xdat))
-
+    cvls.W <- as.matrix(data.frame(ydat,1,xdat))
+    
     if (miss.z){
       zdat <- xdat
       dati <- bws$xdati
@@ -188,23 +195,41 @@ npscoefbw.scbandwidth <-
 
     if (bandwidth.compute){
       maxPenalty <- sqrt(.Machine$double.xmax)
+
       overall.cv.ls <- function(param) {
         if (any(param < 0) || ((bws$nord+bws$nuno > 0) && any(param[!bws$icon] > 2.0*x.scale[!bws$icon])))
           return(maxPenalty)
         
         bws$bw <- param
         
-        tyw <- npksum(txdat = zdat, tydat = ydat, weights = W, bws = bws,
-                      leave.one.out = TRUE)$ksum
+        ##tyw <- npksum(txdat = zdat, tydat = ydat, weights = W, bws = bws,
+        ##              leave.one.out = TRUE)$ksum
         
-        tww <- npksum(txdat = zdat, tydat = W, weights = W, bws = bws,
+        tww <- npksum(txdat = zdat, tydat = cvls.W, weights = cvls.W, bws = bws,
                       leave.one.out = TRUE)$ksum
 
-        mean.loo <- tryCatch(sapply(1:n, function(i) {
-          W[i,, drop = FALSE] %*% solve(tww[,,i], tyw[,i])
-        }), error = function(e){
-          return(maxPenalty)
-        })
+        mean.loo <- maxPenalty
+        epsilon <- 1.0/n
+        ridge <- double(n)
+        doridge <- !logical(n)
+
+        nc <- ncol(tww[-1,-1,1])
+
+        ridger <- function(i) {
+          doridge[i] <<- FALSE
+          ridge.val <- ridge[i]*tww[-1,1,i][1]/max(tww[-1,-1,i][1,1],.Machine$double.eps)
+          W[i,, drop = FALSE] %*% tryCatch(solve(tww[-1,-1,i]+diag(rep(ridge[i],nc)),
+                  tww[-1,1,i]+c(ridge.val,rep(0,nc-1))),
+                  error = function(e){
+                    ridge[i] <<- ridge[i]+epsilon
+                    doridge[i] <<- TRUE
+                    return(rep(maxPenalty,nc))
+                  })
+        }
+
+        while(any(doridge)){
+          mean.loo <- sapply((1:n)[doridge], ridger)
+        }
 
         cv.console <<- printClear(cv.console)
         ##cv.console <<- printPush(msg = paste("param:", param), console = cv.console)
@@ -213,7 +238,7 @@ npscoefbw.scbandwidth <-
           fv <- sum((ydat-mean.loo)^2)/n
           cv.console <<- printPush(msg = paste("fval:", signif(fv, digits = options('digits')$digits)), console = cv.console)
         } else {
-          cv.console <<- printPush(msg = "near-singular system encountered, penalizing", console = cv.console)
+          cv.console <<- printPush(msg = "near-singular system encountered, ridging", console = cv.console)
           fv <- maxPenalty
         }
 
@@ -260,7 +285,7 @@ npscoefbw.scbandwidth <-
 
       ## Now we implement multistarting
 
-      min <- .Machine$double.xmax
+      fval.min <- .Machine$double.xmax
       numimp <- 0
       value.overall <- numeric(nmulti)
 
@@ -272,13 +297,18 @@ npscoefbw.scbandwidth <-
         }
         
         if (dati$iord[i])
-          return(0.5*oMaxL(dati$all.nlev[[i]], kertype = bws$okertype))
+          return(0.5*oMaxL(dati$all.nlev[[i]], kertype = bws$okertype)*
+                 ifelse(bws$scaling,n^(2.0/(2.0*bws$ckerorder+bws$ncon)),1.0))
         
         if (dati$iuno[i])
-          return(0.5*uMaxL(dati$all.nlev[[i]], kertype = bws$ukertype))       
+          return(0.5*uMaxL(dati$all.nlev[[i]], kertype = bws$ukertype)*
+                 ifelse(bws$scaling,n^(2.0/(2.0*bws$ckerorder+bws$ncon)),1.0))       
       })
 
       console <- newLineConsole()
+      optim.control <- list(abstol = optim.abstol,
+                            reltol = optim.reltol,
+                            maxit = optim.maxit)
 
       for (i in 1:nmulti) {
 
@@ -293,15 +323,27 @@ npscoefbw.scbandwidth <-
             tbw <- runif(bws$ndim, min=0.5, max=1.5)*x.scale
         }
 
-        suppressWarnings(nlm.return <- nlm(f = overall.cv.ls, p = tbw, gradtol = ftol, steptol = tol))
+        suppressWarnings(optim.return <- optim(tbw,
+                                               fn = overall.cv.ls,
+                                               control = optim.control))
+        attempts <- 0
+        while((optim.return$convergence != 0) && (attempts <= optim.maxattempts)) {
+          attempts <- attempts + 1
+          tbw <- runif(bws$ndim, min=0.5, max=1.5)*x.scale
+          optim.control <- lapply(optim.control, '*', 10.0)
+          suppressWarnings(optim.return <- optim(tbw,
+                                                 fn = overall.cv.ls,
+                                                 control = optim.control))
+
+        }
 
         cv.console <- printClear(cv.console)
 
-        value.overall[i] <- nlm.return$minimum
+        value.overall[i] <- optim.return$value
 
-        if(nlm.return$minimum < min) {
-          param <- nlm.return$estimate
-          min.overall <- nlm.return$minimum
+        if(optim.return$value < fval.min) {
+          param <- optim.return$par
+          min.overall <- optim.return$value
           numimp.overall <- numimp + 1
           best.overall <- i
         }
@@ -338,14 +380,15 @@ npscoefbw.scbandwidth <-
             partial.orig <- W[,j] * scoef$beta[,j] + resid.full
             
             ## minimise
-            suppressWarnings(nlm.return <-
-                             nlm(f = partial.cv.ls, p = tbw,
-                                 gradtol = ftol, steptol = tol, partial.index = j))
+            suppressWarnings(optim.return <-
+                             optim(tbw, fn = partial.cv.ls,
+                                   control = optim.control,
+                                   partial.index = j))
             
             cv.console <- printClear(cv.console)
             
             ## grab parameter
-            bws$bw.fitted[,j] <- nlm.return$estimate
+            bws$bw.fitted[,j] <- optim.return$par
 
             if (backfit.iterate){
               ## re-estimate all betas
@@ -388,13 +431,26 @@ npscoefbw.scbandwidth <-
     }
     
     bws$sfactor <- bws$bandwidth <- bws$bw
-
+    nfactor <- nrow^(-2.0/(2.0*bws$ckerorder+bws$ncon))
     dfactor <- EssDee(zdat[, dati$icon, drop = FALSE])*nrow^(-1.0/(2.0*bws$ckerorder+sum(dati$icon)))
 
     if (bws$scaling) {
       bws$bandwidth[dati$icon] <- bws$bandwidth[dati$icon]*dfactor
+
+      if(bws$nuno > 0)
+        bws$bandwidth[dati$iuno] <- bws$bandwidth[dati$iuno]*nfactor
+
+      if(bws$nord > 0)
+        bws$bandwidth[dati$iord] <- bws$bandwidth[dati$iord]*nfactor
+      
     } else {
       bws$sfactor[dati$icon] <- bws$sfactor[dati$icon]/dfactor
+
+      if(bws$nuno > 0)
+        bws$sfactor[dati$iuno] <- bws$sfactor[dati$iuno]/nfactor
+
+      if(bws$nord > 0)
+        bws$sfactor[dati$iord] <- bws$sfactor[dati$iord]/nfactor
     }
 
     bws <- scbandwidth(bw = bws$bw,
@@ -419,7 +475,8 @@ npscoefbw.scbandwidth <-
                        sfactor = bws$sfactor,
                        bandwidth = bws$bandwidth,
                        rows.omit = rows.omit,
-                       bandwidth.compute = bandwidth.compute)
+                       bandwidth.compute = bandwidth.compute,
+                       optim.method = optim.method)
 
     bws
   }
@@ -437,11 +494,12 @@ npscoefbw.default <-
            backfit.iterate,
            backfit.maxiter,
            backfit.tol,
-           ftol, tol,
            bandwidth.compute = TRUE,
            ## dummy arguments for scbandwidth()
            bwmethod, bwscaling, bwtype,
            ckertype, ckerorder,
+           optim.method, optim.maxattempts,
+           optim.reltol, optim.abstol, optim.maxit,
            ...){
 
 
@@ -484,7 +542,8 @@ npscoefbw.default <-
                "backfit.iterate",
                "backfit.maxiter",
                "backfit.tol",
-               "ftol", "tol")
+               "optim.method", "optim.maxattempts",
+               "optim.reltol", "optim.abstol", "optim.maxit")
     m <- match(margs, mc.names, nomatch = 0)
     any.m <- any(m != 0)
 

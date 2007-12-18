@@ -1,3 +1,4 @@
+
 npindexbw <-
   function(...){
     args = list(...)
@@ -6,7 +7,7 @@ npindexbw <-
     else if (!is.null(args$formula))
       UseMethod("npindexbw",args$formula)
     else
-      UseMethod("npindexbw",args[[w(names(args)=="bws")[1]]])
+      UseMethod("npindexbw",args[[which(names(args)=="bws")[1]]])
   }
 
 npindexbw.formula <-
@@ -45,7 +46,7 @@ npindexbw.formula <-
 npindexbw.NULL <-
   function(xdat = stop("training data xdat missing"),
            ydat = stop("training data ydat missing"),
-           bws, bandwidth.compute = TRUE, ...){
+           bws, ...){
 
     xdat <- toFrame(xdat)
 
@@ -72,7 +73,8 @@ npindexbw.default <-
   function(xdat = stop("training data xdat missing"),
            ydat = stop("training data ydat missing"),
            bws, bandwidth.compute = TRUE,
-           nmulti, ...){
+           nmulti, random.seed, optim.method, optim.maxattempts,
+           optim.reltol, optim.abstol, optim.maxit, ...){
 
     xdat <- toFrame(xdat)
 
@@ -106,7 +108,9 @@ npindexbw.default <-
       stop("Klein and Spady's estimator requires binary ydat with 0/1 values only")
 
     mc.names <- names(match.call(expand.dots = FALSE))
-    margs <- c("nmulti")
+    margs <- c("nmulti","random.seed", "optim.method", "optim.maxattempts",
+               "optim.reltol", "optim.abstol", "optim.maxit")
+    
     m <- match(margs, mc.names, nomatch = 0)
     any.m <- any(m != 0)
     
@@ -127,13 +131,20 @@ npindexbw.default <-
 npindexbw.sibandwidth <-
   function(xdat = stop("training data xdat missing"),
            ydat = stop("training data ydat missing"),
-           bws, nmulti, random.seed = 42, ...){
+           bws, bandwidth.compute = TRUE, nmulti, random.seed = 42,
+           optim.method = c("Nelder-Mead", "BFGS", "CG"),
+           optim.maxattempts = 10,
+           optim.reltol = sqrt(.Machine$double.eps),
+           optim.abstol = .Machine$double.eps,
+           optim.maxit = 500,
+           ...){
 
     set.seed(random.seed)
     xdat = toFrame(xdat)
 
-    if (missing(nmulti))
-      nmulti = ncol(xdat)
+    if (missing(nmulti)){
+      nmulti <- min(5,ncol(xdat))
+    }
     
     if (bws$method == "kleinspady" & !setequal(ydat,c(0,1))) 
       stop("Klein and Spady's estimator requires binary ydat with 0/1 values only")
@@ -146,6 +157,8 @@ npindexbw.sibandwidth <-
                     "dimensionality is unnecessary."))
     }
 
+    optim.method <- match.arg(optim.method)
+    
     ## catch and destroy NA's
     goodrows = 1:dim(xdat)[1]
     rows.omit = attr(na.omit(data.frame(xdat,ydat)), "na.action")
@@ -165,192 +178,231 @@ npindexbw.sibandwidth <-
     
     xdat = toMatrix(xdat)
 
-
-    ## Note - there are two methods currently implemented, Ichimura's
-    ## least squares approach and Klein and Spady's likelihood approach.
-
-    ##We define ichimura's objective function. Since we normalize beta_1
-    ##to equal 1, we only worry about beta_2...beta_k in the index
-    ##function for these internals, and when computing the leave-one-out
-    ##objective function use c(1,beta). However, we do indeed return
-    ##c(1,beta) which can be used in the index.model function above.
-
-    ichimura <- function(param) {
-
-      ##Define the leave-one-out objective function, sum (y - \hat
-      ## G(X\hat\beta))^2. We let beta denote beta_2...beta_k (first k-1
-      ## parameters in `param') and then let h denote the kth column.
-      if (ncol(xdat) == 1)
-        beta = numeric(0)
-      else 
-        beta <- param[1:(ncol(xdat)-1)]
+    if(bandwidth.compute){
       
-      h <- param[ncol(xdat)]
+      ## Note - there are two methods currently implemented, Ichimura's
+      ## least squares approach and Klein and Spady's likelihood approach.
 
-      ## Next we define the sum of squared leave-one-out residuals
+      ##We define ichimura's objective function. Since we normalize beta_1
+      ##to equal 1, we only worry about beta_2...beta_k in the index
+      ##function for these internals, and when computing the leave-one-out
+      ##objective function use c(1,beta). However, we do indeed return
+      ##c(1,beta) which can be used in the index.model function above.
 
-      sum.squares.leave.one.out <- function(xdat,ydat,beta,h) {
-
-        ## Normalize beta_1 = 1 hence multiply X by c(1,beta)
-        
-        index <- as.matrix(xdat) %*% c(1,beta)
-
-        fit.loo <-  npksum(txdat=index,tydat=ydat,leave.one.out=TRUE,bandwidth.divide=TRUE,bws=c(h))$ksum/npksum(txdat=index,leave.one.out=TRUE,bandwidth.divide=TRUE,bws=c(h))$ksum
-
-        return(sum((ydat-fit.loo)^2))
-
-      }
-
-      ## For the objective function, we require a positive bandwidth, so
-      ## return an infinite penalty for negative h
-
-      if(h > 0) {
-        return(sum.squares.leave.one.out(xdat,ydat,beta,h))
-      } else {
-        return(.Machine$double.xmax)
-      }
-
-    }
-
-    ## We define ichimura's objective function. Since we normalize beta_1
-    ## to equal 1, we only worry about beta_2...beta_k in the index
-    ## function for these internals, and when computing the leave-one-out
-    ## objective function use c(1,beta). However, we do indeed return
-    ## c(1,beta) which can be used in the index.model function above.
-
-    kleinspady <- function(param) {
-
-      ## Define the leave-one-out objective function, sum (y - \hat
-      ## G(X\hat\beta))^2. We let beta denote beta_2...beta_k (first k-1
-      ## parameters in `param') and then let h denote the kth column.
-      if (ncol(xdat) == 1)
-        beta = numeric(0)
-      else 
-        beta <- param[1:(ncol(xdat)-1)]
-
-      h <- param[ncol(xdat)]
-
-      ## Next we define the sum of squared leave-one-out residuals
-
-      sum.log.leave.one.out <- function(xdat,ydat,beta,h) {
-
-        ## Normalize beta_1 = 1 hence multiply X by c(1,beta)
-        
-        index <- as.matrix(xdat) %*% c(1,beta)
-
-        fit.loo <-  npksum(txdat=index,
-                                 tydat=ydat,
-                                 leave.one.out=TRUE,
-                                 bandwidth.divide=TRUE,
-                                 bws=c(h))$ksum / npksum(txdat=index,
-                                   leave.one.out=TRUE,
-                                   bandwidth.divide=TRUE,
-                                   bws=c(h))$ksum
-
-        ## Maximize the log likelihood, therefore minimize minus...
-        
-        return( - sum(ifelse(ydat==1,log(fit.loo),log(1-fit.loo))) )
-
-      }
-
-      ## For the objective function, we require a positive bandwidth, so
-      ## return an infinite penalty for negative h
-
-      if(h > 0) {
-        return(sum.log.leave.one.out(xdat,ydat,beta,h))
-      } else {
-        return(.Machine$double.xmax)
-      }
-
-    }
-
-    ## Now we implement multistarting
-
-    min <- .Machine$double.xmax
-    numimp <- 0
-    value <- numeric(nmulti)
-
-    console <- newLineConsole()
-
-    for(i in 1:nmulti) {
-
-      console <- printPush(paste(sep="", "Multistart ", i, " of ", nmulti, "..."), console)
-      ##cv.console <- newLineConsole(console)
+      ichimuraMaxPenalty <- 10*mean(ydat^2)
+      ichimuraFloor <- sqrt(.Machine$double.eps)
       
-      n <- nrow(xdat)
+      ichimura <- function(param) {
 
-      ## We use the nlm command to minimize the objective function using
-      ## starting values. Note that since we normalize beta_1=1 here beta
-      ## is the k-1 vector containing beta_2...beta_k
-
-      if(i == 1) {
-
-        ## Initial values taken from OLS fit with a constant used for
-        ## multistart 1
-        ols.fit <- lm(ydat~xdat,x=TRUE)
-        fit <- fitted(ols.fit)
+        ##Define the leave-one-out objective function, sum (y - \hat
+        ## G(X\hat\beta))^2. We let beta denote beta_2...beta_k (first k-1
+        ## parameters in `param') and then let h denote the kth column.
+        if (ncol(xdat) == 1)
+          beta = numeric(0)
+        else 
+          beta <- param[1:(ncol(xdat)-1)]
         
-        if (ncol(xdat) != 1){
-          if (setequal(bws$beta[2:ncol(xdat)],c(0)))
-            beta <- coef(ols.fit)[3:ncol(ols.fit$x)]
+        h <- param[ncol(xdat)]
+
+        ## Next we define the sum of squared leave-one-out residuals
+
+        sum.squares.leave.one.out <- function(xdat,ydat,beta,h) {
+
+          ## Normalize beta_1 = 1 hence multiply X by c(1,beta)
+          
+          index <- as.matrix(xdat) %*% c(1,beta)
+
+          ## One call to npksum to avoid repeated computation of the
+          ## product kernel (the expensive part)
+
+          W <- as.matrix(data.frame(ydat,1))
+
+          tww <- npksum(txdat=index,
+                        tydat=W,
+                        weights=W,
+                        leave.one.out=TRUE,
+                        bandwidth.divide=TRUE,bws=c(h))$ksum
+
+          denom <- tww[2,2,]
+          denom[which(denom == 0.0)] <- ichimuraFloor
+          fit.loo <- tww[1,2,]/denom
+
+          t.ret <- mean((ydat-fit.loo)^2)
+          return(t.ret)
+
+        }
+
+        ## For the objective function, we require a positive bandwidth, so
+        ## return an infinite penalty for negative h
+
+        if(h > 0) {
+          return(sum.squares.leave.one.out(xdat,ydat,beta,h))
+        } else {
+          return(ichimuraMaxPenalty)
+        }
+
+      }
+
+      ## We define ichimura's objective function. Since we normalize beta_1
+      ## to equal 1, we only worry about beta_2...beta_k in the index
+      ## function for these internals, and when computing the leave-one-out
+      ## objective function use c(1,beta). However, we do indeed return
+      ## c(1,beta) which can be used in the index.model function above.
+
+      kleinspadyFloor <- sqrt(.Machine$double.eps)
+
+      kleinspady <- function(param) {
+
+        ## Define the leave-one-out objective function, sum (y - \hat
+        ## G(X\hat\beta))^2. We let beta denote beta_2...beta_k (first k-1
+        ## parameters in `param') and then let h denote the kth column.
+        if (ncol(xdat) == 1)
+          beta = numeric(0)
+        else 
+          beta <- param[1:(ncol(xdat)-1)]
+
+        h <- param[ncol(xdat)]
+
+        ## Next we define the sum of logs
+
+        sum.log.leave.one.out <- function(xdat,ydat,beta,h) {
+
+          ## Normalize beta_1 = 1 hence multiply X by c(1,beta)
+          
+          index <- as.matrix(xdat) %*% c(1,beta)
+
+          ## One call to npksum to avoid repeated computation of the
+          ## product kernel (the expensive part)
+
+          W <- as.matrix(data.frame(ydat,1))
+
+          tww <- npksum(txdat=index,
+                        tydat=W,
+                        weights=W,
+                        leave.one.out=TRUE,
+                        bandwidth.divide=TRUE,bws=c(h))$ksum
+
+          denom <- tww[2,2,]
+          denom[which(denom == 0.0)] <- kleinspadyFloor
+          ks.loo <- tww[1,2,]/denom
+
+          ## Avoid taking log of zero (ks.loo = 0 or 1 since we take
+          ## the log of ks.loo and the log of 1-ks.loo)
+
+          ks.loo[which(ks.loo < kleinspadyFloor)] <- kleinspadyFloor
+          ks.loo[which(ks.loo > 1- kleinspadyFloor)] <- 1-kleinspadyFloor
+
+          ## Maximize the log likelihood, therefore minimize minus...
+          t.ret <- - mean(ifelse(ydat==1,log(ks.loo),log(1-ks.loo)))
+          return(t.ret)
+
+        }
+
+        ## For the objective function, we require a positive bandwidth, so
+        ## return an infinite penalty for negative h
+
+        if(h > 0) {
+          return(sum.log.leave.one.out(xdat,ydat,beta,h))
+        } else {
+          ## No natural counterpart to var of y here, unlike Ichimura above...
+          return(sqrt(.Machine$double.xmax))
+        }
+
+      }
+
+      ## Now we implement multistarting
+
+      fval.min <- .Machine$double.xmax
+      numimp <- 0
+      fval.value <- numeric(nmulti)
+
+      console <- newLineConsole()
+
+      if(bws$method == "ichimura"){
+        optim.fn <- ichimura
+        optim.control <- c(abstol=optim.abstol,
+                           reltol=optim.reltol,
+                           maxit=optim.maxit)
+      } else if(bws$method == "kleinspady"){
+        optim.fn <- kleinspady
+        optim.control <- c(reltol=optim.reltol,maxit=optim.maxit)
+      }
+
+      for(i in 1:nmulti) {
+
+        console <- printPush(paste(sep="", "Multistart ", i, " of ", nmulti, "..."), console)
+        ##cv.console <- newLineConsole(console)
+        
+        n <- nrow(xdat)
+
+        ## We use the nlm command to minimize the objective function using
+        ## starting values. Note that since we normalize beta_1=1 here beta
+        ## is the k-1 vector containing beta_2...beta_k
+
+        if(i == 1) {
+
+          ## Initial values taken from OLS fit with a constant used for
+          ## multistart 1
+          ols.fit <- lm(ydat~xdat,x=TRUE)
+          fit <- fitted(ols.fit)
+          
+          if (ncol(xdat) != 1){
+            if (setequal(bws$beta[2:ncol(xdat)],c(0)))
+              beta <- coef(ols.fit)[3:ncol(ols.fit$x)]
+            else
+              beta = bws$beta[2:ncol(xdat)]
+          } else { beta = numeric(0) }
+
+          if (bws$bw == 0)
+            h <- 1.06*(min(sd(fit),IQR(fit)/1.34))*n^(-1/5)
           else
-            beta = bws$beta[2:ncol(xdat)]
-        } else { beta = numeric(0) }
+            h <- bws$bw
+        } else {
+          ## Random initialization used for remaining multistarts
 
-        if (bws$bw == 0)
-          h <- 1.06*(min(sd(fit),IQR(fit)/1.34))*n^{-1/5}
-        else
-          h = bws$bw
-          
+          beta.length <- length(coef(ols.fit)[3:ncol(ols.fit$x)])
+          beta <- runif(beta.length,min=0.5,max=1.5)*coef(ols.fit)[3:ncol(ols.fit$x)]
+          h <- runif(1,min=0.5,max=1.5)*(min(sd(fit),IQR(fit)/1.34))*n^(-1/5)
+        }
         
-        if(bws$method == "ichimura") {
-
-          suppressWarnings(nlm.return <- nlm(ichimura, c(beta,h)))
-          
-        } else if(bws$method == "kleinspady") {
-
-          suppressWarnings(nlm.return <- nlm(kleinspady, c(beta,h)))
-          
+        suppressWarnings(optim.return <- optim(c(beta,h),fn=optim.fn,gr=NULL,method=optim.method,control=optim.control))
+        attempts <- 0
+        while((optim.return$convergence != 0) && (attempts <= optim.maxattempts)) {
+          attempts <- attempts + 1
+          beta.length <- length(coef(ols.fit)[3:ncol(ols.fit$x)])
+          beta <- runif(beta.length,min=0.5,max=1.5)*coef(ols.fit)[3:ncol(ols.fit$x)]
+          h <- runif(1,min=0.5,max=1.5)*(min(sd(fit),IQR(fit)/1.34))*n^(-1/5)
+          optim.control <- lapply(optim.control,'*',10.0)
+          suppressWarnings(optim.return <- optim(c(beta,h),fn=optim.fn,gr=NULL,method=optim.method,control=optim.control))
         }
+        
 
-        value[i] <- nlm.return$minimum
+        if(optim.return$convergence != 0)
+          stop(paste("optim failed to converge after optim.maxattempts = ", optim.maxattempts, " iterations."))
 
-        param <- nlm.return$estimate
-        min <- nlm.return$minimum
-        numimp <- numimp + 1
-        best <- i
 
-      } else {
-
-        ## Random initialization used for remaining multistarts
-
-        beta <- rnorm(ncol(xdat)-1, sd = i)
-        h <- runif(1,min=0,max=2)*(min(sd(fit),IQR(fit)/1.34))*n^{-1/5}
-
-        if(bws$method == "ichimura") {
-
-          suppressWarnings(nlm.return <- nlm(ichimura, c(beta,h)))
-          
-        } else if(bws$method == "kleinspady") {
-
-          suppressWarnings(nlm.return <- nlm(kleinspady, c(beta,h)))
-          
-        }
-
-        value[i] <- nlm.return$minimum
-
-        if(nlm.return$minimum < min) {
-          param <- nlm.return$estimate
-          min <- nlm.return$minimum
+        fval.value[i] <- optim.return$value       
+        if(optim.return$value < fval.min) {        
+          param <- optim.return$par
+          fval.min <- optim.return$value
           numimp <- numimp + 1
           best <- i
         }
 
+        
+        if(i != nmulti)
+          console <- printPop(console)
       }
-      console <- printPop(console)
-    }
-    ##cat('\n')
+      console <- printClear(console)
 
+      bws$beta <- if(ncol(xdat) == 1) 1.0
+      else c(1,param[1:(ncol(xdat)-1)])
+      bws$bw <- param[ncol(xdat)]
+      bws$fval <- fval.min
+      bws$ifval <- best
+      bws$numimp <- numimp
+      bws$fval.vector <- fval.value
+    }
     ## Return a list with beta (we append the restricted value of
     ## beta_1=1), the bandwidth h, the value of the objective function at
     ## its minimum, the number of restarts that resulted in an improved
@@ -361,24 +413,24 @@ npindexbw.sibandwidth <-
     ## with other functions, e.g., ifval, fval etc? Also, kindly return a
     ## `pretty print' type of object
 
-    bws <- sibandwidth(beta =
-                       if(ncol(xdat) == 1) 1.0
-                       else c(1,param[1:(ncol(xdat)-1)]),
-                       h = param[ncol(xdat)],
+    bws <- sibandwidth(beta = bws$beta,
+                       h = bws$bw,
                        method = bws$method,
                        ckertype = bws$ckertype,
                        ckerorder = bws$ckerorder,
-                       fval = min/bws$nobs,
-                       ifval = best,
-                       numimp = numimp,
-                       fval.vector = value,
+                       fval = bws$fval,
+                       ifval = bws$ifval,
+                       numimp = bws$numimp,
+                       fval.vector = bws$fval.vector,
                        nobs = bws$nobs,
                        xdati = bws$xdati,
                        ydati = bws$ydati,
                        xnames = bws$xnames,
                        ynames = bws$ynames,
-                       bandwidth = param[ncol(xdat)],
-                       rows.omit = rows.omit)
+                       bandwidth = bws$bw,
+                       rows.omit = rows.omit,
+                       bandwidth.compute = bandwidth.compute,
+                       optim.method = optim.method)
 
 
     bws

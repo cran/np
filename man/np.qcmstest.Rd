@@ -175,7 +175,7 @@ npqcmstest(formula,
 
 }
 \author{
-    Tristen Hayfield \email{hayfietj@mcmaster.ca}, Jeffrey S. Racine
+    Tristen Hayfield \email{hayfield@phys.ethz.ch}, Jeffrey S. Racine
     \email{racinej@mcmaster.ca}
 }
 
@@ -189,6 +189,7 @@ npqcmstest(formula,
 
 \seealso{ }
 \examples{
+\dontrun{
 # EXAMPLE 1: For this example, we conduct a consistent quantile regression
 # model specification test for a parametric wage quantile regression
 # model that is quadratic in age. The work of Murphy and Welch (1990)
@@ -231,5 +232,6 @@ X <- data.frame(age)
 npqcmstest(model = model, xdat = X, ydat = logwage, tau=0.5)
 
 detach(cps71)
+} % enddontrun
 }
 \keyword{ nonparametric }

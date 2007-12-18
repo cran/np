@@ -22,7 +22,6 @@ export(npudensbw
        ,npscoef
        ,npscoefbw
        ,uocquantile
-       ,w
        ,se
        ,gradients
        )

@@ -203,7 +203,7 @@ npreg(bws, \dots)
 }
 
 \author{
-  Tristen Hayfield \email{hayfietj@mcmaster.ca}, Jeffrey S. Racine \email{racinej@mcmaster.ca}
+  Tristen Hayfield \email{hayfield@phys.ethz.ch}, Jeffrey S. Racine \email{racinej@mcmaster.ca}
 }
 
 \section{Usage Issues}{
@@ -218,6 +218,7 @@ npreg(bws, \dots)
   \code{\link{loess}}
 }
 \examples{
+\dontrun{
 # EXAMPLE 1 (INTERFACE=FORMULA): For this example, we compute a
 # bivariate nonparametric regression estimate for Giovanni Baiocchi's
 # Italian income panel (see Italy for details)
@@ -352,7 +353,7 @@ Sys.sleep(5)
 
 # EXAMPLE 3 (INTERFACE=FORMULA): For this example, we replicate the
 # nonparametric regression in Maasoumi, Racine, and Stengos
-# (forthcoming) (see oecdpanel for details). Note that X is multivariate
+# (2007) (see oecdpanel for details). Note that X is multivariate
 # containing a mix of unordered, ordered, and continuous datatypes. Note
 # - this may take a few minutes depending on the speed of your computer.
 
@@ -378,7 +379,7 @@ detach(oecdpanel)
 
 # EXAMPLE 3 (INTERFACE=DATAFRAME): For this example, we replicate the
 # nonparametric regression in Maasoumi, Racine, and Stengos
-# (forthcoming) (see oecdpanel for details). Note that X is multivariate
+# (2007) (see oecdpanel for details). Note that X is multivariate
 # containing a mix of unordered, ordered, and continuous datatypes. Note
 # - this may take a few minutes depending on the speed of your computer.
 
@@ -572,6 +573,7 @@ screen(2)
 
 persp(xs, zs, fit.mat, xlab="x1", ylab="x2", zlab="y",
       main="Local linear estimate")
+} % enddontrun
 }
 \keyword{nonparametric}
 

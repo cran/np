@@ -57,7 +57,7 @@ npcmstest <- function(formula,
     xdat = xdat[goodrows,,drop = FALSE]
     ydat = ydat[goodrows]
 
-    na.index = w(goodrows==0)
+    na.index = which(goodrows==0)
   }
 
   set.seed(random.seed)

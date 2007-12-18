@@ -17,12 +17,14 @@
 }
 \source{ Aman Ullah }
 \examples{
+\dontrun{
 data("cps71")
 attach(cps71)
 
 plot(age, logwage, xlab="Age", ylab="log(wage)")
 
 detach(cps71)
+} % enddontrun
 }
 \references{
   Pagan, A. and A. Ullah (1999), \emph{Nonparametric Econometrics,}

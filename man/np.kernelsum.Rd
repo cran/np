@@ -233,7 +233,7 @@ npksum(\dots)
   estimators for discrete distributions,} Biometrika, 68, 301-309.  }
 
 \author{
-  Tristen Hayfield \email{hayfietj@mcmaster.ca}, Jeffrey S. Racine
+  Tristen Hayfield \email{hayfield@phys.ethz.ch}, Jeffrey S. Racine
   \email{racinej@mcmaster.ca}
 }
 
@@ -249,6 +249,7 @@ npksum(\dots)
 
 \seealso{ }
 \examples{
+\dontrun{
 # EXAMPLE 1: For this example, we generate 100,000 observations from a
 # N(0, 1) distribution, then evaluate the kernel density on a grid of 50
 # equally spaced points using the npksum() function, then compare
@@ -499,5 +500,6 @@ kernel <- npksum(txdat=x,exdat=x.eval,bws=1,
 
 plot(x.eval,kernel,type="l",xlab="X",ylab="Kernel Function") 
 abline(0,0)
+} % enddontrun
 }
 \keyword{ nonparametric }

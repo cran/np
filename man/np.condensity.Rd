@@ -201,7 +201,7 @@ npcdens(bws, \dots)
 
 }
 \author{
-  Tristen Hayfield \email{hayfietj@mcmaster.ca}, Jeffrey S. Racine
+  Tristen Hayfield \email{hayfield@phys.ethz.ch}, Jeffrey S. Racine
   \email{racinej@mcmaster.ca}    
 }
 
@@ -217,6 +217,7 @@ npcdens(bws, \dots)
   \code{\link{npudens}}
 }
 \examples{
+\dontrun{
 # EXAMPLE 1 (INTERFACE=FORMULA): For this example, we load Giovanni
 # Baiocchi's Italian GDP panel (see Italy for details), and compute the
 # likelihood cross-validated bandwidths (default) using a second-order
@@ -243,7 +244,8 @@ fhat <- npcdens(bws=bw)
 summary(fhat)
 
 # Call the npplot() function to visualize the results (<ctrl>-C will
-# interrupt on *NIX systems, <esc> will interrupt on MS Windows systems).
+# interrupt on *NIX systems, <esc> will interrupt on MS Windows
+# systems).
 
 npplot(bws=bw)
 
@@ -316,15 +318,15 @@ bw <- npcdensbw(formula=eruptions~waiting)
 
 summary(bw)
 
-# Plot the density function (<ctrl>-C will interrupt on *NIX systems, 
-# <esc> will interrupt on MS Windows systems)
+# Plot the density function (<ctrl>-C will interrupt on *NIX systems,
+# <esc> will interrupt on MS Windows systems).
 
 npplot(bws=bw)
 
 # Plot the distribution function (cdf=TRUE) (<ctrl>-C will interrupt on
 # *NIX systems, <esc> will interrupt on MS Windows systems)
 
-npplot(bws=bw,cdf=TRUE)
+npplot(bws=bw, cdf=TRUE)
 
 detach(faithful)
 
@@ -492,6 +494,7 @@ persp(x1.seq,
       main="Estimated Nonparametric Probability Perspective", 
       theta=310, 
       phi=25)
+} % enddontrun
 }
 \keyword{nonparametric}
 

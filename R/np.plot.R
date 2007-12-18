@@ -604,22 +604,16 @@ trim.quantiles = function(dat, trim){
   tq
 }
 
-factor.mode = function(f){
-  tq <- unclass(table(f.num))
-  j <- w(tq == max(tq))[1]
-  sort(unique(f))[j]
-}
-
 uocquantile = function(x, prob) {
   if (is.ordered(x)){
     tq = unclass(table(x))
     tq = tq / sum(tq)
-    j = w(sapply(1:length(tq), function(y){ sum(tq[1:y]) }) >= prob)[1]
+    j = which(sapply(1:length(tq), function(y){ sum(tq[1:y]) }) >= prob)[1]
     sort(unique(x))[j]
   } else if (is.factor(x)) {
     ## just returns mode
     tq = unclass(table(x))
-    j = w(tq == max(tq))[1]
+    j = which(tq == max(tq))[1]
     sort(unique(x))[j]
   } else {
     quantile(x, probs = prob)
@@ -2025,6 +2019,7 @@ npplot.plbandwidth <-
         
       if (plot.behavior != "plot"){
         r1 = plregression(bws = bws, xcoef = tobj$xcoef,
+          xcoefvcov = vcov(tobj),
           xcoeferr = tobj$xcoeferr,
           evalx =  x.eval[,1],
           evalz =  x.eval[,2],
@@ -2297,7 +2292,8 @@ npplot.plbandwidth <-
           if (gradients){
           } else {
             plot.out[[plot.index]] =
-              plregression(bws = bws, xcoef = tobj$xcoef, xcoeferr = tobj$xcoeferr,
+              plregression(bws = bws, xcoef = tobj$xcoef, xcoefvcov = vcov(tobj),
+                           xcoeferr = tobj$xcoeferr,
                            evalx = subcol(exdat,ei,i)[1:xi.neval,, drop = FALSE],
                            evalz = ezdat[1:xi.neval,, drop = FALSE],
                            mean = na.omit(temp.mean),
@@ -2404,9 +2400,11 @@ npplot.plbandwidth <-
           if (gradients){
           } else {
             plot.out[[plot.index]] =
-              plregression(bws = bws, xcoef = tobj$xcoef, xcoeferr = tobj$xcoeferr,
-                           exdat = exdat[1:xi.neval,, drop = FALSE],
-                           ezdat = subcol(ezdat,ei,i)[1:xi.neval,, drop = FALSE],
+              plregression(bws = bws, xcoef = tobj$xcoef,
+                           xcoeferr = tobj$xcoeferr,
+                           xcoefvcov = vcov(tobj),
+                           evalx = exdat[1:xi.neval,, drop = FALSE],
+                           evalz = subcol(ezdat,ei,i)[1:xi.neval,, drop = FALSE],
                            mean = na.omit(temp.mean),
                            ntrain = dim(zdat)[1],
                            trainiseval = FALSE,
@@ -3454,7 +3452,7 @@ npplot.conbandwidth <-
           if (plot.errors){
             if (plot.errors.method == "asymptotic")
               temp.err[1:xi.neval,1:2] = replicate(2,2.0*eval(terrexpr))
-            else if (plot.errors.method == "bootstrap")
+            else if (plot.errors.method == "bootstrap"){
               temp.boot <- compute.bootstrap.errors(
                         xdat = xdat,
                         ydat = ydat,
@@ -3473,14 +3471,15 @@ npplot.conbandwidth <-
                         plot.errors.type = plot.errors.type,
                         plot.errors.quantiles = plot.errors.quantiles,
                         bws = bws)
-            temp.err[1:xi.neval,] <- temp.boot[["boot.err"]]
-            temp.boot <- temp.boot[["bxp"]]
-            if (!plot.bxp.out){
-              temp.boot$out <- numeric()
-              temp.boot$group <- integer()
+              temp.err[1:xi.neval,] <- temp.boot[["boot.err"]]
+              temp.boot <- temp.boot[["bxp"]]
+              if (!plot.bxp.out){
+                temp.boot$out <- numeric()
+                temp.boot$group <- integer()
+              }
             }
           }
-        
+          
           if (common.scale){
             allei[,plot.index] = ei
             data.eval[,(plot.index-1)*dsf+j] = temp.dens
@@ -3578,7 +3577,7 @@ npplot.conbandwidth <-
             if (plot.errors){
               if (plot.errors.method == "asymptotic")
                 temp.err[1:xi.neval,1:2] = replicate(2,2.0*eval(terrexpr))
-              else if (plot.errors.method == "bootstrap")
+              else if (plot.errors.method == "bootstrap"){
                 temp.boot <- compute.bootstrap.errors(
                           xdat = xdat,
                           ydat = ydat,
@@ -3597,11 +3596,12 @@ npplot.conbandwidth <-
                           plot.errors.type = plot.errors.type,
                           plot.errors.quantiles = plot.errors.quantiles,
                           bws = bws)
-              temp.err[1:xi.neval,] <- temp.boot[["boot.err"]]
-              temp.boot <- temp.boot[["bxp"]]
-              if (!plot.bxp.out){
-                temp.boot$out <- numeric()
-                temp.boot$group <- integer()
+                temp.err[1:xi.neval,] <- temp.boot[["boot.err"]]
+                temp.boot <- temp.boot[["bxp"]]
+                if (!plot.bxp.out){
+                  temp.boot$out <- numeric()
+                  temp.boot$group <- integer()
+                }
               }
             }
             

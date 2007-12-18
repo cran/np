@@ -64,9 +64,7 @@ double kernel(int KERNEL, double z)
 
 /* Evaluate the kernel function */
 
-/* Define z_squared used by all kernels */
-
-	double z_squared = ipow(z,2);
+  double z_squared;
 	double one_over_sqrt_two_pi = 0.39894228040143267794;
 	double return_value = 0.0;
 
@@ -77,13 +75,15 @@ double kernel(int KERNEL, double z)
 
 /* Second Order Gaussian (Standard Kernel) */
 
-			return_value = one_over_sqrt_two_pi*exp(-0.5*z_squared);
+			return_value = one_over_sqrt_two_pi*exp(-0.5*ipow(z,2));
 
 			break;
 
 		case 1:
 
 /* Fourth Order Gaussian */
+
+      z_squared = ipow(z,2);
 
 			return_value = one_over_sqrt_two_pi*(1.5-0.5*z_squared)*exp(-0.5*z_squared);
 
@@ -93,6 +93,8 @@ double kernel(int KERNEL, double z)
 
 /* Sixth Order Gaussian */
 
+      z_squared = ipow(z,2);
+
 			return_value = one_over_sqrt_two_pi*(1.875-1.25*z_squared+0.125*ipow(z,4))*exp(-0.5*z_squared);
 
 			break;
@@ -101,6 +103,8 @@ double kernel(int KERNEL, double z)
 
 /* Eighth Order Gaussian */
 
+      z_squared = ipow(z,2);
+
 			return_value = one_over_sqrt_two_pi*(2.1875-2.1875*z_squared+0.4375*ipow(z,4)-0.02083333333*ipow(z,6))*exp(-0.5*z_squared);
 
 			break;
@@ -108,78 +112,53 @@ double kernel(int KERNEL, double z)
 		case 4:
 
 /* Second Order Epanechnikov */
+/* Note that return value is preset to 0 so no ifelse necessary */
 
-			if (z_squared < 5.0)
-			{
-				return_value = (double)(0.33541019662496845446-0.067082039324993690892*z_squared);
-			}
-			else
-			{
-				return_value = 0.0;
-			}
+      z_squared = ipow(z,2);
+
+			if (z_squared < 5.0) return_value = (double)(0.33541019662496845446-0.067082039324993690892*z_squared);
 
 			break;
 
 		case 5:
 
 /* Fourth Order Epanechnikov */
-			if (z_squared < 5.0)
-			{
-				return_value = (double)(0.008385254916*(-15.0+7.0*z_squared)*(-5.0+z_squared));
-			}
-			else
-			{
-				return_value = 0.0;
-			}
+
+      z_squared = ipow(z,2);
+
+			if (z_squared < 5.0) return_value = (double)(0.008385254916*(-15.0+7.0*z_squared)*(-5.0+z_squared));
 
 			break;
 
 		case 6:
 
 /* Sixth Order Epanechnikov */
-			if (z_squared < 5.0)
-			{
-				return_value = (double)(0.33541019662496845446*(2.734375-3.28125*z_squared+0.721875*z_squared)*(1.0-0.2*z_squared));
-			}
-			else
-			{
-				return_value = 0.0;
-			}
+
+      z_squared = ipow(z,2);
+
+			if (z_squared < 5.0) return_value = (double)(0.33541019662496845446*(2.734375-3.28125*z_squared+0.721875*z_squared)*(1.0-0.2*z_squared));
 
 			break;
 
 		case 7:
 
 /* Eighth Order Epanechnikov */
-			if (z_squared < 5.0)
-			{
-				return_value = (double)(0.33541019662496845446*(3.5888671875-7.8955078125*z_squared
+
+      z_squared = ipow(z,2);
+
+			if (z_squared < 5.0) return_value = (double)(0.33541019662496845446*(3.5888671875-7.8955078125*z_squared
 					+4.1056640625*z_squared-.5865234375*z_squared)
 					*(1.0-0.2*z_squared));
-			}
-			else
-			{
-				return_value = 0.0;
-			}
 
 			break;
 
 		case 8:
 
-/* Rectangular Kernel added 4/27/99 */
+/* Rectangular Kernel */
+/* Note that return value is preset to 0 so no ifelse necessary */
 
-/* Note: criterion is if fabs(z) < 1, but since z_squared
-							 is already computed, simply use z_squared as it is
-							 an equivalent criterion. */
+			if(fabs(z) < 1.0)	return_value = 0.5;
 
-			if(z_squared < 1.0)
-			{
-				return_value = 0.5;
-			}
-			else
-			{
-				return_value = 0.0;
-			}
 
 			break;
 
@@ -197,7 +176,7 @@ double cdf_kernel(int KERNEL, double z)
 
 /* Define z_squared used by all kernels */
 
-	double z_squared = ipow(z,2);
+	double z_squared;
 	double sqrt_5 = 2.236067978;
 	double return_value = 0.0;
 
@@ -216,13 +195,15 @@ double cdf_kernel(int KERNEL, double z)
 
 /* Fourth Order Gaussian */
 
-			return_value = 0.5*erfun((double)(0.7071067810*z))+0.1994711401*z*exp(-0.5*z_squared)+0.5;
+			return_value = 0.5*erfun((double)(0.7071067810*z))+0.1994711401*z*exp(-0.5*ipow(z,2))+0.5;
 
 			break;
 
 		case 2:
 
 /* Sixth Order Gaussian */
+
+      z_squared = ipow(z,2);
 
 			return_value = 0.5*erfun((double)(0.7071067810*z))
 				+0.3490744952*z*exp(-0.5*z_squared)
@@ -233,6 +214,8 @@ double cdf_kernel(int KERNEL, double z)
 		case 3:
 
 /* Eighth Order Gaussian */
+
+      z_squared = ipow(z,2);
 
 			return_value = 0.5*erfun((double)(0.7071067810*z))+0.4737439578*z*exp(-0.5*z_squared)
 				-0.1329807601*exp(-0.5*z_squared)*ipow(z,3)
@@ -322,17 +305,13 @@ double cdf_kernel(int KERNEL, double z)
 
 		case 8:
 
-/* Rectangular Kernel added 4/27/99 */
-
-/* Note: criterion is if fabs(z) < 1, but since z_squared
-							 is already computed, simply use z_squared as it is
-							 an equivalent criterion. */
+/* Rectangular Kernel - bug Oct 10, 2007 - was using sqrt_5 in second call... */
 
 			if(z < -1.0)
 			{
 				return_value = 0.0;
 			}
-			else if(z < sqrt_5)
+			else if(z < 1.0)
 			{
 				return_value = 0.5 + 0.5*z;
 			}
@@ -876,7 +855,6 @@ double kernel_convol(int KERNEL, int BANDWIDTH, double z, double h1, double h2)
 
 int initialize_kernel_regression_asymptotic_constants(
 int KERNEL,
-int num_reg_unordered,
 int num_reg_continuous,
 double *INT_KERNEL_P,
 double *K_INT_KERNEL_P,
@@ -894,7 +872,7 @@ double *DIFF_KER_PPM)
 /* Second-order Gaussian */
 
 			*INT_KERNEL_P = 0.28209479177387814348;
-			*K_INT_KERNEL_P = ((double) (num_reg_unordered+ num_reg_continuous) * *INT_KERNEL_P);
+			*K_INT_KERNEL_P = ipow(*INT_KERNEL_P, num_reg_continuous);
 			*INT_KERNEL_PM_HALF = 0.21969564473386119853;
 			*DIFF_KER_PPM = (2.0 * (*K_INT_KERNEL_P/ *INT_KERNEL_P) * 0.06239914704001694495);
 
@@ -905,7 +883,7 @@ double *DIFF_KER_PPM)
 /* Fourth-order Gaussian */
 
 			*INT_KERNEL_P = 0.47603496111841936711;
-			*K_INT_KERNEL_P = (double) ((num_reg_unordered+ num_reg_continuous) * *INT_KERNEL_P);
+			*K_INT_KERNEL_P = ipow(*INT_KERNEL_P, num_reg_continuous);
 			*INT_KERNEL_PM_HALF = 0.27805230036629307938;
 			*DIFF_KER_PPM = (2.0 * (*K_INT_KERNEL_P/ *INT_KERNEL_P) * 0.19798266075212628773);
 
@@ -916,7 +894,7 @@ double *DIFF_KER_PPM)
 /* Sixth-order Gaussian */
 
 			*INT_KERNEL_P = 0.62396943688265038571;
-			*K_INT_KERNEL_P = (double) ((num_reg_unordered + num_reg_continuous) * *INT_KERNEL_P);
+			*K_INT_KERNEL_P = ipow(*INT_KERNEL_P, num_reg_continuous);
 			*INT_KERNEL_PM_HALF = 0.25618196366213489976;
 			*DIFF_KER_PPM = (2.0 * (*K_INT_KERNEL_P/ *INT_KERNEL_P) * 0.36778747322051548595);
 
@@ -927,7 +905,7 @@ double *DIFF_KER_PPM)
 /* Eighth-order Gaussian */
 
 			*INT_KERNEL_P = 0.74785078617543927990;
-			*K_INT_KERNEL_P = (double) ((num_reg_unordered + num_reg_continuous) * *INT_KERNEL_P);
+			*K_INT_KERNEL_P = ipow(*INT_KERNEL_P, num_reg_continuous);
 			*INT_KERNEL_PM_HALF = 0.19644083574560137818;
 			*DIFF_KER_PPM = (2.0 * (*K_INT_KERNEL_P/ *INT_KERNEL_P) * 0.55140995042983790172);
 
@@ -938,7 +916,7 @@ double *DIFF_KER_PPM)
 /* Second-order Epanechnikov */
 
 			*INT_KERNEL_P = 0.26832815729997476357;
-			*K_INT_KERNEL_P = (double) ((num_reg_unordered + num_reg_continuous) * *INT_KERNEL_P);
+			*K_INT_KERNEL_P = ipow(*INT_KERNEL_P, num_reg_continuous);
 			*INT_KERNEL_PM_HALF = 0.20250390621232470438;
 			*DIFF_KER_PPM = (2.0 * (*K_INT_KERNEL_P/ *INT_KERNEL_P) * 0.06582425108765005919);
 
@@ -949,7 +927,7 @@ double *DIFF_KER_PPM)
 /* Fourth-order Epanechnikov */
 
 			*INT_KERNEL_P = 0.55901699437494742410;
-			*K_INT_KERNEL_P = (double) ((num_reg_unordered + num_reg_continuous) * *INT_KERNEL_P);
+			*K_INT_KERNEL_P = ipow(*INT_KERNEL_P, num_reg_continuous);
 			*INT_KERNEL_PM_HALF = 0.25635637709255874475;
 			*DIFF_KER_PPM = (2.0 * (*K_INT_KERNEL_P/ *INT_KERNEL_P) * 0.30266061728238867935);
 
@@ -960,7 +938,7 @@ double *DIFF_KER_PPM)
 /* Sixth-order Epanechnikov */
 
 			*INT_KERNEL_P = 0.84658823667359826246;
-			*K_INT_KERNEL_P = (double) ((num_reg_unordered + num_reg_continuous) * *INT_KERNEL_P);
+			*K_INT_KERNEL_P = ipow(*INT_KERNEL_P, num_reg_continuous);
 			*INT_KERNEL_PM_HALF = 0.27428761935713012265;
 			*DIFF_KER_PPM = (2.0 * (*K_INT_KERNEL_P/ *INT_KERNEL_P) * 0.57230061731646813981);
 
@@ -971,7 +949,7 @@ double *DIFF_KER_PPM)
 /* Eighth-order Epanechnikov */
 
 			*INT_KERNEL_P = 1.1329342579014329689;
-			*K_INT_KERNEL_P = (double) ((num_reg_unordered + num_reg_continuous) * *INT_KERNEL_P);
+			*K_INT_KERNEL_P = ipow(*INT_KERNEL_P, num_reg_continuous);
 			*INT_KERNEL_PM_HALF = 0.15585854498586945817;
 			*DIFF_KER_PPM = (2.0 * (*K_INT_KERNEL_P/ *INT_KERNEL_P) * 0.97707571291556351073);
 
@@ -980,7 +958,7 @@ double *DIFF_KER_PPM)
 		case 8:
 
 			*INT_KERNEL_P = 0.5;
-			*K_INT_KERNEL_P = (double) ((num_reg_unordered + num_reg_continuous) * *INT_KERNEL_P);
+			*K_INT_KERNEL_P = ipow(*INT_KERNEL_P, num_reg_continuous);
 			*INT_KERNEL_PM_HALF = 0.25;
 			*DIFF_KER_PPM = (2.0 * (*K_INT_KERNEL_P/ *INT_KERNEL_P) * 0.25);
 
@@ -995,7 +973,6 @@ double *DIFF_KER_PPM)
 
 int initialize_kernel_density_asymptotic_constants(
 int KERNEL,
-int num_var_unordered,
 int num_var_continuous,
 double *INT_KERNEL_P,
 double *K_INT_KERNEL_P)
@@ -1011,7 +988,7 @@ double *K_INT_KERNEL_P)
 /* Second-order Gaussian */
 
 			*INT_KERNEL_P = 0.28209479177387814348;
-			*K_INT_KERNEL_P = ((double) (num_var_unordered + num_var_continuous) * *INT_KERNEL_P);
+			*K_INT_KERNEL_P = ipow(*INT_KERNEL_P, num_var_continuous);
 
 			break;
 
@@ -1020,7 +997,7 @@ double *K_INT_KERNEL_P)
 /* Fourth-order Gaussian */
 
 			*INT_KERNEL_P = 0.47603496111841936711;
-			*K_INT_KERNEL_P = (double) ((num_var_unordered + num_var_continuous) * *INT_KERNEL_P);
+			*K_INT_KERNEL_P = ipow(*INT_KERNEL_P, num_var_continuous);
 
 			break;
 
@@ -1029,7 +1006,7 @@ double *K_INT_KERNEL_P)
 /* Sixth-order Gaussian */
 
 			*INT_KERNEL_P = 0.62396943688265038571;
-			*K_INT_KERNEL_P = (double) ((num_var_unordered + num_var_continuous) * *INT_KERNEL_P);
+			*K_INT_KERNEL_P = ipow(*INT_KERNEL_P, num_var_continuous);
 
 			break;
 
@@ -1038,7 +1015,7 @@ double *K_INT_KERNEL_P)
 /* Eighth-order Gaussian */
 
 			*INT_KERNEL_P = 0.74785078617543927990;
-			*K_INT_KERNEL_P = (double) ((num_var_unordered + num_var_continuous) * *INT_KERNEL_P);
+			*K_INT_KERNEL_P = ipow(*INT_KERNEL_P, num_var_continuous);
 
 			break;
 
@@ -1047,7 +1024,7 @@ double *K_INT_KERNEL_P)
 /* Second-order Epanechnikov */
 
 			*INT_KERNEL_P = 0.26832815729997476357;
-			*K_INT_KERNEL_P = (double) ((num_var_unordered + num_var_continuous) * *INT_KERNEL_P);
+			*K_INT_KERNEL_P = ipow(*INT_KERNEL_P, num_var_continuous);
 
 			break;
 
@@ -1056,7 +1033,7 @@ double *K_INT_KERNEL_P)
 /* Fourth-order Epanechnikov */
 
 			*INT_KERNEL_P = 0.55901699437494742410;
-			*K_INT_KERNEL_P = (double) ((num_var_unordered + num_var_continuous) * *INT_KERNEL_P);
+			*K_INT_KERNEL_P = ipow(*INT_KERNEL_P, num_var_continuous);
 
 			break;
 
@@ -1065,7 +1042,7 @@ double *K_INT_KERNEL_P)
 /* Sixth-order Epanechnikov */
 
 			*INT_KERNEL_P = 0.84658823667359826246;
-			*K_INT_KERNEL_P = (double) ((num_var_unordered + num_var_continuous) * *INT_KERNEL_P);
+			*K_INT_KERNEL_P = ipow(*INT_KERNEL_P, num_var_continuous);
 
 			break;
 
@@ -1074,14 +1051,14 @@ double *K_INT_KERNEL_P)
 /* Eighth-order Epanechnikov */
 
 			*INT_KERNEL_P = 1.1329342579014329689;
-			*K_INT_KERNEL_P = (double) ((num_var_unordered + num_var_continuous) * *INT_KERNEL_P);
+			*K_INT_KERNEL_P = ipow(*INT_KERNEL_P, num_var_continuous);
 
 			break;
 
 		case 8:
 
 			*INT_KERNEL_P = 0.5;
-			*K_INT_KERNEL_P = (double) ((num_var_unordered + num_var_continuous) * *INT_KERNEL_P);
+			*K_INT_KERNEL_P = ipow(*INT_KERNEL_P, num_var_continuous);
 
 			break;
 

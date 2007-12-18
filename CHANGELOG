@@ -1,31 +1,26 @@
-* Bandwidths are now checked for validity based on their variable and kernel 
-  types
-* np now does a better job of preserving names of some 'y' data
-* Names of coefficients returned from coef() now match variable names
-* Fixed some corner cases in npksum involving the dimensionality
-  of ouputs
-* Fixed deprecation warnings in R 2.5.0 caused by use of $ on atomic objects
-* Various and sundry bug fixes in npscoef
-* npscoef now handles discrete 'z' data
-* Predict now accepts the argument 'se.fit', like predict.lm
-* Fixed bug where incorrect asymptotic standard errors of gradients for 
-  regression objects were being displayed in npplot()
-* Fixed bug where errors of gradients of regression objects were not being
-  returned in matrix form
-* vcov() now works with partially linear regression objects 
-* Fixed detection of evaluation responses when using the formula interface
-* Pre-computed bandwidth objects are now provided for some of the more 
-  computationally burdensome examples
-* Added Jeffrey Wooldridge's WAGE1 dataset with qualitative variables (married, 
-  female, nonwhite)
-* Predictions outside of discrete support for regressions and conditional 
-  densities are now allowed
-* Fixed sign issue with scaling of standard errors in the single index model
-* Fixed error when calculating some bandwidths/scale factors for display purposes
-* Bug in passing certain arguments to npcdensbw fixed
-* Added predict method for qregression objects
-* Proper normalisation for liracine kernel shown in summary
-* Fixed output bug (^H) in summary method for sigtest objects
-* Fixed regression with plotting of bootstrapped errors in perspective plots
-* npcdist no longer incorrectly calls npcdens
-* Fixed spacing between var name and p-value in significance test summaries
+* now use optim rather than nlmfor minimisation in single index and
+smooth coefficient models
+* fixed bug in klein-spady objective function
+* regression standard errors are now available in the case of no
+  continuous variables
+* summary should look prettier, print additional information
+* tidied up lingering issues with out-of-sample data and conditional modes
+* fixed error when plotting asymptotic errors with conditional densities
+* fixed a bug in npplot with partially linear regressions and 
+plot.behavior='data' or 'plot-data'
+* maximum default number of multistarts is now set to 5
+* least-squares cross-validation of conditional densities uses a new,
+ faster algorithm
+* new, faster algorithm for least-squares cross-validation for both 
+local-constant and local linear regressions.
+   The estimator has changed somewhat: both cross-validation and
+   the estimator use a method of shrinking towards the local constant
+   estimator rather than the standard ridge approach that shrinks
+   towards zero
+* optimised smooth coefficient code, added ridging
+* fixed bug in uniform CDF kernel
+* fixed bug where npindexbw would ignore bandwidth.compute = FALSE and
+   compute bandwidths when supplied with a preexisting bw object
+* now can handle estimation out of discrete support.
+* summary would misreport the values of discrete scale factors which were
+   computed with bwscaling = TRUE

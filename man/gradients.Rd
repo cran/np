@@ -46,15 +46,17 @@ gradients(x, \dots)
 \references{
 }
 \author{
-  Tristen Hayfield \email{hayfietj@mcmaster.ca}, Jeffrey S. Racine \email{racinej@mcmaster.ca}
+  Tristen Hayfield \email{hayfield@phys.ethz.ch}, Jeffrey S. Racine \email{racinej@mcmaster.ca}
 }
 
 \section{Note}{
   This method currently only supports objects from the \code{\link{np}} library.
 }
 \examples{
+\dontrun{
 x <- runif(10)
 y <- x + rnorm(10, sd = 0.1)
 gradients(npreg(npregbw(y~x), gradients=TRUE))
+} % enddontrun
 }
 \keyword{nonparametric}

@@ -12,7 +12,8 @@ sibandwidth <-
            xnames = character(length(beta)),
            ynames = character(1),
            sfactor = NA, bandwidth = NA,
-           rows.omit = NA, bandwidth.compute = TRUE){
+           rows.omit = NA, bandwidth.compute = TRUE,
+           optim.method = "NA"){
 
   ndim = length(beta)
   regtype = "lc"
@@ -49,6 +50,10 @@ sibandwidth <-
       ichimura = "Ichimura",
       "kleinspady" = "Klein and Spady"
       ),
+    pomethod = switch(optim.method,
+      "Nelder-Mead" = "Nelder-Mead",
+      "BFGS" = "BFGS",
+      "CG" = "CG", "NA"),
     fval = fval,
     ifval = ifval,
     numimp = numimp,
@@ -100,7 +105,7 @@ print.sibandwidth <- function(x, digits=NULL, ...){
       " observations, ",x$ndim," variable(s)):\n\n",sep="")
 
   print(matrix(x$beta,ncol=x$ndim,dimnames=list(paste("Beta",":",sep=""),x$xnames)))
-
+  cat("Bandwidth: ",x$bw)
   cat(genBwSelStr(x))
   cat(genBwKerStrs(x))
 
@@ -124,7 +129,9 @@ summary.sibandwidth <- function(object, ...){
       " observations, ",object$ndim," variable(s)):\n\n",sep="")
 
   print(matrix(object$beta,ncol=object$ndim,dimnames=list(paste("Beta",":",sep=""),object$xnames)))
-  
+  cat("Bandwidth: ",object$bw)
+  cat("\nOptimisation Method: ", object$pomethod)
+
   cat(genOmitStr(object))
   cat(genBwSelStr(object))
   cat(genBwKerStrs(object))

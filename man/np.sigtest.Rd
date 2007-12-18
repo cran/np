@@ -7,7 +7,7 @@
   \code{npsigtest} implements a consistent test of significance of
   an explanatory variable in a nonparametric regression setting that is
   analogous to a simple \eqn{t}-test in a parametric regression
-  setting. The test is based on Racine, Hart, and Li (forthcoming) and
+  setting. The test is based on Racine, Hart, and Li (2006) and
   Racine (1997).
 }
 \usage{
@@ -73,7 +73,7 @@ npsigtest(xdat,
 
   \item{boot.type}{
     a character string specifying whether to use a `Bootstrap I' or
-    `Bootstrap II' method (see Racine, Hart, and Li (forthcoming) for
+    `Bootstrap II' method (see Racine, Hart, and Li (2006) for
     details). The `Bootstrap II' method re-runs cross-validation for
     each bootstrap replication and uses the new cross-validated
     bandwidth for variable \eqn{i} and the original ones for the
@@ -125,20 +125,20 @@ npsigtest(xdat,
   Li, Q. and J.S. Racine (2007), \emph{Nonparametric Econometrics:
     Theory and Practice,} Princeton University Press.
 
-  Racine, J.S., J. Hart, and Q. Li (forthcoming), \dQuote{Testing the
+  Racine, J.S., J. Hart, and Q. Li (2006), \dQuote{Testing the
     significance of categorical predictor variables in nonparametric
-    regression models,} Econometric Reviews.
+    regression models,} Econometric Reviews, 25, 523-544.
 
-   Racine, J.S. (1997), \dQuote{Consistent significance testing for
+  Racine, J.S. (1997), \dQuote{Consistent significance testing for
     nonparametric regression,} Journal of Business and Economic
-      Statistics 15, 369-379.
+  Statistics 15, 369-379.
 
-    Wang, M.C. and J. van Ryzin (1981), \dQuote{A class of smooth estimators
+  Wang, M.C. and J. van Ryzin (1981), \dQuote{A class of smooth estimators
     for discrete distributions,}  Biometrika, 68, 301-309.
 
 }
 \author{
-    Tristen Hayfield \email{hayfietj@mcmaster.ca}, Jeffrey S. Racine
+    Tristen Hayfield \email{hayfield@phys.ethz.ch}, Jeffrey S. Racine
     \email{racinej@mcmaster.ca}
 }
 
@@ -161,7 +161,7 @@ npsigtest(xdat,
 
 \seealso{ }
 \examples{
-
+\dontrun{
 # EXAMPLE 1 (INTERFACE=FORMULA): For this example, we simulate 100 draws
 # from a DGP in which z, the first column of X, is an irrelevant
 # discrete variable
@@ -229,5 +229,6 @@ npsigtest(bws=bw)
 # only, as in
 
 npsigtest(bws=bw,index=c(1,3))
+} % enddontrun
 }
 \keyword{ nonparametric }

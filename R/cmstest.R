@@ -69,14 +69,8 @@ print.cmstest <- function(x, ...){
               "(", x$boot.num, " replications)",sep="")
       } else paste(x$pdistribution, "Distribution"),
       "\n\nTest Statistic ",sQuote(ifelse(x$pivot,"Jn","In")), ": ",
-      sprintf(fmt = '%e', ifelse(x$pivot, x$Jn, x$In)), "\tP Value: ", sprintf(fmt = '%e', x$P)," ", x$reject,
+      format(ifelse(x$pivot, x$Jn, x$In)), "\tP Value: ", format.pval(x$P)," ", x$reject,
       "\n---\nSignif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1",
-
-      "\n\nCritical Values:", 
-      "\n1%\t\t5%\t\t10%",
-      "\n", sprintf(fmt = '%e', x$q.99), "\t",
-      sprintf(fmt = '%e', x$q.95), "\t",
-      sprintf(fmt = '%e', x$q.90), "\t",
       ifelse(x$reject == '', "\nFail to reject the null of correct specification at the 10% level",
              paste("\nNull of correct specification is rejected at the ", x$rejectNum, "% level", sep="")),
       "\n\n", sep="")

@@ -33,21 +33,24 @@ npscoefbw(\dots)
 \method{npscoefbw}{default}(xdat = stop("invoked without data 'xdat'"),
           ydat = stop("invoked without data 'ydat'"),
           zdat = NULL,
-          bws, 
+          bws,
           nmulti,
           cv.iterate,
           cv.num.iterations,
           backfit.iterate,
           backfit.maxiter,
           backfit.tol,
-          ftol,
-          tol,
           bandwidth.compute = TRUE,
           bwmethod,
           bwscaling,
           bwtype,
           ckertype,
           ckerorder,
+          optim.method,
+          optim.maxattempts,
+          optim.reltol,
+          optim.abstol,
+          optim.maxit,
           \dots)
 
 \method{npscoefbw}{scbandwidth}(xdat = stop("invoked without data 'xdat'"),
@@ -60,11 +63,15 @@ npscoefbw(\dots)
           backfit.iterate = FALSE,
           backfit.maxiter = 100,
           backfit.tol = .Machine$double.eps,
-          ftol = .Machine$double.eps,
-          tol = sqrt(.Machine$double.eps),
           bandwidth.compute = TRUE,
+          optim.method = c("Nelder-Mead", "BFGS", "CG"),
+          optim.maxattempts = 10,
+          optim.reltol = sqrt(.Machine$double.eps),
+          optim.abstol = .Machine$double.eps,
+          optim.maxit = 500,
           \dots)
 }
+
 \arguments{
   \item{formula}{
     a symbolic description of variables on which bandwidth selection is
@@ -131,7 +138,6 @@ npscoefbw(\dots)
   below. 
   }
   
-
   \item{bandwidth.compute}{
     a logical value which specifies whether to do a numerical search for
     bandwidths or not. If set to \code{FALSE}, a \code{scbandwidth} object
@@ -188,20 +194,54 @@ npscoefbw(\dots)
   \item{nmulti}{
     integer number of times to restart the process of finding extrema of
     the cross-validation function from different (random) initial
-    points. Defaults to \code{ncol(xdat)}.
+    points. Defaults to \code{min(5,ncol(xdat))}.
   }
 
-  \item{ftol}{
-    tolerance on the value of the cross-validation function 
-    evaluated at located minima. Defaults to \code{1.19e-07
-      (FLT_EPSILON)}
+  \item{optim.method}{ method used by \code{\link{optim}} for minimization of
+    the objective function. See \code{?optim} for references. Defaults
+    to \code{"Nelder-Mead"}.
+
+    the default method is an implementation of that of Nelder and Mead
+    (1965), that uses only function values and is robust but relatively
+    slow.  It will work reasonably well for non-differentiable
+    functions.
+
+    method \code{"BFGS"} is a quasi-Newton method (also known as a
+    variable metric algorithm), specifically that published
+    simultaneously in 1970 by Broyden, Fletcher, Goldfarb and Shanno.
+    This uses function values and gradients to build up a picture of the
+    surface to be optimized.
+
+    method \code{"CG"} is a conjugate gradients method based
+    on that by Fletcher and Reeves (1964) (but with the option of
+    Polak-Ribiere or Beale-Sorenson updates).  Conjugate gradient
+    methods will generally be more fragile than the BFGS method, but as
+    they do not store a matrix they may be successful in much larger
+    optimization problems.
   }
 
-  \item{tol}{
-    tolerance on the position of located minima of the 
-    cross-validation function. Defaults to \code{1.49e-08
-      (sqrt(DBL_EPSILON))}
+  \item{optim.maxattempts}{
+    maximum number of attempts taken trying to achieve successful
+    convergence in \code{\link{optim}}. Defaults to \code{100}.
   }
+
+  \item{optim.abstol}{
+    the absolute convergence tolerance used by \code{\link{optim}}. Only useful
+    for non-negative functions, as a tolerance for reaching
+    zero. Defaults to \code{.Machine$double.eps}.
+  }
+
+  \item{optim.reltol}{
+    relative convergence tolerance used by \code{\link{optim}}.  The algorithm
+    stops if it is unable to reduce the value by a factor of 'reltol *
+    (abs(val) + reltol)' at a step.  Defaults to
+    \code{sqrt(.Machine$double.eps)}, typically about \code{1e-8}.
+  }
+
+  \item{optim.maxit}{
+    maximum number of iterations used by \code{\link{optim}}. Defaults
+     to \code{500}.
+   }
 
   \item{cv.iterate}{
     boolean value specifying whether or not to perform iterative,
@@ -233,11 +273,11 @@ npscoefbw(\dots)
 }
 
 \details{
- \code{npscoefbw} implements a variety of methods for semiparametric regression on
- multivariate (\eqn{p+q}-variate) explanatory data defined over a set of possibly
- continuous data. The approach is
- based on Li and Racine (2003) who employ \sQuote{generalized product kernels}
- that admit a mix of continuous and discrete datatypes.
+  \code{npscoefbw} implements a variety of methods for semiparametric
+ regression on multivariate (\eqn{p+q}-variate) explanatory data defined
+ over a set of possibly continuous data. The approach is based on Li and
+ Racine (2003) who employ \sQuote{generalized product kernels} that
+ admit a mix of continuous and discrete datatypes.
 
  Three classes of kernel estimators for the continuous datatypes are
  available: fixed, adaptive nearest-neighbor, and generalized
@@ -248,34 +288,31 @@ npscoefbw(\dots)
  are constant over the support of \eqn{x}.
 
  \code{npscoefbw} may be invoked \emph{either} with a formula-like
- symbolic 
- description of variables on which bandwidth selection is to be
+ symbolic description of variables on which bandwidth selection is to be
  performed \emph{or} through a simpler interface whereby data is passed
  directly to the function via the \code{xdat}, \code{ydat}, and
- \code{zdat} 
- parameters. Use of these two interfaces is \bold{mutually exclusive}.
+ \code{zdat} parameters. Use of these two interfaces is \bold{mutually
+ exclusive}.
 
- Data contained in the data frame \code{xdat} may be continuous and
- in \code{zdat} may be of mixed type. Data can be entered in an
- arbitrary order
- and data
- types will be detected automatically by the routine (see \code{\link{np}} for
- details).
+ Data contained in the data frame \code{xdat} may be continuous and in
+ \code{zdat} may be of mixed type. Data can be entered in an arbitrary
+ order and data types will be detected automatically by the routine (see
+ \code{\link{np}} for details).
 
  Data for which bandwidths are to be estimated may be specified
  symbolically. A typical description has the form \code{dependent}
  \code{data} \code{~} \code{parametric} \code{explanatory} \code{data}
- \code{|} \code{nonparametric} \code{explanatory} \code{data},
- where \code{dependent} \code{data} is a univariate response, and
+ \code{|} \code{nonparametric} \code{explanatory} \code{data}, where
+ \code{dependent} \code{data} is a univariate response, and
  \code{parametric} \code{explanatory} \code{data} and
-\code{nonparametric} \code{explanatory}
- \code{data} are both series of variables specified by name, separated by
- the separation character '+'. For example, \code{ y1 ~ x1 + x2 | z1 }
- specifies that the bandwidth object for the smooth coefficient model
- with response \code{y1}, linear parametric regressors \code{x1} and
- \code{x2}, and nonparametric regressor (that is, the slope-changing
- variable) \code{z1} is to be estimated. See below for further examples.
- In the case where the nonparametric (slope-changing) variable is not
+ \code{nonparametric} \code{explanatory} \code{data} are both series of
+ variables specified by name, separated by the separation character
+ '+'. For example, \code{ y1 ~ x1 + x2 | z1 } specifies that the
+ bandwidth object for the smooth coefficient model with response
+ \code{y1}, linear parametric regressors \code{x1} and \code{x2}, and
+ nonparametric regressor (that is, the slope-changing variable)
+ \code{z1} is to be estimated. See below for further examples.  In the
+ case where the nonparametric (slope-changing) variable is not
  specified, it is assumed to be the same as the parametric variable.
 
  A variety of kernels may be specified by the user. Kernels implemented
@@ -284,23 +321,25 @@ npscoefbw(\dots)
  kernel. Unordered discrete datatypes use a variation on Aitchison and
  Aitken's (1976) kernel, while ordered datatypes use a variation of the
  Wang and van Ryzin (1981) kernel.
-}
+
+} 
+
 \value{
-  if \code{bwtype} is set to \code{fixed}, an object containing bandwidths
-  (or scale factors if \code{bwscaling = TRUE}) is returned. If it is set to
-  \code{generalized_nn} or \code{adaptive_nn}, then instead the \eqn{k}th nearest
-  neighbors are returned for the continuous variables while the discrete
-  kernel bandwidths are returned for the discrete variables. Bandwidths
-  are stored in a vector under the component name \code{bw}. Backfitted
-  bandwidths are stored under the component name \code{bw.fitted}.
+
+ if \code{bwtype} is set to \code{fixed}, an object containing
+ bandwidths (or scale factors if \code{bwscaling = TRUE}) is
+ returned. If it is set to \code{generalized_nn} or \code{adaptive_nn},
+ then instead the \eqn{k}th nearest neighbors are returned for the
+ continuous variables while the discrete kernel bandwidths are returned
+ for the discrete variables. Bandwidths are stored in a vector under the
+ component name \code{bw}. Backfitted bandwidths are stored under the
+ component name \code{bw.fitted}.
 
   The functions \code{\link{predict}}, \code{\link{summary}}, and
   \code{\link{plot}} support 
   objects of this class.
 
 }
-
-
 
 \references{
 
@@ -332,7 +371,7 @@ npscoefbw(\dots)
 
 }
 \author{
-    Tristen Hayfield \email{hayfietj@mcmaster.ca}, Jeffrey S. Racine
+    Tristen Hayfield \email{hayfield@phys.ethz.ch}, Jeffrey S. Racine
     \email{racinej@mcmaster.ca}
 }
 
@@ -345,25 +384,25 @@ npscoefbw(\dots)
 
   Caution: multivariate data-driven bandwidth selection methods are, by
   their nature, \emph{computationally intensive}. Virtually all methods
-  require dropping the \eqn{i}th observation from the data set, computing an
-  object, repeating this for all observations in the sample, then
-  averaging each of these leave-one-out estimates for a \emph{given}
-  value of the bandwidth vector, and only then repeating this a large
-  number of times in order to conduct multivariate numerical
-  minimization/maximization. Furthermore, due to the potential for local
-  minima/maxima, \emph{restarting this procedure a large number of times may
-  often be necessary}. This can be frustrating for users possessing
-  large datasets. For exploratory purposes, you may wish to override the
-  default search tolerances, say, setting ftol=.01 and tol=.01 and
-  conduct multistarting (the default is to restart ncol(zdat)
-  times) as is done for a number of examples. Once the procedure
-  terminates, you can restart search with default tolerances using those
-  bandwidths obtained from the less rigorous search (i.e., set
-  \code{bws=bw} on subsequent calls to this routine where \code{bw} is
-  the initial bandwidth object).  A version of this package using the
-  \code{Rmpi} wrapper is under development that allows one to deploy
-  this software in a clustered computing environment to facilitate
-  computation involving large datasets.
+  require dropping the \eqn{i}th observation from the data set,
+  computing an object, repeating this for all observations in the
+  sample, then averaging each of these leave-one-out estimates for a
+  \emph{given} value of the bandwidth vector, and only then repeating
+  this a large number of times in order to conduct multivariate
+  numerical minimization/maximization. Furthermore, due to the potential
+  for local minima/maxima, \emph{restarting this procedure a large
+  number of times may often be necessary}. This can be frustrating for
+  users possessing large datasets. For exploratory purposes, you may
+  wish to override the default search tolerances, say, setting
+  optim.reltol=.1 and conduct multistarting (the default is to restart
+  min(5,ncol(zdat)) times). Once the procedure terminates, you can restart
+  search with default tolerances using those bandwidths obtained from
+  the less rigorous search (i.e., set \code{bws=bw} on subsequent calls
+  to this routine where \code{bw} is the initial bandwidth object).  A
+  version of this package using the \code{Rmpi} wrapper is under
+  development that allows one to deploy this software in a clustered
+  computing environment to facilitate computation involving large
+  datasets.
 
   Support for backfitted bandwidths is experimental and is limited in
   functionality. The code does not support asymptotic standard errors
@@ -374,6 +413,7 @@ npscoefbw(\dots)
 \seealso{
   \code{\link{npregbw}}, \code{\link{npreg}} }
 \examples{
+\dontrun{
 # EXAMPLE 1 (INTERFACE=FORMULA): For this example, we compute a
 # smooth coefficient model with differing X and Z data
 
@@ -393,5 +433,6 @@ z <- runif(n, min=-2, max=2)
 y <- x*exp(z)*(1.0+rnorm(n,sd = 0.2))
 bw <- npscoefbw(xdat=x, ydat=y, zdat=z)
 summary(bw)
+} % enddontrun
 }
 \keyword{nonparametric}

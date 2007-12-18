@@ -244,7 +244,7 @@ npscoef(bws, \dots)
 }
 
 \author{
-  Tristen Hayfield \email{hayfietj@mcmaster.ca}, Jeffrey S. Racine \email{racinej@mcmaster.ca}
+  Tristen Hayfield \email{hayfield@phys.ethz.ch}, Jeffrey S. Racine \email{racinej@mcmaster.ca}
 }
 
 \section{Usage Issues}{
@@ -265,6 +265,7 @@ npscoef(bws, \dots)
   \code{\link{npudensbw}}, \code{\link{npscoefbw}} }
 
 \examples{
+\dontrun{
 # EXAMPLE 1 (INTERFACE=FORMULA): Typically, the variables z will be
 # equal to the regressors x, as in the following example.
 
@@ -307,7 +308,7 @@ lines(x,predict(model)+2*se(model),lty=2,col="red")
 
 # EXAMPLE 2 (INTERFACE=FORMULA): We can handle z and x being different
 # (this would be useful in, say, a time series context where z might be
-# time yielding a time-varying smooth coefficient model)
+# time yielding a time-varying smooth coefficient model).
 
 n <- 250
 x <- runif(n)
@@ -315,7 +316,7 @@ z <- runif(n, min=-2, max=2)
 y <- x*exp(z)*(1.0+rnorm(n,sd = 0.2))
 bw <- npscoefbw(y~x|z)
 model <- npscoef(bw)
-plot(model) 
+plot(model)
 
 # EXAMPLE 2 (INTERFACE=DATAFRAME): We can handle z and x being different
 # (this would be useful in, say, a time series context where z might be
@@ -327,7 +328,8 @@ z <- runif(n, min=-2, max=2)
 y <- x*exp(z)*(1.0+rnorm(n,sd = 0.2))
 bw <- npscoefbw(xdat=x, ydat=y, zdat=z)
 model <- npscoef(bw)
-plot(model) 
+plot(model)
+} % enddontrun
 }
 \keyword{nonparametric}
 

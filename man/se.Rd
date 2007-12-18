@@ -28,14 +28,16 @@ se(x)
 \references{
 }
 \author{
-  Tristen Hayfield \email{hayfietj@mcmaster.ca}, Jeffrey S. Racine \email{racinej@mcmaster.ca}
+  Tristen Hayfield \email{hayfield@phys.ethz.ch}, Jeffrey S. Racine \email{racinej@mcmaster.ca}
 }
 
 \section{Note}{
   This method currently only supports objects from the \code{\link{np}} library.
 }
 \examples{
+\dontrun{
 x <- rnorm(10)
 se(npudens(npudensbw(~x)))
+} % enddontrun
 }
 \keyword{nonparametric}

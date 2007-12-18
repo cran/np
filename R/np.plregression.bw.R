@@ -6,7 +6,7 @@ npplregbw <-
     else if (!is.null(args$formula))
       UseMethod("npplregbw",args$formula)
     else
-      UseMethod("npplregbw",args[[w(names(args)=="bws")[1]]])
+      UseMethod("npplregbw",args[[which(names(args)=="bws")[1]]])
   }
 
 npplregbw.formula <-
@@ -98,8 +98,9 @@ npplregbw.plbandwidth =
     ## y is n x 1
     ## z is n x p
 
-    if (missing(nmulti))
-      nmulti = max(dim(xdat)[2], dim(zdat)[2])
+    if (missing(nmulti)){
+      nmulti <- min(5,max(dim(xdat)[2], dim(zdat)[2]))
+    }
     
     xdat = toFrame(xdat)
     zdat = toFrame(zdat)

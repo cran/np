@@ -18,6 +18,7 @@
 }
 \source{Giovanni Baiocchi}
 \examples{
+\dontrun{
 data("Italy")
 attach(Italy)
 
@@ -25,6 +26,7 @@ plot(ordered(year), gdp, xlab="Year (ordered factor)",
      ylab="GDP (millions of Lire, 1990=base)")
 
 detach(Italy)
+} % enddontrun
 }
 \references{
   Baiocchi, G. (2006), \dQuote{Economic Applications of Nonparametric

@@ -547,7 +547,7 @@ npplot(bws = stop("'bws' has not been set"), \dots, random.seed = 42)
 
 
 \author{
-  Tristen Hayfield \email{hayfietj@mcmaster.ca}, Jeffrey S. Racine
+  Tristen Hayfield \email{hayfield@phys.ethz.ch}, Jeffrey S. Racine
   \email{racinej@mcmaster.ca}
 }
 
@@ -562,6 +562,7 @@ npplot(bws = stop("'bws' has not been set"), \dots, random.seed = 42)
 \seealso{
 }
 \examples{
+\dontrun{
 # EXAMPLE 1: For this example, we load Giovanni Baiocchi's Italian GDP
 # panel (see Italy for details), then create a data frame in which year
 # is an ordered factor, GDP is continuous, compute bandwidths using
@@ -608,9 +609,9 @@ Sys.sleep(5)
 
 # However, npplot simply streamlines this process and aids in the
 # visualization process (<ctrl>-C will interrupt on *NIX systems, <esc>
-# will interrupt on MS Windows systems)
+# will interrupt on MS Windows systems).
 
-npplot(bws = bw)
+npplot(bws=bw)
 
 # npplot also streamlines construction of variability bounds (<ctrl>-C
 # will interrupt on *NIX systems, <esc> will interrupt on MS Windows
@@ -775,7 +776,7 @@ lines(age.eval,grad.lower.ci,lty=3)
 lines(age.eval,grad.upper.ci,lty=3)
 
 detach(cps71)
-
+} % enddontrun
 }
 
 \keyword{nonparametric}

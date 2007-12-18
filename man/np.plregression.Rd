@@ -221,7 +221,7 @@ npplreg(bws, \dots)
 
 }
 \author{
-    Tristen Hayfield \email{hayfietj@mcmaster.ca}, Jeffrey S. Racine
+    Tristen Hayfield \email{hayfield@phys.ethz.ch}, Jeffrey S. Racine
     \email{racinej@mcmaster.ca}
 }
 
@@ -236,6 +236,7 @@ npplreg(bws, \dots)
 \seealso{
   \code{\link{npregbw}}, \code{\link{npreg}} }
 \examples{
+\dontrun{
 # EXAMPLE 1 (INTERFACE=FORMULA): For this example, we simulate an
 # example for a partially linear model, and compare the coefficient
 # estimates from the partially linear model with those from a correctly
@@ -268,12 +269,6 @@ pl <- npplreg(bws=bw)
 summary(pl)
 
 # Sleep for 5 seconds so that we can examine the output...
-
-Sys.sleep(5)
-
-# We may also visualize the output with npplot
-
-npplot(bws=bw)
 
 Sys.sleep(5)
 
@@ -354,12 +349,6 @@ summary(pl)
 
 Sys.sleep(5)
 
-# We may also visualize the output with npplot
-
-npplot(bws=bw)
-
-Sys.sleep(5)
-
 # Retrieve the coefficient estimates and their standard errors...
 
 coef(pl)
@@ -397,6 +386,6 @@ npplot(bws=bw)
 npplot(bws=bw,
        plot.errors.boot.num=25, 
        plot.errors.method="bootstrap")
-
+} % enddontrun
 }
 \keyword{nonparametric}

@@ -548,6 +548,7 @@ void np_density_bw(double * myuno, double * myord, double * mycon,
 #define CBW_UNORDI 20
 #define CBW_UNCONI 21
 #define CBW_FASTI 22
+#define CBW_AUTOI 23
 
 #define CBW_FTOLD  0
 #define CBW_TOLD   1
@@ -556,6 +557,8 @@ void np_density_bw(double * myuno, double * myord, double * mycon,
 #define CBWM_CVML 0
 #define CBWM_CVLS 1
 #define CBWM_NPLS 2
+
+#define CBW_MINOBS 1024
 
 void np_density_conditional_bw(double * c_uno, double * c_ord, double * c_con, 
                                double * u_uno, double * u_ord, double * u_con,
@@ -578,8 +581,11 @@ void np_density_conditional_bw(double * c_uno, double * c_ord, double * c_con,
   int seed=12345;
   int iMultistart, iMs_counter, iNum_Multistart, num_all_var, num_var_var, iImproved;
   int itmax, iter;
-  int int_use_starting_values;
+  int int_use_starting_values, autoSelectCVLS, ibwmfunc;
 
+#ifdef MPI
+  int work_np;
+#endif // MPI
 
   num_var_unordered_extern = myopti[CBW_CNUNOI];
   num_var_ordered_extern = myopti[CBW_CNORDI];
@@ -614,6 +620,7 @@ void np_density_conditional_bw(double * c_uno, double * c_ord, double * c_con,
 
   itmax=myopti[CBW_ITMAXI];
   int_WEIGHTS = myopti[CBW_FASTI];
+  autoSelectCVLS = myopti[CBW_AUTOI];
 
   ftol=myoptd[CBW_FTOLD];
   tol=myoptd[CBW_TOLD];
@@ -731,7 +738,23 @@ void np_density_conditional_bw(double * c_uno, double * c_ord, double * c_con,
   /* Conduct direction set search */
 
   /* assign the function to be optimized */
-  switch(myopti[CBW_MI]){
+
+  ibwmfunc = myopti[CBW_MI];
+  
+  if((ibwmfunc != CBWM_CVML) && autoSelectCVLS){
+#ifdef MPI
+    int nobs_proc = (num_obs_train_extern / iNum_Processors) + 
+      ((num_obs_train_extern%iNum_Processors) != 0);
+    
+    ibwmfunc = (nobs_proc < CBW_MINOBS) ? CBWM_CVLS : CBWM_NPLS;
+    int_WEIGHTS = (nobs_proc < CBW_MINOBS);
+#else //MPI
+    ibwmfunc = (num_obs_train_extern < CBW_MINOBS) ? CBWM_CVLS : CBWM_NPLS;
+    int_WEIGHTS = (num_obs_train_extern < CBW_MINOBS);
+#endif //MPI
+  }
+
+  switch(ibwmfunc){
   case CBWM_CVML : bwmfunc = cv_func_con_density_categorical_ml; break;
   case CBWM_CVLS : bwmfunc = cv_func_con_density_categorical_ls; break;
   case CBWM_NPLS : bwmfunc = np_cv_func_con_density_categorical_ls;break;
@@ -2013,6 +2036,7 @@ void np_regression_bw(double * runo, double * rord, double * rcon, double * y,
   if(int_MINIMIZE_IO != IO_MIN_TRUE)
     fprintf(stderr,"\r                   \r");
 
+  //fprintf(stderr,"\nNP TOASTY\n");
   return ;
   
 }
@@ -2531,6 +2555,8 @@ void np_kernelsum(double * tuno, double * tord, double * tcon,
                          (int)(*kpow),
                          do_divide_bw,
                          do_smooth_coef_weights,
+                         0, //not symmetric
+                         0, //disable 'twisting'
                          matrix_X_unordered_train_extern,
                          matrix_X_ordered_train_extern,
                          matrix_X_continuous_train_extern,
@@ -2541,6 +2567,7 @@ void np_kernelsum(double * tuno, double * tord, double * tcon,
                          matrix_Y_continuous_train_extern,
                          /* weights matrix */
                          matrix_Y_ordered_train_extern,
+                         NULL,
                          &vector_scale_factor[1],
                          num_categories_extern,
                          ksum);

@@ -27,12 +27,14 @@ uocquantile(x, prob)
   \code{\link{quantile}}
 }
 \author{
-  Tristen Hayfield \email{hayfietj@mcmaster.ca}, Jeffrey S. Racine \email{racinej@mcmaster.ca}
+  Tristen Hayfield \email{hayfield@phys.ethz.ch}, Jeffrey S. Racine \email{racinej@mcmaster.ca}
 }
 
 \examples{
+\dontrun{
 x <- rbinom(n = 100, size = 10, prob = 0.5)
 uocquantile(x, 0.5)
+} % enddontrun
 }
 
 \keyword{univar}

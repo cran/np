@@ -102,9 +102,58 @@ extern double y_max_extern;
 static char rcsid[] = "$Id: kernelcv.c,v 1.9 2006/11/02 16:56:49 tristen Exp $";
 #endif
 
+#define RBWM_CVAIC 0
+#define RBWM_CVLS 1
+
+#define BW_FIXED   0
+#define BW_GEN_NN  1
+#define BW_ADAP_NN 2
 
 
-double cv_func_regression_categorical_ls(double *vector_scale_factor)
+double cv_func_regression_categorical_ls(double *vector_scale_factor){
+    if(check_valid_scale_factor_cv(
+        KERNEL_reg_extern,
+        BANDWIDTH_reg_extern,
+        BANDWIDTH_reg_extern,
+        0,
+        num_obs_train_extern,
+        0,
+        0,
+        0,
+        num_reg_continuous_extern,
+        num_reg_unordered_extern,
+        num_reg_ordered_extern,
+        num_categories_extern,
+        vector_scale_factor) == 1)
+    {
+        return(FLT_MAX);
+    }
+
+/* Compute the cross-validation function */
+    if(BANDWIDTH_reg_extern == BW_FIXED){
+      return(np_kernel_estimate_regression_categorical_ls_aic(
+        int_ll_extern,
+        RBWM_CVLS,
+        KERNEL_reg_extern,
+        KERNEL_reg_unordered_extern,
+        KERNEL_reg_ordered_extern,
+        BANDWIDTH_reg_extern,
+        num_obs_train_extern,
+        num_reg_unordered_extern,
+        num_reg_ordered_extern,
+        num_reg_continuous_extern,
+        matrix_X_unordered_train_extern,
+        matrix_X_ordered_train_extern,
+        matrix_X_continuous_train_extern,
+        vector_Y_extern,
+        &vector_scale_factor[1],
+        num_categories_extern));
+    } else {
+      return(cv_func_regression_categorical_ls_nn(vector_scale_factor));
+    }
+}
+
+double cv_func_regression_categorical_ls_nn(double *vector_scale_factor)
 {
 
 /* Numerical recipes wrapper function for least squares regression
@@ -124,24 +173,6 @@ double cv_func_regression_categorical_ls(double *vector_scale_factor)
 #ifdef MPI
     int stride;
 #endif
-
-    if(check_valid_scale_factor_cv(
-        KERNEL_reg_extern,
-        BANDWIDTH_reg_extern,
-        BANDWIDTH_reg_extern,
-        0,
-        num_obs_train_extern,
-        0,
-        0,
-        0,
-        num_reg_continuous_extern,
-        num_reg_unordered_extern,
-        num_reg_ordered_extern,
-        num_categories_extern,
-        vector_scale_factor) == 1)
-    {
-        return(FLT_MAX);
-    }
 
 /* Allocate memory for objects */
 
@@ -196,6 +227,7 @@ double cv_func_regression_categorical_ls(double *vector_scale_factor)
     return(cv);
 
 }
+
 
 
 double cv_func_density_categorical_ml(double *vector_scale_factor)
@@ -550,8 +582,6 @@ double cv_func_regression_categorical_aic_c(double *vector_scale_factor)
 
 /* Declarations */
 
-    double aic_c;
-
     if(check_valid_scale_factor_cv(
         KERNEL_reg_extern,
         BANDWIDTH_reg_extern,
@@ -571,8 +601,26 @@ double cv_func_regression_categorical_aic_c(double *vector_scale_factor)
     }
 
 /* Compute the AIC_c function */
-
-    aic_c = kernel_estimate_regression_categorical_aic_c(
+    if(BANDWIDTH_reg_extern == BW_FIXED){
+      return(np_kernel_estimate_regression_categorical_ls_aic(
+        int_ll_extern,
+        RBWM_CVAIC,
+        KERNEL_reg_extern,
+        KERNEL_reg_unordered_extern,
+        KERNEL_reg_ordered_extern,
+        BANDWIDTH_reg_extern,
+        num_obs_train_extern,
+        num_reg_unordered_extern,
+        num_reg_ordered_extern,
+        num_reg_continuous_extern,
+        matrix_X_unordered_train_extern,
+        matrix_X_ordered_train_extern,
+        matrix_X_continuous_train_extern,
+        vector_Y_extern,
+        &vector_scale_factor[1],
+        num_categories_extern));
+    } else {
+      return(kernel_estimate_regression_categorical_aic_c(
         int_ll_extern,
         KERNEL_reg_extern,
         KERNEL_reg_unordered_extern,
@@ -587,9 +635,8 @@ double cv_func_regression_categorical_aic_c(double *vector_scale_factor)
         matrix_X_continuous_train_extern,
         vector_Y_extern,
         &vector_scale_factor[1],
-        num_categories_extern);
-
-    return(aic_c);
+        num_categories_extern));
+    }
 
 }
 

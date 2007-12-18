@@ -153,7 +153,7 @@ npconmode(bws, \dots)
     for discrete distributions,}  Biometrika, 68, 301-309.
 }
 \author{
-    Tristen Hayfield \email{hayfietj@mcmaster.ca}, Jeffrey S. Racine
+    Tristen Hayfield \email{hayfield@phys.ethz.ch}, Jeffrey S. Racine
     \email{racinej@mcmaster.ca}
 }
 
@@ -167,7 +167,7 @@ npconmode(bws, \dots)
 
 \seealso{ }
 \examples{
-
+\dontrun{
 # EXAMPLE 1 (INTERFACE=FORMULA): For this example, we use the
 # birthweight data taken from the MASS library, and compute a parametric
 # logit model and a nonparametric conditional mode model. We then
@@ -300,6 +300,7 @@ ccr
 summary(model.np)
 
 detach(birthwt)
+} % enddontrun
 }
 \keyword{ nonparametric }% at least one, from doc/KEYWORDS
 

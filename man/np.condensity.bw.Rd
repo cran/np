@@ -29,6 +29,7 @@ npcdensbw(\dots)
           bws,
           bandwidth.compute = TRUE,
           fast = FALSE,
+          auto = TRUE,
           nmulti,
           remin = TRUE,
           itmax = 10000,
@@ -42,6 +43,7 @@ npcdensbw(\dots)
           bws,
           bandwidth.compute = TRUE,
           fast,
+          auto,
           nmulti,
           remin,
           itmax,
@@ -124,11 +126,20 @@ npcdensbw(\dots)
     a logical value specifying whether a significantly faster, memory
     intensive procedure should be used when doing least-squares
     cross-validation. Recommended for datasets of moderate
-    size. Defaults to \code{FALSE}.
+    size. Use of this on datasets of size larger than ~1000 observations
+    will result in decreased performance. For more information see the
+    the \code{auto} argument.
+    Defaults to \code{FALSE}.
   }
+
+  \item{auto}{
+    a logical value specifying whether to allow the code to
+    attempt to automatically select the fastest routine, using a
+    heuristic, to compute the least-squares cross-validation function.
+    Defaults to \code{TRUE}.
+  }
+
     
-    
-  
   \item{bwmethod}{
     which method to use to select bandwidths. \code{cv.ml} specifies
     likelihood cross-validation, \code{cv.ls} specifies least-squares 
@@ -359,7 +370,7 @@ npcdensbw(\dots)
 
 }
 \author{
-  Tristen Hayfield \email{hayfietj@mcmaster.ca}, Jeffrey S. Racine
+  Tristen Hayfield \email{hayfield@phys.ethz.ch}, Jeffrey S. Racine
   \email{racinej@mcmaster.ca}
 }
 
@@ -382,7 +393,7 @@ npcdensbw(\dots)
   often be necessary}. This can be frustrating for users possessing
   large datasets. For exploratory purposes, you may wish to override the
   default search tolerances, say, setting ftol=.01 and tol=.01 and
-  conduct multistarting (the default is to restart ncol(xdat,ydat)
+  conduct multistarting (the default is to restart min(5, ncol(xdat,ydat))
   times) as is done for a number of examples. Once the procedure
   terminates, you can restart search with default tolerances using those
   bandwidths obtained from the less rigorous search (i.e., set
@@ -400,6 +411,7 @@ npcdensbw(\dots)
 }
 
 \examples{
+\dontrun{
 # EXAMPLE 1 (INTERFACE=FORMULA): For this example, we compute the
 # likelihood cross-validated bandwidths (default) using a second-order
 # Gaussian kernel (default). Note - this may take a minute or two
@@ -447,6 +459,7 @@ summary(bw)
 # of how to change the kernel function, kernel order, and so forth.
 
 detach(Italy)
+} % enddontrun
 }
 \keyword{nonparametric}
 

@@ -319,7 +319,7 @@ npudensbw(\dots)
 
 }
 \author{
-    Tristen Hayfield \email{hayfietj@mcmaster.ca}, Jeffrey S. Racine
+    Tristen Hayfield \email{hayfield@phys.ethz.ch}, Jeffrey S. Racine
     \email{racinej@mcmaster.ca}
 }
 
@@ -342,7 +342,7 @@ npudensbw(\dots)
   often be necessary}. This can be frustrating for users possessing
   large datasets. For exploratory purposes, you may wish to override the
   default search tolerances, say, setting ftol=.01 and tol=.01 and
-  conduct multistarting (the default is to restart ncol(dat)
+  conduct multistarting (the default is to restart min(5, ncol(dat))
   times) as is done for a number of examples. Once the procedure
   terminates, you can restart search with default tolerances using those
   bandwidths obtained from the less rigorous search (i.e., set
@@ -358,6 +358,7 @@ npudensbw(\dots)
   \code{\link{bw.nrd}}, \code{\link{bw.SJ}},  \code{\link{hist}},
   \code{\link{npudens}}, \code{\link{npudist}} }
 \examples{
+\dontrun{
 # EXAMPLE 1 (INTERFACE=FORMULA): For this example, we load Giovanni
 # Baiocchi's Italian GDP panel (see Italy for details), then create a
 # data frame in which year is an ordered factor, GDP is continuous.
@@ -569,5 +570,6 @@ bw <- npudensbw(dat=data, bws=c(1, 1), tol=.1, ftol=.1)
 summary(bw)
 
 detach(Italy)
+} % enddontrun
 }
 \keyword{nonparametric}

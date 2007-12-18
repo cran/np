@@ -5,7 +5,7 @@ npudensbw <- function(...){
   else if (!is.null(args$formula))
     UseMethod("npudensbw",args$formula)
   else
-    UseMethod("npudensbw",args[[w(names(args)=="bws")[1]]])
+    UseMethod("npudensbw",args[[which(names(args)=="bws")[1]]])
 }
 
 npudensbw.formula <-
@@ -66,8 +66,9 @@ npudensbw.bandwidth <-
 
     dat = toFrame(dat)
 
-    if (missing(nmulti))
-      nmulti = dim(dat)[2]
+    if (missing(nmulti)){
+      nmulti <- min(5,dim(dat)[2])
+    }
 
     if (length(bws$bw) != dim(dat)[2])
       stop(paste("length of bandwidth vector does not match number of columns of",
@@ -151,6 +152,25 @@ npudensbw.bandwidth <-
     }
     
     tbw$sfactor <- tbw$bandwidth <- tbw$bw
+    
+    nfactor <- nrow^(-2.0/(2.0*tbw$ckerorder+tbw$ncon))
+
+    if (tbw$nuno > 0){
+      if(tbw$scaling){ 
+        tbw$bandwidth[tbw$xdati$iuno] <- tbw$bandwidth[tbw$xdati$iuno]*nfactor
+      } else {
+        tbw$sfactor[tbw$xdati$iuno] <- tbw$sfactor[tbw$xdati$iuno]/nfactor
+      }
+    }
+    
+    if (tbw$nord > 0){
+      if(tbw$scaling){
+        tbw$bandwidth[tbw$xdati$iord] <- tbw$bandwidth[tbw$xdati$iord]*nfactor
+      } else {
+        tbw$sfactor[tbw$xdati$iord] <- tbw$sfactor[tbw$xdati$iord]/nfactor
+      }
+    }
+
 
     if (tbw$ncon > 0){
       dfactor <- EssDee(dcon)*nrow^(-1.0/(2.0*tbw$ckerorder+tbw$ncon))

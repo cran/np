@@ -147,22 +147,31 @@ npconmode.conbandwidth <-
                              "trainiseval = no.ex)")))
     
     if (!(no.ey & !no.ex)){
-      confusion.matrix =
-        table(if (no.ex) tydat[,1] else eydat[,1],
-              con.mode$conmode, dnn=c("Actual", "Predicted"))
-      CCR.overall <- sum(diag(confusion.matrix))/sum(confusion.matrix)
-      CCR.byoutcome <- diag(confusion.matrix)/rowSums(confusion.matrix)
+      confusion.matrix <- 
+        table(factor(if (no.ex) tydat[,1] else eydat[,1], exclude = NULL),
+              factor(con.mode$conmode,exclude = NULL), dnn=c("Actual", "Predicted"))
 
-      con.mode$confusion.matrix = confusion.matrix
-      con.mode$CCR.overall = CCR.overall
-      con.mode$CCR.byoutcome = CCR.byoutcome
+      cj <- match(levels(factor(if (no.ex) tydat[,1] else eydat[,1], exclude = NULL)),
+                  levels(factor(con.mode$conmode,exclude = NULL)), nomatch = 0)
+      rj <- cj > 0
 
-      confusion.matrix <- confusion.matrix/sum(confusion.matrix)
+      t.diag <- cj
+      t.diag[rj] <-  diag(confusion.matrix[rj,cj,drop=FALSE])
+      
+      CCR.overall <- sum(t.diag)/enrow
+      
+      CCR.byoutcome <- t.diag/rowSums(confusion.matrix)
+      names(CCR.byoutcome) <- levels(factor(if (no.ex) tydat[,1] else eydat[,1], exclude = NULL))
 
-      fit.mcfadden <- sum(diag(confusion.matrix)) -
-        (sum(confusion.matrix^2)-sum(diag(confusion.matrix)^2))
+      con.mode$confusion.matrix <- confusion.matrix
+      con.mode$CCR.overall <- CCR.overall
+      con.mode$CCR.byoutcome <- CCR.byoutcome
 
-      con.mode$fit.mcfadden = fit.mcfadden
+      confusion.matrix <- confusion.matrix/enrow
+      t.diag <- t.diag/enrow
+
+      fit.mcfadden <- sum(t.diag) - (sum(confusion.matrix^2)-sum(t.diag^2))
+      con.mode$fit.mcfadden <- fit.mcfadden
     }
     con.mode
   }

@@ -161,7 +161,7 @@ npudens(bws = stop(paste("bandwidths are required to perform the estimate!",
     for discrete distributions,}  Biometrika, 68, 301-309.
 }
 \author{
-    Tristen Hayfield \email{hayfietj@mcmaster.ca}, Jeffrey S. Racine
+    Tristen Hayfield \email{hayfield@phys.ethz.ch}, Jeffrey S. Racine
     \email{racinej@mcmaster.ca}
 }
 
@@ -177,6 +177,7 @@ npudens(bws = stop(paste("bandwidths are required to perform the estimate!",
 
 \seealso{ \code{\link{npudensbw}} , \code{\link{density}} }
 \examples{
+\dontrun{
 # EXAMPLE 1 (INTERFACE=FORMULA): For this example, we load Giovanni
 # Baiocchi's Italian GDP panel (see Italy for details), then create a
 # data frame in which year is an ordered factor, GDP is continuous,
@@ -380,6 +381,7 @@ npplot(bws=bw, xtrim=-0.2)
 npplot(bws=bw, cdf=TRUE)
 
 detach(faithful)
+} % enddontrun
 }
 \keyword{ nonparametric }% at least one, from doc/KEYWORDS
 

@@ -142,11 +142,11 @@ npcmstest(formula,
     data,} Journal of Econometrics.
 
   Li, Q. and J.S. Racine (2007), \emph{Nonparametric Econometrics: Theory
-  and Practice,} Princeton University Press.
+    and Practice,} Princeton University Press.
 
-  Maasoumi, E. and J.S. Racine and T. Stengos (forthcoming),
+  Maasoumi, E. and J.S. Racine and T. Stengos (2007),
   \dQuote{Growth and convergence: a profile of distribution dynamics and
-  mobility,} Journal of Econometrics.
+    mobility,} Journal of Econometrics, 136, 483-508.
 
   Murphy, K. M. and F. Welch (1990), \dQuote{Empirical age-earnings
     profiles,} Journal of Labor Economics, 8, 202-229.
@@ -159,7 +159,7 @@ npcmstest(formula,
 
 }
 \author{
-    Tristen Hayfield \email{hayfietj@mcmaster.ca}, Jeffrey S. Racine
+    Tristen Hayfield \email{hayfield@phys.ethz.ch}, Jeffrey S. Racine
     \email{racinej@mcmaster.ca}
 }
 
@@ -173,6 +173,7 @@ npcmstest(formula,
 
 \seealso{ }
 \examples{
+\dontrun{
 # EXAMPLE 1: For this example, we conduct a consistent model
 # specification test for a parametric wage regression model that is
 # quadratic in age. The work of Murphy and Welch (1990) would suggest
@@ -255,5 +256,6 @@ X <- data.frame(factor(oecd), factor(year), initgdp, popgro, inv, humancap)
 npcmstest(model = model, xdat = X, ydat = growth, tol=.1, ftol=.1)
 
 detach(oecdpanel)
+} % enddontrun
 }
 \keyword{ nonparametric }
