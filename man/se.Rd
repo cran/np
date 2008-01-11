@@ -25,8 +25,7 @@ se(x)
   and \code{\link{gradients}}, for related methods;
   \code{\link{np}} for supported objects. 
 }
-\references{
-}
+
 \author{
   Tristen Hayfield \email{hayfield@phys.ethz.ch}, Jeffrey S. Racine \email{racinej@mcmaster.ca}
 }
@@ -35,9 +34,7 @@ se(x)
   This method currently only supports objects from the \code{\link{np}} library.
 }
 \examples{
-\dontrun{
 x <- rnorm(10)
 se(npudens(npudensbw(~x)))
-} % enddontrun
 }
 \keyword{nonparametric}

@@ -48,12 +48,10 @@
 }
 \source{ Thanasis Stengos }
 \examples{
-\dontrun{
 data("oecdpanel")
 attach(oecdpanel)
 summary(oecdpanel)
 detach(oecdpanel)
-} % enddontrun
 }
 \references{
 

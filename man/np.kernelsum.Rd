@@ -245,11 +245,7 @@ npksum(\dots)
   type.
 }
 
-\section{Warning }{ } 
-
-\seealso{ }
 \examples{
-\dontrun{
 # EXAMPLE 1: For this example, we generate 100,000 observations from a
 # N(0, 1) distribution, then evaluate the kernel density on a grid of 50
 # equally spaced points using the npksum() function, then compare
@@ -290,6 +286,8 @@ legend(1, .4,
        "npudens()"), 
        col=c("black", "blue", "red"), 
        lty=c(1, 1, 1))
+
+\dontrun{
 
 # Sleep for 5 seconds so that we can examine the output...
 

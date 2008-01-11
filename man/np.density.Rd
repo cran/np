@@ -173,11 +173,8 @@ npudens(bws = stop(paste("bandwidths are required to perform the estimate!",
   type.
 }
 
-\section{Warning}{ } 
-
 \seealso{ \code{\link{npudensbw}} , \code{\link{density}} }
 \examples{
-\dontrun{
 # EXAMPLE 1 (INTERFACE=FORMULA): For this example, we load Giovanni
 # Baiocchi's Italian GDP panel (see Italy for details), then create a
 # data frame in which year is an ordered factor, GDP is continuous,
@@ -203,6 +200,8 @@ fhat <- npudens(bws=bw)
 # information. For more info, one can call summary: 
 
 summary(fhat)
+
+\dontrun{
 
 # Next, we illustrate how to create a grid of `evaluation data' and feed
 # it to the perspective plotting routines in R, among others.

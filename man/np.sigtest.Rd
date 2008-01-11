@@ -98,9 +98,7 @@ npsigtest(xdat,
   }
 
 }
-\details{
 
-}
 \value{
   \code{npsigtest} returns an object of type
   \code{sigtest}. \code{\link{summary}} supports \code{sigtest} objects. It
@@ -159,9 +157,7 @@ npsigtest(xdat,
   large datasets.
 }
 
-\seealso{ }
 \examples{
-\dontrun{
 # EXAMPLE 1 (INTERFACE=FORMULA): For this example, we simulate 100 draws
 # from a DGP in which z, the first column of X, is an irrelevant
 # discrete variable
@@ -189,6 +185,8 @@ bw <- npregbw(formula=y~factor(z)+x1+x2,regtype="ll",bwmethod="cv.aic")
 # bootstrap replications for each...
 
 npsigtest(bws=bw)
+
+\dontrun{
 
 # If you wished, you could conduct the test for, say, variables 1 and 3
 # only, as in

@@ -83,6 +83,10 @@ validateBandwidth <- function(bws){
     dati <- bws$dati[[v]]
     bwv <- bws$bandwidth[[j]]
     stopifnot(length(bwv) == length(dati$iord))
+
+    cd <- function(a,b){
+      (a-b)/(a+b+.Machine$double.eps) > 5.0*.Machine$double.eps
+    }
     
     vb <- sapply(1:length(bwv), function(i){
       falg <- (bwv[i] < 0)
@@ -93,14 +97,14 @@ validateBandwidth <- function(bws){
       }
       
       if (dati$iord[i] &&
-          (falg || (bwv[i] > oMaxL(dati$all.nlev[[i]],
+          (falg || cd(bwv[i],oMaxL(dati$all.nlev[[i]],
                          kertype = bws$klist[[v]]$okertype)))){
         stop(paste("Invalid bandwidth supplied for ordered",
                    "variable", bws$varnames[[v]][i], ":",bwv[i]))
       }
       
       if (dati$iuno[i] &&
-          (falg || (bwv[i] > uMaxL(dati$all.nlev[[i]],
+          (falg || cd(bwv[i],uMaxL(dati$all.nlev[[i]],
                          kertype = bws$klist[[v]]$ukertype)))){
         stop(paste("Invalid bandwidth supplied for unordered",
                    "variable", bws$varnames[[v]][i], ":",bwv[i]))

@@ -218,10 +218,7 @@ npindex(bws, \dots)
   type.
 }
 
-\seealso{}
-
 \examples{
-\dontrun{
 # EXAMPLE 1 (INTERFACE=FORMULA): Generate a simple linear model then
 # estimate it using a semiparametric single index specification and
 # Ichimura's nonlinear least squares coefficients and bandwidth
@@ -249,6 +246,8 @@ summary(bw)
 model <- npindex(bws=bw, gradients=TRUE)
 
 summary(model)
+
+\dontrun{
 
 # Sleep for 5 seconds so that we can examine the output...
 

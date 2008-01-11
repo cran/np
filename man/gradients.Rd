@@ -44,6 +44,10 @@ gradients(x, \dots)
   \code{\link{np}} for supported objects. 
 }
 \references{
+  See the references for the method being interrogated via
+  \code{\link{gradients}} in the appropriate help file. For example, for
+  the particulars of the gradients for nonparametric regression see the
+  references in \code{\link{npreg}}
 }
 \author{
   Tristen Hayfield \email{hayfield@phys.ethz.ch}, Jeffrey S. Racine \email{racinej@mcmaster.ca}
@@ -53,10 +57,8 @@ gradients(x, \dots)
   This method currently only supports objects from the \code{\link{np}} library.
 }
 \examples{
-\dontrun{
 x <- runif(10)
 y <- x + rnorm(10, sd = 0.1)
 gradients(npreg(npregbw(y~x), gradients=TRUE))
-} % enddontrun
 }
 \keyword{nonparametric}

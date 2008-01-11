@@ -373,7 +373,6 @@ npregbw(\dots)
   \code{\link{npreg}}
 }
 \examples{
-\dontrun{
 # EXAMPLE 1 (INTERFACE=FORMULA): For this example, we compute a
 # Bivariate nonparametric regression estimate for Giovanni Baiocchi's
 # Italian income panel (see Italy for details)
@@ -387,6 +386,8 @@ attach(Italy)
 bw <- npregbw(formula=gdp~ordered(year), tol=.1, ftol=.1)
 
 summary(bw)
+
+\dontrun{
 
 # Sleep for 5 seconds so that we can examine the output...
 

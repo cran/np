@@ -180,9 +180,6 @@ npscoef(bws, \dots)
   
 }
 
-\details{
-}
-
 \value{
   \code{npscoef} returns a \code{smoothcoefficient} object.   The generic
   functions \code{\link{fitted}}, \code{\link{residuals}}, \code{\link{coef}},
@@ -265,7 +262,6 @@ npscoef(bws, \dots)
   \code{\link{npudensbw}}, \code{\link{npscoefbw}} }
 
 \examples{
-\dontrun{
 # EXAMPLE 1 (INTERFACE=FORMULA): Typically, the variables z will be
 # equal to the regressors x, as in the following example.
 
@@ -285,6 +281,8 @@ plot(x,y)
 lines(x,predict(model))
 lines(x,predict(model)-2*se(model),lty=2,col="red")
 lines(x,predict(model)+2*se(model),lty=2,col="red")
+
+\dontrun{
 
 # EXAMPLE 1 (INTERFACE=DATAFRAME): Typically, the variables z will be
 # equal to the regressors x, as in the following example.

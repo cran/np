@@ -559,8 +559,6 @@ npplot(bws = stop("'bws' has not been set"), \dots, random.seed = 42)
   type.
 }
 
-\seealso{
-}
 \examples{
 \dontrun{
 # EXAMPLE 1: For this example, we load Giovanni Baiocchi's Italian GDP

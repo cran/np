@@ -92,9 +92,7 @@ npconmode(bws, \dots)
 
 
 }
-\details{
 
-}
 \value{
   \code{npconmode} returns a \code{conmode} object with the following
   components:
@@ -165,9 +163,7 @@ npconmode(bws, \dots)
   type.
 }
 
-\seealso{ }
 \examples{
-\dontrun{
 # EXAMPLE 1 (INTERFACE=FORMULA): For this example, we use the
 # birthweight data taken from the MASS library, and compute a parametric
 # logit model and a nonparametric conditional mode model. We then
@@ -231,6 +227,8 @@ ccr
 summary(model.np)
 
 detach(birthwt)
+
+\dontrun{
 
 # EXAMPLE 1 (INTERFACE=DATAFRAME): For this example, we use the
 # birthweight data taken from the MASS library, and compute a parametric

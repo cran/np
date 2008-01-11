@@ -218,7 +218,6 @@ npreg(bws, \dots)
   \code{\link{loess}}
 }
 \examples{
-\dontrun{
 # EXAMPLE 1 (INTERFACE=FORMULA): For this example, we compute a
 # bivariate nonparametric regression estimate for Giovanni Baiocchi's
 # Italian income panel (see Italy for details)
@@ -238,6 +237,8 @@ bw <- npregbw(formula=gdp~ordered(year), tol=.1, ftol=.1)
 model <- npreg(bws = bw, gradients = TRUE)
 
 summary(model)
+
+\dontrun{
 
 # Use npplot() to visualize the regression function, add bootstrap
 # error bars, and overlay the data on the same plot.

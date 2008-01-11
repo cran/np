@@ -1,26 +1,10 @@
-* now use optim rather than nlmfor minimisation in single index and
-smooth coefficient models
-* fixed bug in klein-spady objective function
-* regression standard errors are now available in the case of no
-  continuous variables
-* summary should look prettier, print additional information
-* tidied up lingering issues with out-of-sample data and conditional modes
-* fixed error when plotting asymptotic errors with conditional densities
-* fixed a bug in npplot with partially linear regressions and 
-plot.behavior='data' or 'plot-data'
-* maximum default number of multistarts is now set to 5
-* least-squares cross-validation of conditional densities uses a new,
- faster algorithm
-* new, faster algorithm for least-squares cross-validation for both 
-local-constant and local linear regressions.
-   The estimator has changed somewhat: both cross-validation and
-   the estimator use a method of shrinking towards the local constant
-   estimator rather than the standard ridge approach that shrinks
-   towards zero
-* optimised smooth coefficient code, added ridging
-* fixed bug in uniform CDF kernel
-* fixed bug where npindexbw would ignore bandwidth.compute = FALSE and
-   compute bandwidths when supplied with a preexisting bw object
-* now can handle estimation out of discrete support.
-* summary would misreport the values of discrete scale factors which were
-   computed with bwscaling = TRUE
+* relaxed checking tolerances slightly to prevent spurious 'invalid 
+  bandwidth' errors
+
+* empty sections were removed from help files
+
+* example(foobar) now works again [this was disabled in 0.14-1 to
+  shorten duration of R CMD check - all examples remained in the help
+  files but due to the presence of \dontrun{} they are not run when
+  examples(foobar) is requested. Now a limited subset are run while
+  the full set of examples remain]
