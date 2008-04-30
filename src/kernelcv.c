@@ -113,6 +113,7 @@ static char rcsid[] = "$Id: kernelcv.c,v 1.9 2006/11/02 16:56:49 tristen Exp $";
 double cv_func_regression_categorical_ls(double *vector_scale_factor){
     if(check_valid_scale_factor_cv(
         KERNEL_reg_extern,
+        KERNEL_reg_unordered_extern,
         BANDWIDTH_reg_extern,
         BANDWIDTH_reg_extern,
         0,
@@ -242,6 +243,7 @@ double cv_func_density_categorical_ml(double *vector_scale_factor)
 
     if(check_valid_scale_factor_cv(
         KERNEL_den_extern,
+        KERNEL_den_unordered_extern,
         BANDWIDTH_den_extern,
         BANDWIDTH_den_extern,
         0,
@@ -296,6 +298,7 @@ double cv_func_con_density_categorical_ml(double *vector_scale_factor)
 
     if(check_valid_scale_factor_cv(
         KERNEL_den_extern,
+        KERNEL_reg_unordered_extern, /* Only for conditioning vars in conditional den */
         BANDWIDTH_den_extern,
         BANDWIDTH_den_extern,
         0,
@@ -353,6 +356,7 @@ double np_cv_func_con_density_categorical_ls(double *vector_scale_factor){
   double cv = 0.0;
 
   if(check_valid_scale_factor_cv(KERNEL_den_extern,
+                                 KERNEL_reg_unordered_extern,  /* Only for conditioning vars in conditional den */
                                  BANDWIDTH_den_extern,
                                  BANDWIDTH_den_extern,
                                  0,
@@ -410,6 +414,7 @@ double cv_func_con_density_categorical_ls(double *vector_scale_factor)
 
     if(check_valid_scale_factor_cv(
         KERNEL_den_extern,
+        KERNEL_reg_unordered_extern, /* Only for conditioning vars in conditional den */
         BANDWIDTH_den_extern,
         BANDWIDTH_den_extern,
         0,
@@ -471,6 +476,7 @@ double cv_func_density_categorical_ls(double *vector_scale_factor)
 
     if(check_valid_scale_factor_cv(
         KERNEL_den_extern,
+        KERNEL_den_unordered_extern,
         BANDWIDTH_den_extern,
         BANDWIDTH_den_extern,
         0,
@@ -584,6 +590,7 @@ double cv_func_regression_categorical_aic_c(double *vector_scale_factor)
 
     if(check_valid_scale_factor_cv(
         KERNEL_reg_extern,
+        KERNEL_reg_unordered_extern,
         BANDWIDTH_reg_extern,
         BANDWIDTH_reg_extern,
         0,

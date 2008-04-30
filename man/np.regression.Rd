@@ -179,10 +179,9 @@ npreg(bws, \dots)
   Aitchison, J. and C.G.G. Aitken (1976), \dQuote{Multivariate binary
   discrimination by the kernel method,} Biometrika, 63, 413-420.
 
-  Hall, P. and Q. Li and J.S. Racine (forthcoming),
-  \dQuote{Nonparametric estimation of regression functions in the
-    presence of irrelevant regressors,} The Review of Economics and
-  Statistics.
+  Hall, P. and Q. Li and J.S. Racine (2007), \dQuote{Nonparametric
+  estimation of regression functions in the presence of irrelevant
+  regressors,} The Review of Economics and Statistics, 89, 784-789.
 
   Li, Q. and J.S. Racine (2007), \emph{Nonparametric Econometrics: Theory
   and Practice,} Princeton University Press.

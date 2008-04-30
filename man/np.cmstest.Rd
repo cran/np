@@ -5,7 +5,7 @@
 \description{
   \code{npcmstest} implements a consistent test for correct
   specification of parametric regression models (linear or nonlinear) as
-  described in Hsiao, Li, and Racine (forthcoming).
+  described in Hsiao, Li, and Racine (2007).
 }
 \usage{
 npcmstest(formula,
@@ -133,9 +133,9 @@ npcmstest(formula,
   Aitchison, J. and C.G.G. Aitken (1976), \dQuote{Multivariate binary
     discrimination by the kernel method,} Biometrika, 63, 413-420.
 
-  Hsiao, C. and Q. Li and J.S. Racine (forthcoming), \dQuote{A consistent
+  Hsiao, C. and Q. Li and J.S. Racine (2007), \dQuote{A consistent
     model specification test with mixed categorical and continuous
-    data,} Journal of Econometrics.
+    data,} Journal of Econometrics, 140, 802-826.
 
   Li, Q. and J.S. Racine (2007), \emph{Nonparametric Econometrics: Theory
     and Practice,} Princeton University Press.
@@ -220,7 +220,7 @@ Sys.sleep(5)
 detach(cps71)
 
 # EXAMPLE 2: For this example, we replicate the application in Maasoumi,
-# Racine, and Stengos (forthcoming) (see oecdpanel for details). We
+# Racine, and Stengos (2007) (see oecdpanel for details). We
 # estimate a parametric model that is used in the literature, then
 # subject it to the model specification test.
 

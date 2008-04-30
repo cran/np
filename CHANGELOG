@@ -1,10 +1,3 @@
-* relaxed checking tolerances slightly to prevent spurious 'invalid 
-  bandwidth' errors
-
-* empty sections were removed from help files
-
-* example(foobar) now works again [this was disabled in 0.14-1 to
-  shorten duration of R CMD check - all examples remained in the help
-  files but due to the presence of \dontrun{} they are not run when
-  examples(foobar) is requested. Now a limited subset are run while
-  the full set of examples remain]
+* fixed bug when using the liracine unordered kernel. The upper bound
+  was constrained to be (c-1)/c [that for the aitchisonaitken unordered
+  kernel] but ought to have been 1.

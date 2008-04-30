@@ -2168,6 +2168,7 @@ double **matrix_categorical_vals)
 
 int check_valid_scale_factor_cv(
 int KERNEL,
+int KERNEL_unordered_liracine,
 int BANDWIDTH,
 int BANDWIDTH_den_ml,
 int REGRESSION_ML,
@@ -2181,6 +2182,8 @@ int num_reg_ordered,
 int *num_categories,
 double *vector_scale_factor)
 {
+
+  /* April 30, 2008 - adding test for the LI_RACINE unordered kernel */
 
 /* Dec 19, 2000 - changed around - now counter reflects variable order rather */
 /* than in the variable index itself - can only improve speed */
@@ -2321,6 +2324,23 @@ double *vector_scale_factor)
     for(i = num_var_continuous+num_reg_continuous+1; i <= num_var_continuous+num_reg_continuous+num_var_unordered; i++)
     {
 /* Check for admissible value of lambda - in inadmissible, set to admissible */
+      if(KERNEL_unordered_liracine == 1) {
+        /* If using the unordered li_racine kernel use ordered bounds */
+        if(int_LARGE_SF == 0)
+        {
+            if( (vector_scale_factor[i]*temp_pow > 1.0) || (vector_scale_factor[i] < 0.0) )
+            {
+                return(1);
+            }
+        }
+        else
+        {
+            if( (vector_scale_factor[i] > 1.0) || (vector_scale_factor[i] < 0.0) )
+            {
+                return(1);
+            }
+        }
+      } else {
         if(int_LARGE_SF == 0)
         {
             if( (vector_scale_factor[i]*temp_pow > (1.0 - 1.0/(double) num_categories[i-num_var_continuous-num_reg_continuous-1])) ||
@@ -2337,6 +2357,7 @@ double *vector_scale_factor)
                 return(1);
             }
         }
+      }
     }
 
 /* Ordered categorical Variables */
@@ -2365,6 +2386,23 @@ double *vector_scale_factor)
     for(i = num_var_continuous+num_reg_continuous+num_var_unordered+num_var_ordered+1; i <= num_var_continuous+num_reg_continuous+num_var_unordered+num_var_ordered+num_reg_unordered; i++)
     {
 /* Check for admissible value of lambda - in inadmissible, set to admissible */
+      if(KERNEL_unordered_liracine == 1) {
+        /* If using the unordered li_racine kernel use ordered bounds */
+        if(int_LARGE_SF == 0)
+        {
+            if( (vector_scale_factor[i]*temp_pow > 1.0) || (vector_scale_factor[i] < 0.0) )
+            {
+                return(1);
+            }
+        }
+        else
+        {
+            if( (vector_scale_factor[i] > 1.0) || (vector_scale_factor[i] < 0.0) )
+            {
+                return(1);
+            }
+        }
+      } else {
         if(int_LARGE_SF == 0)
         {
             if( (vector_scale_factor[i]*temp_pow > (1.0 - 1.0/(double) num_categories[i-num_var_continuous-num_reg_continuous-1])) ||
@@ -2381,6 +2419,7 @@ double *vector_scale_factor)
                 return(1);
             }
         }
+      }
     }
 
 /* Ordered categorical regressors */

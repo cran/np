@@ -356,9 +356,9 @@ npscoefbw(\dots)
  Li, Q. and J.S. Racine (2007), \emph{Nonparametric Econometrics: Theory
  and Practice,} Princeton University Press.
 
-  Li, Q. and J.S. Racine (2007), \dQuote{Smooth varying-coefficient
-    nonparametric models for qualitative and quantitative data,}
-  manuscript.
+  Li, Q. and J.S. Racine (2008), \dQuote{Smooth varying-coefficient
+    estimation and inference for qualitative and quantitative data,}
+    manuscript.
 
   Pagan, A. and A. Ullah (1999), \emph{Nonparametric Econometrics,}
  Cambridge University Press.
