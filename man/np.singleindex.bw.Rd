@@ -17,7 +17,7 @@
 \usage{
 npindexbw(\dots)
 
-\method{npindexbw}{formula}(formula, data, subset, na.action, \dots)
+\method{npindexbw}{formula}(formula, data, subset, na.action, call, \dots)
 
 \method{npindexbw}{NULL}(xdat = stop("training data xdat missing"),
           ydat = stop("training data ydat missing"),
@@ -79,6 +79,12 @@ npindexbw(\dots)
     \code{\link{na.action}} setting of options, and is
     \code{\link{na.fail}} if that is unset. The (recommended) default is
     \code{\link{na.omit}}.  
+  }
+  
+  \item{call}{
+    the original function call. This is passed internally by
+    \code{\link{np}} when a bandwidth search has been implied by a call to
+    another function. It is not recommended that the user set this.
   }
 
   \item{xdat}{
@@ -193,7 +199,7 @@ npindexbw(\dots)
   jointly with respect to the bandwidth and coefficient vector. Note
   that Klein and Spady's (1993) method is for \emph{binary outcomes
     only}, while Ichimura's (1993) method can be applied for any outcome
-  datatype (i.e., continuous or discrete).
+  data type (i.e., continuous or discrete).
 
   We impose the identification condition that the first element of the
   coefficient vector beta is equal to one, while identification also
@@ -332,7 +338,7 @@ summary(bw)
 
 Sys.sleep(5)
 
-# EXAMPLE 1 (INTERFACE=DATAFRAME): Generate a simple linear model then
+# EXAMPLE 1 (INTERFACE=DATA FRAME): Generate a simple linear model then
 # compute coefficients and the bandwidth using Ichimura's nonlinear
 # least squares approach.
 
@@ -360,7 +366,7 @@ summary(bw)
 
 Sys.sleep(5)
 
-# EXAMPLE 2 (INTERFACE=DATAFRAME): Generate a simple binary outcome
+# EXAMPLE 2 (INTERFACE=DATA FRAME): Generate a simple binary outcome
 # model then compute coefficients and the bandwidth using Klein and
 # Spady's likelihood-based approach.
 
@@ -379,7 +385,7 @@ bw <- npindexbw(formula=y~x1+x2, method="kleinspady")
 
 summary(bw)
 
-# EXAMPLE 2 (INTERFACE=DATAFRAME): Generate a simple binary outcome
+# EXAMPLE 2 (INTERFACE=DATA FRAME): Generate a simple binary outcome
 # model then compute coefficients and the bandwidth using Klein and
 # Spady's likelihood-based approach.
 

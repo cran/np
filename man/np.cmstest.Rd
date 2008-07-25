@@ -1,7 +1,7 @@
 % $Id: np.cmstest.Rd,v 1.58 2006/11/03 21:17:20 tristen Exp $
 \name{npcmstest}
 \alias{npcmstest}
-\title{ Kernel Consistent Model Specification Test with Mixed Data }
+\title{ Kernel Consistent Model Specification Test with Mixed Data Types }
 \description{
   \code{npcmstest} implements a consistent test for correct
   specification of parametric regression models (linear or nonlinear) as

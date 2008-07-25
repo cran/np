@@ -1,3 +1,6 @@
+#ifndef _NP_
+#define _NP_
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <limits.h>
@@ -61,6 +64,7 @@ double fGoodness_of_Fit(int iNum_Obs, double *fvector_Y, double *fkernel_fit);
 
 double kernel(int KERNEL, double z);
 double kernel_unordered(int KERNEL, double x, double y, double lambda, int c);
+double kernel_unordered_ratio(int KERNEL, double x, double y, double lambda, int c);
 double kernel_ordered(int KERNEL, double x, double y, double lambda);
 double kernel_unordered_convolution(int KERNEL, double x, double y, double lambda, int c, double *c_vals);
 double kernel_ordered_convolution(int KERNEL, double x, double y, double lambda, int c, double *c_vals);
@@ -179,7 +183,7 @@ int kernel_estimate_ate_categorical_leave_one_out(int KERNEL_reg,int KERNEL_unor
 int unique(int num_obs, double *x);
 void spinner(int num);
 
-int kernel_weighted_sum_np(const int KERNEL_reg, const int KERNEL_unordered_reg, const int KERNEL_ordered_reg, const int BANDWIDTH_reg, const int num_obs_train, const int num_obs_eval, const int num_reg_unordered, const int num_reg_ordered, const int num_reg_continuous, const int leave_one_out, const int kernel_pow, const int bandwidth_divide, const int do_smooth_coef_weights, const int symmetric, const int gather_scatter, double * const * const matrix_X_unordered_train,double **matrix_X_ordered_train,double **matrix_X_continuous_train,double **matrix_X_unordered_eval,double **matrix_X_ordered_eval,double **matrix_X_continuous_eval,double ** matrix_Y, double ** matrix_W, double * sgn, double *vector_scale_factor,int *num_categories,double *weighted_sum);
+int kernel_weighted_sum_np(const int KERNEL_reg, const int KERNEL_unordered_reg, const int KERNEL_ordered_reg, const int BANDWIDTH_reg, const int num_obs_train, const int num_obs_eval, const int num_reg_unordered, const int num_reg_ordered, const int num_reg_continuous, const int leave_one_out, const int kernel_pow, const int bandwidth_divide, const int do_smooth_coef_weights, const int symmetric, const int gather_scatter, const int operator, double * const * const matrix_X_unordered_train,double **matrix_X_ordered_train,double **matrix_X_continuous_train,double **matrix_X_unordered_eval,double **matrix_X_ordered_eval,double **matrix_X_continuous_eval,double ** matrix_Y, double ** matrix_W, double * sgn, double *vector_scale_factor,int *num_categories,double ** matrix_categorical_vals, double *weighted_sum);
 
 int kernel_convolution_weighted_sum(int KERNEL_reg,int KERNEL_unordered_reg,int KERNEL_ordered_reg,int BANDWIDTH_reg,int num_obs_train,int num_obs_eval,int num_reg_unordered,int num_reg_ordered,int num_reg_continuous,double **matrix_X_unordered_train,double **matrix_X_ordered_train,double **matrix_X_continuous_train,double **matrix_X_unordered_eval,double **matrix_X_ordered_eval,double **matrix_X_continuous_eval,double *vector_Y,double *vector_scale_factor,int *num_categories,double **matrix_categorical_vals,double *kernel_sum);
 
@@ -198,3 +202,233 @@ int np_cuokernelv_loo_mlcv(int KERNEL, int uKERNEL, int oKERNEL,
 
 int np_kernel_estimate_con_density_categorical_convolution_cv(int KERNEL_den, int KERNEL_unordered_den, int KERNEL_ordered_den, int KERNEL_reg, int KERNEL_unordered_reg, int KERNEL_ordered_reg, int BANDWIDTH_den, int num_obs, int num_var_unordered, int num_var_ordered, int num_var_continuous, int num_reg_unordered, int num_reg_ordered, int num_reg_continuous, double **matrix_Y_unordered, double **matrix_Y_ordered, double **matrix_Y_continuous, double **matrix_X_unordered, double **matrix_X_ordered, double **matrix_X_continuous, double *vector_scale_factor, int *num_categories, double ** matrix_categorical_vals, double *cv);
 double np_cv_func_con_density_categorical_ls(double *vector_scale_factor);
+
+// some general np and R-c interface related defines
+#define safe_free(x) if((x) != NULL) free((x))
+
+#define SF_NORMAL 0
+#define SF_ARB    1
+
+#define BW_FIXED   0
+#define BW_GEN_NN  1
+#define BW_ADAP_NN 2
+
+#define IMULTI_TRUE  1
+#define IMULTI_FALSE 0
+
+#define RE_MIN_TRUE  0
+#define RE_MIN_FALSE 1
+
+#define IO_MIN_TRUE  1
+#define IO_MIN_FALSE 0
+
+#define LL_LC  0
+#define LL_LL  1
+
+#define OCG_UNO 0
+#define OCG_ORD 1
+
+#define BWM_CVML 0
+#define BWM_CVLS 1
+#define BWM_CVML_NP 2
+
+#define NP_DO_DENS 1
+#define NP_DO_DIST 0
+
+#define OP_NORMAL      0
+#define OP_CONVOLUTION 1
+#define OP_DERIVATIVE  2
+#define OP_INTEGRAL    3
+
+static const int OP_CFUN_OFFSETS[4] = { 0, 9, 17, 26 };
+static const int OP_UFUN_OFFSETS[4] = { 0, 2, 0, 0 };
+
+#define ONE_OVER_SQRT_TWO_PI 0.39894228040143267794
+#define SQRT_5 2.236067978
+
+
+#define RBWM_CVAIC 0
+#define RBWM_CVLS 1
+
+#define RBW_NOBSI   0
+#define RBW_IMULTII 1
+#define RBW_NMULTII 2
+#define RBW_USTARTI 3
+#define RBW_LSFI    4
+#define RBW_REGI  5
+#define RBW_ITMAXI  6
+#define RBW_REMINI  7
+#define RBW_MINIOI  8
+#define RBW_MI    9
+#define RBW_CKRNEVI 10
+#define RBW_UKRNEVI 11
+#define RBW_OKRNEVI 12
+#define RBW_NUNOI 13
+#define RBW_NORDI 14
+#define RBW_NCONI 15
+#define RBW_LL 16
+
+#define RBW_FTOLD  0
+#define RBW_TOLD   1
+#define RBW_SMALLD 2
+
+
+#define MPI_RANKI 0
+#define MPI_NUMPI 1
+
+#define BW_NOBSI   0
+#define BW_IMULTII 1
+#define BW_NMULTII 2
+#define BW_USTARTI 3
+#define BW_LSFI    4
+#define BW_DENI  5
+#define BW_ITMAXI  6
+#define BW_REMINI  7
+#define BW_MINIOI  8
+#define BW_MI    9
+#define BW_CKRNEVI 10
+#define BW_NUNOI 11
+#define BW_NORDI 12
+#define BW_NCONI 13
+
+#define BW_FTOLD  0
+#define BW_TOLD   1
+#define BW_SMALLD 2
+
+#define CBW_NOBSI   0
+#define CBW_IMULTII 1
+#define CBW_NMULTII 2
+#define CBW_USTARTI 3
+#define CBW_LSFI    4
+#define CBW_DENI  5
+#define CBW_ITMAXI  6
+#define CBW_REMINI  7
+#define CBW_MINIOI  8
+#define CBW_MI    9
+#define CBW_CXKRNEVI 10
+#define CBW_CYKRNEVI 11
+#define CBW_UXKRNEVI 12
+#define CBW_UYKRNEVI 13
+#define CBW_OXKRNEVI 14
+#define CBW_OYKRNEVI 15
+#define CBW_CNUNOI 16
+#define CBW_CNORDI 17
+#define CBW_CNCONI 18
+#define CBW_UNUNOI 19
+#define CBW_UNORDI 20
+#define CBW_UNCONI 21
+#define CBW_FASTI 22
+#define CBW_AUTOI 23
+
+#define CBW_FTOLD  0
+#define CBW_TOLD   1
+#define CBW_SMALLD 2
+
+#define CBWM_CVML 0
+#define CBWM_CVLS 1
+#define CBWM_NPLS 2
+
+#define CBW_MINOBS 1024
+
+#define CD_TNOBSI 0
+#define CD_ENOBSI   1
+#define CD_LSFI    2
+#define CD_DENI  3
+#define CD_MINIOI  4
+#define CD_CXKRNEVI 5
+#define CD_CYKRNEVI 6
+#define CD_UXKRNEVI 7
+#define CD_UYKRNEVI 8
+#define CD_OXKRNEVI 9
+#define CD_OYKRNEVI 10
+#define CD_CNUNOI 11
+#define CD_CNORDI 12
+#define CD_CNCONI 13
+#define CD_UNUNOI 14
+#define CD_UNORDI 15
+#define CD_UNCONI 16
+#define CD_TISEI 17
+#define CD_GRAD 18
+#define CD_YMLEVI 19
+#define CD_XMLEVI 20
+#define CD_DODENI 21
+
+#define DEN_TNOBSI   0
+#define DEN_ENOBSI   1
+#define DEN_NUNOI 2
+#define DEN_NORDI 3
+#define DEN_NCONI 4
+#define DEN_LSFI 5
+#define DEN_DENI 6
+#define DEN_MINIOI 7
+#define DEN_CKRNEVI    8
+#define DEN_TISEI 9
+#define DEN_MLEVI 10
+#define DEN_DODENI 11
+
+#define REG_TNOBSI   0
+#define REG_ENOBSI   1
+#define REG_NUNOI 2
+#define REG_NORDI 3
+#define REG_NCONI 4
+#define REG_LSFI 5
+#define REG_BWI 6
+#define REG_MINIOI 7
+#define REG_CKRNEVI    8
+#define REG_UKRNEVI 9
+#define REG_OKRNEVI 10
+#define REG_EY 11
+#define REG_GRAD 12
+#define REG_LL 13
+#define REG_TISEI 14
+#define REG_MLEVI 15
+
+#define KWS_TNOBSI   0
+#define KWS_ENOBSI 1
+#define KWS_NUNOI 2
+#define KWS_NORDI 3
+#define KWS_NCONI 4
+#define KWS_LSFI 5
+#define KWS_BWI 6
+#define KWS_MINIOI 7
+#define KWS_CKRNEVI    8
+#define KWS_UKRNEVI 9
+#define KWS_OKRNEVI 10
+#define KWS_TISEI 11
+#define KWS_LOOI 12
+#define KWS_IPOWI 13
+#define KWS_BDIVI 14
+#define KWS_OPI 15
+#define KWS_MLEVI 16
+#define KWS_SCOEFI 17
+#define KWS_WNCOLI 18
+#define KWS_YNCOLI 19
+
+#define CQ_TNOBSI 0
+#define CQ_ENOBSI   1
+#define CQ_LSFI    2
+#define CQ_DENI  3
+#define CQ_MINIOI  4
+#define CQ_CXKRNEVI 5
+#define CQ_CYKRNEVI 6
+#define CQ_UXKRNEVI 7
+#define CQ_UYKRNEVI 8
+#define CQ_OXKRNEVI 9
+#define CQ_OYKRNEVI 10
+#define CQ_CNUNOI 11
+#define CQ_CNORDI 12
+#define CQ_CNCONI 13
+#define CQ_UNUNOI 14
+#define CQ_UNORDI 15
+#define CQ_UNCONI 16
+#define CQ_TISEI 17
+#define CQ_GRADI 18
+#define CQ_ITMAXI 19
+#define CQ_MLEVI 20
+
+#define CQ_FTOLD  0
+#define CQ_TOLD   1
+#define CQ_SMALLD 2
+
+
+#endif // _NP_

@@ -3214,7 +3214,7 @@ npplot.conbandwidth <-
                             "dens" = "condensity"),
                      "(bws = bws, xeval = eval(tex),",
                      ifelse(quantreg, "tau = tau, quantile = eval(tcomp), quanterr = terr[,1:2]",
-                            paste("eydat = eval(tey),", ifelse(cdf, "condist = ", "condens = "),
+                            paste("yeval = eval(tey),", ifelse(cdf, "condist = ", "condens = "),
                                   "eval(tcomp), conderr = terr[,1:2]")),
                      ", ntrain = dim(xdat)[1])", sep=""))
 

@@ -10,7 +10,7 @@
 \usage{data("Italy")}
 \format{ A data frame with 2 columns, and 1008 rows.
   \describe{
-    \item{year}{ the first column, of type \code{integer}}
+    \item{year}{ the first column, of type \code{ordered}}
 
     \item{gdp}{ the second column, of type \code{numeric}: millions of
     Lire, 1990=base}

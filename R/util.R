@@ -301,7 +301,7 @@ oMaxL <- function(c, kertype = c("wangvanryzin", "liracine")){
 
 ## tested with: rbandwidth
 ## right now all bandwidth objects have some crusty
-## vistiges of their evolution, ie. non-list metadata
+## vestiges of their evolution, ie. non-list metadata
 ## such as xnames or ynames. The new metadata system is
 ## for the most part list based and facilitates generic
 ## operations
@@ -371,7 +371,7 @@ pCatGofStr <- function(x){
   }
 
   if (!identical(x$fit.mcfadden,NA))
-    cat("\nMcFadden-Puig-Kerschner performance measure from prediction-realization tables: ", format(x$fit.mcfadden))
+    cat("\nMcFadden-Puig-Kerschner performance measure: ", format(x$fit.mcfadden))
 
 }
 
@@ -695,6 +695,13 @@ REGTYPE_LL = 1
 CBWM_CVML = 0
 CBWM_CVLS = 1
 CBWM_NPLS = 2
+
+##integral operators on kernels
+OP_NORMAL      = 0
+OP_CONVOLUTION = 1
+OP_DERIVATIVE  = 2
+OP_INTEGRAL    = 3
+
 
 ## useful numerical constants of kernel integrals
 int.kernels <- c(0.28209479177387814348, 0.47603496111841936711, 0.62396943688265038571, 0.74785078617543927990,

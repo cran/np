@@ -22,8 +22,12 @@ extern  int iSeed_my_rank;
 extern  MPI_Status status;
 #endif
 
+#define IO_MIN_TRUE  1
+#define IO_MIN_FALSE 0
+
 extern int int_DEBUG;
 extern int int_VERBOSE;
+extern int int_MINIMIZE_IO;
 extern int int_TAYLOR;
 extern int int_WEIGHTS;
 
@@ -2586,7 +2590,7 @@ double *SIGN)
 
 					for(l = 0; l < num_reg_unordered; l++)
 					{
-						prod_kernel_cat *= kernel_unordered(KERNEL_unordered_reg, matrix_X_unordered_eval[l][j],matrix_X_unordered_train[l][i],lambda[l],num_categories[l]);
+						prod_kernel_cat *= kernel_unordered_ratio(KERNEL_unordered_reg, matrix_X_unordered_eval[l][j],matrix_X_unordered_train[l][i],lambda[l],num_categories[l]);
 					}
 
 					for(l = 0; l < num_reg_ordered; l++)
@@ -2683,7 +2687,7 @@ double *SIGN)
 
 					for(l = 0; l < num_reg_unordered; l++)
 					{
-						prod_kernel_cat *= kernel_unordered(KERNEL_unordered_reg, matrix_X_unordered_eval[l][j],matrix_X_unordered_train[l][i],lambda[l],num_categories[l]);
+						prod_kernel_cat *= kernel_unordered_ratio(KERNEL_unordered_reg, matrix_X_unordered_eval[l][j],matrix_X_unordered_train[l][i],lambda[l],num_categories[l]);
 					}
 
 					for(l = 0; l < num_reg_ordered; l++)
@@ -2781,7 +2785,7 @@ double *SIGN)
 
 					for(l = 0; l < num_reg_unordered; l++)
 					{
-						prod_kernel_cat *= kernel_unordered(KERNEL_unordered_reg,matrix_X_unordered_eval[l][j],matrix_X_unordered_train[l][i],lambda[l],num_categories[l]);
+						prod_kernel_cat *= kernel_unordered_ratio(KERNEL_unordered_reg,matrix_X_unordered_eval[l][j],matrix_X_unordered_train[l][i],lambda[l],num_categories[l]);
 					}
 
 					for(l = 0; l < num_reg_ordered; l++)
@@ -2901,7 +2905,7 @@ double *SIGN)
 
 					for(k = 0; k < num_reg_unordered; k++)
 					{
-						prod_kernel_cat *= kernel_unordered(KERNEL_unordered_reg, matrix_X_unordered_eval[k][j],matrix_X_unordered_train[k][i],lambda[k],num_categories[k]);
+						prod_kernel_cat *= kernel_unordered_ratio(KERNEL_unordered_reg, matrix_X_unordered_eval[k][j],matrix_X_unordered_train[k][i],lambda[k],num_categories[k]);
 					}
 
 					for(k = 0; k < num_reg_ordered; k++)
@@ -3112,7 +3116,7 @@ double *SIGN)
 
 					for(k = 0; k < num_reg_unordered; k++)
 					{
-						prod_kernel_cat *= kernel_unordered(KERNEL_unordered_reg, matrix_X_unordered_eval[k][j],matrix_X_unordered_train[k][i],lambda[k],num_categories[k]);
+						prod_kernel_cat *= kernel_unordered_ratio(KERNEL_unordered_reg, matrix_X_unordered_eval[k][j],matrix_X_unordered_train[k][i],lambda[k],num_categories[k]);
 					}
 
 					for(k = 0; k < num_reg_ordered; k++)
@@ -3326,7 +3330,7 @@ double *SIGN)
 
 					for(k = 0; k < num_reg_unordered; k++)
 					{
-						prod_kernel_cat *= kernel_unordered(KERNEL_unordered_reg, matrix_X_unordered_eval[k][j],matrix_X_unordered_train[k][i],lambda[k],num_categories[k]);
+						prod_kernel_cat *= kernel_unordered_ratio(KERNEL_unordered_reg, matrix_X_unordered_eval[k][j],matrix_X_unordered_train[k][i],lambda[k],num_categories[k]);
 					}
 
 					for(k = 0; k < num_reg_ordered; k++)
@@ -3551,7 +3555,7 @@ double *SIGN)
 
 					for(l = 0; l < num_reg_unordered; l++)
 					{
-						prod_kernel_cat *= kernel_unordered(KERNEL_unordered_reg, matrix_X_unordered_eval[l][j],matrix_X_unordered_train[l][i],lambda[l],num_categories[l]);
+						prod_kernel_cat *= kernel_unordered_ratio(KERNEL_unordered_reg, matrix_X_unordered_eval[l][j],matrix_X_unordered_train[l][i],lambda[l],num_categories[l]);
 					}
 
 					for(l = 0; l < num_reg_ordered; l++)
@@ -3646,7 +3650,7 @@ double *SIGN)
 
 					for(l = 0; l < num_reg_unordered; l++)
 					{
-						prod_kernel_cat *= kernel_unordered(KERNEL_unordered_reg, matrix_X_unordered_eval[l][j],matrix_X_unordered_train[l][i],lambda[l],num_categories[l]);
+						prod_kernel_cat *= kernel_unordered_ratio(KERNEL_unordered_reg, matrix_X_unordered_eval[l][j],matrix_X_unordered_train[l][i],lambda[l],num_categories[l]);
 					}
 
 					for(l = 0; l < num_reg_ordered; l++)
@@ -3742,7 +3746,7 @@ double *SIGN)
 
 					for(l = 0; l < num_reg_unordered; l++)
 					{
-						prod_kernel_cat *= kernel_unordered(KERNEL_unordered_reg,matrix_X_unordered_eval[l][j],matrix_X_unordered_train[l][i],lambda[l],num_categories[l]);
+						prod_kernel_cat *= kernel_unordered_ratio(KERNEL_unordered_reg,matrix_X_unordered_eval[l][j],matrix_X_unordered_train[l][i],lambda[l],num_categories[l]);
 					}
 
 					for(l = 0; l < num_reg_ordered; l++)
@@ -3862,7 +3866,7 @@ double *SIGN)
 
 					for(k = 0; k < num_reg_unordered; k++)
 					{
-						prod_kernel_cat *= kernel_unordered(KERNEL_unordered_reg, matrix_X_unordered_eval[k][j],matrix_X_unordered_train[k][i],lambda[k],num_categories[k]);
+						prod_kernel_cat *= kernel_unordered_ratio(KERNEL_unordered_reg, matrix_X_unordered_eval[k][j],matrix_X_unordered_train[k][i],lambda[k],num_categories[k]);
 					}
 
 					for(k = 0; k < num_reg_ordered; k++)
@@ -4075,7 +4079,7 @@ double *SIGN)
 
 					for(k = 0; k < num_reg_unordered; k++)
 					{
-						prod_kernel_cat *= kernel_unordered(KERNEL_unordered_reg, matrix_X_unordered_eval[k][j],matrix_X_unordered_train[k][i],lambda[k],num_categories[k]);
+						prod_kernel_cat *= kernel_unordered_ratio(KERNEL_unordered_reg, matrix_X_unordered_eval[k][j],matrix_X_unordered_train[k][i],lambda[k],num_categories[k]);
 					}
 
 					for(k = 0; k < num_reg_ordered; k++)
@@ -4290,7 +4294,7 @@ double *SIGN)
 
 					for(k = 0; k < num_reg_unordered; k++)
 					{
-						prod_kernel_cat *= kernel_unordered(KERNEL_unordered_reg, matrix_X_unordered_eval[k][j],matrix_X_unordered_train[k][i],lambda[k],num_categories[k]);
+						prod_kernel_cat *= kernel_unordered_ratio(KERNEL_unordered_reg, matrix_X_unordered_eval[k][j],matrix_X_unordered_train[k][i],lambda[k],num_categories[k]);
 					}
 
 					for(k = 0; k < num_reg_ordered; k++)
@@ -17189,10 +17193,6 @@ double zero)
 		}
 	}
 
-	printf("\r                                                                             ");
-	printf("\rWorking...");
-	fflush(stdout);
-
 	for(i=0; i < num_obs_eval; i++)
 	{
 
@@ -17251,9 +17251,11 @@ double zero)
 			fret = fret_best;
 			quantile[1] = quantile_multistart[1];
 
-			printf("\r                                                                             ");
-			printf("\rWorking... (observation %d/%d required %d restarts to attain %g)", i+1, num_obs_eval, iNum_Ms, zero);
-			fflush(stdout);
+      if(int_MINIMIZE_IO != IO_MIN_TRUE){
+        printf("\r                                                                             ");
+        printf("\rWorking... (observation %d/%d required %d restarts to attain %g)", i+1, num_obs_eval, iNum_Ms, zero);
+        fflush(stdout);
+      }
 
 		}
 
@@ -17316,11 +17318,11 @@ double zero)
 
 					fret = fret_best;
 					quantile[1] = quantile_multistart[1];
-
-					printf("\r                                                                             ");
-					printf("\rWorking... (observation %d/%d required %d restarts to attain %g)", i+1, num_obs_eval, iNum_Ms, zero);
-					fflush(stdout);
-
+          if(int_MINIMIZE_IO != IO_MIN_TRUE){
+            printf("\r                                                                             ");
+            printf("\rWorking... (observation %d/%d required %d restarts to attain %g)", i+1, num_obs_eval, iNum_Ms, zero);
+            fflush(stdout);
+          }
 				}
 
 				quantile_l = quantile[1];
@@ -17373,10 +17375,11 @@ double zero)
 
 					fret = fret_best;
 					quantile[1] = quantile_multistart[1];
-
-					printf("\r                                                                             ");
-					printf("\rWorking... (observation %d/%d required %d restarts to attain %g)", i+1, num_obs_eval, iNum_Ms, zero);
-					fflush(stdout);
+          if(int_MINIMIZE_IO != IO_MIN_TRUE){
+            printf("\r                                                                             ");
+            printf("\rWorking... (observation %d/%d required %d restarts to attain %g)", i+1, num_obs_eval, iNum_Ms, zero);
+            fflush(stdout);
+          }
 
 				}
 
@@ -17416,15 +17419,6 @@ double zero)
 		{
 			y_max_extern = matrix_Y_continuous_train[0][i];
 		}
-	}
-
-	if(my_rank == 0)
-	{
-
-		printf("\r                                                                             ");
-		printf("\rWorking...");
-		fflush(stdout);
-
 	}
 
 	/* Converting to  MPI aware 11/16/04 */
@@ -17487,9 +17481,8 @@ double zero)
 			fret = fret_best;
 			quantile[1] = quantile_multistart[1];
 
-			if(my_rank == 0)
+			if((my_rank == 0) && (int_MINIMIZE_IO != IO_MIN_TRUE))
 			{
-
 				printf("\r                                                                             ");
 				printf("\rWorking... (observation %d/%d required %d restarts to attain %g)", i+1, stride, iNum_Ms, zero);
 				fflush(stdout);
@@ -17556,7 +17549,7 @@ double zero)
 					fret = fret_best;
 					quantile[1] = quantile_multistart[1];
 
-					if(my_rank == 0)
+          if((my_rank == 0) && (int_MINIMIZE_IO != IO_MIN_TRUE))
 					{
 
 						printf("\r                                                                             ");
@@ -17618,9 +17611,8 @@ double zero)
 					fret = fret_best;
 					quantile[1] = quantile_multistart[1];
 
-					if(my_rank == 0)
+          if((my_rank == 0) && (int_MINIMIZE_IO != IO_MIN_TRUE))
 					{
-
 						printf("\r                                                                             ");
 						printf("\rWorking... (observation %d/%d required %d restarts to attain %g)", i+1, num_obs_eval, iNum_Ms, zero);
 						fflush(stdout);

@@ -33,23 +33,25 @@
 # beta' goodness of fit and so forth...
 
 npindex <-
-  function(bws = stop(paste("bandwidths are required to perform the estimate!",
-             "please set 'bws'")), ...){
-    args = list(...)
+  function(bws, ...){
+    args <- list(...)
 
-    if (is.recursive(bws)){
-      if (!is.null(bws$formula) && is.null(args$txdat))
-        UseMethod("npindex",bws$formula)
-      else if (!is.null(args$data) || !is.null(args$newdata))
-        stop("data and newdata specified, but bws has no formula")
-      else if (!is.null(bws$call) && is.null(args$txdat))
-        UseMethod("npindex",bws$call)
-      else
-        UseMethod("npindex",bws)
+    if (!missing(bws)){
+      if (is.recursive(bws)){
+        if (!is.null(bws$formula) && is.null(args$txdat))
+          UseMethod("npindex",bws$formula)
+        else if (!is.null(bws$call) && is.null(args$txdat))
+          UseMethod("npindex",bws$call)
+        else if (!is.call(bws))
+          UseMethod("npindex",bws)
+        else
+          UseMethod("npindex",NULL)
+      } else {
+        UseMethod("npindex", NULL)
+      }
     } else {
-      UseMethod("npindex",bws)
+      UseMethod("npindex", NULL)
     }
-
   }
 
 npindex.formula <-
@@ -94,44 +96,77 @@ npindex.call <-
             bws = bws, ...)
   }
 
+npindex.default <- function(bws, txdat, tydat, ...){
+  sc.names <- names(sys.call())
 
-npindex.default <-
-  function(bws,
-           txdat = stop("training data 'txdat' missing"),
-           tydat = stop("training data 'tydat' missing"),
-           exdat, eydat,
-           gradients, residuals, errors, boot.num, ...) {
+  ## here we check to see if the function was called with tdat =
+  ## if it was, we need to catch that and map it to dat =
+  ## otherwise the call is passed unadulterated to npudensbw
 
+  bws.named <- any(sc.names == "bws")
+  txdat.named <- any(sc.names == "txdat")
+  tydat.named <- any(sc.names == "tydat")
+
+  no.bws <- missing(bws)
+  no.txdat <- missing(txdat)
+  no.tydat <- missing(tydat)
+
+  ## if bws was passed in explicitly, do not compute bandwidths
+    
+  if(txdat.named)
     txdat <- toFrame(txdat)
-    
-    if (coarseclass(bws) != "numeric" | length(bws) != ncol(txdat)+1)
-      stop(paste("manually specified 'bws' must be a numeric vector of length ncol(txdat)+1.",
-                 "See documentation for details."))
 
-    
-    if(!(is.vector(tydat) | is.factor(tydat)))
-      stop("'tydat' must be a vector")
+  mc <- match.call()
 
-    tbw <- npindexbw(bws = bws,
-                     xdat = txdat,
-                     ydat = tydat,
-                     bandwidth.compute = FALSE,
-                     ...)
-    tbw <- updateBwNameMetadata(nameList =
-                                list(ynames = deparse(substitute(tydat))),
-                                bws = tbw)
+  tx.str <- ifelse(txdat.named, "xdat = txdat,",
+                   ifelse(no.txdat, "", "txdat,"))
+  ty.str <- ifelse(tydat.named, "ydat = tydat,",
+                   ifelse(no.tydat, "", "tydat,"))
+  
+  tbw <- eval(parse(text = paste("npindexbw(",
+                      ifelse(bws.named,                             
+                             paste(tx.str, ty.str,
+                                   "bws = bws, bandwidth.compute = FALSE,"),
+                             paste(ifelse(no.bws, "", "bws,"), tx.str, ty.str)),
+                      "call = mc, ...",")",sep="")))
 
-    mc.names <- names(match.call(expand.dots = FALSE))
-    margs <- c("exdat", "eydat", "gradients", "residuals", "errors", "boot.num")
-    m <- match(margs, mc.names, nomatch = 0)
-    any.m <- any(m != 0)
+  ##tbw <- updateBwNameMetadata(nameList =
+  ##                            list(ynames = deparse(substitute(tydat))),
+  ##                            bws = tbw)
 
+  repair.args <- c("data", "subset", "na.action")
+  
+  m.par <- match(repair.args, names(mc), nomatch = 0)
+  m.child <- match(repair.args, names(tbw$call), nomatch = 0)
 
-    eval(parse(text=paste("npindex.sibandwidth(txdat=txdat, tydat=tydat, bws=tbw",
-                 ifelse(any.m, ",",""),
-                 paste(mc.names[m], ifelse(any.m,"=",""), mc.names[m], collapse=", "),
-                 ")")))
+  if(any(m.child > 0)) {
+    tbw$call[m.child] <- mc[m.par]
   }
+
+  ## next we repair arguments portion of the call
+  m.bws.par <- match(c("bws","txdat","tydat"), names(mc), nomatch = 0)
+  m.bws.child <- match(c("bws","txdat","tydat"), as.character(tbw$call), nomatch = 0)
+  m.bws.union <- (m.bws.par > 0) & (m.bws.child > 0)
+  
+  tbw$call[m.bws.child[m.bws.union]] <- mc[m.bws.par[m.bws.union]]
+
+  environment(tbw$call) <- parent.frame()
+
+  ## convention: drop 'bws' and up to two unnamed arguments (including bws)
+  if(no.bws){
+    tx.str <- ",txdat = txdat"
+    ty.str <- ",tydat = tydat"
+  } else {
+    tx.str <- ifelse(txdat.named, ",txdat = txdat","")
+    ty.str <- ifelse(tydat.named, ",tydat = tydat","")    
+    if((!bws.named) && (!txdat.named)){
+      ty.str <- ifelse(tydat.named, ",tydat = tydat",
+                       ifelse(no.tydat,"",",tydat"))
+    }
+  }
+  
+  eval(parse(text=paste("npindex(bws = tbw", tx.str, ty.str, ",...)")))
+}
 
 npindex.sibandwidth <-
   function(bws,

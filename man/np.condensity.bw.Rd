@@ -5,7 +5,7 @@
 \alias{npcdensbw.conbandwidth}
 \alias{npcdensbw.default}
 \alias{npcdensbw.formula}
-\title{Kernel Conditional Density Bandwidth Selection with Mixed Datatypes}
+\title{Kernel Conditional Density Bandwidth Selection with Mixed Data Types}
 
 \description{
   \code{npcdensbw} computes a \code{conbandwidth} object for
@@ -18,7 +18,7 @@
 \usage{
 npcdensbw(\dots)
 
-\method{npcdensbw}{formula}(formula, data, subset, na.action, \dots)
+\method{npcdensbw}{formula}(formula, data, subset, na.action, call, \dots)
 
 \method{npcdensbw}{NULL}(xdat = stop("data 'xdat' missing"),
           ydat = stop("data 'ydat' missing"),
@@ -90,16 +90,23 @@ npcdensbw(\dots)
     \code{\link{na.fail}} if that is unset. The (recommended) default is
     \code{\link{na.omit}}.  
   }
+  
+  \item{call}{
+    the original function call. This is passed internally by
+    \code{\link{np}} when a bandwidth search has been implied by a call to
+    another function. It is not recommended that the user set this.
+  }
+
 
   \item{xdat}{
     a \eqn{p}-variate data frame of explanatory data on which bandwidth selection will
-    be performed. The datatypes may be continuous, discrete (unordered
+    be performed. The data types may be continuous, discrete (unordered
     and ordered factors), or some combination thereof.
   }
 
   \item{ydat}{
     a \eqn{q}-variate data frame of dependent data which bandwidth selection will
-    be performed. The datatypes may be continuous, discrete (unordered
+    be performed. The data types may be continuous, discrete (unordered
     and ordered factors), or some combination thereof.
   }
 
@@ -158,15 +165,15 @@ npcdensbw(\dots)
     a logical value that when set to \code{TRUE} the supplied
     bandwidths are interpreted as `scale factors' (\eqn{c_j}{c[j]}),
     otherwise when the value is \code{FALSE} they are interpreted as `raw
-    bandwidths' (\eqn{h_j}{h[j]} for continuous datatypes,
-		\eqn{\lambda_j}{lambda[j]} for discrete datatypes). For continuous
-		datatypes, \eqn{c_j}{c[j]} and \eqn{h_j}{h[j]} are related by the
+    bandwidths' (\eqn{h_j}{h[j]} for continuous data types,
+		\eqn{\lambda_j}{lambda[j]} for discrete data types). For continuous
+		data types, \eqn{c_j}{c[j]} and \eqn{h_j}{h[j]} are related by the
 		formula \eqn{h_j = c_j \sigma_j n^{-1/(2P+l)}}{h[j] =
 			c[j]*sigma[j]*n^(-1/(2*P+l))}, where \eqn{\sigma_j}{sigma[j]}
     is the standard deviation of continuous variable \eqn{j},
     \eqn{n} the number of observations, \eqn{P}{P} the order of the kernel,
     and \eqn{l}{l} the number of continuous variables. For discrete
-    datatypes, \eqn{c_j}{c[j]} and \eqn{h_j}{h[j]} are related by the
+    data types, \eqn{c_j}{c[j]} and \eqn{h_j}{h[j]} are related by the
 		formula \eqn{h_j = c_jn^{-2/(2P+l)}}{h[j] = c[j]*n^(-2/(2*P+l))},
 		where here \eqn{j}{[j]} denotes discrete variable \eqn{j}{j}.
     Defaults to \code{FALSE}.
@@ -274,7 +281,7 @@ npcdensbw(\dots)
   over a set of possibly continuous and/or discrete (unordered, ordered)
   data. The approach is based on Li and Racine (2004) who employ
   \sQuote{generalized product kernels} that admit a mix of continuous
-  and discrete datatypes.
+  and discrete data types.
 
   The cross-validation methods employ multivariate numerical search
   algorithms (direction set (Powell's) methods in multidimensions).
@@ -282,7 +289,7 @@ npcdensbw(\dots)
   Bandwidths can (and will) differ for each variable which is, of
   course, desirable.
 
-  Three classes of kernel estimators for the continuous datatypes are
+  Three classes of kernel estimators for the continuous data types are
   available: fixed, adaptive nearest-neighbor, and generalized
   nearest-neighbor. Adaptive nearest-neighbor bandwidths change with
   each sample realization in the set, \eqn{x_i}{x[i]}, when estimating
@@ -315,10 +322,10 @@ npcdensbw(\dots)
   be estimated. See below for further examples. 
 
   A variety of kernels may be specified by the user. Kernels implemented
-  for continuous datatypes include the second, fourth, sixth, and eighth
+  for continuous data types include the second, fourth, sixth, and eighth
   order Gaussian and Epanechnikov kernels, and the uniform
-  kernel. Unordered discrete datatypes use a variation on Aitchison and
-  Aitken's (1976) kernel, while ordered datatypes use a variation of the
+  kernel. Unordered discrete data types use a variation on Aitchison and
+  Aitken's (1976) kernel, while ordered data types use a variation of the
   Wang and van Ryzin (1981) kernel.
 
 }
@@ -437,7 +444,7 @@ detach(Italy)
 
 \dontrun{
 
-# EXAMPLE 1 (INTERFACE=DATAFRAME): For this example, we compute the
+# EXAMPLE 1 (INTERFACE=DATA FRAME): For this example, we compute the
 # likelihood cross-validated bandwidths (default) using a second-order
 # Gaussian kernel (default). Note - this may take a minute or two
 # depending on the speed of your computer. We override the default

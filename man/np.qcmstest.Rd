@@ -2,7 +2,7 @@
 % $Id: np.qcmstest.Rd,v 1.41 2006/11/09 11:43:39 jracine Exp $
 \name{npqcmstest}
 \alias{npqcmstest}
-\title{ Kernel Consistent Quantile Regression Model Specification Test with Mixed Data }
+\title{ Kernel Consistent Quantile Regression Model Specification Test with Mixed Data Types }
 \description{
   \code{npqcmstest} implements a consistent test for correct
   specification of parametric quantile regression models (linear or

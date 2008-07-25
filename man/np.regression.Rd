@@ -6,7 +6,7 @@
 \alias{npreg.formula}
 \alias{npreg.rbandwidth}
 
-\title{Kernel Regression with Mixed Datatypes}
+\title{Kernel Regression with Mixed Data Types}
 
 \description{
   \code{npreg} computes a kernel regression estimate of a one
@@ -25,14 +25,7 @@ npreg(bws, \dots)
 
 \method{npreg}{call}(bws, \dots)
 
-\method{npreg}{default}(bws,
-      txdat = stop("training data 'txdat' missing"),
-      tydat = stop("training data 'tydat' missing"),
-      exdat,
-      eydat, 
-      gradients,
-      residuals,
-      \dots)
+\method{npreg}{default}(bws, txdat, tydat, \dots)
 
 \method{npreg}{rbandwidth}(bws,
       txdat = stop("training data 'txdat' missing"),
@@ -115,9 +108,9 @@ npreg(bws, \dots)
   multivariate (\eqn{p}-variate) data, the types of which are possibly
   continuous and/or discrete (unordered, ordered). The approach is
   based on Li and Racine (2003) who employ \sQuote{generalized product kernels}
-  that admit a mix of continuous and discrete datatypes.
+  that admit a mix of continuous and discrete data types.
 
-  Three classes of kernel estimators for the continuous datatypes are
+  Three classes of kernel estimators for the continuous data types are
   available: fixed, adaptive nearest-neighbor, and generalized
   nearest-neighbor. Adaptive nearest-neighbor bandwidths change with
   each sample realization in the set, \eqn{x_i}{x[i]}, when estimating the
@@ -126,18 +119,18 @@ npreg(bws, \dots)
   are constant over the support of \eqn{x}.
 
   Data contained in the data frame \code{txdat} may be a mix of
-  continuous (default), unordered discrete (to be specified in the
-  data frame \code{txdat} using \code{\link{factor}}), and ordered
-  discrete (to be specified in the data frame \code{txdat} using
-  \code{\link{ordered}}). Data can be entered in an arbitrary order and data
-  types will be detected automatically by the routine (see \code{\link{np}} for
-  details).
+  continuous (default), unordered discrete (to be specified in the data
+  frame \code{txdat} using \code{\link{factor}}), and ordered discrete
+  (to be specified in the data frame \code{txdat} using
+  \code{\link{ordered}}). Data can be entered in an arbitrary order and
+  data types will be detected automatically by the routine (see
+  \code{\link{np}} for details).
 
   A variety of kernels may be specified by the user. Kernels implemented
-  for continuous datatypes include the second, fourth, sixth, and eighth
+  for continuous data types include the second, fourth, sixth, and eighth
   order Gaussian and Epanechnikov kernels, and the uniform
-  kernel. Unordered discrete datatypes use a variation on Aitchison and
-  Aitken's (1976) kernel, while ordered datatypes use a variation of the
+  kernel. Unordered discrete data types use a variation on Aitchison and
+  Aitken's (1976) kernel, while ordered data types use a variation of the
   Wang and van Ryzin (1981) kernel.
 
 }
@@ -257,7 +250,7 @@ detach(Italy)
 
 Sys.sleep(5)
 
-# EXAMPLE 1 (INTERFACE=DATAFRAME): For this example, we compute a
+# EXAMPLE 1 (INTERFACE=DATA FRAME): For this example, we compute a
 # bivariate nonparametric regression estimate for Giovanni Baiocchi's
 # Italian income panel (see Italy for details)
 
@@ -323,7 +316,7 @@ detach(cps71)
 
 Sys.sleep(5)
 
-# EXAMPLE 2 (INTERFACE=DATAFRAME): For this example, we compute a local
+# EXAMPLE 2 (INTERFACE=DATA FRAME): For this example, we compute a local
 # linear fit using the AIC_c bandwidth selection criterion. We then plot
 # the estimator and its gradient using asymptotic standard errors.
 
@@ -354,7 +347,7 @@ Sys.sleep(5)
 # EXAMPLE 3 (INTERFACE=FORMULA): For this example, we replicate the
 # nonparametric regression in Maasoumi, Racine, and Stengos
 # (2007) (see oecdpanel for details). Note that X is multivariate
-# containing a mix of unordered, ordered, and continuous datatypes. Note
+# containing a mix of unordered, ordered, and continuous data types. Note
 # - this may take a few minutes depending on the speed of your computer.
 
 data("oecdpanel")
@@ -377,10 +370,10 @@ npplot(bws=bw, plot.errors.method="asymptotic")
 
 detach(oecdpanel)
 
-# EXAMPLE 3 (INTERFACE=DATAFRAME): For this example, we replicate the
+# EXAMPLE 3 (INTERFACE=DATA FRAME): For this example, we replicate the
 # nonparametric regression in Maasoumi, Racine, and Stengos
 # (2007) (see oecdpanel for details). Note that X is multivariate
-# containing a mix of unordered, ordered, and continuous datatypes. Note
+# containing a mix of unordered, ordered, and continuous data types. Note
 # - this may take a few minutes depending on the speed of your computer.
 
 data("oecdpanel")
@@ -436,7 +429,7 @@ npplot(bws=bw, plot.errors.method="bootstrap", plot.errors.type="quantile")
 
 detach(ToothGrowth)
 
-# EXAMPLE 4 (INTERFACE=DATAFRAME): Experimental data - the effect of
+# EXAMPLE 4 (INTERFACE=DATA FRAME): Experimental data - the effect of
 # vitamin C on tooth growth in guinea pigs
 #
 # Description:
@@ -524,7 +517,7 @@ screen(2)
 persp(xs, zs, fit.mat, xlab="x1", ylab="x2", zlab="y",
       main="Local linear estimate")
 
-# EXAMPLE 5 (INTERFACE=DATAFRAME): a pretty 2-d smoothing example
+# EXAMPLE 5 (INTERFACE=DATA FRAME): a pretty 2-d smoothing example
 # adapted from the R mgcv library which was written by Simon N. Wood.
 
 set.seed(12345)

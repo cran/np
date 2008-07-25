@@ -21,7 +21,7 @@ scbandwidth <-
            sfactor = NA, bandwidth = NA,
            rows.omit = NA,
            bandwidth.compute = TRUE,
-           optim.method = "NA"){
+           optim.method = "NA",...){
 
   ndim = length(bw)
   bwmethod = match.arg(bwmethod)

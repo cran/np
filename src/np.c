@@ -19,38 +19,6 @@ int iSeed_my_rank;
 MPI_Status status;
 #endif
 
-
-#define safe_free(x) if((x) != NULL) free((x))
-
-#define SF_NORMAL 0
-#define SF_ARB    1
-
-#define BW_FIXED   0
-#define BW_GEN_NN  1
-#define BW_ADAP_NN 2
-
-#define IMULTI_TRUE  1
-#define IMULTI_FALSE 0
-
-#define RE_MIN_TRUE  0
-#define RE_MIN_FALSE 1
-
-#define IO_MIN_TRUE  1
-#define IO_MIN_FALSE 0
-
-#define LL_LC  0
-#define LL_LL  1
-
-#define OCG_UNO 0
-#define OCG_ORD 1
-
-#define BWM_CVML 0
-#define BWM_CVLS 1
-#define BWM_CVML_NP 2
-
-#define NP_DO_DENS 1
-#define NP_DO_DIST 0
-
 /*
 -f to enable Fast resampling (memory intensive)
 -n to use Nonparametric measures of central tendency and dispersion
@@ -172,9 +140,6 @@ void spinner(int num) {
   }
 }
 
-#define MPI_RANKI 0
-#define MPI_NUMPI 1
-
 void np_mpi_init(int * mpi_status){
 #ifdef MPI 
   MPI_Comm_rank(MPI_COMM_WORLD, &my_rank);
@@ -187,25 +152,6 @@ void np_mpi_init(int * mpi_status){
 #endif
 }
 
-
-#define BW_NOBSI   0
-#define BW_IMULTII 1
-#define BW_NMULTII 2
-#define BW_USTARTI 3
-#define BW_LSFI    4
-#define BW_DENI  5
-#define BW_ITMAXI  6
-#define BW_REMINI  7
-#define BW_MINIOI  8
-#define BW_MI    9
-#define BW_CKRNEVI 10
-#define BW_NUNOI 11
-#define BW_NORDI 12
-#define BW_NCONI 13
-
-#define BW_FTOLD  0
-#define BW_TOLD   1
-#define BW_SMALLD 2
 
 void np_density_bw(double * myuno, double * myord, double * mycon, 
                    int * myopti, double * myoptd, double * myans, double * fval){
@@ -525,40 +471,6 @@ void np_density_bw(double * myuno, double * myord, double * mycon,
   
 }
 
-#define CBW_NOBSI   0
-#define CBW_IMULTII 1
-#define CBW_NMULTII 2
-#define CBW_USTARTI 3
-#define CBW_LSFI    4
-#define CBW_DENI  5
-#define CBW_ITMAXI  6
-#define CBW_REMINI  7
-#define CBW_MINIOI  8
-#define CBW_MI    9
-#define CBW_CXKRNEVI 10
-#define CBW_CYKRNEVI 11
-#define CBW_UXKRNEVI 12
-#define CBW_UYKRNEVI 13
-#define CBW_OXKRNEVI 14
-#define CBW_OYKRNEVI 15
-#define CBW_CNUNOI 16
-#define CBW_CNORDI 17
-#define CBW_CNCONI 18
-#define CBW_UNUNOI 19
-#define CBW_UNORDI 20
-#define CBW_UNCONI 21
-#define CBW_FASTI 22
-#define CBW_AUTOI 23
-
-#define CBW_FTOLD  0
-#define CBW_TOLD   1
-#define CBW_SMALLD 2
-
-#define CBWM_CVML 0
-#define CBWM_CVLS 1
-#define CBWM_NPLS 2
-
-#define CBW_MINOBS 1024
 
 void np_density_conditional_bw(double * c_uno, double * c_ord, double * c_con, 
                                double * u_uno, double * u_ord, double * u_con,
@@ -936,28 +848,6 @@ void np_density_conditional_bw(double * c_uno, double * c_ord, double * c_con,
   return ;
 }
 
-#define CD_TNOBSI 0
-#define CD_ENOBSI   1
-#define CD_LSFI    2
-#define CD_DENI  3
-#define CD_MINIOI  4
-#define CD_CXKRNEVI 5
-#define CD_CYKRNEVI 6
-#define CD_UXKRNEVI 7
-#define CD_UYKRNEVI 8
-#define CD_OXKRNEVI 9
-#define CD_OYKRNEVI 10
-#define CD_CNUNOI 11
-#define CD_CNORDI 12
-#define CD_CNCONI 13
-#define CD_UNUNOI 14
-#define CD_UNORDI 15
-#define CD_UNCONI 16
-#define CD_TISEI 17
-#define CD_GRAD 18
-#define CD_YMLEVI 19
-#define CD_XMLEVI 20
-#define CD_DODENI 21
 
 void np_density_conditional(double * tc_uno, double * tc_ord, double * tc_con, 
                             double * tu_uno, double * tu_ord, double * tu_con,
@@ -1466,18 +1356,6 @@ void np_density_conditional(double * tc_uno, double * tc_ord, double * tc_con,
   return ;
 }
 
-#define DEN_TNOBSI   0
-#define DEN_ENOBSI   1
-#define DEN_NUNOI 2
-#define DEN_NORDI 3
-#define DEN_NCONI 4
-#define DEN_LSFI 5
-#define DEN_DENI 6
-#define DEN_MINIOI 7
-#define DEN_CKRNEVI    8
-#define DEN_TISEI 9
-#define DEN_MLEVI 10
-#define DEN_DODENI 11
 
 void np_density(double * tuno, double * tord, double * tcon, 
                 double * euno, double * eord, double * econ, 
@@ -1682,31 +1560,6 @@ void np_density(double * tuno, double * tord, double * tcon,
 
   return;
 }
-
-#define RBWM_CVAIC 0
-#define RBWM_CVLS 1
-
-#define RBW_NOBSI   0
-#define RBW_IMULTII 1
-#define RBW_NMULTII 2
-#define RBW_USTARTI 3
-#define RBW_LSFI    4
-#define RBW_REGI  5
-#define RBW_ITMAXI  6
-#define RBW_REMINI  7
-#define RBW_MINIOI  8
-#define RBW_MI    9
-#define RBW_CKRNEVI 10
-#define RBW_UKRNEVI 11
-#define RBW_OKRNEVI 12
-#define RBW_NUNOI 13
-#define RBW_NORDI 14
-#define RBW_NCONI 15
-#define RBW_LL 16
-
-#define RBW_FTOLD  0
-#define RBW_TOLD   1
-#define RBW_SMALLD 2
 
 
 void np_regression_bw(double * runo, double * rord, double * rcon, double * y,
@@ -2041,22 +1894,6 @@ void np_regression_bw(double * runo, double * rord, double * rcon, double * y,
   
 }
 
-#define REG_TNOBSI   0
-#define REG_ENOBSI   1
-#define REG_NUNOI 2
-#define REG_NORDI 3
-#define REG_NCONI 4
-#define REG_LSFI 5
-#define REG_BWI 6
-#define REG_MINIOI 7
-#define REG_CKRNEVI    8
-#define REG_UKRNEVI 9
-#define REG_OKRNEVI 10
-#define REG_EY 11
-#define REG_GRAD 12
-#define REG_LL 13
-#define REG_TISEI 14
-#define REG_MLEVI 15
 
 void np_regression(double * tuno, double * tord, double * tcon, double * ty,
                    double * euno, double * eord, double * econ, double * ey,
@@ -2363,27 +2200,6 @@ void np_regression(double * tuno, double * tord, double * tcon, double * ty,
 }
 
 
-#define KWS_TNOBSI   0
-#define KWS_ENOBSI 1
-#define KWS_NUNOI 2
-#define KWS_NORDI 3
-#define KWS_NCONI 4
-#define KWS_LSFI 5
-#define KWS_BWI 6
-#define KWS_MINIOI 7
-#define KWS_CKRNEVI    8
-#define KWS_UKRNEVI 9
-#define KWS_OKRNEVI 10
-#define KWS_TISEI 11
-#define KWS_LOOI 12
-#define KWS_IPOWI 13
-#define KWS_BDIVI 14
-#define KWS_CONVI 15
-#define KWS_MLEVI 16
-#define KWS_SCOEFI 17
-#define KWS_WNCOLI 18
-#define KWS_YNCOLI 19
-
 void np_kernelsum(double * tuno, double * tord, double * tcon, 
                   double * ty, double * weights,
                   double * euno, double * eord, double * econ, 
@@ -2395,7 +2211,7 @@ void np_kernelsum(double * tuno, double * tord, double * tcon,
 
   double * vector_scale_factor, * ksum, pad_num;
   int i,j, num_var, num_obs_eval_alloc;
-  int no_y, do_ipow, leave_one_out, train_is_eval, do_divide_bw, do_convolution;
+  int no_y, do_ipow, leave_one_out, train_is_eval, do_divide_bw, operator;
   int max_lev, do_smooth_coef_weights, no_weights, sum_element_length;
 
 
@@ -2423,7 +2239,7 @@ void np_kernelsum(double * tuno, double * tord, double * tcon,
   leave_one_out = myopti[KWS_LOOI];
   do_ipow = myopti[KWS_IPOWI];
   do_divide_bw = myopti[KWS_BDIVI];
-  do_convolution = myopti[KWS_CONVI];
+  operator = myopti[KWS_OPI];
 
   max_lev = myopti[KWS_MLEVI];
   pad_num = *padnum;
@@ -2540,8 +2356,9 @@ void np_kernelsum(double * tuno, double * tord, double * tcon,
     num_categories_extern[j] = i;
   }
 
-  assert(!do_convolution);
+  assert(!((operator == OP_CONVOLUTION) && (BANDWIDTH_reg_extern != BW_ADAP_NN) && (KERNEL_reg_extern == 8)));
 
+  
   kernel_weighted_sum_np(KERNEL_reg_extern,
                          KERNEL_reg_unordered_extern,
                          KERNEL_reg_ordered_extern,
@@ -2557,6 +2374,7 @@ void np_kernelsum(double * tuno, double * tord, double * tcon,
                          do_smooth_coef_weights,
                          0, //not symmetric
                          0, //disable 'twisting'
+                         operator,
                          matrix_X_unordered_train_extern,
                          matrix_X_ordered_train_extern,
                          matrix_X_continuous_train_extern,
@@ -2570,6 +2388,7 @@ void np_kernelsum(double * tuno, double * tord, double * tcon,
                          NULL,
                          &vector_scale_factor[1],
                          num_categories_extern,
+                         matrix_categorical_vals_extern,
                          ksum);
   /*
     kernel_convolution_weighted_sum(KERNEL_reg_extern,
@@ -2621,31 +2440,6 @@ void np_kernelsum(double * tuno, double * tord, double * tcon,
   return;
 }
 
-#define CQ_TNOBSI 0
-#define CQ_ENOBSI   1
-#define CQ_LSFI    2
-#define CQ_DENI  3
-#define CQ_MINIOI  4
-#define CQ_CXKRNEVI 5
-#define CQ_CYKRNEVI 6
-#define CQ_UXKRNEVI 7
-#define CQ_UYKRNEVI 8
-#define CQ_OXKRNEVI 9
-#define CQ_OYKRNEVI 10
-#define CQ_CNUNOI 11
-#define CQ_CNORDI 12
-#define CQ_CNCONI 13
-#define CQ_UNUNOI 14
-#define CQ_UNORDI 15
-#define CQ_UNCONI 16
-#define CQ_TISEI 17
-#define CQ_GRADI 18
-#define CQ_ITMAXI 19
-#define CQ_MLEVI 20
-
-#define CQ_FTOLD  0
-#define CQ_TOLD   1
-#define CQ_SMALLD 2
 
 void np_quantile_conditional(double * tc_con,
                              double * tu_uno, double * tu_ord, double * tu_con,

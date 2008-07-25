@@ -136,7 +136,7 @@ double kernel(int KERNEL, double z)
 
       z_squared = ipow(z,2);
 
-			if (z_squared < 5.0) return_value = (double)(0.33541019662496845446*(2.734375-3.28125*z_squared+0.721875*z_squared)*(1.0-0.2*z_squared));
+			if (z_squared < 5.0) return_value = (double)(0.33541019662496845446*(2.734375+z_squared*(-3.28125+0.721875*z_squared))*(1.0-0.2*z_squared));
 
 			break;
 
@@ -146,9 +146,8 @@ double kernel(int KERNEL, double z)
 
       z_squared = ipow(z,2);
 
-			if (z_squared < 5.0) return_value = (double)(0.33541019662496845446*(3.5888671875-7.8955078125*z_squared
-					+4.1056640625*z_squared-.5865234375*z_squared)
-					*(1.0-0.2*z_squared));
+			if (z_squared < 5.0) return_value = (double)(0.33541019662496845446*(3.5888671875+z_squared*(-7.8955078125+z_squared*(4.1056640625-0.5865234375*z_squared)))
+                                                   *(1.0-0.2*z_squared));
 
 			break;
 
@@ -413,8 +412,7 @@ double kernel_deriv(int KERNEL, double z)
 /* Sixth Order Epanechnikov */
 			if (z_squared < 5.0)
 			{
-				return_value = (double)(-.58696784409369479531*z*(1.0-0.2*z_squared)
-					-0.13416407864998738178*(1.875-0.875*z_squared)*z);
+				return_value = -1.0022916396047925e-10*z*(z_squared*(2898847705.0*z_squared-18447212816.0)+25621128780.0);
 			}
 			else
 			{
@@ -1200,6 +1198,41 @@ double kernel_unordered(int KERNEL, double x, double y, double lambda, int c)
           break;
 
 
+	}
+
+	return(return_value);
+
+}
+
+
+/* 
+   This version of the kernel is suitable for some estimators constructed as
+   ratios of kernel sums, such as regressions and conditional densities.
+   The kernels return 1 outside of their support.
+ */
+
+double kernel_unordered_ratio(int KERNEL, double x, double y, double lambda, int c){
+
+	double return_value = 1.0;
+  const double dc = (double) c;
+
+	switch(KERNEL)	{
+
+  case 0: /* Aitchenson and Aitken */
+    if(x != y){
+      if(x <= c){
+				return_value = lambda/(dc - 1.0);
+      }
+    } else {
+      return_value = 1.0 - lambda;
+    }
+    
+    break;
+  case 1: /* Li and Racine */
+    if((x <= c) && (x != y))
+      return_value = lambda;
+          
+    break;
 	}
 
 	return(return_value);

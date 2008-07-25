@@ -586,7 +586,7 @@ bw <- npudensbw(dat=data, tol=.1, ftol=.1)
 
 year.seq <- sort(unique(year))
 gdp.seq <- seq(1,36,length=50)
-data.eval <- expand.grid(year=ordered(year.seq),gdp=gdp.seq)
+data.eval <- expand.grid(year=year.seq,gdp=gdp.seq)
 
 # Generate the estimated density computed for the evaluation data
 
@@ -598,8 +598,9 @@ f <- matrix(fhat, length(unique(year)), 50)
 
 # Next, create a 3D perspective plot of the PDF f
 
-persp(year.seq, gdp.seq, f, col="lightblue", ticktype="detailed", 
-      ylab="GDP", xlab="Year", zlab="Density", theta=300, phi=50)
+persp(as.integer(levels(year.seq)), gdp.seq, f, col="lightblue",
+      ticktype="detailed", ylab="GDP", xlab="Year", zlab="Density",
+      theta=300, phi=50)
 
 # Sleep for 5 seconds so that we can examine the output...
 

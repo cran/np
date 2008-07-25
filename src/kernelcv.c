@@ -105,6 +105,9 @@ static char rcsid[] = "$Id: kernelcv.c,v 1.9 2006/11/02 16:56:49 tristen Exp $";
 #define RBWM_CVAIC 0
 #define RBWM_CVLS 1
 
+#define LL_LC  0
+#define LL_LL  1
+
 #define BW_FIXED   0
 #define BW_GEN_NN  1
 #define BW_ADAP_NN 2
@@ -131,7 +134,7 @@ double cv_func_regression_categorical_ls(double *vector_scale_factor){
     }
 
 /* Compute the cross-validation function */
-    if(BANDWIDTH_reg_extern == BW_FIXED){
+    if((BANDWIDTH_reg_extern == BW_FIXED)||(int_ll_extern == LL_LC)){ 
       return(np_kernel_estimate_regression_categorical_ls_aic(
         int_ll_extern,
         RBWM_CVLS,
@@ -608,7 +611,7 @@ double cv_func_regression_categorical_aic_c(double *vector_scale_factor)
     }
 
 /* Compute the AIC_c function */
-    if(BANDWIDTH_reg_extern == BW_FIXED){
+    if((BANDWIDTH_reg_extern == BW_FIXED)||(int_ll_extern == LL_LC)){
       return(np_kernel_estimate_regression_categorical_ls_aic(
         int_ll_extern,
         RBWM_CVAIC,

@@ -24,7 +24,7 @@ npksum(\dots)
        leave.one.out = FALSE,
        kernel.pow = 1.0,
        bandwidth.divide = FALSE,
-       convolution.kernel = FALSE,
+       operator = c("normal","convolution","derivative","integral"),
        smooth.coefficient = FALSE,
        \dots)
 
@@ -34,7 +34,7 @@ npksum(\dots)
        exdat,
        weights,
        leave.one.out, kernel.pow, bandwidth.divide,
-       convolution.kernel, smooth.coefficient,
+       operator, smooth.coefficient,
        \dots)
 }
 
@@ -117,10 +117,10 @@ npksum(\dots)
     methods. Defaults to \code{FALSE}.
   }
 
-  \item{convolution.kernel}{
-    a logical specifying whether or not convolution kernels are to be
-    used. If \code{TRUE} all other options will be ignored. Defaults to
-    \code{FALSE}. 
+  \item{operator}{
+    a string specifying whether the \code{normal}, \code{convolution},
+    \code{derivative}, or \code{integral} kernels are to be
+    used. Defaults to \code{normal}.
   }
 
   \item{smooth.coefficient}{
@@ -152,9 +152,9 @@ npksum(\dots)
   multivariate kernel sums (\eqn{p}-variate) defined over a set of possibly
   continuous and/or discrete (unordered, ordered) data. The approach is
   based on Li and Racine (2003) who employ \sQuote{generalized product kernels}
-  that admit a mix of continuous and discrete datatypes.
+  that admit a mix of continuous and discrete data types.
 
-  Three classes of kernel estimators for the continuous datatypes are
+  Three classes of kernel estimators for the continuous data types are
   available: fixed, adaptive nearest-neighbor, and generalized
   nearest-neighbor. Adaptive nearest-neighbor bandwidths change with
   each sample realization in the set, \eqn{x_i}{x[i]}, when estimating the
@@ -195,10 +195,10 @@ npksum(\dots)
   \code{x2} throughout the sum. See below for further examples. 
 
   A variety of kernels may be specified by the user. Kernels implemented
-  for continuous datatypes include the second, fourth, sixth, and eighth
+  for continuous data types include the second, fourth, sixth, and eighth
   order Gaussian and Epanechnikov kernels, and the uniform
-  kernel. Unordered discrete datatypes use a variation on Aitchison and
-  Aitken's (1976) kernel, while ordered datatypes use a variation of the
+  kernel. Unordered discrete data types use a variation on Aitchison and
+  Aitken's (1976) kernel, while ordered data types use a variation of the
   Wang and van Ryzin (1981) kernel (see \code{\link{np}} for details).
 
 }

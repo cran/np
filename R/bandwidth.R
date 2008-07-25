@@ -13,7 +13,7 @@ bandwidth <-
            xdati = stop("bandwidth:argument 'xdati' missing"),
            xnames = character(length(bw)),
            sfactor = NA, bandwidth = NA,
-           rows.omit = NA, bandwidth.compute = TRUE){
+           rows.omit = NA, bandwidth.compute = TRUE, ...){
     
     ndim = length(bw)
     bwmethod = match.arg(bwmethod)

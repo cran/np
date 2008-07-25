@@ -12,7 +12,7 @@ plbandwidth <-
            xnames, ynames, znames,
            nobs = NA,
            rows.omit = NA,
-           bandwidth.compute = TRUE){
+           bandwidth.compute = TRUE,...){
 
     regtype = match.arg(regtype)
     bwmethod = match.arg(bwmethod)

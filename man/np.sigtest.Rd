@@ -2,7 +2,13 @@
 
 \name{npsigtest}
 \alias{npsigtest}
-\title{Kernel Regression Significance Test with Mixed Data}
+\alias{npsigtest.call}
+\alias{npsigtest.default}
+\alias{npsigtest.formula}
+\alias{npsigtest.rbandwidth}
+\alias{npsigtest.npregression}
+
+\title{Kernel Regression Significance Test with Mixed Data Types}
 \description{
   \code{npsigtest} implements a consistent test of significance of
   an explanatory variable in a nonparametric regression setting that is
@@ -11,16 +17,26 @@
   Racine (1997).
 }
 \usage{
-npsigtest(xdat,
-          ydat,
-          bws=NULL,
-          data=NULL,
-          boot.num=399,
-          boot.method=c("iid","wild","wild-rademacher"),
-          boot.type=c("I","II"),
-          index=seq(1,ncol(xdat)),
-          random.seed = 42,
-          \dots)
+npsigtest(bws, \dots)
+
+\method{npsigtest}{formula}(bws, data = NULL, \dots)
+
+\method{npsigtest}{call}(bws, \dots)
+
+\method{npsigtest}{npregression}(bws, \dots)
+
+\method{npsigtest}{default}(bws, xdat, ydat, \dots)
+
+\method{npsigtest}{rbandwidth}(bws,
+                               xdat = stop("data xdat missing"),
+                               ydat = stop("data ydat missing"),
+                               boot.num=399,
+                               boot.method=c("iid","wild","wild-rademacher"),
+                               boot.type=c("I","II"),
+                               index=seq(1,ncol(xdat)),
+                               random.seed = 42,
+                               \dots)
+
 }
 
 \arguments{
@@ -61,7 +77,7 @@ npsigtest(xdat,
     \code{iid} will generate independent identically distributed
     draws. \code{wild} will use a wild bootstrap. \code{wild-rademacher}
     will use a wild bootstrap with Rademacher variables. Defaults to
-    \code{bootstrap}.
+    \code{iid}.
            
   }
 
@@ -193,7 +209,7 @@ npsigtest(bws=bw)
 
 npsigtest(bws=bw,index=c(1,3))
 
-# EXAMPLE 1 (INTERFACE=DATAFRAME): For this example, we simulate 100
+# EXAMPLE 1 (INTERFACE=DATA FRAME): For this example, we simulate 100
 # draws from a DGP in which z, the first column of X, is an irrelevant
 # discrete variable
 

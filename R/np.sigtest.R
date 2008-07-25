@@ -22,20 +22,31 @@
 # etc. for bootstrap method II, and for the npreg stuff as
 # well...
 
-npsigtest <- function(xdat,
-                      ydat,
-                      bws=NULL,
-                      data=NULL,
-                      boot.num=399,
-                      boot.method=c("iid","wild","wild-rademacher"),
-                      boot.type=c("I","II"),
-                      index=seq(1,ncol(xdat)),
-                      random.seed = 42,
-                      ...) {
-  miss.xy <- c(missing(xdat),missing(ydat))
-  miss.bw <- is.null(bws)
+npsigtest <-
+  function(bws, ...){
+    args <- list(...)
 
-  if (all(miss.xy) && !is.null(bws$formula)) {
+    if (!missing(bws)){
+      if (is.recursive(bws)){
+        if (!is.null(bws$formula) && is.null(args$xdat))
+          UseMethod("npsigtest",bws$formula)
+        else if (!is.null(bws$call) && is.null(args$xdat) && (class(bws) != "npregression"))
+          UseMethod("npsigtest",bws$call)
+        else if (!is.call(bws))
+          UseMethod("npsigtest",bws)
+        else
+          UseMethod("npsigtest",NULL)
+      } else {
+        UseMethod("npsigtest", NULL)
+      }
+    } else {
+      UseMethod("npsigtest", NULL)
+    }
+  }
+
+npsigtest.formula <-
+  function(bws, data = NULL, ...){
+
     tt <- terms(bws)
     m <- match(c("formula", "data", "subset", "na.action"),
                names(bws$call), nomatch = 0)
@@ -46,24 +57,57 @@ npsigtest <- function(xdat,
 
     ydat <- model.response(tmf)
     xdat <- tmf[, attr(attr(tmf, "terms"),"term.labels"), drop = FALSE]
-  } else {
-    if(all(miss.xy) && !is.null(bws$call)){
-      xdat = eval(bws$call[["xdat"]], environment(bws$call))
-      ydat = eval(bws$call[["ydat"]], environment(bws$call))
-    }
-    xdat = toFrame(xdat)
-    
-    ## catch and destroy NA's
-    goodrows = 1:dim(xdat)[1]
-    rows.omit = attr(na.omit(data.frame(xdat,ydat)), "na.action")
-    goodrows[rows.omit] = 0
 
-    if (all(goodrows==0))
-      stop("Data has no rows without NAs")
-
-    xdat = xdat[goodrows,,drop = FALSE]
-    ydat = ydat[goodrows]
+    ev <- npsigtest(xdat = xdat, ydat = ydat, bws = bws, ...)
+    ev$call <- match.call(expand.dots = FALSE)
+    environment(ev$call) <- parent.frame()
+    ev$rows.omit <- as.vector(attr(umf,"na.action"))
+    ev$nobs.omit <- length(ev$rows.omit)
+    return(ev)
   }
+
+npsigtest.call <-
+  function(bws, ...) {
+    ev <- npsigtest(xdat = eval(bws$call[["xdat"]], environment(bws$call)),
+                    ydat = eval(bws$call[["ydat"]], environment(bws$call)),
+                    bws = bws, ...)
+    ev$call <- match.call(expand.dots = FALSE)
+    environment(ev$call) <- parent.frame()
+    return(ev)
+  }
+
+npsigtest.npregression <-
+  function(bws, ...){
+    ev <- npsigtest(bws$bws, ...)
+    ev$call <- match.call(expand.dots = FALSE)
+    environment(ev$call) <- parent.frame()
+    return(ev)
+  }
+  
+npsigtest.rbandwidth <- function(bws,
+                                 xdat = stop("data xdat missing"),
+                                 ydat = stop("data ydat missing"),
+                                 boot.num=399,
+                                 boot.method=c("iid","wild","wild-rademacher"),
+                                 boot.type=c("I","II"),
+                                 index=seq(1,ncol(xdat)),
+                                 random.seed = 42,
+                                 ...) {
+
+  
+  xdat <- toFrame(xdat)
+    
+  ## catch and destroy NA's
+  goodrows <- 1:dim(xdat)[1]
+  rows.omit <- attr(na.omit(data.frame(xdat,ydat)), "na.action")
+  goodrows[rows.omit] <- 0
+
+  if (all(goodrows==0))
+    stop("Data has no rows without NAs")
+
+  xdat <- xdat[goodrows,,drop = FALSE]
+  ydat <- ydat[goodrows]
+  
 
   if (is.factor(ydat))
     stop("dependent variable must be continuous.")
@@ -261,8 +305,86 @@ npsigtest <- function(xdat,
   ## bootstrapped In.vec for each variable...
 
   sigtest(In=In, In.mat, P=P,
-          bws = if(miss.bw) NA else bws,
+          bws = bws,
           ixvar = index,
           boot.method, boot.type, boot.num)
 
 }
+
+npsigtest.default <- function(bws, xdat, ydat, ...){
+  sc.names <- names(sys.call())
+
+  ## here we check to see if the function was called with tdat =
+  ## if it was, we need to catch that and map it to dat =
+  ## otherwise the call is passed unadulterated to npudensbw
+
+  bws.named <- any(sc.names == "bws")
+  xdat.named <- any(sc.names == "xdat")
+  ydat.named <- any(sc.names == "ydat")
+
+  no.bws <- missing(bws)
+  no.xdat <- missing(xdat)
+  no.ydat <- missing(ydat)
+
+  ## if bws was passed in explicitly, do not compute bandwidths
+    
+  if(xdat.named)
+    xdat <- toFrame(xdat)
+
+  mc <- match.call()
+
+  tx.str <- ifelse(xdat.named, "xdat = xdat,",
+                   ifelse(no.xdat, "", "xdat,"))
+  ty.str <- ifelse(ydat.named, "ydat = ydat,",
+                   ifelse(no.ydat, "", "ydat,"))
+  
+  tbw <- eval(parse(text = paste("npregbw(",
+                      ifelse(bws.named,                             
+                             paste(tx.str, ty.str,
+                                   "bws = bws, bandwidth.compute = FALSE,"),
+                             paste(ifelse(no.bws, "", "bws,"), tx.str, ty.str)),
+                      "call = mc, ...",")",sep="")))
+
+  ## xnames = names(xdat)
+  ##tbw <- updateBwNameMetadata(nameList =
+  ##                            list(ynames = deparse(substitute(ydat))),
+  ##                            bws = tbw)
+
+  repair.args <- c("data", "subset", "na.action")
+  
+  m.par <- match(repair.args, names(mc), nomatch = 0)
+  m.child <- match(repair.args, names(tbw$call), nomatch = 0)
+
+  if(any(m.child > 0)) {
+    tbw$call[m.child] <- mc[m.par]
+  }
+
+  ## next we repair arguments portion of the call
+  m.bws.par <- match(c("bws","xdat","ydat"), names(mc), nomatch = 0)
+  m.bws.child <- match(c("bws","xdat","ydat"), as.character(tbw$call), nomatch = 0)
+  m.bws.union <- (m.bws.par > 0) & (m.bws.child > 0)
+  
+  tbw$call[m.bws.child[m.bws.union]] <- mc[m.bws.par[m.bws.union]]
+
+  environment(tbw$call) <- parent.frame()
+
+  ## convention: drop 'bws' and up to two unnamed arguments (including bws)
+  if(no.bws){
+    tx.str <- ",xdat = xdat"
+    ty.str <- ",ydat = ydat"
+  } else {
+    tx.str <- ifelse(xdat.named, ",xdat = xdat","")
+    ty.str <- ifelse(ydat.named, ",ydat = ydat","")    
+    if((!bws.named) && (!xdat.named)){
+      ty.str <- ifelse(ydat.named, ",ydat = ydat",
+                       ifelse(no.ydat,"",",ydat"))
+    }
+  }
+  
+  ev <- eval(parse(text=paste("npsigtest(bws = tbw", tx.str, ty.str, ",...)")))
+
+  ev$call <- match.call(expand.dots = FALSE)
+  environment(ev$call) <- parent.frame()
+  return(ev)
+}
+

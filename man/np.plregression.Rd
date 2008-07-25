@@ -5,7 +5,7 @@
 \alias{npplreg.formula}
 \alias{npplreg.plbandwidth}
 
-\title{Partially Linear Kernel Regression with Mixed Datatypes}
+\title{Partially Linear Kernel Regression with Mixed Data Types}
 
 \description{
   \code{npplreg} computes a partially linear kernel
@@ -133,9 +133,9 @@ npplreg(bws, \dots)
  data defined over a set of possibly continuous and/or discrete
  (unordered, ordered) data. The approach is based on Li and Racine
  (2003) who employ \sQuote{generalized product kernels} that admit a mix
- of continuous and discrete datatypes.
+ of continuous and discrete data types.
 
- Three classes of kernel estimators for the continuous datatypes are
+ Three classes of kernel estimators for the continuous data types are
  available: fixed, adaptive nearest-neighbor, and generalized
  nearest-neighbor. Adaptive nearest-neighbor bandwidths change with
  each sample realization in the set, \eqn{x_i}{x[i]}, when estimating the
@@ -144,18 +144,18 @@ npplreg(bws, \dots)
  are constant over the support of \eqn{x}.
 
  Data contained in the data frame \code{tzdat} may be a mix of
- continuous (default), unordered discrete (to be specified in the
- data frame \code{tzdat} using \code{\link{factor}}), and ordered
- discrete (to be specified in the data frame \code{tzdat} using 
- \code{\link{ordered}}). Data can be entered in an arbitrary order and data
- types will be detected automatically by the routine (see \code{\link{np}} for
- details).
+ continuous (default), unordered discrete (to be specified in the data
+ frame \code{tzdat} using \code{\link{factor}}), and ordered discrete
+ (to be specified in the data frame \code{tzdat} using
+ \code{\link{ordered}}). Data can be entered in an arbitrary order and
+ data types will be detected automatically by the routine (see
+ \code{\link{np}} for details).
 
  A variety of kernels may be specified by the user. Kernels implemented
- for continuous datatypes include the second, fourth, sixth, and eighth
+ for continuous data types include the second, fourth, sixth, and eighth
  order Gaussian and Epanechnikov kernels, and the uniform
- kernel. Unordered discrete datatypes use a variation on Aitchison and
- Aitken's (1976) kernel, while ordered datatypes use a variation of the
+ kernel. Unordered discrete data types use a variation on Aitchison and
+ Aitken's (1976) kernel, while ordered data types use a variation of the
  Wang and van Ryzin (1981) kernel.
 }
 
@@ -210,7 +210,7 @@ npplreg(bws, \dots)
  Cambridge University Press.
  
  Racine, J.S. and Q. Li (2004), \dQuote{Nonparametric estimation of regression
- functions with both categorical and continuous Data,} Journal of
+ functions with both categorical and continuous data,} Journal of
  Econometrics, 119, 99-130.
 
  Robinson, P.M. (1988), \dQuote{Root-n-consistent semiparametric regression,}
@@ -312,7 +312,7 @@ npplot(bws=bw,
        plot.errors.method="bootstrap")
 
 
-# EXAMPLE 1 (INTERFACE=DATAFRAME): For this example, we simulate an
+# EXAMPLE 1 (INTERFACE=DATA FRAME): For this example, we simulate an
 # example for a partially linear model, and compare the coefficient
 # estimates from the partially linear model with those from a correctly
 # specified parametric model...

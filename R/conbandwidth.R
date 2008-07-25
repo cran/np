@@ -19,7 +19,7 @@ conbandwidth <-
            xnames = character(length(xbw)),
            ynames = character(length(ybw)),
            sfactor = NA, bandwidth = NA,
-           rows.omit = NA, bandwidth.compute = TRUE){
+           rows.omit = NA, bandwidth.compute = TRUE,...){
 
   if (missing(xbw) | missing(ybw))
     stop("improper invocation of conbandwidth constructor: 'bw' or i[cuo]* missing")

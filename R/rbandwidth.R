@@ -17,7 +17,7 @@ rbandwidth <-
            ynames = character(1),
            sfactor = NA, bandwidth = NA,
            rows.omit = NA,
-           bandwidth.compute = TRUE){
+           bandwidth.compute = TRUE,...){
 
   ndim = length(bw)
   regtype = match.arg(regtype)

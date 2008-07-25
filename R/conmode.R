@@ -16,8 +16,8 @@ conmode =
       xbw = bws$xbw,
       ybw = bws$ybw,
       bws = bws,
-      data.xnames = bws$data.xnames,
-      data.ynames = bws$data.ynames,
+      xnames = bws$xnames,
+      ynames = bws$ynames,
       nobs = nrow(xeval),
       xndim = bws$xndim,
       yndim = bws$yndim,
@@ -59,9 +59,9 @@ print.conmode <- function(x, ...){
       " in ", x$xndim + x$yndim, " variable(s)",
       "\n(", x$yndim, " dependent variable(s), and ", x$xndim, " explanatory variable(s))\n\n",
       sep="")
-  print(matrix(x$ybw,ncol=x$yndim,dimnames=list(paste("Dep. Var. ",x$pscaling,":",sep=""),x$data.ynames)))
+  print(matrix(x$ybw,ncol=x$yndim,dimnames=list(paste("Dep. Var. ",x$pscaling,":",sep=""),x$ynames)))
 
-  print(matrix(x$xbw,ncol=x$xndim,dimnames=list(paste("Exp. Var. ",x$pscaling,":",sep=""),x$data.xnames)))
+  print(matrix(x$xbw,ncol=x$xndim,dimnames=list(paste("Exp. Var. ",x$pscaling,":",sep=""),x$xnames)))
 
   cat(genDenEstStr(x))
 
@@ -86,9 +86,9 @@ summary.conmode <- function(object, ...){
       sep="")
 
   cat(genOmitStr(object))
-  print(matrix(object$ybw,ncol=object$yndim,dimnames=list(paste("Dep. Var. ",object$pscaling,":",sep=""),object$data.ynames)))
+  print(matrix(object$ybw,ncol=object$yndim,dimnames=list(paste("Dep. Var. ",object$pscaling,":",sep=""),object$ynames)))
 
-  print(matrix(object$xbw,ncol=object$xndim,dimnames=list(paste("Exp. Var. ",object$pscaling,":",sep=""),object$data.xnames)))
+  print(matrix(object$xbw,ncol=object$xndim,dimnames=list(paste("Exp. Var. ",object$pscaling,":",sep=""),object$xnames)))
 
   cat(genDenEstStr(object))
   cat('\n')

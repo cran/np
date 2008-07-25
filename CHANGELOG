@@ -1,3 +1,15 @@
-* fixed bug when using the liracine unordered kernel. The upper bound
-  was constrained to be (c-1)/c [that for the aitchisonaitken unordered
-  kernel] but ought to have been 1.
+* npksum now supports an expanded set of kernels (including 
+  convolution, derivative and integral), which can be selected
+  via the 'operator' argument.
+* automatic bandwidth searches are now performed when attempting to 
+  evaluate on data without bandwidths.
+* npsigtest interface brought in line with other functions.
+* significance tests can now be performed on npreg outputs.
+* added a vignette and faq.
+* summary on npconmode now properly retrieves names from bandwidth 
+  objects.
+* fixed the 6th and 8th order epanechnikov kernels.
+* fixed some quietness issues.
+* npplot now returns data upon request for conditional densities.
+* npreg and npcdens now take the appropriate limits in some 
+  pathological cases.

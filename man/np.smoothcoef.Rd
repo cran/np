@@ -25,16 +25,7 @@ npscoef(bws, \dots)
 
 \method{npscoef}{call}(bws, \dots)
 
-\method{npscoef}{default}(bws,
-        txdat = stop("training data 'txdat' missing"),
-        tydat = stop("training data 'tydat' missing"),
-        tzdat = NULL,
-        exdat,
-        eydat,
-        ezdat,
-        residuals,
-        errors,
-        \dots)
+\method{npscoef}{default}(bws, txdat, tydat, tzdat, \dots)
 
 \method{npscoef}{scbandwidth}(bws,
         txdat = stop("training data 'txdat' missing"),
@@ -284,7 +275,7 @@ lines(x,predict(model)+2*se(model),lty=2,col="red")
 
 \dontrun{
 
-# EXAMPLE 1 (INTERFACE=DATAFRAME): Typically, the variables z will be
+# EXAMPLE 1 (INTERFACE=DATA FRAME): Typically, the variables z will be
 # equal to the regressors x, as in the following example.
 
 set.seed(12345)
@@ -316,7 +307,7 @@ bw <- npscoefbw(y~x|z)
 model <- npscoef(bw)
 plot(model)
 
-# EXAMPLE 2 (INTERFACE=DATAFRAME): We can handle z and x being different
+# EXAMPLE 2 (INTERFACE=DATA FRAME): We can handle z and x being different
 # (this would be useful in, say, a time series context where z might be
 # time yielding a time-varying smooth coefficient model)
 

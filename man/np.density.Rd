@@ -19,8 +19,7 @@
 
 }
 \usage{
-npudens(bws = stop(paste("bandwidths are required to perform the estimate!",
-        "please set 'bws'")), \dots)
+npudens(bws, \dots)
 
 \method{npudens}{formula}(bws, data = NULL, newdata = NULL, \dots)
 
@@ -31,10 +30,7 @@ npudens(bws = stop(paste("bandwidths are required to perform the estimate!",
 
 \method{npudens}{call}(bws, \dots)
 
-\method{npudens}{default}(bws,
-        tdat = stop("invoked without training data 'tdat'"),
-        edat,
-        \dots)
+\method{npudens}{default}(bws, tdat, \dots)
 }
 
 \arguments{
@@ -90,9 +86,9 @@ npudens(bws = stop(paste("bandwidths are required to perform the estimate!",
   defined over a set of possibly continuous and/or discrete (unordered,
   ordered) data. The approach is based on Li and Racine (2003) who
   employ \sQuote{generalized product kernels} that admit a mix of
-  continuous and discrete datatypes.
+  continuous and discrete data types.
 
-  Three classes of kernel estimators for the continuous datatypes are
+  Three classes of kernel estimators for the continuous data types are
   available: fixed, adaptive nearest-neighbor, and generalized
   nearest-neighbor. Adaptive nearest-neighbor bandwidths change with
   each sample realization in the set, \eqn{x_i}{x[i]}, when estimating
@@ -109,10 +105,10 @@ npudens(bws = stop(paste("bandwidths are required to perform the estimate!",
   (see \code{\link{np}} for details).
 
   A variety of kernels may be specified by the user. Kernels implemented
-  for continuous datatypes include the second, fourth, sixth, and eighth
+  for continuous data types include the second, fourth, sixth, and eighth
   order Gaussian and Epanechnikov kernels, and the uniform
-  kernel. Unordered discrete datatypes use a variation on Aitchison and
-  Aitken's (1976) kernel, while ordered datatypes use a variation of the
+  kernel. Unordered discrete data types use a variation on Aitchison and
+  Aitken's (1976) kernel, while ordered data types use a variation of the
   Wang and van Ryzin (1981) kernel.
 
 }
@@ -210,7 +206,7 @@ summary(fhat)
 
 year.seq <- sort(unique(year))
 gdp.seq <- seq(1,36,length=50)
-data.eval <- expand.grid(year=ordered(year.seq),gdp=gdp.seq)
+data.eval <- expand.grid(year=year.seq,gdp=gdp.seq)
 
 # Generate the estimated density computed for the evaluation data
 
@@ -223,14 +219,15 @@ f <- matrix(fhat, length(unique(year)), 50)
 # Next, create a 3D perspective plot of the PDF f, and a 2D
 # contour plot.
 
-persp(year.seq, gdp.seq, f, col="lightblue", ticktype="detailed", 
-      ylab="GDP", xlab="Year", zlab="Density", theta=300, phi=50)
+persp(as.integer(levels(year.seq)), gdp.seq, f, col="lightblue",
+      ticktype="detailed", ylab="GDP", xlab="Year", zlab="Density",
+      theta=300, phi=50)
 
 # Sleep for 5 seconds so that we can examine the output...
 
 Sys.sleep(5)
 
-contour(year.seq, 
+contour(as.integer(levels(year.seq)), 
         gdp.seq, 
         f, 
         xlab="Year", 
@@ -250,7 +247,7 @@ npplot(bws=bw)
 
 detach(Italy)
 
-# EXAMPLE 1 (INTERFACE=DATAFRAME): For this example, we load Giovanni
+# EXAMPLE 1 (INTERFACE=DATA FRAME): For this example, we load Giovanni
 # Baiocchi's Italian GDP panel (see Italy for details), then create a
 # data frame in which year is an ordered factor, GDP is continuous,
 # compute bandwidths using likelihood cross-validation, then create a
@@ -285,7 +282,7 @@ summary(fhat)
 
 year.seq <- sort(unique(year))
 gdp.seq <- seq(1,36,length=50)
-data.eval <- expand.grid(year=ordered(year.seq),gdp=gdp.seq)
+data.eval <- expand.grid(year=year.seq,gdp=gdp.seq)
 
 # Generate the estimated density computed for the evaluation data
 
@@ -298,14 +295,15 @@ f <- matrix(fhat, length(unique(year)), 50)
 # Next, create a 3D perspective plot of the PDF f, and a 2D
 # contour plot.
 
-persp(year.seq, gdp.seq, f, col="lightblue", ticktype="detailed", 
-      ylab="GDP", xlab="Year", zlab="Density", theta=300, phi=50)
+persp(as.integer(levels(year.seq)), gdp.seq, f, col="lightblue",
+      ticktype="detailed", ylab="GDP", xlab="Year", zlab="Density",
+      theta=300, phi=50)
 
 # Sleep for 5 seconds so that we can examine the output...
 
 Sys.sleep(5)
 
-contour(year.seq, 
+contour(as.integer(levels(year.seq)),
         gdp.seq, 
         f, 
         xlab="Year", 
@@ -353,7 +351,7 @@ npplot(bws=bw, cdf=TRUE)
 
 detach(faithful)
 
-# EXAMPLE 2 (INTERFACE=DATAFRAME): For this example, we load the old
+# EXAMPLE 2 (INTERFACE=DATA FRAME): For this example, we load the old
 # faithful geyser data and compute the density and distribution
 # functions.
 

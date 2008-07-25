@@ -1,37 +1,60 @@
 \name{np}
 \alias{np}
 \docType{package}
-\title{Nonparametric Kernel Smoothing Methods for Mixed Datatypes}
+\title{Nonparametric Kernel Smoothing Methods for Mixed Data Types}
 \description{
 
 	This package provides a variety of nonparametric and semiparametric
 	kernel methods that seamlessly handle a mix of continuous, unordered,
-	and ordered factor datatypes (unordered and ordered factors are often
+	and ordered factor data types (unordered and ordered factors are often
 	referred to as `nominal' and `ordinal' categorical variables
-	respectively).
+	respectively). A vignette containing many of the examples found in the
+	help files accompanying the \pkg{np} package that is intended to serve
+	as a gentle introduction to this package can be accessed via
+	\code{vignette("np", package="np")}.
 
   Bandwidth selection is a key aspect of sound nonparametric and
   semiparametric kernel estimation. \code{np} is designed from the
   ground up to make bandwidth selection the focus of attention. To this
   end, one typically begins by creating a `bandwidth object' which
   embodies all aspects of the method, including specific kernel
-  functions, data names, datatypes, and the like. One then passes these
+  functions, data names, data types, and the like. One then passes these
   bandwidth objects to other functions, and those functions can grab the
   specifics from the bandwidth object thereby removing potential
-  inconsistencies and unnecessary repetition.
+  inconsistencies and unnecessary repetition. Furthermore, many
+  functions such as \code{npplot} can work with the bandwidth object
+  directly without having to do the subsequent companion function
+  evaluation.
 
+  As of \code{np} version 0.20-0, we allow the user to combine these
+  steps. When using \code{np} versions 0.20-0 and higher, if the first
+  step (bandwidth selection) is not performed explicitly then the second
+  step will automatically call the omitted first step bandwidth selector
+  using defaults unless otherwise specified, and the bandwidth object
+  could then be retrieved retroactively if so desired via
+  \code{objectname$bws}. Furthermore, options for bandwidth selection
+  will be passed directly to the bandwidth selector function. Note that
+  the combined approach would not be a wise choice for certain
+  applications such as when bootstrapping (as it would involve
+  unnecessary computation since the bandwidths would properly be those
+  for the original sample and not the bootstrap resamples) or when
+  conducting quantile regression (as it would involve unnecessary
+  computation when different quantiles are computed from the same
+  conditional cumulative distribution estimate).
+  
   There are two ways in which you can interact with functions in
-  \code{np}, either i) using dataframes, or ii) using a formula
+  \code{np}, either i) using data frames, or ii) using a formula
   interface, where appropriate.
 
-  To some, it may be natural to use the dataframe interface.  The R
+  To some, it may be natural to use the data frame interface.  The R
   \code{\link{data.frame}} function preserves a variable's type once it
   has been cast (unlike \code{\link{cbind}}, which we avoid for this
   reason).  If you find this most natural for your project, you first
-  create a dataframe casting data according to their type (i.e., one of
-  continuous (default), \code{\link{factor}}, \code{\link{ordered}})
-  Then you would simply pass this dataframe to the appropriate \code{np}
-  function, for example \code{npudensbw(dat=data)}.
+  create a data frame casting data according to their type (i.e., one of
+  continuous (default, \code{\link{numeric}}), \code{\link{factor}},
+  \code{\link{ordered}}) Then you would simply pass this data frame to
+  the appropriate \code{np} function, for example
+  \code{npudensbw(dat=data)}.
 
   To others, however, it may be natural to use the formula interface
   that is used for the regression examples, among others. For
@@ -46,10 +69,11 @@
 	\code{X} being either \code{"MALE"} or \code{"FEMALE"}, np will handle
 	this directly, i.e., there is no need to map the string values into
 	unique integers such as (0,1). Once the user casts a variable as a
-	particular datatype (i.e., \code{\link{factor}},
-	\code{\link{ordered}}, or continuous (default)), all subsequent
-	methods automatically detect the type and use the appropriate kernel
-	function and method where appropriate.
+	particular data type (i.e., \code{\link{factor}},
+	\code{\link{ordered}}, or continuous (default,
+	\code{\link{numeric}})), all subsequent methods automatically detect
+	the type and use the appropriate kernel function and method where
+	appropriate.
 
 	All estimation methods are fully multivariate, i.e., there are no
 	limitations on the number of variables one can model (or number of
@@ -108,15 +132,15 @@
   references listed above.
 
   We briefly describe the particulars of various univariate kernels used
-  to generate the generalized product kernels that underlie the
-  kernel estimators implemented in the \code{np} package. In a nutshell,
-  the generalized kernel functions that underlie the kernel estimators
-  in \code{np} are formed by taking the product of univariate kernels
-  such as those listed below. When you cast your data as a particular
-  type (continuous, factor, or ordered factor) in a data frame or
-  formula, the routines will automatically recognize the type of
-  variable being modelled and use the appropriate kernel type for each
-  variable in the resulting estimator.
+  to generate the generalized product kernels that underlie the kernel
+  estimators implemented in the \code{np} package. In a nutshell, the
+  generalized kernel functions that underlie the kernel estimators in
+  \code{np} are formed by taking the product of univariate kernels such
+  as those listed below. When you cast your data as a particular type
+  (continuous, factor, or ordered factor) in a data frame or formula,
+  the routines will automatically recognize the type of variable being
+  modelled and use the appropriate kernel type for each variable in the
+  resulting estimator.
 
 	\describe{
 
@@ -229,7 +253,7 @@
  Journal of Nonparametric Statistics, 18, 69-100.
 
  Racine, J.S. and Q. Li (2004), \dQuote{Nonparametric estimation of
-	regression functions with both categorical and continuous Data,}
+	regression functions with both categorical and continuous data,}
 	Journal of Econometrics, 119, 99-130.
   
   Li, Q. and J.S. Racine (2007), \emph{Nonparametric Econometrics:

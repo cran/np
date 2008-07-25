@@ -5,7 +5,7 @@
 \alias{npqreg.conbandwidth}
 \alias{npqreg.default}
 \alias{npqreg.formula}
-\title{Kernel Quantile Regression with Mixed Datatypes}
+\title{Kernel Quantile Regression with Mixed Data Types}
 
 \description{
   \code{npqreg} computes a kernel quantile regression estimate
@@ -36,17 +36,7 @@ npqreg(bws, \dots)
        itmax = 10000,
        \dots)
 
-\method{npqreg}{default}(bws,
-       txdat = stop("training data 'txdat' missing"),
-       tydat = stop("training data 'tydat' missing"),
-       exdat,
-       tau,
-       gradients,
-       ftol,
-       tol,
-       small,
-       itmax,
-       \dots)
+\method{npqreg}{default}(bws, txdat, tydat, \dots)
 
 }
 
@@ -238,7 +228,7 @@ detach(Italy)
 
 \dontrun{
 
-# EXAMPLE 1 (INTERFACE=DATAFRAME): For this example, we compute a
+# EXAMPLE 1 (INTERFACE=DATA FRAME): For this example, we compute a
 # bivariate nonparametric quantile regression estimate for Giovanni
 # Baiocchi's Italian income panel (see Italy for details)
 

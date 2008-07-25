@@ -9,14 +9,23 @@ npudensbw <- function(...){
 }
 
 npudensbw.formula <-
-  function(formula, data, subset, na.action, ...){
+  function(formula, data, subset, na.action, call, ...){
     
     mf <- match.call(expand.dots = FALSE)
     m <- match(c("formula", "data", "subset", "na.action"),
                names(mf), nomatch = 0)
     mf <- mf[c(1,m)]
+
+    if(!missing(call) && is.call(call)){
+      formula.args <- c("data", "subset", "na.action")
+      mc.call <- match(formula.args, names(call), nomatch = 0)
+      mc.mf <- match(formula.args, names(mf), nomatch = 0)
+      if(any(mc.mf > 0))
+        mf[mc.mf] <- call[mc.call]
+    }
+                     
     mf[[1]] <- as.name("model.frame")
-    mf <- eval(mf, parent.frame())
+    mf <- eval(mf, envir = parent.frame())
 
     if (attr(attr(mf, "terms"), "response") != 0)
       stop("invalid density formula")

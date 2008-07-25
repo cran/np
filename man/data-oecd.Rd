@@ -26,7 +26,7 @@
     \item{growth}{ the first column, of type \code{numeric}: growth rate
     of real GDP per capita for each 5-year period}
 
-    \item{oecd}{ the second column, of type \code{integer}: equal to
+    \item{oecd}{ the second column, of type \code{factor}: equal to
     1 for OECD members, 0 otherwise}
 
     \item{year}{ the third column, of type \code{integer}}

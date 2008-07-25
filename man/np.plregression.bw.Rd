@@ -6,7 +6,7 @@
 \alias{npplregbw.formula}
 \alias{npplregbw.plbandwidth}
 
-\title{Partially Linear Kernel Regression Bandwidth Selection with Mixed Datatypes}
+\title{Partially Linear Kernel Regression Bandwidth Selection with Mixed Data Types}
 
 \description{
   \code{npplregbw} computes a bandwidth object for a partially linear kernel regression estimate of a one (1)
@@ -22,7 +22,7 @@
 \usage{
 npplregbw(\dots)
 
-\method{npplregbw}{formula}(formula, data, subset, na.action, \dots)
+\method{npplregbw}{formula}(formula, data, subset, na.action, call, \dots)
 
 \method{npplregbw}{NULL}(xdat = stop("invoked without data `xdat'"),
           ydat = stop("invoked without data `ydat'"),
@@ -76,6 +76,12 @@ npplregbw(\dots)
    \code{NA}s. The default is set by the \code{\link{na.action}} setting of options, and is
     \code{\link{na.fail}} if that is unset. The (recommended) default is
     \code{\link{na.omit}}.  
+  }
+  
+  \item{call}{
+    the original function call. This is passed internally by
+    \code{\link{np}} when a bandwidth search has been implied by a call to
+    another function. It is not recommended that the user set this.
   }
 
   \item{xdat}{
@@ -171,9 +177,9 @@ npplregbw(\dots)
  multivariate (\eqn{q}-variate) explanatory data defined over a set of possibly
  continuous and/or discrete (unordered, ordered) data. The approach is
  based on Li and Racine (2003) who employ \sQuote{generalized product kernels}
- that admit a mix of continuous and discrete datatypes.
+ that admit a mix of continuous and discrete data types.
 
- Three classes of kernel estimators for the continuous datatypes are
+ Three classes of kernel estimators for the continuous data types are
  available: fixed, adaptive nearest-neighbor, and generalized
  nearest-neighbor. Adaptive nearest-neighbor bandwidths change with
  each sample realization in the set, \eqn{x_i}{x[i]}, when estimating the
@@ -189,13 +195,13 @@ npplregbw(\dots)
  \code{zdat} 
  parameters. Use of these two interfaces is \bold{mutually exclusive}.
 
- Data contained in the data frame \code{zdat} may be a mix of
- continuous (default), unordered discrete (to be specified in the
- data frame \code{zdat} using \code{\link{factor}}), and ordered
- discrete (to be specified in the data frame \code{zdat} using 
- \code{\link{ordered}}). Data can be entered in an arbitrary order and data
- types will be detected automatically by the routine (see \code{\link{np}} for
- details).
+ Data contained in the data frame \code{zdat} may be a mix of continuous
+ (default), unordered discrete (to be specified in the data frame
+ \code{zdat} using \code{\link{factor}}), and ordered discrete (to be
+ specified in the data frame \code{zdat} using
+ \code{\link{ordered}}). Data can be entered in an arbitrary order and
+ data types will be detected automatically by the routine (see
+ \code{\link{np}} for details).
 
  Data for which bandwidths are to be estimated may be specified
  symbolically. A typical description has the form \code{dependent}
@@ -213,10 +219,10 @@ npplregbw(\dots)
  further examples.  
 
  A variety of kernels may be specified by the user. Kernels implemented
- for continuous datatypes include the second, fourth, sixth, and eighth
+ for continuous data types include the second, fourth, sixth, and eighth
  order Gaussian and Epanechnikov kernels, and the uniform
- kernel. Unordered discrete datatypes use a variation on Aitchison and
- Aitken's (1976) kernel, while ordered datatypes use a variation of the
+ kernel. Unordered discrete data types use a variation on Aitchison and
+ Aitken's (1976) kernel, while ordered data types use a variation of the
  Wang and van Ryzin (1981) kernel.
 }
 \value{
@@ -251,7 +257,7 @@ npplregbw(\dots)
  Cambridge University Press.
  
  Racine, J.S. and Q. Li (2004), \dQuote{Nonparametric estimation of regression
- functions with both categorical and continuous Data,} Journal of
+ functions with both categorical and continuous data,} Journal of
  Econometrics, 119, 99-130.
 
  Robinson, P.M. (1988), \dQuote{Root-n-consistent semiparametric regression,}
@@ -355,7 +361,7 @@ bw$bw[[2]]$bw[1] <- 0.00054
 
 summary(bw)
 
-# EXAMPLE 1 (INTERFACE=DATAFRAME): For this example, we simulate an
+# EXAMPLE 1 (INTERFACE=DATA FRAME): For this example, we simulate an
 # example for a partially linear model and perform bandwidth selection
 
 set.seed(123)

@@ -13,7 +13,7 @@ sibandwidth <-
            ynames = character(1),
            sfactor = NA, bandwidth = NA,
            rows.omit = NA, bandwidth.compute = TRUE,
-           optim.method = "NA"){
+           optim.method = "NA", ...){
 
   ndim = length(beta)
   regtype = "lc"

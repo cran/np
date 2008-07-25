@@ -164,8 +164,15 @@ S3method(npreg, call)
 S3method(npreg, default)
 S3method(npreg, rbandwidth)
 
+S3method(npsigtest, formula)
+S3method(npsigtest, call)
+S3method(npsigtest, default)
+S3method(npsigtest, npregression)
+S3method(npsigtest, rbandwidth)
+
 S3method(npplreg, formula)
 S3method(npplreg, call)
+S3method(npplreg, default)
 S3method(npplreg, plbandwidth)
 
 S3method(npplregbw, NULL)

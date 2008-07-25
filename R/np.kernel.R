@@ -48,7 +48,7 @@ npksum.numeric <-
            exdat,
            weights,
            leave.one.out, kernel.pow, bandwidth.divide,
-           convolution.kernel, smooth.coefficient,
+           operator, smooth.coefficient,
            ...){
 
     txdat <- toFrame(txdat)
@@ -61,7 +61,7 @@ npksum.numeric <-
 
     mc.names <- names(match.call(expand.dots = FALSE))
     margs <- c("tydat", "exdat", "weights", "leave.one.out", "kernel.pow", "bandwidth.divide",
-               "convolution.kernel", "smooth.coefficient")
+               "operator", "smooth.coefficient")
     m <- match(margs, mc.names, nomatch = 0)
     any.m <- any(m != 0)
 
@@ -81,13 +81,15 @@ npksum.default <-
            leave.one.out = FALSE,
            kernel.pow = 1.0,
            bandwidth.divide = FALSE,
-           convolution.kernel = FALSE,
+           operator = c("normal","convolution","derivative","integral"),
            smooth.coefficient = FALSE,
            ...){
 
     miss.ty <- missing(tydat)
     miss.ex <- missing(exdat)
     miss.weights <- missing(weights)
+
+    operator <- match.arg(operator)
     
     txdat = toFrame(txdat)
 
@@ -238,7 +240,11 @@ npksum.default <-
       leave.one.out = leave.one.out, 
       ipow = integer.pow,
       bandwidth.divide = bandwidth.divide,
-      convolution.kernel = convolution.kernel,
+      operator = switch(operator,
+        normal = OP_NORMAL,
+        convolution = OP_CONVOLUTION,
+        derivative = OP_DERIVATIVE,
+        integral = OP_INTEGRAL),
       mcv.numRow = attr(bws$xmcv, "num.row"),
       smooth.coefficient = smooth.coefficient,
       wncol = dim.in[1],

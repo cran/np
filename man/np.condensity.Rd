@@ -6,7 +6,7 @@
 \alias{npcdens.default}
 \alias{npcdens.formula}
 \alias{npcdist}
-\title{Kernel Conditional Density and Distribution Estimates with Mixed Datatypes}
+\title{Kernel Conditional Density and Distribution Estimates with Mixed Data Types}
 
 \description{
   \code{npcdens} computes kernel conditional density estimates on
@@ -35,12 +35,7 @@ npcdens(bws, \dots)
         gradients = FALSE,
         \dots)
 
-\method{npcdens}{default}(bws,
-        txdat = stop("training data 'txdat' missing"),
-        tydat = stop("training data 'tydat' missing"),
-        exdat,
-        eydat,
-        gradients, \dots)
+\method{npcdens}{default}(bws, txdat, tydat, \dots)
 
 }
 
@@ -122,9 +117,9 @@ npcdens(bws, \dots)
   distributions (\eqn{p+q}-variate) defined over a set of possibly
   continuous and/or discrete (unordered, ordered) data. The approach is
   based on Li and Racine (2004) who employ \sQuote{generalized product
-    kernels} that admit a mix of continuous and discrete datatypes.
+    kernels} that admit a mix of continuous and discrete data types.
 
-  Three classes of kernel estimators for the continuous datatypes are
+  Three classes of kernel estimators for the continuous data types are
   available: fixed, adaptive nearest-neighbor, and generalized
   nearest-neighbor. Adaptive nearest-neighbor bandwidths change with
   each sample realization in the set, \eqn{x_i}{x[i]}, when estimating
@@ -140,10 +135,10 @@ npcdens(bws, \dots)
   automatically by the routine (see \code{\link{np}} for details).
 
   A variety of kernels may be specified by the user. Kernels implemented
-  for continuous datatypes include the second, fourth, sixth, and eighth
+  for continuous data types include the second, fourth, sixth, and eighth
   order Gaussian and Epanechnikov kernels, and the uniform
-  kernel. Unordered discrete datatypes use a variation on Aitchison and
-  Aitken's (1976) kernel, while ordered datatypes use a variation of the
+  kernel. Unordered discrete data types use a variation on Aitchison and
+  Aitken's (1976) kernel, while ordered data types use a variation of the
   Wang and van Ryzin (1981) kernel.
 
 }
@@ -258,7 +253,7 @@ npplot(bws=bw, cdf=TRUE)
 
 detach(Italy)
 
-# EXAMPLE 1 (INTERFACE=DATAFRAME): For this example, we load Giovanni
+# EXAMPLE 1 (INTERFACE=DATA FRAME): For this example, we load Giovanni
 # Baiocchi's Italian GDP panel (see Italy for details), and compute the
 # likelihood cross-validated bandwidths (default) using a second-order
 # Gaussian kernel (default). Note - this may take a minute or two
@@ -331,7 +326,7 @@ npplot(bws=bw, cdf=TRUE)
 
 detach(faithful)
 
-# EXAMPLE 2 (INTERFACE=DATAFRAME): For this example, we load the old
+# EXAMPLE 2 (INTERFACE=DATA FRAME): For this example, we load the old
 # faithful geyser data from the R `datasets' library and compute the
 # conditional density and conditional distribution functions.
 
@@ -429,7 +424,7 @@ persp(x1.seq,
       theta=310, 
       phi=25)
 
-# EXAMPLE 3 (INTERFACE=DATAFRAME): Replicate the DGP of Klein & Spady
+# EXAMPLE 3 (INTERFACE=DATA FRAME): Replicate the DGP of Klein & Spady
 # (1993) (see their description on page 405, pay careful attention to
 # footnote 6 on page 405).
 

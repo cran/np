@@ -5,7 +5,7 @@
 \alias{npconmode.default}
 \alias{npconmode.formula}
 \alias{npconmode.conbandwidth}
-\title{ Kernel Modal Regression with Mixed Data}
+\title{ Kernel Modal Regression with Mixed Data Types }
 \description{
   \code{npconmode} performs kernel modal regression on mixed data,
   and finds the
@@ -22,12 +22,7 @@ npconmode(bws, \dots)
 
 \method{npconmode}{call}(bws, \dots)
 
-\method{npconmode}{default}(bws,
-          txdat = stop("invoked without training data 'txdat'"),
-          tydat = stop("invoked without training data 'tydat'"),
-          exdat,
-          eydat,
-          \dots)
+\method{npconmode}{default}(bws, txdat, tydat, \dots)
 
 \method{npconmode}{conbandwidth}(bws,
           txdat = stop("invoked without training data 'txdat'"),
@@ -230,7 +225,7 @@ detach(birthwt)
 
 \dontrun{
 
-# EXAMPLE 1 (INTERFACE=DATAFRAME): For this example, we use the
+# EXAMPLE 1 (INTERFACE=DATA FRAME): For this example, we use the
 # birthweight data taken from the MASS library, and compute a parametric
 # logit model and a nonparametric conditional mode model. We then
 # compare their confusion matrices and summary measures of

@@ -1,21 +1,23 @@
 npcdist <-
-  function(bws = stop(paste("bandwidths are required to perform the estimate!",
-             "please set 'bws'")), ...){
-    args = list(...)
+  function(bws, ...){
+    args <- list(...)
 
-    if (is.recursive(bws)){
-      if (!is.null(bws$formula) && is.null(args$txdat))
-        UseMethod("npcdist",bws$formula)
-      else if (!is.null(args$data) || !is.null(args$newdata))
-        stop("data and newdata specified, but bws has no formula")
-      else if (!is.null(bws$call) && is.null(args$txdat))
-        UseMethod("npcdist",bws$call)
-      else
-        UseMethod("npcdist",bws)
+    if (!missing(bws)){
+      if (is.recursive(bws)){
+        if (!is.null(bws$formula) && is.null(args$txdat))
+          UseMethod("npcdist",bws$formula)
+        else if (!is.null(bws$call) && is.null(args$txdat))
+          UseMethod("npcdist",bws$call)
+        else if (!is.call(bws))
+          UseMethod("npcdist",bws)
+        else
+          UseMethod("npcdist",NULL)
+      } else {
+        UseMethod("npcdist", NULL)
+      }
     } else {
-      UseMethod("npcdist",bws)
+      UseMethod("npcdist", NULL)
     }
-
   }
 
 npcdist.formula <-
@@ -271,31 +273,77 @@ npcdist.conbandwidth <-
 
   }
 
-npcdist.default <- function(bws,
-                            txdat = stop("training data 'txdat' missing"),
-                            tydat = stop("training data 'tydat' missing"),
-                            exdat, eydat, gradients, ...){
+npcdist.default <- function(bws, txdat, tydat, ...){
+  sc.names <- names(sys.call())
 
-  ## maintain x names and 'toFrame'
-  txdat <- toFrame(txdat)
+  ## here we check to see if the function was called with tdat =
+  ## if it was, we need to catch that and map it to dat =
+  ## otherwise the call is passed unadulterated to npudensbw
 
-  ## maintain y names and 'toFrame'
-  tydat <- toFrame(tydat)
+  bws.named <- any(sc.names == "bws")
+  txdat.named <- any(sc.names == "txdat")
+  tydat.named <- any(sc.names == "tydat")
 
-  tbw <- npcdensbw(bws = bws,
-                   xdat = txdat,
-                   ydat = tydat,
-                   bandwidth.compute = FALSE,
-                   ...)
+  no.bws <- missing(bws)
+  no.txdat <- missing(txdat)
+  no.tydat <- missing(tydat)
 
-  mc.names <- names(match.call(expand.dots = FALSE))
-  margs <- c("exdat", "eydat", "gradients")
-  m <- match(margs, mc.names, nomatch = 0)
-  any.m <- any(m != 0)
+  ## if bws was passed in explicitly, do not compute bandwidths
+    
+  if(txdat.named)
+    txdat <- toFrame(txdat)
+
+  if(tydat.named)
+    tydat <- toFrame(tydat)
+
+  mc <- match.call()
+
+  tx.str <- ifelse(txdat.named, "xdat = txdat,",
+                   ifelse(no.txdat, "", "txdat,"))
+  ty.str <- ifelse(tydat.named, "ydat = tydat,",
+                   ifelse(no.tydat, "", "tydat,"))
   
+  tbw <- eval(parse(text = paste("npcdensbw(",
+                      ifelse(bws.named,                             
+                             paste(tx.str, ty.str,
+                                   "bws = bws, bandwidth.compute = FALSE,"),
+                             paste(ifelse(no.bws, "", "bws,"), tx.str, ty.str)),
+                      "call = mc, ...",")",sep="")))
 
-  eval(parse(text=paste("npcdist.conbandwidth(txdat=txdat, tydat=tydat, bws=tbw",
-               ifelse(any.m, ",",""),
-               paste(mc.names[m], ifelse(any.m,"=",""), mc.names[m], collapse=", "),
-               ")")))
+  ## need to do some surgery on the call to
+  ## allow it to work with the formula interface
+
+  repair.args <- c("data", "subset", "na.action")
+  
+  m.par <- match(repair.args, names(mc), nomatch = 0)
+  m.child <- match(repair.args, names(tbw$call), nomatch = 0)
+
+  if(any(m.child > 0)) {
+    tbw$call[m.child] <- mc[m.par]
+  }
+
+  ## next we repair arguments portion of the call
+  m.bws.par <- match(c("bws","txdat","tydat"), names(mc), nomatch = 0)
+  m.bws.child <- match(c("bws","txdat","tydat"), as.character(tbw$call), nomatch = 0)
+  m.bws.union <- (m.bws.par > 0) & (m.bws.child > 0)
+  
+  tbw$call[m.bws.child[m.bws.union]] <- mc[m.bws.par[m.bws.union]]
+
+  environment(tbw$call) <- parent.frame()
+
+  ## convention: drop 'bws' and up to two unnamed arguments (including bws)
+  if(no.bws){
+    tx.str <- ",txdat = txdat"
+    ty.str <- ",tydat = tydat"
+  } else {
+    tx.str <- ifelse(txdat.named, ",txdat = txdat","")
+    ty.str <- ifelse(tydat.named, ",tydat = tydat","")    
+    if((!bws.named) && (!txdat.named)){
+      ty.str <- ifelse(tydat.named, ",tydat = tydat",
+                       ifelse(no.tydat,"",",tydat"))
+    }
+  }
+  
+  eval(parse(text=paste("npcdist(bws = tbw", tx.str, ty.str, ",...)")))
 }
+

@@ -26,16 +26,7 @@ npindex(bws, \dots)
 
 \method{npindex}{call}(bws, \dots)
 
-\method{npindex}{default}(bws,
-        txdat = stop("training data 'txdat' missing"),
-        tydat = stop("training data 'tydat' missing"),
-        exdat,
-        eydat,
-        gradients,
-        residuals,
-        errors,
-        boot.num,
-        \dots) 
+\method{npindex}{default}(bws, txdat, tydat, \dots) 
 
 \method{npindex}{sibandwidth}(bws,
         txdat = stop("training data 'txdat' missing"),
@@ -259,7 +250,7 @@ npplot(bws=bw)
 
 Sys.sleep(5)
 
-# EXAMPLE 1 (INTERFACE=DATAFRAME): Generate a simple linear model then
+# EXAMPLE 1 (INTERFACE=DATA FRAME): Generate a simple linear model then
 # estimate it using a semiparametric single index specification and
 # Ichimura's nonlinear least squares coefficients and bandwidth
 # (default). Also compute the matrix of gradients and average derivative
@@ -333,7 +324,7 @@ summary(model)
 
 Sys.sleep(5)
 
-# EXAMPLE 2 (INTERFACE=DATAFRAME): Generate a simple binary outcome
+# EXAMPLE 2 (INTERFACE=DATA FRAME): Generate a simple binary outcome
 # linear model then estimate it using a semiparametric single index
 # specification and Klein and Spady's likelihood-based coefficients and
 # bandwidth (default). Also compute the matrix of gradients and average
@@ -434,7 +425,7 @@ persp(x1.seq,
       theta=310, 
       phi=25)
 
-# EXAMPLE 3 (INTERFACE=DATAFRAME): Replicate the DGP of Klein & Spady
+# EXAMPLE 3 (INTERFACE=DATA FRAME): Replicate the DGP of Klein & Spady
 # (1993) (see their description on page 405, pay careful attention to
 # footnote 6 on page 405).
 

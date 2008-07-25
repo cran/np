@@ -25,9 +25,9 @@ dataset \code{"wage"} plus additional objects \code{"bw.all"} and
     \item{educ}{column 2, of type \code{numeric}, years of education}
     \item{exper}{column 3, of type \code{numeric}, years potential experience}
     \item{tenure}{column 4, of type \code{numeric}, years with current employer}
-    \item{nonwhite}{column 5, of type \code{character}, =\dQuote{Nonwhite} if nonwhite, \dQuote{White} otherwise}
-    \item{female}{column 6, of type \code{character}, =\dQuote{Female} if female, \dQuote{Male} otherwise}
-    \item{married}{column 7, of type \code{character}, =\dQuote{Married} if Married, \dQuote{Nonmarried} otherwise}
+    \item{nonwhite}{column 5, of type \code{factor}, =\dQuote{Nonwhite} if nonwhite, \dQuote{White} otherwise}
+    \item{female}{column 6, of type \code{factor}, =\dQuote{Female} if female, \dQuote{Male} otherwise}
+    \item{married}{column 7, of type \code{factor}, =\dQuote{Married} if Married, \dQuote{Nonmarried} otherwise}
     \item{numdep}{column 8, of type \code{numeric}, number of dependents}
     \item{smsa}{column 9, of type \code{numeric}, =1 if live in SMSA}
     \item{northcen}{column 10, of type \code{numeric}, =1 if live in north central U.S}

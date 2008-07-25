@@ -1,21 +1,23 @@
 npplreg <-
-  function(bws = stop(paste("bandwidths are required to perform the estimate!",
-             "please set 'bws'")), ...){
-    args = list(...)
-    
-    if (is.recursive(bws)){
-      if (!is.null(bws$formula) && is.null(args$txdat))
-        UseMethod("npplreg",bws$formula)
-      else if (!is.null(args$data) || !is.null(args$newdata))
-        stop("data and newdata specified, but bws has no formula")
-      else if (!is.null(bws$call) && is.null(args$txdat))
-        UseMethod("npplreg",bws$call)
-      else
-        UseMethod("npplreg",bws)
-    } else {
-      UseMethod("npplreg",bws)
-    }
+  function(bws, ...){
+    args <- list(...)
 
+    if (!missing(bws)){
+      if (is.recursive(bws)){
+        if (!is.null(bws$formula) && is.null(args$txdat))
+          UseMethod("npplreg",bws$formula)
+        else if (!is.null(bws$call) && is.null(args$txdat))
+          UseMethod("npplreg",bws$call)
+        else if (!is.call(bws))
+          UseMethod("npplreg",bws)
+        else
+          UseMethod("npplreg",NULL)
+      } else {
+        UseMethod("npplreg", NULL)
+      }
+    } else {
+      UseMethod("npplreg", NULL)
+    }
   }
 
 npplreg.formula <-
@@ -216,3 +218,93 @@ npplreg.plbandwidth <-
     environment(ev$call) <- parent.frame()
     return(ev)
   }
+
+
+npplreg.default <- function(bws, txdat, tydat, tzdat, ...) {
+  sc.names <- names(sys.call())
+
+  ## here we check to see if the function was called with tdat =
+  ## if it was, we need to catch that and map it to dat =
+  ## otherwise the call is passed unadulterated to npudensbw
+
+  bws.named <- any(sc.names == "bws")
+  txdat.named <- any(sc.names == "txdat")
+  tydat.named <- any(sc.names == "tydat")
+  tzdat.named <- any(sc.names == "tzdat")
+
+  no.bws <- missing(bws)
+  no.txdat <- missing(txdat)
+  no.tydat <- missing(tydat)
+  no.tzdat <- missing(tzdat)
+
+  ## if bws was passed in explicitly, do not compute bandwidths
+    
+  if(txdat.named)
+    txdat <- toFrame(txdat)
+
+  if(tydat.named)
+    tydat <- toFrame(tydat)
+
+  if(tydat.named)
+    tzdat <- toFrame(tzdat)
+
+  mc <- match.call()
+
+  tx.str <- ifelse(txdat.named, "xdat = txdat,",
+                   ifelse(no.txdat, "", "txdat,"))
+  ty.str <- ifelse(tydat.named, "ydat = tydat,",
+                   ifelse(no.tydat, "", "tydat,"))
+  tz.str <- ifelse(tzdat.named, "zdat = tzdat,",
+                   ifelse(no.tzdat, "", "tzdat,"))
+  
+  tbw <- eval(parse(text = paste("npplregbw(",
+                      ifelse(bws.named,                             
+                             paste(tx.str, ty.str, tz.str,
+                                   "bws = bws, bandwidth.compute = FALSE,"),
+                             paste(ifelse(no.bws, "", "bws,"),
+                                   tx.str, ty.str, tz.str)),
+                      "call = mc, ...",")",sep="")))
+
+  ## need to do some surgery on the call to
+  ## allow it to work with the formula interface
+
+  repair.args <- c("data", "subset", "na.action")
+  
+  m.par <- match(repair.args, names(mc), nomatch = 0)
+  m.child <- match(repair.args, names(tbw$call), nomatch = 0)
+
+  if(any(m.child > 0)) {
+    tbw$call[m.child] <- mc[m.par]
+  }
+
+  ## next we repair arguments portion of the call
+  m.bws.par <- match(c("bws","txdat","tydat","tzdat"), names(mc), nomatch = 0)
+  m.bws.child <- match(c("bws","txdat","tydat","tzdat"), as.character(tbw$call), nomatch = 0)
+  m.bws.union <- (m.bws.par > 0) & (m.bws.child > 0)
+  
+  tbw$call[m.bws.child[m.bws.union]] <- mc[m.bws.par[m.bws.union]]
+
+  environment(tbw$call) <- parent.frame()
+
+  ## convention: drop 'bws' and up to three unnamed arguments (including bws)
+  ## for simplicity, we don't allow for inconsistent
+  ## mixes of named/unnamed arguments
+  ## so bws is named or unnamed, and t[xyz]dat collectively either
+  ## named or unnamed
+  
+  if(no.bws){
+    tx.str <- ",txdat = txdat"
+    ty.str <- ",tydat = tydat"
+    tz.str <- ",tzdat = tzdat"
+  } else {
+    tx.str <- ifelse(txdat.named, ",txdat = txdat","")
+    ty.str <- ifelse(tydat.named, ",tydat = tydat","")
+    tz.str <- ifelse(tzdat.named, ",tzdat = tzdat","")
+    if((!bws.named) && (!txdat.named)){
+      tz.str <- ifelse(no.tzdat,"",",tzdat")
+    }
+  }
+  
+  eval(parse(text=paste("npplreg(bws = tbw", tx.str, ty.str, tz.str, ",...)")))
+}
+
