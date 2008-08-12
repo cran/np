@@ -3977,7 +3977,7 @@ double *SIGN)
 
 					/* Add ridge factor - epsilon goes from zero to one/n*/
 
-					epsilon = 1.0/(double)num_obs;
+					epsilon = 1.0/(double)num_obs_train;
 
 					for(k=0; k < num_reg_cat_cont + 1; k++)
 					{
@@ -3990,7 +3990,7 @@ double *SIGN)
 					{
 						for(k=0; k < num_reg_cat_cont + 1; k++)
 						{
-							epsilon += 1.0/(double) num_obs;
+							epsilon += 1.0/(double) num_obs_train;
 							XTKX[k][k] += epsilon;
 						}
 					} while (fabs(mat_det(XTKX)) == 0.0);
@@ -4190,7 +4190,7 @@ double *SIGN)
 
 					/* Add ridge factor - epsilon goes from zero to one/n*/
 
-					epsilon = 1.0/(double)num_obs;
+					epsilon = 1.0/(double)num_obs_train;
 
 					for(k=0; k < num_reg_cat_cont + 1; k++)
 					{
@@ -4203,7 +4203,7 @@ double *SIGN)
 					{
 						for(k=0; k < num_reg_cat_cont + 1; k++)
 						{
-							epsilon += 1.0/(double) num_obs;
+							epsilon += 1.0/(double) num_obs_train;
 							XTKX[k][k] += epsilon;
 						}
 					} while (fabs(mat_det(XTKX)) == 0.0);
@@ -4405,7 +4405,7 @@ double *SIGN)
 
 					/* Add ridge factor - epsilon goes from zero to one/n*/
 
-					epsilon = 1.0/(double)num_obs;
+					epsilon = 1.0/(double)num_obs_train;
 
 					for(k=0; k < num_reg_cat_cont + 1; k++)
 					{
@@ -4418,7 +4418,7 @@ double *SIGN)
 					{
 						for(k=0; k < num_reg_cat_cont + 1; k++)
 						{
-							epsilon += 1.0/(double) num_obs;
+							epsilon += 1.0/(double) num_obs_train;
 							XTKX[k][k] += epsilon;
 						}
 					} while (fabs(mat_det(XTKX)) == 0.0);
@@ -9048,7 +9048,7 @@ double **gradient)
 
 							/* Add ridge factor - epsilon goes from zero to one/n*/
 
-							epsilon = 1.0/(double)num_obs;
+							epsilon = 1.0/(double)num_obs_train;
 
 							for(k=0; k < num_reg_cat_cont + 1; k++)
 							{
@@ -9061,7 +9061,7 @@ double **gradient)
 							{
 								for(k=0; k < num_reg_cat_cont + 1; k++)
 								{
-									epsilon += 1.0/(double) num_obs;
+									epsilon += 1.0/(double) num_obs_train;
 									XTKX[k][k] += epsilon;
 								}
 							} while (fabs(mat_det(XTKX)) == 0.0);
@@ -9225,7 +9225,7 @@ double **gradient)
 
 							/* Add ridge factor - epsilon goes from zero to one/n*/
 
-							epsilon = 1.0/(double)num_obs;
+							epsilon = 1.0/(double)num_obs_train;
 
 							for(k=0; k < num_reg_cat_cont + 1; k++)
 							{
@@ -9238,7 +9238,7 @@ double **gradient)
 							{
 								for(k=0; k < num_reg_cat_cont + 1; k++)
 								{
-									epsilon += 1.0/(double) num_obs;
+									epsilon += 1.0/(double) num_obs_train;
 									XTKX[k][k] += epsilon;
 								}
 							} while (fabs(mat_det(XTKX)) == 0.0);
@@ -9403,7 +9403,7 @@ double **gradient)
 
 							/* Add ridge factor - epsilon goes from zero to one/n*/
 
-							epsilon = 1.0/(double)num_obs;
+							epsilon = 1.0/(double)num_obs_train;
 
 							for(k=0; k < num_reg_cat_cont + 1; k++)
 							{
@@ -9416,7 +9416,7 @@ double **gradient)
 							{
 								for(k=0; k < num_reg_cat_cont + 1; k++)
 								{
-									epsilon += 1.0/(double) num_obs;
+									epsilon += 1.0/(double) num_obs_train;
 									XTKX[k][k] += epsilon;
 								}
 							} while (fabs(mat_det(XTKX)) == 0.0);
@@ -9775,7 +9775,7 @@ double **gradient)
 
 						/* Add ridge factor - epsilon goes from zero to one/n*/
 
-						epsilon = 1.0/(double)num_obs;
+						epsilon = 1.0/(double)num_obs_train;
 
 						for(k=0; k < num_reg_cat_cont + 1; k++)
 						{
@@ -9788,7 +9788,7 @@ double **gradient)
 						{
 							for(k=0; k < num_reg_cat_cont + 1; k++)
 							{
-								epsilon += 1.0/(double) num_obs;
+								epsilon += 1.0/(double) num_obs_train;
 								XTKX[k][k] += epsilon;
 							}
 						} while (fabs(mat_det(XTKX)) == 0.0);
@@ -10137,7 +10137,7 @@ double **gradient)
 
 							/* Add ridge factor - epsilon goes from zero to one/n*/
 
-							epsilon = 1.0/(double)num_obs;
+							epsilon = 1.0/(double)num_obs_train;
 
 							for(k=0; k < num_reg_cat_cont + 1; k++)
 							{
@@ -10150,7 +10150,7 @@ double **gradient)
 							{
 								for(k=0; k < num_reg_cat_cont + 1; k++)
 								{
-									epsilon += 1.0/(double) num_obs;
+									epsilon += 1.0/(double) num_obs_train;
 									XTKX[k][k] += epsilon;
 								}
 							} while (fabs(mat_det(XTKX)) == 0.0);
@@ -10310,7 +10310,7 @@ double **gradient)
 
 							/* Add ridge factor - epsilon goes from zero to one/n*/
 
-							epsilon = 1.0/(double)num_obs;
+							epsilon = 1.0/(double)num_obs_train;
 
 							for(k=0; k < num_reg_cat_cont + 1; k++)
 							{
@@ -10323,7 +10323,7 @@ double **gradient)
 							{
 								for(k=0; k < num_reg_cat_cont + 1; k++)
 								{
-									epsilon += 1.0/(double) num_obs;
+									epsilon += 1.0/(double) num_obs_train;
 									XTKX[k][k] += epsilon;
 								}
 							} while (fabs(mat_det(XTKX)) == 0.0);
@@ -10483,7 +10483,7 @@ double **gradient)
 
 							/* Add ridge factor - epsilon goes from zero to one/n*/
 
-							epsilon = 1.0/(double)num_obs;
+							epsilon = 1.0/(double)num_obs_train;
 
 							for(k=0; k < num_reg_cat_cont + 1; k++)
 							{
@@ -10496,7 +10496,7 @@ double **gradient)
 							{
 								for(k=0; k < num_reg_cat_cont + 1; k++)
 								{
-									epsilon += 1.0/(double) num_obs;
+									epsilon += 1.0/(double) num_obs_train;
 									XTKX[k][k] += epsilon;
 								}
 							} while (fabs(mat_det(XTKX)) == 0.0);
@@ -10689,7 +10689,7 @@ double **gradient)
 
 						/* Add ridge factor - epsilon goes from zero to one/n*/
 
-						epsilon = 1.0/(double)num_obs;
+						epsilon = 1.0/(double)num_obs_train;
 
 						for(k=0; k < num_reg_cat_cont + 1; k++)
 						{
@@ -10702,7 +10702,7 @@ double **gradient)
 						{
 							for(k=0; k < num_reg_cat_cont + 1; k++)
 							{
-								epsilon += 1.0/(double) num_obs;
+								epsilon += 1.0/(double) num_obs_train;
 								XTKX[k][k] += epsilon;
 							}
 						} while (fabs(mat_det(XTKX)) == 0.0);
@@ -19845,9 +19845,9 @@ double *tau)
 
 				/* Add ridge factor - epsilon goes from zero to one/n*/
 
-				epsilon = 1.0/(double)num_obs;
+				epsilon = 1.0/(double)num_obs_train;
 
-				for(k=0; k < num_reg_cat_cont + 1; k++)
+				for(k=0; k < 2; k++)
 				{
 					XTKX[k][k] += epsilon;
 				}
@@ -19856,9 +19856,9 @@ double *tau)
 
 				do
 				{
-					for(k=0; k < num_reg_cat_cont + 1; k++)
+					for(k=0; k < 2; k++)
 					{
-						epsilon += 1.0/(double) num_obs;
+						epsilon += 1.0/(double) num_obs_train;
 						XTKX[k][k] += epsilon;
 					}
 				} while (fabs(mat_det(XTKX)) == 0.0);

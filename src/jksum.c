@@ -1,6 +1,7 @@
 /* Copyright (C) J. Racine, 1995-2001 */
 
 #include <stdio.h>
+#include <stdint.h>
 #include <stdlib.h>
 #include <math.h>
 #include <float.h>
@@ -27,6 +28,7 @@ extern int int_DEBUG;
 extern int int_VERBOSE;
 extern int int_TAYLOR;
 extern int int_WEIGHTS;
+extern int int_LARGE_SF;
 
 /*
 int int_LARGE_SF; 
@@ -1667,10 +1669,10 @@ double *vector_scale_factor,
 int *num_categories){
 
   // note that mean has 2*num_obs allocated for npksum
-  int i, j, l;
+  int i, j, l, sf_flag = 0;
 
   double cv = 0.0;
-  double * lambda = NULL;
+  double * lambda = NULL, * vsf = NULL;
   double ** matrix_bandwidth = NULL;
 
   double aicc = 0.0;
@@ -1694,11 +1696,11 @@ int *num_categories){
                            num_reg_unordered,
                            num_reg_ordered,
                            vector_scale_factor,
-                           matrix_X_continuous,			 // Not used 
-                           matrix_X_continuous,			 // Not used 
+                           NULL,			 // Not used 
+                           NULL,			 // Not used 
                            matrix_X_continuous,
                            matrix_X_continuous,
-                           matrix_bandwidth,					 // Not used 
+                           NULL,					 // Not used 
                            matrix_bandwidth,
                            lambda)==1){
     
@@ -1816,6 +1818,17 @@ int *num_categories){
     free(lc_Y[1]);
     free(mean);
   } else { // Local Linear 
+
+    // because we manipulate the training data scale factors can be wrong
+
+    if(sf_flag = (int_LARGE_SF == 0)){ 
+      int_LARGE_SF = 1;
+      vsf = (double *)malloc(num_reg_continuous*sizeof(double));
+      for(int ii = 0; ii < num_reg_continuous; ii++)
+        vsf[ii] = matrix_bandwidth[ii][0];
+    } else {
+      vsf = vector_scale_factor;
+    }
 
     MATRIX XTKX = mat_creat( num_reg_continuous + 2, num_obs, UNDEFINED );
     MATRIX XTKXINV = mat_creat( num_reg_continuous + 1, num_reg_continuous + 1, UNDEFINED );
@@ -1952,7 +1965,7 @@ int *num_categories){
                                XTKX,
                                XTKX,
                                sgn,
-                               vector_scale_factor,
+                               vsf,
                                num_categories,
                                NULL,
                                kwm+j*nrcc22);
@@ -2018,6 +2031,12 @@ int *num_categories){
 
     for(int ii = 0; ii < (nrc2); ii++)
       XTKX[ii] = PXTKX[ii];
+
+    if(sf_flag){
+      int_LARGE_SF = 0;
+      free(vsf);
+    }
+
     
     mat_free(XTKX);
     mat_free(XTKXINV);
