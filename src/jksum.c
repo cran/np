@@ -1821,7 +1821,7 @@ int *num_categories){
 
     // because we manipulate the training data scale factors can be wrong
 
-    if(sf_flag = (int_LARGE_SF == 0)){ 
+    if((sf_flag = (int_LARGE_SF == 0))){ 
       int_LARGE_SF = 1;
       vsf = (double *)malloc(num_reg_continuous*sizeof(double));
       for(int ii = 0; ii < num_reg_continuous; ii++)

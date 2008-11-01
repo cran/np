@@ -1,2 +1,5 @@
-* work-around for scale-factor issues during npregbw cv when changing
-  the training data
+Allow for evaluation outside of discrete support in npksum and fixed a
+warning in jksum
+
+Fixed a bug which lead to unpredictable behavior when there were more
+categorical values for the training data than realisations

@@ -180,10 +180,10 @@ npksum.default <-
     ## re-assign levels in training and evaluation data to ensure correct
     ## conversion to numeric type.
     
-    txdat <- adjustLevels(txdat, bws$xdati)
+    txdat <- adjustLevels(txdat, bws$xdati, allowNewCells = TRUE)
     
     if (!miss.ex)
-      exdat <- adjustLevels(exdat, bws$xdati)
+      exdat <- adjustLevels(exdat, bws$xdati, allowNewCells = TRUE)
 
     ## grab the evaluation data before it is converted to numeric
     if(miss.ex)

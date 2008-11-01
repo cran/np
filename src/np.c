@@ -958,7 +958,7 @@ void np_density_conditional(double * tc_uno, double * tc_ord, double * tc_con,
   vector_scale_factor = alloc_vecd(num_all_var + 1);
   
   matrix_categorical_vals_extern = 
-    alloc_matd(num_obs_train_extern, num_var_unordered_extern + num_var_ordered_extern + 
+    alloc_matd(MAX(xmax_lev,ymax_lev), num_var_unordered_extern + num_var_ordered_extern + 
                num_reg_unordered_extern + num_reg_ordered_extern);
 
   /* notice use of num_obs_eval_alloc for MPI compatibility */
@@ -1423,7 +1423,7 @@ void np_density(double * tuno, double * tord, double * tcon,
 
   num_categories_extern = alloc_vecu(num_reg_unordered_extern+num_reg_ordered_extern);
   vector_scale_factor = alloc_vecd(num_var + 1);
-  matrix_categorical_vals_extern = alloc_matd(num_obs_train_extern, num_reg_unordered_extern + num_reg_ordered_extern);
+  matrix_categorical_vals_extern = alloc_matd(max_lev, num_reg_unordered_extern + num_reg_ordered_extern);
 
   /* note use of num_obs_eval_alloc */
   pdf = alloc_vecd(num_obs_eval_alloc);
@@ -1988,7 +1988,7 @@ void np_regression(double * tuno, double * tord, double * tcon, double * ty,
 
   num_categories_extern = alloc_vecu(num_reg_unordered_extern+num_reg_ordered_extern);
   vector_scale_factor = alloc_vecd(num_var + 1);
-  matrix_categorical_vals_extern = alloc_matd(num_obs_train_extern, num_reg_unordered_extern + num_reg_ordered_extern);
+  matrix_categorical_vals_extern = alloc_matd(max_lev, num_reg_unordered_extern + num_reg_ordered_extern);
 
   lambda =  alloc_vecd(num_reg_unordered_extern+num_reg_ordered_extern);
   matrix_bandwidth = alloc_matd((BANDWIDTH_reg_extern==BW_GEN_NN)?num_obs_eval_extern:
@@ -2280,7 +2280,7 @@ void np_kernelsum(double * tuno, double * tord, double * tcon,
   matrix_Y_ordered_train_extern = alloc_matd(num_obs_train_extern, num_var_ordered_extern);
 
   num_categories_extern = alloc_vecu(num_reg_unordered_extern+num_reg_ordered_extern);
-  matrix_categorical_vals_extern = alloc_matd(num_obs_train_extern, num_reg_unordered_extern + num_reg_ordered_extern);
+  matrix_categorical_vals_extern = alloc_matd(max_lev, num_reg_unordered_extern + num_reg_ordered_extern);
 
   vector_scale_factor = alloc_vecd(num_var + 1);
   ksum = alloc_vecd(num_obs_eval_alloc*sum_element_length);
@@ -2553,7 +2553,7 @@ void np_quantile_conditional(double * tc_con,
   vector_scale_factor_extern = alloc_vecd(num_all_var + 1);
   
   matrix_categorical_vals_extern = 
-    alloc_matd(num_obs_train_extern, num_var_unordered_extern + num_var_ordered_extern + 
+    alloc_matd(max_lev, num_var_unordered_extern + num_var_ordered_extern + 
                num_reg_unordered_extern + num_reg_ordered_extern);
 
   eq = alloc_vecd(num_obs_eval_alloc);
