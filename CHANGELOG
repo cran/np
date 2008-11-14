@@ -1,5 +1,7 @@
-Allow for evaluation outside of discrete support in npksum and fixed a
-warning in jksum
+Fixed a typo which caused predict and plot to abort when called on
+plregression objects, and which also prevented print() and summary()
+from printing information about the kernels used when called on
+plregression objects
 
-Fixed a bug which lead to unpredictable behavior when there were more
-categorical values for the training data than realisations
+Fixed a typo which caused partially linear regressions to crash when
+out-of-sample responses were provided with evaluation data

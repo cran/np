@@ -73,7 +73,7 @@ print.plregression <- function(x, digits=NULL, ...){
   
   cat(genRegEstStr(x))
 
-  cat(genBwKerStrs(x$bws))
+  cat(genBwKerStrs(x$bw))
   cat('\n\n')  
 
   if(!missing(...))
@@ -96,17 +96,17 @@ fitted.plregression <- function(object, ...){
  object$mean 
 }
 residuals.plregression <- function(object, ...) {
- if(object$residuals) { return(object$resid) } else { return(npplreg(bws = object$bws, residuals =TRUE)$resid) } 
+ if(object$residuals) { return(object$resid) } else { return(npplreg(bws = object$bw, residuals =TRUE)$resid) } 
 }
 predict.plregression <- function(object, se.fit = FALSE, ...) {
-  tr <- eval(npplreg(bws = object$bws, ...), env = parent.frame())
+  tr <- eval(npplreg(bws = object$bw, ...), env = parent.frame())
   if(se.fit)
     return(list(fit = fitted(tr), se.fit = se(tr), 
                 df = tr$nobs, residual.scale = tr$MSE))
   else
     return(fitted(tr))
 }
-plot.plregression <- function(x, ...) { npplot(bws = x$bws, ...) }
+plot.plregression <- function(x, ...) { npplot(bws = x$bw, ...) }
 summary.plregression <- function(object, ...){
   cat("\nPartially Linear Model",
       "\nRegression data: ", object$ntrain, " training points,",
@@ -140,6 +140,6 @@ summary.plregression <- function(object, ...){
   cat("\n")
   cat(genGofStr(object))
 
-  cat(genBwKerStrs(object$bws))
+  cat(genBwKerStrs(object$bw))
   cat('\n\n')  
 }  

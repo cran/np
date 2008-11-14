@@ -127,7 +127,7 @@ npplreg.plbandwidth <-
         tmp.ey <- adjustLevels(data.frame(eydat), bws$bw$yzbw$ydati)
         tmp.ey <- (bws$bw$yzbw$ydati$all.dlev[[1]])[as.integer(tmp.ey)]
       } else {
-        temp.ey <- as.double(eydat)
+        tmp.ey <- as.double(eydat)
       }
     }
     
