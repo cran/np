@@ -1,7 +1,9 @@
-Fixed a typo which caused predict and plot to abort when called on
-plregression objects, and which also prevented print() and summary()
-from printing information about the kernels used when called on
-plregression objects
-
-Fixed a typo which caused partially linear regressions to crash when
-out-of-sample responses were provided with evaluation data
+Using an adaptive measure of spread throughout.  The scale factor
+reported for a bandwidth can appear to be small when the standard
+deviation is inflated due to the presence of outliers.  Furthermore,
+supplying a scale factor of, say, 1.06 for density estimation when
+there are outliers that inflate the standard deviation may oversmooth
+rather dramatically in the presence of outliers.  We now use the
+measure found in Silverman (1986, equation (3.30)) which is
+min(standard deviation, interquartile range/1.349). This robust choice
+produces expected results in the presence of outliers.

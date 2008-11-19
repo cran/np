@@ -202,7 +202,7 @@ npcdensbw.conbandwidth <-
         if (gbw > 0){
           nbw[1:gbw] = 1.06
           if(!bws$scaling)
-            nbw[1:gbw]=nbw[1:gbw]*sd(data.frame(xcon,ycon))*nrow^(-1.0/(2.0*bws$cxkerorder+gbw))
+            nbw[1:gbw]=nbw[1:gbw]*EssDee(data.frame(xcon,ycon))*nrow^(-1.0/(2.0*bws$cxkerorder+gbw))
         }
         myout= list( bw = nbw, fval = c(NA,NA) )
       }

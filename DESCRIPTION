@@ -1,6 +1,6 @@
 Package: np 
-Version: 0.20-3
-Date: 2008-11-14
+Version: 0.20-4
+Date: 2008-11-19
 Depends: boot
 Suggests: quantreg, MASS
 Title: Nonparametric kernel smoothing methods for mixed data types
@@ -9,4 +9,4 @@ Maintainer: Jeffrey S. Racine <racinej@mcmaster.ca>
 Description: This package provides a variety of nonparametric (and semiparametric) kernel methods that seamlessly handle a mix of continuous, unordered, and ordered factor data types. We would like to gratefully acknowledge support from  the Natural Sciences and Engineering Research Council of Canada (NSERC:www.nserc.ca), the Social Sciences and Humanities Research Council of Canada (SSHRC:www.sshrc.ca), and the Shared Hierarchical Academic Research Computing Network (SHARCNET:www.sharcnet.ca).
 License: GPL
 URL: 
-Packaged: Fri Nov 14 07:34:58 2008; jracine
+Packaged: Wed Nov 19 14:39:57 2008; jracine

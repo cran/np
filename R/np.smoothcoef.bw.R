@@ -309,7 +309,7 @@ npscoefbw.scbandwidth <-
       x.scale <- sapply(1:bws$ndim, function(i){
         if (dati$icon[i]){
           return(1.06*(ifelse(bws$scaling, 1.0,
-                              min(sd(zdat[,i]), IQR(zdat[,i])/1.34) *
+                              min(sd(zdat[,i]), IQR(zdat[,i])/1.349) *
                               n^(-1.0/(2.0*bws$ckerorder+bws$ncon)))))
         }
         

@@ -134,104 +134,107 @@ double standerrd(int n, double *vector)
     double temp;
     double temp1;
     double std = 0.0;
+    double IQR = 0.0;
 
-    if(int_ROBUST == 1)
-    {
+/* November 18, 2008, using adaptive measure of spread */
 
-        double *vector_temp;
-        int int_25, int_25l, int_25h, int_75, int_75l, int_75h;
+    double *vector_temp;
+    int int_25, int_25l, int_25h, int_75, int_75l, int_75h;
 
 /* First create temporary vector and sort... */
 
-        vector_temp = alloc_vecd(n);
+    vector_temp = alloc_vecd(n);
 
-        pi = &vector_temp[0];
-        p = &vector[0];
-
-        for (i=0; i<n; i++)
-        {
-            *pi++ = *p++;
-        }
+    pi = &vector_temp[0];
+    p = &vector[0];
+    
+    for (i=0; i<n; i++)
+      {
+        *pi++ = *p++;
+      }
 
 /* Sort... */
 
-        sort(n, &vector_temp[-1]);                /* NR Code */
+    sort(n, &vector_temp[-1]);                /* NR Code */
 
 /* Interquartile Range */
 
-        int_25 = fround(0.25*((double)n+1.0)-1);
-        int_25l = fround(0.25*((double)n)-1);
-        int_25h = fround(0.25*((double)n));
+    int_25 = fround(0.25*((double)n+1.0)-1);
+    int_25l = fround(0.25*((double)n)-1);
+    int_25h = fround(0.25*((double)n));
 
-        int_75 = fround(0.75*((double)n+1.0)-1);
-        int_75l = fround(0.75*((double)n)-1);
-        int_75h = fround(0.75*((double)n));
+    int_75 = fround(0.75*((double)n+1.0)-1);
+    int_75l = fround(0.75*((double)n)-1);
+    int_75h = fround(0.75*((double)n));
 
 /* (n % 2 ? odd number of obs : even number of obs) */
 
-        std = (n % 2 ? (vector_temp[int_75]-vector_temp[int_25])
-            : (0.25*vector_temp[int_75l]+0.75*vector_temp[int_75h])
-            - (0.75*vector_temp[int_25l]+0.25*vector_temp[int_25h]));
+    IQR = (n % 2 ? (vector_temp[int_75]-vector_temp[int_25])
+           : (0.25*vector_temp[int_75l]+0.75*vector_temp[int_75h])
+           - (0.75*vector_temp[int_25l]+0.25*vector_temp[int_25h]));
 
-        free(vector_temp);
+    free(vector_temp);
 
-        if(std < FLT_MIN)
-        {
-            if(int_VERBOSE == 1)
-            {
+    if(IQR < FLT_MIN)
+      {
+        if(int_VERBOSE == 1)
+          {
 #ifdef MPI
-                if(my_rank == 0)
-                {
+            if(my_rank == 0)
+              {
 #endif
-                    printf("\nFunction standerrd(): invalid interquartile range estimate (%d,%d,%lg)", fround(3.0*(double)n/4.0), fround((double)n/4.0), std);
-                    printf("\nsum = %lg, sumsq = %lg, n = %d", (double) sum, (double) sumsq, n);
+                printf("\nFunction standerrd(): invalid interquartile range estimate (%d,%d,%lg)", fround(3.0*(double)n/4.0), fround((double)n/4.0), IQR);
+                printf("\nsum = %lg, sumsq = %lg, n = %d", (double) sum, (double) sumsq, n);
 #ifdef MPI
-                }
+              }
 #endif
-            }
-            return((double)0.0);
-        }
+          }
+        return((double)0.0);
+      }
 
-    }
+    pi = &vector[0];
+    
+    for(i=0; i < n; i++)
+      {
+        sum += (double) (temp = (double) *pi++);
+        sumsq += (double) temp * temp;
+      }
+    
+    temp = (sum / (double) n);                /* Mean */
+    temp1 = ((sumsq / (double) n) - temp * temp);
+    
+    if(temp1 > 0.0)
+      {
+        std = (double) sqrt(temp1);           /* Variance */
+      }
     else
-    {
-
-        pi = &vector[0];
-
-        for(i=0; i < n; i++)
-        {
-            sum += (double) (temp = (double) *pi++);
-            sumsq += (double) temp * temp;
-        }
-
-        temp = (sum / (double) n);                /* Mean */
-        temp1 = ((sumsq / (double) n) - temp * temp);
-
-        if(temp1 > 0.0)
-        {
-            std = (double) sqrt(temp1);           /* Variance */
-        }
-        else
-        {
-            if(int_VERBOSE == 1)
-            {
+      {
+        if(int_VERBOSE == 1)
+          {
 #ifdef MPI
-                if(my_rank == 0)
-                {
+            if(my_rank == 0)
+              {
 #endif
-                    printf("\nFunction standerrd(): invalid standard error estimate (%lg)", temp1);
-                    printf("\nsum = %lg, sumsq = %lg, n = %d", (double) sum, (double) sumsq, n);
-                    printf("\nVar 1");
+                printf("\nFunction standerrd(): invalid standard error estimate (%lg)", temp1);
+                printf("\nsum = %lg, sumsq = %lg, n = %d", (double) sum, (double) sumsq, n);
+                printf("\nVar 1");
 #ifdef MPI
-                }
+              }
 #endif
-            }
-            return((double)0.0);
-        }
+          }
+        return((double)0.0);
+      }
 
-    }
+    /* Return min(std,IQR/1.349) */
 
-    return((double)std);
+    if(std < IQR/1.349)
+      {
+        return((double)std);
+      } 
+    else 
+      {
+        return((double)IQR/1.349);
+      }
 
 }
 

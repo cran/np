@@ -629,15 +629,22 @@ SIGNfunc <- function(y,y.fit) {
   sum(sign(y) == sign(y.fit))/length(y)
 }
 
+## Nov 18, using adaptive measure of spread, modified so that IQR can
+## handle data frames
+
 EssDee <- function(y){
   t.ret <- numeric(0)
   if(ifelse(is.vector(y), length(y), prod(dim(y))) > 0){
     n <- ifelse(is.vector(y), length(y), nrow(y))
-    t.ret <- sqrt((n-1.0)/n)*sd(y)
+    IQR.vec <- sapply(1:ncol(as.data.frame(y)),function(i){IQR(as.data.frame(y)[,i])})/1.349
+    sd.vec <- sqrt((n-1.0)/n)*sd(y)
+    t.ret <- ifelse(sd.vec<IQR.vec,sd.vec,IQR.vec)
   }
   return(t.ret)
 }
+
 ### holding place for some generic methods
+
 se <- function(x){
   UseMethod("se",x)
 }
