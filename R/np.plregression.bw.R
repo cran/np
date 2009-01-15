@@ -136,7 +136,7 @@ npplregbw.plbandwidth =
 
     ## y on z
     bws$bw$yzbw = npregbw(xdat = zdat, ydat = ydat,
-      bws = bws$yzbw, nmulti = nmulti, ...)
+      bws = bws$bw$yzbw, nmulti = nmulti, ...)
     
     ## x on z
 

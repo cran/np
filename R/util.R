@@ -3,6 +3,11 @@
 ## not just their sorted order
 ## Actually, the ord/badord paradigm must go, in place of levels caching
 
+npseed <- function(seed){
+  .C("np_set_seed",as.integer(abs(seed)), PACKAGE = "np")
+  invisible()
+}
+
 numNotIn <- function(x){
   while(is.element(num <- rnorm(1),x)){}
   num
@@ -636,8 +641,8 @@ EssDee <- function(y){
   t.ret <- numeric(0)
   if(ifelse(is.vector(y), length(y), prod(dim(y))) > 0){
     n <- ifelse(is.vector(y), length(y), nrow(y))
-    IQR.vec <- sapply(1:ncol(as.data.frame(y)),function(i){IQR(as.data.frame(y)[,i])})/1.349
-    sd.vec <- sqrt((n-1.0)/n)*sd(y)
+    IQR.vec <- sapply(1:ncol(as.data.frame(y)),function(i){IQR(as.data.frame(y)[,i])})/(qnorm(.25,lower.tail=F)*2)
+    sd.vec <- sd(y)
     t.ret <- ifelse(sd.vec<IQR.vec,sd.vec,IQR.vec)
   }
   return(t.ret)

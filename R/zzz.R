@@ -1,5 +1,5 @@
 .onAttach <- function (lib, pkg) {
-  cat("Nonparametric Kernel Methods for Mixed Datatypes (version 0.20-4)\n");
+  cat("Nonparametric Kernel Methods for Mixed Datatypes (version 0.30-0)\n");
   if(is.null(options('np.messages')$np.messages))
     options(np.messages = TRUE)
 

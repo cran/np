@@ -8,8 +8,12 @@
 #include <errno.h>
 #include <assert.h>
 
+#include <R_ext/Utils.h>
+
 #include "headers.h"
 #include "matrix.h"
+
+
 
 #ifdef MPI
 
@@ -1224,6 +1228,8 @@ double *weighted_sum){
   
     /* do sums */
   for(j=js; j <= je; j++, ws += ws_step){
+    R_CheckUserInterrupt();
+
     dband = 1.0;
 
     if (num_reg_continuous > 0){
@@ -1466,6 +1472,7 @@ double *cv){
 
     // one improvement would be a flip-flop algorithm where the roles
     // of X_j and X_i are swapped and only a new Y_ji need be generated
+    R_CheckUserInterrupt();
 #ifdef MPI
     for(; (j < num_obs) && (W < Wf); j+=blklen)
 #else

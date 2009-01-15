@@ -528,11 +528,13 @@ double erfun(double x)
 #define MZ 0
 #define FAC (1.0/MBIG)
 
+int iff = 0;
+
 double ran3(int *idum)
 {
     static int inext,inextp;
     static long ma[56];
-    static int iff=0;
+    //static int iff=0;
     long mj,mk;
     int i,ii,k;
 

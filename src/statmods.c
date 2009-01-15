@@ -197,12 +197,14 @@ double standerrd(int n, double *vector)
     for(i=0; i < n; i++)
       {
         sum += (double) (temp = (double) *pi++);
-        sumsq += (double) temp * temp;
+        sumsq += (double) ipow(temp, 2);
       }
+
+    /* Jan 15 2009, no longer using ml estimate of variance */
     
-    temp = (sum / (double) n);                /* Mean */
-    temp1 = ((sumsq / (double) n) - temp * temp);
-    
+    temp1 = (sumsq - ipow(sum,2)/(double)n)/((double)(n-1));
+
+
     if(temp1 > 0.0)
       {
         std = (double) sqrt(temp1);           /* Variance */
@@ -225,15 +227,15 @@ double standerrd(int n, double *vector)
         return((double)0.0);
       }
 
-    /* Return min(std,IQR/1.349) */
+    /* Return min(std,IQR/1.348980) */
 
-    if(std < IQR/1.349)
+    if(std < IQR/1.348980)
       {
         return((double)std);
       } 
     else 
       {
-        return((double)IQR/1.349);
+        return((double)IQR/1.348980);
       }
 
 }

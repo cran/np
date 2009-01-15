@@ -145,7 +145,7 @@ npindex(bws, \dots)
   \item{eval}{ evaluation points }
   \item{mean}{ estimates of the regression function (conditional mean) at the
   evaluation points } 
-  \item{beta} { the model coefficients }
+  \item{beta}{ the model coefficients }
   \item{merr}{ standard errors of the regression function estimates } 
   \item{grad}{ estimates of the gradients at each evaluation point }
   \item{gerr}{ standard errors of the gradient estimates }

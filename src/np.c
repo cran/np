@@ -8,6 +8,8 @@
 #include <time.h>
 #include <assert.h>
 
+#include <R.h>
+
 #ifdef MPI
 #include "mpi.h"
 int my_rank;
@@ -44,7 +46,7 @@ int int_WEIGHTS = 0;
 int int_LARGE_SF;
 int int_NOKEYPRESS;
 int int_DISPLAY_CV;
-int int_RANDOM_SEED;
+int int_RANDOM_SEED = 42;
 int int_MINIMIZE_IO;
 int int_ORDERED_CATEGORICAL_GRADIENT;
 int int_PREDICT;
@@ -132,12 +134,19 @@ double y_max_extern;
 int imsnum = 0;
 int imstot = 0;
 
+extern int iff;
+
 void spinner(int num) {
   if(int_MINIMIZE_IO == IO_MIN_FALSE){
     const char spinney[] = { '|', '/', '-', '\\' };
-    fprintf(stderr,"\rMultistart %d of %d %c", imsnum+1, imstot, spinney[num%4]);
-    fflush(stdout);
+    Rprintf("\rMultistart %d of %d %c", imsnum+1, imstot, spinney[num%4]);
+    R_FlushConsole();
   }
+}
+
+void np_set_seed(int * num){
+  int_RANDOM_SEED = *num;
+  iff = 0;
 }
 
 void np_mpi_init(int * mpi_status){
@@ -170,7 +179,6 @@ void np_density_bw(double * myuno, double * myord, double * mycon,
   
   int i,j;
   int num_var;
-  int seed=12345;
   int iMultistart, iMs_counter, iNum_Multistart, iImproved;
   int itmax, iter;
   int int_use_starting_values;
@@ -263,7 +271,7 @@ void np_density_bw(double * myuno, double * myord, double * mycon,
                                     BANDWIDTH_den_extern,
                                     BANDWIDTH_den_extern,
                                     0,                /* Not Random (0) Random (1) */
-                                    seed,
+                                    int_RANDOM_SEED,
                                     0,                /* regression (0) regression ml (1) */
                                     int_LARGE_SF,
                                     num_obs_train_extern,
@@ -276,7 +284,7 @@ void np_density_bw(double * myuno, double * myord, double * mycon,
                                     matrix_Y_continuous_train_extern,
                                     matrix_X_continuous_train_extern,
                                     int_use_starting_values,
-                                    1.06,             /* Init for continuous vars */
+                                    pow((double)4.0/(double)3.0,0.2),             /* Init for continuous vars */
                                     num_categories_extern,
                                     vector_continuous_stddev,
                                     vector_scale_factor);
@@ -295,7 +303,7 @@ void np_density_bw(double * myuno, double * myord, double * mycon,
   case BWM_CVML : bwmfunc = cv_func_density_categorical_ml; break;
   case BWM_CVLS : bwmfunc = cv_func_density_categorical_ls; break;
     //case BWM_CVML_NP : bwmfunc = cv_func_np_density_categorical_ml; break;
-  default : fprintf(stderr,"np.c: invalid bandwidth selection method.");
+  default : REprintf("np.c: invalid bandwidth selection method.");
     exit(0); break;
   }
 
@@ -359,7 +367,7 @@ void np_density_bw(double * myuno, double * myord, double * mycon,
                                         BANDWIDTH_den_extern,
                                         BANDWIDTH_den_extern,
                                         1,        /* Not Random (0) Random (1) */
-                                        seed,
+                                        int_RANDOM_SEED,
                                         0,        /* regression (0) regression ml (1) */
                                         int_LARGE_SF,
                                         num_obs_train_extern,
@@ -372,7 +380,7 @@ void np_density_bw(double * myuno, double * myord, double * mycon,
                                         matrix_Y_continuous_train_extern,
                                         matrix_X_continuous_train_extern,
                                         int_use_starting_values,
-                                        1.06,     /* Init for continuous vars */
+                                        pow((double)4.0/(double)3.0,0.2),     /* Init for continuous vars */
                                         num_categories_extern,
                                         vector_continuous_stddev,
                                         vector_scale_factor);
@@ -465,7 +473,7 @@ void np_density_bw(double * myuno, double * myord, double * mycon,
   free(vector_continuous_stddev);
 
   if(int_MINIMIZE_IO != IO_MIN_TRUE)
-    fprintf(stderr,"\r                   \r");
+    Rprintf("\r                   \r");
 
   return ;
   
@@ -490,7 +498,6 @@ void np_density_conditional_bw(double * c_uno, double * c_ord, double * c_con,
   
   int i,j;
   int num_var;
-  int seed=12345;
   int iMultistart, iMs_counter, iNum_Multistart, num_all_var, num_var_var, iImproved;
   int itmax, iter;
   int int_use_starting_values, autoSelectCVLS, ibwmfunc;
@@ -622,7 +629,7 @@ void np_density_conditional_bw(double * c_uno, double * c_ord, double * c_con,
                                     BANDWIDTH_den_extern,
                                     BANDWIDTH_den_extern,
                                     0,                /* Not Random (0) Random (1) */
-                                    seed,
+                                    int_RANDOM_SEED,
                                     0,                /* regression (0) regression ml (1) */
                                     int_LARGE_SF,
                                     num_obs_train_extern,
@@ -635,7 +642,7 @@ void np_density_conditional_bw(double * c_uno, double * c_ord, double * c_con,
                                     matrix_Y_continuous_train_extern,
                                     matrix_X_continuous_train_extern,
                                     int_use_starting_values,
-                                    1.06,             /* Init for continuous vars */
+                                    pow((double)4.0/(double)3.0,0.2),             /* Init for continuous vars */
                                     num_categories_extern,
                                     vector_continuous_stddev,
                                     vector_scale_factor);
@@ -670,7 +677,7 @@ void np_density_conditional_bw(double * c_uno, double * c_ord, double * c_con,
   case CBWM_CVML : bwmfunc = cv_func_con_density_categorical_ml; break;
   case CBWM_CVLS : bwmfunc = cv_func_con_density_categorical_ls; break;
   case CBWM_NPLS : bwmfunc = np_cv_func_con_density_categorical_ls;break;
-  default : fprintf(stderr,"np.c: invalid bandwidth selection method.");
+  default : REprintf("np.c: invalid bandwidth selection method.");
     exit(0); break;
   }
 
@@ -733,7 +740,7 @@ void np_density_conditional_bw(double * c_uno, double * c_ord, double * c_con,
                                         BANDWIDTH_den_extern,
                                         BANDWIDTH_den_extern,
                                         1,                /* Not Random (0) Random (1) */
-                                        seed,
+                                        int_RANDOM_SEED,
                                         0,                /* regression (0) regression ml (1) */
                                         int_LARGE_SF,
                                         num_obs_train_extern,
@@ -746,7 +753,7 @@ void np_density_conditional_bw(double * c_uno, double * c_ord, double * c_con,
                                         matrix_Y_continuous_train_extern,
                                         matrix_X_continuous_train_extern,
                                         int_use_starting_values,
-                                        1.06,             /* Init for continuous vars */
+                                        pow((double)4.0/(double)3.0,0.2),             /* Init for continuous vars */
                                         num_categories_extern,
                                         vector_continuous_stddev,
                                         vector_scale_factor);
@@ -843,7 +850,7 @@ void np_density_conditional_bw(double * c_uno, double * c_ord, double * c_con,
   int_WEIGHTS = 0;
 
   if(int_MINIMIZE_IO != IO_MIN_TRUE)
-    fprintf(stderr,"\r                   \r");
+    Rprintf("\r                   \r");
 
   return ;
 }
@@ -892,7 +899,7 @@ void np_density_conditional(double * tc_uno, double * tc_ord, double * tc_con,
 
   if((train_is_eval = myopti[CD_TISEI]) && 
      (num_obs_eval_extern != num_obs_train_extern)){
-    fprintf(stderr,"\n(np_density_conditional): consistency check failed, train_is_eval but num_obs_train_extern != num_obs_eval_extern. bailing\n");
+    REprintf("\n(np_density_conditional): consistency check failed, train_is_eval but num_obs_train_extern != num_obs_eval_extern. bailing\n");
     exit(0);
   }
 
@@ -1576,7 +1583,6 @@ void np_regression_bw(double * runo, double * rord, double * rcon, double * y,
 
   int i,j;
   int num_var;
-  int seed=12345;
   int iMultistart, iMs_counter, iNum_Multistart, iImproved;
   int itmax, iter;
   int int_use_starting_values;
@@ -1685,7 +1691,7 @@ void np_regression_bw(double * runo, double * rord, double * rcon, double * y,
                                     BANDWIDTH_reg_extern,
                                     BANDWIDTH_den_extern,
                                     0,                /* Not Random (0) Random (1) */
-                                    seed,
+                                    int_RANDOM_SEED,
                                     0,                /* regression (0) regression ml (1) */
                                     int_LARGE_SF,
                                     num_obs_train_extern,
@@ -1698,7 +1704,7 @@ void np_regression_bw(double * runo, double * rord, double * rcon, double * y,
                                     matrix_Y_continuous_train_extern,
                                     matrix_X_continuous_train_extern,
                                     int_use_starting_values,
-                                    1.06,             /* Init for continuous vars */
+                                    pow((double)4.0/(double)3.0,0.2),             /* Init for continuous vars */
                                     num_categories_extern,
                                     vector_continuous_stddev,
                                     vector_scale_factor);
@@ -1713,7 +1719,7 @@ void np_regression_bw(double * runo, double * rord, double * rcon, double * y,
   switch(myopti[RBW_MI]){
   case RBWM_CVAIC : bwmfunc = cv_func_regression_categorical_aic_c; break;
   case RBWM_CVLS : bwmfunc = cv_func_regression_categorical_ls; break;
-  default : fprintf(stderr,"np.c: invalid bandwidth selection method.");
+  default : REprintf("np.c: invalid bandwidth selection method.");
     exit(0);break;
   }
 
@@ -1778,7 +1784,7 @@ void np_regression_bw(double * runo, double * rord, double * rcon, double * y,
       initialize_nr_vector_scale_factor(BANDWIDTH_reg_extern,
                                         BANDWIDTH_den_extern,
                                         1,        /* Not Random (0) Random (1) */
-                                        seed,
+                                        int_RANDOM_SEED,
                                         0,        /* regression (0) regression ml (1) */
                                         int_LARGE_SF,
                                         num_obs_train_extern,
@@ -1791,7 +1797,7 @@ void np_regression_bw(double * runo, double * rord, double * rcon, double * y,
                                         matrix_Y_continuous_train_extern,
                                         matrix_X_continuous_train_extern,
                                         int_use_starting_values,
-                                        1.06,     /* Init for continuous vars */
+                                        pow((double)4.0/(double)3.0,0.2),     /* Init for continuous vars */
                                         num_categories_extern,
                                         vector_continuous_stddev,
                                         vector_scale_factor);
@@ -1887,7 +1893,7 @@ void np_regression_bw(double * runo, double * rord, double * rcon, double * y,
   free(vector_continuous_stddev);
 
   if(int_MINIMIZE_IO != IO_MIN_TRUE)
-    fprintf(stderr,"\r                   \r");
+    Rprintf("\r                   \r");
 
   //fprintf(stderr,"\nNP TOASTY\n");
   return ;
@@ -1925,7 +1931,7 @@ void np_regression(double * tuno, double * tord, double * tcon, double * ty,
   num_obs_eval_extern = myopti[REG_ENOBSI];
 
   if(train_is_eval && (num_obs_eval_extern != num_obs_train_extern)){
-    fprintf(stderr,"\n(np_regression): consistency check failed, train_is_eval but num_obs_train_extern != num_obs_eval_extern. bailing\n");
+    REprintf("\n(np_regression): consistency check failed, train_is_eval but num_obs_train_extern != num_obs_eval_extern. bailing\n");
     exit(0);
   }
 
@@ -2263,7 +2269,7 @@ void np_kernelsum(double * tuno, double * tord, double * tcon,
 #endif
 
   if(train_is_eval && (num_obs_eval_extern != num_obs_train_extern)){
-    fprintf(stderr,"\n(np_kernelsum): consistency check failed, train_is_eval but num_obs_train_extern != num_obs_eval_extern. bailing\n");
+    REprintf("\n(np_kernelsum): consistency check failed, train_is_eval but num_obs_train_extern != num_obs_eval_extern. bailing\n");
     exit(0);
   }
 
@@ -2457,7 +2463,6 @@ void np_quantile_conditional(double * tc_con,
 
   int i,j, max_lev;
   int num_var, num_obs_eval_alloc;
-  int seed=12345;
   int num_all_var, num_var_var, train_is_eval, do_gradients;
 
   imsnum = 0;
@@ -2480,7 +2485,7 @@ void np_quantile_conditional(double * tc_con,
 
   if((train_is_eval = myopti[CQ_TISEI]) && 
      (num_obs_eval_extern != num_obs_train_extern)){
-    fprintf(stderr,"\n(np_quantile_conditional): consistency check failed, train_is_eval but num_obs_train_extern != num_obs_eval_extern. bailing\n");
+    REprintf("\n(np_quantile_conditional): consistency check failed, train_is_eval but num_obs_train_extern != num_obs_eval_extern. bailing\n");
     exit(0);
   }
 
@@ -2641,7 +2646,7 @@ void np_quantile_conditional(double * tc_con,
                            eq,
                            eqerr,
                            g,
-                           seed,
+                           int_RANDOM_SEED,
                            ftol,
                            tol,
                            small,
@@ -2707,7 +2712,7 @@ void np_quantile_conditional(double * tc_con,
   safe_free(eqerr);
 
   if(int_MINIMIZE_IO != IO_MIN_TRUE)
-    fprintf(stderr,"\r                   \r");
+    Rprintf("\r                   \r");
   return ;
 }
 

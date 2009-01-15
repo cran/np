@@ -363,7 +363,7 @@ npindexbw.sibandwidth <-
           } else { beta = numeric(0) }
 
           if (bws$bw == 0)
-            h <- 1.06*(min(sd(fit),IQR(fit)/1.349))*n^(-1/5)
+            h <- (4/3)^0.2*min(sd(fit),IQR(fit)/(qnorm(.25,lower.tail=F)*2))*n^(-1/5)
           else
             h <- bws$bw
         } else {
@@ -371,7 +371,7 @@ npindexbw.sibandwidth <-
 
           beta.length <- length(coef(ols.fit)[3:ncol(ols.fit$x)])
           beta <- runif(beta.length,min=0.5,max=1.5)*coef(ols.fit)[3:ncol(ols.fit$x)]
-          h <- runif(1,min=0.5,max=1.5)*(min(sd(fit),IQR(fit)/1.349))*n^(-1/5)
+          h <- runif(1,min=0.5,max=1.5)*min(sd(fit),IQR(fit)/(qnorm(.25,lower.tail=F)*2))*n^(-1/5)
         }
         
         suppressWarnings(optim.return <- optim(c(beta,h),fn=optim.fn,gr=NULL,method=optim.method,control=optim.control))
@@ -380,7 +380,7 @@ npindexbw.sibandwidth <-
           attempts <- attempts + 1
           beta.length <- length(coef(ols.fit)[3:ncol(ols.fit$x)])
           beta <- runif(beta.length,min=0.5,max=1.5)*coef(ols.fit)[3:ncol(ols.fit$x)]
-          h <- runif(1,min=0.5,max=1.5)*(min(sd(fit),IQR(fit)/1.349))*n^(-1/5)
+          h <- runif(1,min=0.5,max=1.5)*min(sd(fit),IQR(fit)/(qnorm(.25,lower.tail=F)*2))*n^(-1/5)
           optim.control <- lapply(optim.control,'*',10.0)
           suppressWarnings(optim.return <- optim(c(beta,h),fn=optim.fn,gr=NULL,method=optim.method,control=optim.control))
         }

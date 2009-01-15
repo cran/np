@@ -8,13 +8,13 @@
 \title{Kernel Quantile Regression with Mixed Data Types}
 
 \description{
-  \code{npqreg} computes a kernel quantile regression estimate
-  of a one (1) dimensional dependent variable on \eqn{p}-variate
-  explanatory data, given a set of evaluation points, training points
-  (consisting of explanatory data and dependent data), and a bandwidth
-  specification using the method of Li and Racine (forthcoming). A
-  bandwidth specification can be a \code{conbandwidth} object, or a
-  bandwidth vector, bandwidth type and kernel type.
+  \code{npqreg} computes a kernel quantile regression estimate of a one
+  (1) dimensional dependent variable on \eqn{p}-variate explanatory
+  data, given a set of evaluation points, training points (consisting of
+  explanatory data and dependent data), and a bandwidth specification
+  using the method of Li and Racine (2008). A bandwidth specification
+  can be a \code{conbandwidth} object, or a bandwidth vector, bandwidth
+  type and kernel type.
 }
 
 \usage{
@@ -165,10 +165,10 @@ npqreg(bws, \dots)
   Li, Q. and J.S. Racine (2007), \emph{Nonparametric Econometrics:
   Theory and Practice,} Princeton University Press.
 
-  Li, Q. and J.S. Racine (forthcoming), \dQuote{Nonparametric
-  estimation of conditional CDF and quantile functions with mixed
-  categorical and continuous data,} Journal of Business and Economic
-  Statistics.
+  Li, Q. and J.S. Racine (2008), \dQuote{Nonparametric estimation of
+  conditional CDF and quantile functions with mixed categorical and
+  continuous data,} Journal of Business and Economic Statistics, 26,
+  423-434.
   
   Wang, M.C. and J. van Ryzin (1981), \dQuote{A class of smooth
     estimators for discrete distributions,} Biometrika, 68, 301-309.

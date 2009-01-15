@@ -144,7 +144,7 @@ npudensbw.bandwidth <-
         nbw = double(ncol)
         gbw = sum(bws$icon)
         if (gbw > 0){
-          nbw[1:gbw] = 1.06
+          nbw[1:gbw] = (4/3)^0.2
           if(!bws$scaling)
             nbw[1:gbw]=nbw[1:gbw]*EssDee(dcon)*nrow^(-1.0/(2.0*bws$ckerorder+gbw))
         }
