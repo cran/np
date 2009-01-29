@@ -184,7 +184,7 @@ npscoef.scbandwidth <-
            tol = .Machine$double.eps,
            leave.one.out = FALSE,
            betas = FALSE, ...){
-
+    
     miss.z <- missing(tzdat)
     
     miss.ex = missing(exdat)
@@ -327,6 +327,7 @@ npscoef.scbandwidth <-
 
     ## construct 'W' matrix
     W.train <- W <- as.matrix(data.frame(1,txdat))
+    yW <- as.matrix(data.frame(tydat,1,txdat))
 
     if (miss.z){
       tzdat <- txdat
@@ -344,6 +345,16 @@ npscoef.scbandwidth <-
                     ifelse(miss.ex, "", "exdat = ezdat,"),
                     "bws = bws)$ksum")))
 
+# jracine - this ought to work but barfs on evaluation data. Reverting to old code.
+#    
+#    tww <- eval(parse(text=paste("npksum(txdat = tzdat, tydat = yW, weights = yW,",
+#                    ifelse(miss.ex, "", "exdat = ezdat,"),
+#                    "bws = bws)$ksum")))
+
+#    tyw <- tww[-1,1,]
+#    tww <- tww[-1,-1,]
+
+#    stop(cat("dim tww = ", dim(tww),"dim tyw = ", dim(tyw)))
 
     tnrow <- nrow(txdat)
     enrow <- ifelse(miss.ex, nrow(txdat), nrow(exdat))
@@ -351,7 +362,36 @@ npscoef.scbandwidth <-
     if (!miss.ex)
       W <- as.matrix(data.frame(1,exdat))
 
-    coef.mat <- sapply(1:enrow, function(i) { solve(tww[,,i], tyw[,i]) })
+## ridging jracine Jan 28 2009
+
+    maxPenalty <- sqrt(.Machine$double.xmax)
+    coef.mat <- matrix(maxPenalty,ncol(W),enrow)
+    epsilon <- 1.0/enrow
+    ridge <- double(enrow)
+    doridge <- !logical(enrow)
+
+    nc <- ncol(tww[,,1])
+
+    
+    ridger <- function(i) {
+      doridge[i] <<- FALSE
+      ridge.val <- ridge[i]*tyw[,i][1]/
+        (ifelse(tww[,,i][1,1]>=0, 1, -1)*max(.Machine$double.eps,abs(tww[,,i][1,1])))
+      tryCatch(solve(tww[,,i]+diag(rep(ridge[i],nc)),
+                     tyw[,i]+c(ridge.val,rep(0,nc-1))),
+               error = function(e){
+                 ridge[i] <<- ridge[i]+epsilon
+                 doridge[i] <<- TRUE
+                 return(rep(maxPenalty,nc))
+               })
+    }
+
+    while(any(doridge)){
+      iloo <- (1:enrow)[doridge]
+      coef.mat[,iloo] <- sapply(iloo, ridger)
+    }
+
+##    coef.mat <- sapply(1:enrow, function(i) { solve(tww[,,i], tyw[,i]) })
 
     if (do.iterate <- (iterate && !is.null(bws$bw.fitted) && miss.ex)){
       resid <- tydat - sapply(1:enrow, function(i) { W[i,, drop = FALSE] %*% coef.mat[,i] })
@@ -369,13 +409,16 @@ npscoef.scbandwidth <-
           partial <- W[,j] * coef.mat[j,] + resid
           
           ## use to calculate new beta implicitly
-          coef.mat[j,] <-
-            npksum(txdat = tzdat,
-                   tydat = partial * W[,j],
-                   bws = bws, leave.one.out = leave.one.out)$ksum/
-                     npksum(txdat = tzdat,
-                            tydat = W[,j]^2,
-                            bws = bws, leave.one.out = leave.one.out)$ksum
+
+          ksum1 <- npksum(txdat = tzdat,
+                          tydat = partial * W[,j],
+                          bws = bws, leave.one.out = leave.one.out)$ksum
+          ksum2 <- npksum(txdat = tzdat,
+                          tydat = W[,j]^2,
+                          bws = bws, leave.one.out = leave.one.out)$ksum
+
+          coef.mat[j,] <- ksum1/
+            (ifelse(ksum2>=0, 1, -1)*max(.Machine$double.eps,abs(ksum2)))
 
           ## estimate new full residuals 
           resid <- partial - W[,j] * coef.mat[j,]
@@ -409,9 +452,35 @@ npscoef.scbandwidth <-
     if(errors | (residuals & miss.ex)){
       tyw <- npksum(txdat = tzdat, tydat = tydat, weights = W.train, bws = bws)$ksum
       tm <- npksum(txdat = tzdat, tydat = W.train, weights = W.train, bws = bws)$ksum
-      u2.W <- (resid <- tydat - sapply(1:tnrow, function(i) { W.train[i,, drop = FALSE] %*% solve(tm[,,i], tyw[,i]) }))^2
+
+      mean.fit <- rep(maxPenalty,nrow(txdat))
+      epsilon <- 1.0/nrow(txdat)
+      ridge.tm <- double(nrow(txdat))
+      doridge <- !logical(nrow(txdat))
+
+      nc <- ncol(tm[,,1])
+
+      ridger <- function(i) {
+        doridge[i] <<- FALSE
+        ridge.val <- ridge.tm[i]*tyw[,i][1]/
+          (ifelse(tm[,,i][1,1]>=0, 1, -1)*max(.Machine$double.eps,abs(tm[,,i][1,1])))
+        W.train[i,, drop = FALSE] %*% tryCatch(solve(tm[,,i]+diag(rep(ridge.tm[i],nc)),
+                      tyw[,i]+c(ridge.val,rep(0,nc-1))),
+                      error = function(e){
+                        ridge.tm[i] <<- ridge.tm[i]+epsilon
+                        doridge[i] <<- TRUE
+                        return(rep(maxPenalty,nc))
+                      })
+      }
+
+      while(any(doridge)){
+        ii <- (1:nrow(txdat))[doridge]
+        mean.fit[ii] <- sapply(ii, ridger)
+      }
+
+      u2.W <- (resid <- tydat - mean.fit)^2
     }
-    
+
     if(errors){
       ## kernel^2 integrals
       k <- (int.kernels[switch(bws$ckertype,
@@ -430,11 +499,11 @@ npscoef.scbandwidth <-
       ## asymptotics rely on positive definite nature of tww (ie. M.eval) and V.hat
       ## so choleski decomposition is used to assure their veracity
       merr <- sqrt(sapply(1:enrow, function(i){
-        cm <- chol2inv(chol(tww[,,i]))
-        k*(W[i,, drop = FALSE] %*% cm %*% V.hat[,,i] %*% cm %*% t(W[i,, drop = FALSE]))
+        cm <- chol2inv(chol(tww[,,i]+diag(rep(ridge[i],nc))))
+        k*(W[i,,drop=FALSE] %*% cm %*% V.hat[,,i] %*% cm %*% t(W[i,,drop=FALSE]))
       }))
-    }
 
+    }
 
     eval(parse(text=paste("smoothcoefficient(bws = bws, eval = teval",
                  ", mean = mean,",
@@ -445,5 +514,6 @@ npscoef.scbandwidth <-
                  "ntrain = nrow(txdat), trainiseval = miss.ex,",
                  ifelse(miss.ey && !miss.ex, "",
                         "xtra=c(RSQ,MSE,MAE,MAPE,CORR,SIGN)"),")")))
-  
+
   }
+

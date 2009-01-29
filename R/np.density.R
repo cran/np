@@ -98,7 +98,7 @@ npudens.bandwidth <-
   tdat <- adjustLevels(tdat, bws$xdati)
   
   if (!no.e)
-    edat <- adjustLevels(edat, bws$xdati)
+    edat <- adjustLevels(edat, bws$xdati, allowNewCells = TRUE)
 
   ## grab the evaluation data before it is converted to numeric
   if(no.e)

@@ -256,7 +256,7 @@ void free_vector(double *v, int nl, int nh)
 int ncom=0;                                       /* defining declarations */
 double *pcom=0,*xicom=0,(*nrfunc)(double *);
 
-/* 6/18/98 added FLT_MAX/2.0 for integer search - works like a charm */
+/* 6/18/98 added DBL_MAX/2.0 for integer search - works like a charm */
 
 void  linmin(int RESTRICT, int INTEGER, double *p_restrict, double *p, double *xi, int n, double tol, double small, int itmax, double *fret, double (*func)(double *))
 {
@@ -300,8 +300,8 @@ void  linmin(int RESTRICT, int INTEGER, double *p_restrict, double *p, double *x
     {
 
         ax=(double)0.0;
-        xx=(double)FLT_MAX/2.0;
-        bx=(double)FLT_MAX;
+        xx=(double)DBL_MAX/2.0;
+        bx=(double)DBL_MAX;
 
     }
 

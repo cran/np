@@ -130,7 +130,7 @@ double cv_func_regression_categorical_ls(double *vector_scale_factor){
         num_categories_extern,
         vector_scale_factor) == 1)
     {
-        return(FLT_MAX);
+        return(DBL_MAX);
     }
 
 /* Compute the cross-validation function */
@@ -212,7 +212,7 @@ double cv_func_regression_categorical_ls_nn(double *vector_scale_factor)
         mean)==1)
     {
         free(mean);
-        return(FLT_MAX);
+        return(DBL_MAX);
     }
 
     py = &vector_Y_extern[0];
@@ -260,7 +260,7 @@ double cv_func_density_categorical_ml(double *vector_scale_factor)
         num_categories_extern,
         vector_scale_factor) == 1)
     {
-        return(FLT_MAX);
+        return(DBL_MAX);
     }
 
 /* Compute the cross-validation function */
@@ -280,7 +280,7 @@ double cv_func_density_categorical_ml(double *vector_scale_factor)
         num_categories_extern,
         &cv)==1)
     {
-        return(FLT_MAX);
+        return(DBL_MAX);
     }
 
 
@@ -313,7 +313,7 @@ double cv_func_con_density_categorical_ml(double *vector_scale_factor)
         num_reg_unordered_extern,
         num_reg_ordered_extern,
         num_categories_extern,
-        vector_scale_factor) == 1) return(FLT_MAX);
+        vector_scale_factor) == 1) return(DBL_MAX);
 
 /* Compute the cross-validation function */
 
@@ -341,7 +341,7 @@ double cv_func_con_density_categorical_ml(double *vector_scale_factor)
         num_categories_extern,
         &cv)==1)
     {
-        return(FLT_MAX);
+        return(DBL_MAX);
     }
 
 
@@ -371,7 +371,7 @@ double np_cv_func_con_density_categorical_ls(double *vector_scale_factor){
                                  num_reg_unordered_extern,
                                  num_reg_ordered_extern,
                                  num_categories_extern,
-                                 vector_scale_factor) == 1) return(FLT_MAX);
+                                 vector_scale_factor) == 1) return(DBL_MAX);
 
   /* Compute the cross-validation function */
 
@@ -398,7 +398,7 @@ double np_cv_func_con_density_categorical_ls(double *vector_scale_factor){
                                                                &vector_scale_factor[1],
                                                                num_categories_extern,
                                                                matrix_categorical_vals_extern,
-                                                               &cv)==1) return(FLT_MAX);
+                                                               &cv)==1) return(DBL_MAX);
 
 
   return(cv);
@@ -429,7 +429,7 @@ double cv_func_con_density_categorical_ls(double *vector_scale_factor)
         num_reg_unordered_extern,
         num_reg_ordered_extern,
         num_categories_extern,
-        vector_scale_factor) == 1) return(FLT_MAX);
+        vector_scale_factor) == 1) return(DBL_MAX);
 
 /* Compute the cross-validation function */
 
@@ -458,7 +458,7 @@ double cv_func_con_density_categorical_ls(double *vector_scale_factor)
         matrix_categorical_vals_extern,
         &cv)==1)
     {
-        return(FLT_MAX);
+        return(DBL_MAX);
     }
 
 
@@ -491,7 +491,7 @@ double cv_func_density_categorical_ls(double *vector_scale_factor)
         num_reg_unordered_extern,
         num_reg_ordered_extern,
         num_categories_extern,
-        vector_scale_factor) == 1) return(FLT_MAX);
+        vector_scale_factor) == 1) return(DBL_MAX);
 
 /* Compute the cross-validation function */
 
@@ -511,7 +511,7 @@ double cv_func_density_categorical_ls(double *vector_scale_factor)
         matrix_categorical_vals_extern,
         &cv)==1)
     {
-        return(FLT_MAX);
+        return(DBL_MAX);
     }
 
 
@@ -531,7 +531,7 @@ double func_con_density_quantile(double *quantile)
 
     if((quantile[1] < y_min_extern)||(quantile[1] > y_max_extern))
     {
-        return(FLT_MAX);
+        return(DBL_MAX);
     }
 
     matrix_Y_continuous_quantile_extern[0][0]=quantile[1];
@@ -607,7 +607,7 @@ double cv_func_regression_categorical_aic_c(double *vector_scale_factor)
         num_categories_extern,
         vector_scale_factor) == 1)
     {
-        return(FLT_MAX);
+        return(DBL_MAX);
     }
 
 /* Compute the AIC_c function */

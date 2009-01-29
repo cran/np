@@ -201,7 +201,7 @@ npscoefbw.scbandwidth <-
     ## to emulate W
 
     W <- as.matrix(data.frame(1,xdat))
-    cvls.W <- as.matrix(data.frame(ydat,1,xdat))
+    yW <- as.matrix(data.frame(ydat,1,xdat))
     
     if (miss.z){
       zdat <- xdat
@@ -222,10 +222,10 @@ npscoefbw.scbandwidth <-
         ##tyw <- npksum(txdat = zdat, tydat = ydat, weights = W, bws = bws,
         ##              leave.one.out = TRUE)$ksum
         
-        tww <- npksum(txdat = zdat, tydat = cvls.W, weights = cvls.W, bws = bws,
+        tww <- npksum(txdat = zdat, tydat = yW, weights = yW, bws = bws,
                       leave.one.out = TRUE)$ksum
 
-        mean.loo <- maxPenalty
+        mean.loo <- rep(maxPenalty,n)
         epsilon <- 1.0/n
         ridge <- double(n)
         doridge <- !logical(n)
@@ -234,7 +234,8 @@ npscoefbw.scbandwidth <-
 
         ridger <- function(i) {
           doridge[i] <<- FALSE
-          ridge.val <- ridge[i]*tww[-1,1,i][1]/max(tww[-1,-1,i][1,1],.Machine$double.eps)
+          ridge.val <- ridge[i]*tww[-1,1,i][1]/
+            (ifelse(tww[-1,-1,i][1,1]>=0, 1, -1)*max(.Machine$double.eps,abs(tww[-1,-1,i][1,1])))
           W[i,, drop = FALSE] %*% tryCatch(solve(tww[-1,-1,i]+diag(rep(ridge[i],nc)),
                   tww[-1,1,i]+c(ridge.val,rep(0,nc-1))),
                   error = function(e){
@@ -245,13 +246,16 @@ npscoefbw.scbandwidth <-
         }
 
         while(any(doridge)){
-          mean.loo <- sapply((1:n)[doridge], ridger)
+          iloo <- (1:n)[doridge]
+          mean.loo[iloo] <- sapply(iloo, ridger)
         }
 
         cv.console <<- printClear(cv.console)
         ##cv.console <<- printPush(msg = paste("param:", param), console = cv.console)
 
-        if (!identical(mean.loo, maxPenalty)){
+        stopifnot(all(is.finite(mean.loo)))
+
+        if(!any(mean.loo == maxPenalty)){
           fv <- sum((ydat-mean.loo)^2)/n
           cv.console <<- printPush(msg = paste("fval:", signif(fv, digits = options('digits')$digits)), console = cv.console)
         } else {
@@ -365,15 +369,18 @@ npscoefbw.scbandwidth <-
           best.overall <- i
         }
 
-        console <- printPop(console)
+        if(i < nmulti)
+          console <- printPop(console)
+        else
+          console <- printClear(console)
       }
-
-      cat('\n')
-      console <- newLineConsole()
 
       param.overall <- bws$bw <- param
 
       if(cv.iterate){
+        
+        console <- newLineConsole()
+        
         n.part <- (ncol(xdat)+1)
         
         bws$bw.fitted <- matrix(data = bws$bw, nrow = length(bws$bw), ncol = n.part)
@@ -431,14 +438,16 @@ npscoefbw.scbandwidth <-
 
             console <- printPop(console)
           }
-          console <- printPop(console)
+          if(i < cv.num.iterations)
+            console <- printPop(console)
+          else
+            console <- printClear(console)
         }
         scoef.loo <- eval(parse(text = paste('npscoef(bws = bws, txdat = xdat, tydat = ydat,',
                                   ifelse(miss.z,'', 'tzdat = zdat,'),
                                   'iterate = TRUE, maxiter = backfit.maxiter,',
                                   'tol = backfit.tol, leave.one.out = TRUE)$mean')))
         bws$fval.fitted <- sum((ydat - scoef.loo)^2)/n
-        cat('\n')
       }
 
       bws$fval = min.overall

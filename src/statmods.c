@@ -175,7 +175,7 @@ double standerrd(int n, double *vector)
 
     free(vector_temp);
 
-    if(IQR < FLT_MIN)
+    if(IQR < DBL_MIN)
       {
         if(int_VERBOSE == 1)
           {
@@ -330,7 +330,7 @@ int int_k_nn, double *nn_distance)
 
 /* Was == 0.0 */
 
-        if (*pointer_nndi++ <= FLT_MIN)
+        if (*pointer_nndi++ <= DBL_MIN)
         {
             if(int_VERBOSE == 1)
             {
@@ -406,7 +406,7 @@ int int_k_nn, double *nn_distance)
 
 /* Was == 0.0 */
 
-        if (*pointer_nndi++ <= FLT_MIN)
+        if (*pointer_nndi++ <= DBL_MIN)
         {
             if(int_VERBOSE == 1)
             {
@@ -535,7 +535,7 @@ double *nn_distance)
 /* Test for inadmissible value */
 
 /* Was == 0.0 */
-        if (*pointer_nndi++ <= FLT_MIN)
+        if (*pointer_nndi++ <= DBL_MIN)
         {
             if(int_VERBOSE == 1)
             {
@@ -599,7 +599,7 @@ double *nn_distance)
 /* Test for inadmissible value */
 
 /* Was == 0.0 */
-        if (*pointer_nndi++ <= FLT_MIN)
+        if (*pointer_nndi++ <= DBL_MIN)
         {
             if(int_VERBOSE == 1)
             {
@@ -727,7 +727,7 @@ double *vector_scale_factor)
 /* If using starting values check for admissible values */
                 if(BANDWIDTH == 0)
                 {
-                    if( (vector_scale_factor[i+1] <= 0.0) || (vector_scale_factor[i+1] > FLT_MAX))
+                    if( (vector_scale_factor[i+1] <= 0.0) || (vector_scale_factor[i+1] > DBL_MAX))
                     {
                         printf("\n** Warning: invalid sf in init_nr_sf() [%g]\n", vector_scale_factor[i+1]);
                         if(int_large == 0)
@@ -788,7 +788,7 @@ double *vector_scale_factor)
                 if(BANDWIDTH == 0)
                 {
                     if( (vector_scale_factor[i+num_reg_continuous+1] <= 0.0) ||
-                        (vector_scale_factor[i+num_reg_continuous+1] > FLT_MAX))
+                        (vector_scale_factor[i+num_reg_continuous+1] > DBL_MAX))
                     {
                         printf("\n** Warning: invalid sf in init_nr_sf() [%g]\n", vector_scale_factor[i+num_reg_continuous+1]);
                         if(int_large == 0)
@@ -996,7 +996,7 @@ double *vector_scale_factor)
                 {
 /* Check for admissible value of density scale factor */
                     if( (vector_scale_factor[num_var_continuous+num_reg_continuous+num_var_unordered+num_var_ordered+num_reg_unordered+num_reg_ordered+1] <= 0.0) ||
-                        (vector_scale_factor[num_var_continuous+num_reg_continuous+num_var_unordered+num_var_ordered+num_reg_unordered+num_reg_ordered+1] > FLT_MAX))
+                        (vector_scale_factor[num_var_continuous+num_reg_continuous+num_var_unordered+num_var_ordered+num_reg_unordered+num_reg_ordered+1] > DBL_MAX))
                     {
                         printf("\n** Warning: invalid sf for disturbance in init_nr_sf() [%g]\n", vector_scale_factor[num_var_continuous+num_reg_continuous+num_var_unordered+num_var_ordered+num_reg_unordered+num_reg_ordered+1]);
                         vector_scale_factor[num_var_continuous+num_reg_continuous+num_var_unordered+num_var_ordered+num_reg_unordered+num_reg_ordered+1] = init_continuous;
@@ -1193,7 +1193,7 @@ double *vector_scale_factor)
 /* If using starting values check for admissible values */
                 if(BANDWIDTH == 0)
                 {
-                    if( (vector_scale_factor[i+1] <= 0.0) || (vector_scale_factor[i+1] > FLT_MAX))
+                    if( (vector_scale_factor[i+1] <= 0.0) || (vector_scale_factor[i+1] > DBL_MAX))
                     {
                         if(my_rank == 0)
                         {
@@ -1260,7 +1260,7 @@ double *vector_scale_factor)
                 if(BANDWIDTH == 0)
                 {
                     if( (vector_scale_factor[i+num_reg_continuous+1] <= 0.0) ||
-                        (vector_scale_factor[i+num_reg_continuous+1] > FLT_MAX))
+                        (vector_scale_factor[i+num_reg_continuous+1] > DBL_MAX))
                     {
                         if(my_rank == 0)
                         {
@@ -1508,7 +1508,7 @@ double *vector_scale_factor)
                 {
 /* Check for admissible value of density scale factor */
                     if( (vector_scale_factor[num_var_continuous+num_reg_continuous+num_var_unordered+num_var_ordered+num_reg_unordered+num_reg_ordered+1] <= 0.0) ||
-                        (vector_scale_factor[num_var_continuous+num_reg_continuous+num_var_unordered+num_var_ordered+num_reg_unordered+num_reg_ordered+1] > FLT_MAX))
+                        (vector_scale_factor[num_var_continuous+num_reg_continuous+num_var_unordered+num_var_ordered+num_reg_unordered+num_reg_ordered+1] > DBL_MAX))
                     {
                         if(my_rank == 0)
                         {
@@ -2199,7 +2199,7 @@ double *vector_scale_factor)
 /* In vector_scale_factor, order is continuous reg, continuous var, */
 /* unordered variables, ordered variables, unordered regressors, ordered regressors */
 
-    double temp_pow = FLT_MAX;
+    double temp_pow = DBL_MAX;
 
 /* Set appropriate constants for categorical variable scaling factor O(h^2) */
 
@@ -2289,7 +2289,7 @@ double *vector_scale_factor)
 /* Check for admissible values */
         if(BANDWIDTH == 0)
         {
-            if( (vector_scale_factor[i] <= 0.0) || (vector_scale_factor[i] > FLT_MAX) )
+            if( (vector_scale_factor[i] <= 0.0) || (vector_scale_factor[i] > DBL_MAX) )
             {
                 return(1);
             }
@@ -2310,7 +2310,7 @@ double *vector_scale_factor)
 /* Check for admissible values */
         if(BANDWIDTH == 0)
         {
-            if( (vector_scale_factor[i] <= 0.0) || (vector_scale_factor[i] > FLT_MAX) )
+            if( (vector_scale_factor[i] <= 0.0) || (vector_scale_factor[i] > DBL_MAX) )
             {
                 return(1);
             }
@@ -2457,7 +2457,7 @@ double *vector_scale_factor)
 
 /* Check for admissible value of density scale factor */
             if( (vector_scale_factor[num_var_continuous+num_reg_continuous+num_var_unordered+num_var_ordered+num_reg_unordered+num_reg_ordered+1] <= 0.0) ||
-                (vector_scale_factor[num_var_continuous+num_reg_continuous+num_var_unordered+num_var_ordered+num_reg_unordered+num_reg_ordered+1] > FLT_MAX))
+                (vector_scale_factor[num_var_continuous+num_reg_continuous+num_var_unordered+num_var_ordered+num_reg_unordered+num_reg_ordered+1] > DBL_MAX))
             {
                 return(1);
             }
@@ -2503,7 +2503,7 @@ double *vector_continuous_stddev)
 
             vector_continuous_stddev[i] = standerrd(num_obs, matrix_X_continuous[i]);
 
-            if(vector_continuous_stddev[i] <= FLT_MIN)
+            if(vector_continuous_stddev[i] <= DBL_MIN)
             {
 #ifdef MPI
                 if(my_rank == 0)
@@ -2526,7 +2526,7 @@ double *vector_continuous_stddev)
 
             vector_continuous_stddev[i+num_reg_continuous] = standerrd(num_obs, matrix_Y_continuous[i]);
 
-            if(vector_continuous_stddev[i+num_reg_continuous] <= FLT_MIN)
+            if(vector_continuous_stddev[i+num_reg_continuous] <= DBL_MIN)
             {
 #ifdef MPI
                 if(my_rank == 0)

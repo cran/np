@@ -346,7 +346,7 @@ npcdensbw(\dots)
   continuous variables while the discrete kernel bandwidths are returned
   for the discrete variables.
 
-  The functions \code{\link{summary}} and \code{\link{plot}} support
+  The functions \code{\link{predict}}, \code{\link{summary}} and \code{\link{plot}} support
   objects of type \code{conbandwidth}.
 }
 

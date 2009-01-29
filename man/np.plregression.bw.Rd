@@ -139,7 +139,7 @@ npplregbw(\dots)
   \item{nmulti}{
     integer number of times to restart the process of finding extrema of
     the cross-validation function from different (random) initial
-    points. Defaults to \code{min(5,ncol(xdat))}.
+    points. Defaults to \code{min(5,ncol(zdat))}.
   }
 
   \item{remin}{

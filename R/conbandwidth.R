@@ -244,3 +244,5 @@ summary.conbandwidth <- function(object, ...) {
   
   cat("\n\n")
 }
+
+predict.conbandwidth <- function(...) { eval(npcdens(...), env = parent.frame()) }

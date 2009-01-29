@@ -148,7 +148,8 @@ npcdens(bws, \dots)
   accessor functions \code{\link{fitted}}, \code{\link{se}}, and
   \code{\link{gradients}}, extract estimated values, asymptotic standard
   errors on estimates, and gradients, respectively, from
-  the returned object. Furthermore, the functions \code{\link{summary}}
+  the returned object. Furthermore, the functions \code{\link{predict}},
+  \code{\link{summary}}
   and \code{\link{plot}} support objects of both classes. The returned objects
   have the following components:
 

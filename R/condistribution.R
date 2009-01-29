@@ -81,6 +81,15 @@ gradients.condistribution <- function(x, errors = FALSE, ...) {
     return(x$congerr)
 }
 
+predict.condistribution <- function(object, se.fit = FALSE, ...) {
+  tr <- eval(npcdist(bws = object$bws, ...), env = parent.frame())
+  if(se.fit)
+    return(list(fit = fitted(tr), se.fit = se(tr), 
+                df = tr$nobs))
+  else
+    return(fitted(tr))
+}
+
 plot.condistribution <- function(x, ...) { npplot(bws = x$bws, ...) }
 
 summary.condistribution <- function(object, ...){

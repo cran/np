@@ -151,7 +151,7 @@ double *log_likelihood)
 	double INT_KERNEL_P;					 /* Integral of K(z)^p */
 	double K_INT_KERNEL_P;				 /* Number of regressors times integral of K(z)^p */
 
-	double log_FLT_MIN = log(FLT_MIN);
+	double log_DBL_MIN = log(DBL_MIN);
 
 	#ifdef MPI
 	double log_likelihood_MPI;
@@ -275,13 +275,13 @@ double *log_likelihood)
 
 			pdf_stderr[j] = ((num_reg_continuous != 0) ? sqrt(pdf[j]*K_INT_KERNEL_P/prod_nh) : sqrt(pdf[j]/prod_nh));
 
-			if(pdf[j] > FLT_MIN)
+			if(pdf[j] > DBL_MIN)
 			{
 				*log_likelihood += log(pdf[j]);
 			}
 			else
 			{
-				*log_likelihood += log_FLT_MIN;
+				*log_likelihood += log_DBL_MIN;
 				if(int_VERBOSE == 1)
 				{
 					printf("\r                                                                           ");
@@ -337,13 +337,13 @@ double *log_likelihood)
 
 			pdf_stderr[j] = ((num_reg_continuous != 0) ? sqrt(pdf[j]*K_INT_KERNEL_P/prod_nh) : sqrt(pdf[j]/prod_nh));
 
-			if(pdf[j] > FLT_MIN)
+			if(pdf[j] > DBL_MIN)
 			{
 				*log_likelihood += log(pdf[j]);
 			}
 			else
 			{
-				*log_likelihood += log_FLT_MIN;
+				*log_likelihood += log_DBL_MIN;
 				if(int_VERBOSE == 1)
 				{
 					printf("\r                                                                           ");
@@ -400,13 +400,13 @@ double *log_likelihood)
 
 			pdf_stderr[j] = ((num_reg_continuous != 0) ? sqrt(sum_ker_temp*K_INT_KERNEL_P) : sqrt(sum_ker_temp));
 
-			if(pdf[j] > FLT_MIN)
+			if(pdf[j] > DBL_MIN)
 			{
 				*log_likelihood += log(pdf[j]);
 			}
 			else
 			{
-				*log_likelihood += log_FLT_MIN;
+				*log_likelihood += log_DBL_MIN;
 				if(int_VERBOSE == 1)
 				{
 					printf("\r                                                                           ");
@@ -472,13 +472,13 @@ double *log_likelihood)
 
 			pdf_stderr[j-my_rank*stride] = ((num_reg_continuous != 0) ? sqrt(pdf[j-my_rank*stride]*K_INT_KERNEL_P/prod_nh) : sqrt(pdf[j-my_rank*stride]/prod_nh));
 
-			if(pdf[j-my_rank*stride] > FLT_MIN)
+			if(pdf[j-my_rank*stride] > DBL_MIN)
 			{
 				log_likelihood_MPI += log(pdf[j-my_rank*stride]);
 			}
 			else
 			{
-				log_likelihood_MPI += log_FLT_MIN;
+				log_likelihood_MPI += log_DBL_MIN;
 				if((int_VERBOSE == 1)&&(my_rank == 0))
 				{
 					printf("\r                                                                           ");
@@ -534,13 +534,13 @@ double *log_likelihood)
 
 			pdf_stderr[j-my_rank*stride] = ((num_reg_continuous != 0) ? sqrt(pdf[j-my_rank*stride]*K_INT_KERNEL_P/prod_nh) : sqrt(pdf[j-my_rank*stride]/prod_nh));
 
-			if(pdf[j-my_rank*stride] > FLT_MIN)
+			if(pdf[j-my_rank*stride] > DBL_MIN)
 			{
 				log_likelihood_MPI += log(pdf[j-my_rank*stride]);
 			}
 			else
 			{
-				log_likelihood_MPI += log_FLT_MIN;
+				log_likelihood_MPI += log_DBL_MIN;
 				if((int_VERBOSE == 1)&&(my_rank == 0))
 				{
 					printf("\r                                                                           ");
@@ -597,13 +597,13 @@ double *log_likelihood)
 
 			pdf_stderr[j-my_rank*stride] = ((num_reg_continuous != 0) ? sqrt(sum_ker_temp*K_INT_KERNEL_P) : sqrt(sum_ker_temp));
 
-			if(pdf[j-my_rank*stride] > FLT_MIN)
+			if(pdf[j-my_rank*stride] > DBL_MIN)
 			{
 				log_likelihood_MPI += log(pdf[j-my_rank*stride]);
 			}
 			else
 			{
-				log_likelihood_MPI += log_FLT_MIN;
+				log_likelihood_MPI += log_DBL_MIN;
 				if((int_VERBOSE == 1)&&(my_rank == 0))
 				{
 					printf("\r                                                                           ");
@@ -674,7 +674,7 @@ double *cv)
 	double *lambda;
 	double **matrix_bandwidth;
 
-	double log_FLT_MIN = log(FLT_MIN);
+	double log_DBL_MIN = log(DBL_MIN);
 
 	double *p_xj1;
 	double *p_xi1;
@@ -775,13 +775,13 @@ double *cv)
 
 				pdf = sum_ker/prod_nh;
 
-				if(pdf > FLT_MIN)
+				if(pdf > DBL_MIN)
 				{
 					*cv -= log(pdf);
 				}
 				else
 				{
-					*cv -= log_FLT_MIN;
+					*cv -= log_DBL_MIN;
 					if(int_VERBOSE == 1)
 					{
 						printf("\r                                                                           ");
@@ -830,13 +830,13 @@ double *cv)
 
 				pdf = sum_ker/prod_nh;
 
-				if(pdf > FLT_MIN)
+				if(pdf > DBL_MIN)
 				{
 					*cv -= log(pdf);
 				}
 				else
 				{
-					*cv -= log_FLT_MIN;
+					*cv -= log_DBL_MIN;
 					if(int_VERBOSE == 1)
 					{
 						printf("\r                                                                           ");
@@ -887,13 +887,13 @@ double *cv)
 
 				pdf = sum_ker/prod_nh;
 
-				if(pdf > FLT_MIN)
+				if(pdf > DBL_MIN)
 				{
 					*cv -= log(pdf);
 				}
 				else
 				{
-					*cv -= log_FLT_MIN;
+					*cv -= log_DBL_MIN;
 					if(int_VERBOSE == 1)
 					{
 						printf("\r                                                                           ");
@@ -955,13 +955,13 @@ double *cv)
 
 			pdf = sum_ker/prod_nh;
 
-			if(pdf > FLT_MIN)
+			if(pdf > DBL_MIN)
 			{
 				*cv -= log(pdf);
 			}
 			else
 			{
-				*cv -= log_FLT_MIN;
+				*cv -= log_DBL_MIN;
 				if(int_VERBOSE == 1)
 				{
 					printf("\r                                                                           ");
@@ -1019,13 +1019,13 @@ double *cv)
 
 			pdf = sum_ker;
 
-			if(pdf > FLT_MIN)
+			if(pdf > DBL_MIN)
 			{
 				*cv -= log(pdf);
 			}
 			else
 			{
-				*cv -= log_FLT_MIN;
+				*cv -= log_DBL_MIN;
 				if(int_VERBOSE == 1)
 				{
 					printf("\r                                                                           ");
@@ -1088,13 +1088,13 @@ double *cv)
 
 				pdf = sum_ker/prod_nh;
 
-				if(pdf > FLT_MIN)
+				if(pdf > DBL_MIN)
 				{
 					cv_MPI -= log(pdf);
 				}
 				else
 				{
-					cv_MPI -= log_FLT_MIN;
+					cv_MPI -= log_DBL_MIN;
 					if((int_VERBOSE == 1)&&(my_rank == 0))
 					{
 						printf("\r                                                                           ");
@@ -1142,13 +1142,13 @@ double *cv)
 
 				pdf = sum_ker/prod_nh;
 
-				if(pdf > FLT_MIN)
+				if(pdf > DBL_MIN)
 				{
 					cv_MPI -= log(pdf);
 				}
 				else
 				{
-					cv_MPI -= log_FLT_MIN;
+					cv_MPI -= log_DBL_MIN;
 					if((int_VERBOSE == 1)&&(my_rank == 0))
 					{
 						printf("\r                                                                           ");
@@ -1198,13 +1198,13 @@ double *cv)
 
 				pdf = sum_ker/prod_nh;
 
-				if(pdf > FLT_MIN)
+				if(pdf > DBL_MIN)
 				{
 					cv_MPI -= log(pdf);
 				}
 				else
 				{
-					cv_MPI -= log_FLT_MIN;
+					cv_MPI -= log_DBL_MIN;
 					if((int_VERBOSE == 1)&&(my_rank == 0))
 					{
 						printf("\r                                                                           ");
@@ -1265,13 +1265,13 @@ double *cv)
 
 			pdf = sum_ker/prod_nh;
 
-			if(pdf > FLT_MIN)
+			if(pdf > DBL_MIN)
 			{
 				cv_MPI -= log(pdf);
 			}
 			else
 			{
-				cv_MPI -= log_FLT_MIN;
+				cv_MPI -= log_DBL_MIN;
 				if((int_VERBOSE == 1)&&(my_rank == 0))
 				{
 					printf("\r                                                                           ");
@@ -1328,13 +1328,13 @@ double *cv)
 
 			pdf = sum_ker;
 
-			if(pdf > FLT_MIN)
+			if(pdf > DBL_MIN)
 			{
 				cv_MPI -= log(pdf);
 			}
 			else
 			{
-				cv_MPI -= log_FLT_MIN;
+				cv_MPI -= log_DBL_MIN;
 				if((int_VERBOSE == 1)&&(my_rank == 0))
 				{
 					printf("\r                                                                           ");
@@ -1414,7 +1414,7 @@ double *cv)
 	double **matrix_bandwidth_var;
 	double **matrix_bandwidth_reg;
 
-	double log_FLT_MIN = log(FLT_MIN);
+	double log_DBL_MIN = log(DBL_MIN);
 
 	double temp;
 
@@ -1479,7 +1479,7 @@ double *cv)
 		{
 		  R_CheckUserInterrupt();
 			sum_ker = 0.0;
-			sum_ker_marginal = FLT_MIN;
+			sum_ker_marginal = DBL_MIN;
 
 			for(i=0; i < num_obs; i++)
 			{
@@ -1536,13 +1536,13 @@ double *cv)
 
 			pdf = sum_ker/temp;
 
-			if(pdf > FLT_MIN)
+			if(pdf > DBL_MIN)
 			{
 				*cv -= log(pdf);
 			}
 			else
 			{
-				*cv -= log_FLT_MIN;
+				*cv -= log_DBL_MIN;
 				if(int_VERBOSE == 1)
 				{
 					printf("\r                                                                           ");
@@ -1567,7 +1567,7 @@ double *cv)
 			}
 
 			sum_ker = 0.0;
-			sum_ker_marginal = FLT_MIN;
+			sum_ker_marginal = DBL_MIN;
 
 			for(i=0; i < num_obs; i++)
 			{
@@ -1624,13 +1624,13 @@ double *cv)
 
 			pdf = sum_ker/(prod_h*sum_ker_marginal);
 
-			if(pdf > FLT_MIN)
+			if(pdf > DBL_MIN)
 			{
 				*cv -= log(pdf);
 			}
 			else
 			{
-				*cv -= log_FLT_MIN;
+				*cv -= log_DBL_MIN;
 				if(int_VERBOSE == 1)
 				{
 					printf("\r                                                                           ");
@@ -1648,7 +1648,7 @@ double *cv)
 		{
 		  R_CheckUserInterrupt();
 			sum_ker = 0.0;
-			sum_ker_marginal = FLT_MIN;
+			sum_ker_marginal = DBL_MIN;
 
 			for(i=0; i < num_obs; i++)
 			{
@@ -1719,13 +1719,13 @@ double *cv)
 
 			pdf = sum_ker/sum_ker_marginal;
 
-			if(pdf > FLT_MIN)
+			if(pdf > DBL_MIN)
 			{
 				*cv -= log(pdf);
 			}
 			else
 			{
-				*cv -= log_FLT_MIN;
+				*cv -= log_DBL_MIN;
 				if(int_VERBOSE == 1)
 				{
 					printf("\r                                                                           ");
@@ -1760,7 +1760,7 @@ double *cv)
 		{
 
 			sum_ker = 0.0;
-			sum_ker_marginal = FLT_MIN;
+			sum_ker_marginal = DBL_MIN;
 
 			for(i=0; i < num_obs; i++)
 			{
@@ -1817,13 +1817,13 @@ double *cv)
 
 			pdf = sum_ker/temp;
 
-			if(pdf > FLT_MIN)
+			if(pdf > DBL_MIN)
 			{
 				cv_MPI -= log(pdf);
 			}
 			else
 			{
-				cv_MPI -= log_FLT_MIN;
+				cv_MPI -= log_DBL_MIN;
 				if((int_VERBOSE == 1)&&(my_rank == 0))
 				{
 					printf("\r                                                                           ");
@@ -1848,7 +1848,7 @@ double *cv)
 			}
 
 			sum_ker = 0.0;
-			sum_ker_marginal = FLT_MIN;
+			sum_ker_marginal = DBL_MIN;
 
 			for(i=0; i < num_obs; i++)
 			{
@@ -1905,13 +1905,13 @@ double *cv)
 
 			pdf = sum_ker/(prod_h*sum_ker_marginal);
 
-			if(pdf > FLT_MIN)
+			if(pdf > DBL_MIN)
 			{
 				cv_MPI -= log(pdf);
 			}
 			else
 			{
-				cv_MPI -= log_FLT_MIN;
+				cv_MPI -= log_DBL_MIN;
 				if((int_VERBOSE == 1)&&(my_rank == 0))
 				{
 					printf("\r                                                                           ");
@@ -1929,7 +1929,7 @@ double *cv)
 		{
 
 			sum_ker = 0.0;
-			sum_ker_marginal = FLT_MIN;
+			sum_ker_marginal = DBL_MIN;
 
 			for(i=0; i < num_obs; i++)
 			{
@@ -2000,13 +2000,13 @@ double *cv)
 
 			pdf = sum_ker/sum_ker_marginal;
 
-			if(pdf > FLT_MIN)
+			if(pdf > DBL_MIN)
 			{
 				cv_MPI -= log(pdf);
 			}
 			else
 			{
-				cv_MPI -= log_FLT_MIN;
+				cv_MPI -= log_DBL_MIN;
 				if((int_VERBOSE == 1)&&(my_rank == 0))
 				{
 					printf("\r                                                                           ");
@@ -2458,7 +2458,7 @@ double *SIGN)
 	double *pointer_yi;
 	double *pointer_m;
 	double temp;
-	double temp1 = FLT_MAX;
+	double temp1 = DBL_MAX;
 
 	MATRIX  XTKX;
 	MATRIX  XTKXINV;
@@ -2574,7 +2574,7 @@ double *SIGN)
 			{
 			  R_CheckUserInterrupt();
 				sum_y_ker = sum_y_sq_ker = 0.0;
-				sum_ker = FLT_MIN;
+				sum_ker = DBL_MIN;
 
 				for(l = 0; l < num_reg_continuous; l++)
 				{
@@ -2671,7 +2671,7 @@ double *SIGN)
 			{
 			  R_CheckUserInterrupt();
 				sum_y_ker = sum_y_sq_ker = 0.0;
-				sum_ker = FLT_MIN;
+				sum_ker = DBL_MIN;
 
 				for(l = 0; l < num_reg_continuous; l++)
 				{
@@ -2769,7 +2769,7 @@ double *SIGN)
 			{
 			  R_CheckUserInterrupt();
 				sum_y_ker = sum_y_sq_ker = 0.0;
-				sum_ker = FLT_MIN;
+				sum_ker = DBL_MIN;
 
 				for(l = 0; l < num_reg_continuous; l++)
 				{
@@ -3066,7 +3066,7 @@ double *SIGN)
 
 				if(temp_var <= 0.0)
 				{
-					temp_var = FLT_MIN;
+					temp_var = DBL_MIN;
 				}
 
 				/* With no continuous variables, need to drop K_INT_KERNEL_P */
@@ -3279,7 +3279,7 @@ double *SIGN)
 
 				if(temp_var <= 0.0)
 				{
-					temp_var = FLT_MIN;
+					temp_var = DBL_MIN;
 				}
 
 				/* With no continuous variables, need to drop K_INT_KERNEL_P */
@@ -3494,7 +3494,7 @@ double *SIGN)
 
 				if(temp_var <= 0.0)
 				{
-					temp_var = FLT_MIN;
+					temp_var = DBL_MIN;
 				}
 
 				/* With no continuous variables, need to drop K_INT_KERNEL_P */
@@ -3542,7 +3542,7 @@ double *SIGN)
 			{
 
 				sum_y_ker = sum_y_sq_ker = 0.0;
-				sum_ker = FLT_MIN;
+				sum_ker = DBL_MIN;
 
 				for(l = 0; l < num_reg_continuous; l++)
 				{
@@ -3637,7 +3637,7 @@ double *SIGN)
 			{
 
 				sum_y_ker = sum_y_sq_ker = 0.0;
-				sum_ker = FLT_MIN;
+				sum_ker = DBL_MIN;
 
 				for(l = 0; l < num_reg_continuous; l++)
 				{
@@ -3733,7 +3733,7 @@ double *SIGN)
 			{
 
 				sum_y_ker = sum_y_sq_ker = 0.0;
-				sum_ker = FLT_MIN;
+				sum_ker = DBL_MIN;
 
 				for(l = 0; l < num_reg_continuous; l++)
 				{
@@ -4030,7 +4030,7 @@ double *SIGN)
 
 				if(temp_var <= 0.0)
 				{
-					temp_var = FLT_MIN;
+					temp_var = DBL_MIN;
 				}
 
 				/* With no continuous variables, need to drop K_INT_KERNEL_P */
@@ -4243,7 +4243,7 @@ double *SIGN)
 
 				if(temp_var <= 0.0)
 				{
-					temp_var = FLT_MIN;
+					temp_var = DBL_MIN;
 				}
 
 				/* With no continuous variables, need to drop K_INT_KERNEL_P */
@@ -4458,7 +4458,7 @@ double *SIGN)
 
 				if(temp_var <= 0.0)
 				{
-					temp_var = FLT_MIN;
+					temp_var = DBL_MIN;
 				}
 
 				/* With no continuous variables, need to drop K_INT_KERNEL_P */
@@ -4585,7 +4585,7 @@ double *mean)
 	double **matrix_bandwidth;
 
 	double temp;
-	double temp1 = FLT_MAX;
+	double temp1 = DBL_MAX;
 
 	MATRIX  XTKX;
 	MATRIX  XTKXINV;
@@ -4663,7 +4663,7 @@ double *mean)
 			{
 
 				sum_y_ker = 0.0;
-				sum_ker = FLT_MIN;
+				sum_ker = DBL_MIN;
 
 				pointer_yi = &vector_Y[0];
 
@@ -4725,7 +4725,7 @@ double *mean)
 			{
 
 				sum_y_ker = 0.0;
-				sum_ker = FLT_MIN;
+				sum_ker = DBL_MIN;
 
 				pointer_yi = &vector_Y[0];
 
@@ -4787,7 +4787,7 @@ double *mean)
 			{
 
 				sum_y_ker = 0.0;
-				sum_ker = FLT_MIN;
+				sum_ker = DBL_MIN;
 
 				pointer_yi = &vector_Y[0];
 
@@ -5472,7 +5472,7 @@ double *mean)
 			{
 
 				sum_y_ker = 0.0;
-				sum_ker = FLT_MIN;
+				sum_ker = DBL_MIN;
 
 				pointer_yi = &vector_Y[0];
 
@@ -5533,7 +5533,7 @@ double *mean)
 			{
 
 				sum_y_ker = 0.0;
-				sum_ker = FLT_MIN;
+				sum_ker = DBL_MIN;
 
 				pointer_yi = &vector_Y[0];
 
@@ -5593,7 +5593,7 @@ double *mean)
 			for(j=my_rank*stride; (j < num_obs) && (j < (my_rank+1)*stride); j++)
 			{
 				sum_y_ker = 0.0;
-				sum_ker = FLT_MIN;
+				sum_ker = DBL_MIN;
 
 				pointer_yi = &vector_Y[0];
 
@@ -6316,7 +6316,7 @@ double **gradient)
 	double temp_mean_y;
 
 	double temp;
-	double temp1 = FLT_MAX;
+	double temp1 = DBL_MAX;
 
 	double *pointer_yi;
 	double *pointer_m;
@@ -6379,7 +6379,7 @@ double **gradient)
 					{
 
 						sum_y_ker = 0.0;
-						sum_ker = FLT_MIN;
+						sum_ker = DBL_MIN;
 
 						p_sum_ker_deriv = &sum_ker_deriv[0];
 						p_sum_y_ker_deriv = &sum_y_ker_deriv[0];
@@ -6487,7 +6487,7 @@ double **gradient)
 					{
 
 						sum_y_ker = 0.0;
-						sum_ker = FLT_MIN;
+						sum_ker = DBL_MIN;
 
 						p_sum_ker_deriv = &sum_ker_deriv[0];
 						p_sum_y_ker_deriv = &sum_y_ker_deriv[0];
@@ -6595,7 +6595,7 @@ double **gradient)
 					{
 
 						sum_y_ker = 0.0;
-						sum_ker = FLT_MIN;
+						sum_ker = DBL_MIN;
 
 						p_sum_ker_deriv = &sum_ker_deriv[0];
 						p_sum_y_ker_deriv = &sum_y_ker_deriv[0];
@@ -7282,7 +7282,7 @@ double **gradient)
 					{
 
 						sum_y_ker = 0.0;
-						sum_ker = FLT_MIN;
+						sum_ker = DBL_MIN;
 
 						pointer_yi = &vector_Y[0];
 						pointer_matrix_weights_K = &matrix_weights_K[j][0];
@@ -7315,7 +7315,7 @@ double **gradient)
 							{
 
 								sum_ker_deriv_scalar = sum_y_ker_deriv_scalar = 0.0;
-								sum_ker = FLT_MIN;
+								sum_ker = DBL_MIN;
 
 								pointer_yi = &vector_Y[0];
 								pointer_matrix_weights_K = &matrix_weights_K[j][0];
@@ -7346,7 +7346,7 @@ double **gradient)
 					{
 
 						sum_y_ker = 0.0;
-						sum_ker = FLT_MIN;
+						sum_ker = DBL_MIN;
 
 						pointer_yi = &vector_Y[0];
 						pointer_matrix_weights_K = &matrix_weights_K[j][0];
@@ -7379,7 +7379,7 @@ double **gradient)
 							{
 
 								sum_ker_deriv_scalar = sum_y_ker_deriv_scalar = 0.0;
-								sum_ker = FLT_MIN;
+								sum_ker = DBL_MIN;
 
 								pointer_yi = &vector_Y[0];
 								pointer_matrix_weights_K = &matrix_weights_K[j][0];
@@ -7410,7 +7410,7 @@ double **gradient)
 					{
 
 						sum_y_ker = 0.0;
-						sum_ker = FLT_MIN;
+						sum_ker = DBL_MIN;
 
 						pointer_yi = &vector_Y[0];
 						pointer_matrix_weights_K = &matrix_weights_K[j][0];
@@ -7438,7 +7438,7 @@ double **gradient)
 							{
 
 								sum_ker_deriv_scalar = sum_y_ker_deriv_scalar = 0.0;
-								sum_ker = FLT_MIN;
+								sum_ker = DBL_MIN;
 
 								pointer_yi = &vector_Y[0];
 								pointer_matrix_weights_K = &matrix_weights_K[j][0];
@@ -7666,7 +7666,7 @@ double **gradient)
 					{
 
 						sum_y_ker = 0.0;
-						sum_ker = FLT_MIN;
+						sum_ker = DBL_MIN;
 						pointer_yi = &vector_Y[0];
 
 						for(i=0; i < num_obs_train; i++)
@@ -7716,7 +7716,7 @@ double **gradient)
 					{
 
 						sum_y_ker = 0.0;
-						sum_ker = FLT_MIN;
+						sum_ker = DBL_MIN;
 						pointer_yi = &vector_Y[0];
 
 						for(i=0; i < num_obs_train; i++)
@@ -7766,7 +7766,7 @@ double **gradient)
 					{
 
 						sum_y_ker = 0.0;
-						sum_ker = FLT_MIN;
+						sum_ker = DBL_MIN;
 						pointer_yi = &vector_Y[0];
 
 						for(i=0; i < num_obs_train; i++)
@@ -8367,7 +8367,7 @@ double **gradient)
 				{
 
 					sum_y_ker = 0.0;
-					sum_ker = FLT_MIN;
+					sum_ker = DBL_MIN;
 
 					pointer_yi = &vector_Y[0];
 					pointer_matrix_weights_K = &matrix_weights_K[j][0];
@@ -8590,7 +8590,7 @@ double **gradient)
 					{
 
 						sum_y_ker = 0.0;
-						sum_ker = FLT_MIN;
+						sum_ker = DBL_MIN;
 
 						p_sum_ker_deriv = &sum_ker_deriv[0];
 						p_sum_y_ker_deriv = &sum_y_ker_deriv[0];
@@ -8694,7 +8694,7 @@ double **gradient)
 					{
 
 						sum_y_ker = 0.0;
-						sum_ker = FLT_MIN;
+						sum_ker = DBL_MIN;
 
 						p_sum_ker_deriv = &sum_ker_deriv[0];
 						p_sum_y_ker_deriv = &sum_y_ker_deriv[0];
@@ -8798,7 +8798,7 @@ double **gradient)
 					{
 
 						sum_y_ker = 0.0;
-						sum_ker = FLT_MIN;
+						sum_ker = DBL_MIN;
 
 						p_sum_ker_deriv = &sum_ker_deriv[0];
 						p_sum_y_ker_deriv = &sum_y_ker_deriv[0];
@@ -9477,7 +9477,7 @@ double **gradient)
 					{
 
 						sum_y_ker = 0.0;
-						sum_ker = FLT_MIN;
+						sum_ker = DBL_MIN;
 
 						pointer_yi = &vector_Y[0];
 						pointer_matrix_weights_K = &matrix_weights_K[j][0];
@@ -9509,7 +9509,7 @@ double **gradient)
 							{
 
 								sum_ker_deriv_scalar = sum_y_ker_deriv_scalar = 0.0;
-								sum_ker = FLT_MIN;
+								sum_ker = DBL_MIN;
 
 								pointer_yi = &vector_Y[0];
 								pointer_matrix_weights_K = &matrix_weights_K[j][0];
@@ -9538,7 +9538,7 @@ double **gradient)
 					{
 
 						sum_y_ker = 0.0;
-						sum_ker = FLT_MIN;
+						sum_ker = DBL_MIN;
 
 						pointer_yi = &vector_Y[0];
 						pointer_matrix_weights_K = &matrix_weights_K[j][0];
@@ -9570,7 +9570,7 @@ double **gradient)
 							{
 
 								sum_ker_deriv_scalar = sum_y_ker_deriv_scalar = 0.0;
-								sum_ker = FLT_MIN;
+								sum_ker = DBL_MIN;
 
 								pointer_yi = &vector_Y[0];
 								pointer_matrix_weights_K = &matrix_weights_K[j][0];
@@ -9599,7 +9599,7 @@ double **gradient)
 					{
 
 						sum_y_ker = 0.0;
-						sum_ker = FLT_MIN;
+						sum_ker = DBL_MIN;
 
 						pointer_yi = &vector_Y[0];
 						pointer_matrix_weights_K = &matrix_weights_K[j][0];
@@ -9626,7 +9626,7 @@ double **gradient)
 							{
 
 								sum_ker_deriv_scalar = sum_y_ker_deriv_scalar = 0.0;
-								sum_ker = FLT_MIN;
+								sum_ker = DBL_MIN;
 
 								pointer_yi = &vector_Y[0];
 								pointer_matrix_weights_K = &matrix_weights_K[j][0];
@@ -9852,7 +9852,7 @@ double **gradient)
 					{
 
 						sum_y_ker = 0.0;
-						sum_ker = FLT_MIN;
+						sum_ker = DBL_MIN;
 						pointer_yi = &vector_Y[0];
 
 						for(i=0; i < num_obs_train; i++)
@@ -9900,7 +9900,7 @@ double **gradient)
 					{
 
 						sum_y_ker = 0.0;
-						sum_ker = FLT_MIN;
+						sum_ker = DBL_MIN;
 						pointer_yi = &vector_Y[0];
 
 						for(i=0; i < num_obs_train; i++)
@@ -9948,7 +9948,7 @@ double **gradient)
 					{
 
 						sum_y_ker = 0.0;
-						sum_ker = FLT_MIN;
+						sum_ker = DBL_MIN;
 						pointer_yi = &vector_Y[0];
 
 						for(i=0; i < num_obs_train; i++)
@@ -10547,7 +10547,7 @@ double **gradient)
 				{
 
 					sum_y_ker = 0.0;
-					sum_ker = FLT_MIN;
+					sum_ker = DBL_MIN;
 
 					pointer_yi = &vector_Y[0];
 					pointer_matrix_weights_K = &matrix_weights_K[j][0];
@@ -10831,7 +10831,7 @@ double *log_likelihood)
 	/* Number of regressors times integral of K(z)^p */
 	double K_INT_KERNEL_P;
 
-	double log_FLT_MIN = log(FLT_MIN);
+	double log_DBL_MIN = log(DBL_MIN);
 
 	/* Allocate memory for objects */
 
@@ -10923,7 +10923,7 @@ double *log_likelihood)
 			}
 
 			sum_ker = 0.0;
-			sum_ker_marginal = FLT_MIN;
+			sum_ker_marginal = DBL_MIN;
 
 			for(i=0; i < num_obs_train; i++)
 			{
@@ -10978,13 +10978,13 @@ double *log_likelihood)
 
 			pdf_stderr[j] = ((num_reg_continuous != 0) ? sqrt(pdf[j]*K_INT_KERNEL_P/prod_h) : sqrt(pdf[j]/prod_h));
 
-			if(pdf[j] > FLT_MIN)
+			if(pdf[j] > DBL_MIN)
 			{
 				*log_likelihood += log(pdf[j]);
 			}
 			else
 			{
-				*log_likelihood += log_FLT_MIN;
+				*log_likelihood += log_DBL_MIN;
 				if(int_VERBOSE == 1)
 				{
 					printf("\r                                                                           ");
@@ -11009,7 +11009,7 @@ double *log_likelihood)
 			}
 
 			sum_ker = 0.0;
-			sum_ker_marginal = FLT_MIN;
+			sum_ker_marginal = DBL_MIN;
 
 			for(i=0; i < num_obs_train; i++)
 			{
@@ -11064,13 +11064,13 @@ double *log_likelihood)
 
 			pdf_stderr[j] = ((num_reg_continuous != 0) ? sqrt(pdf[j]*K_INT_KERNEL_P/prod_h) : sqrt(pdf[j]/prod_h));
 
-			if(pdf[j] > FLT_MIN)
+			if(pdf[j] > DBL_MIN)
 			{
 				*log_likelihood += log(pdf[j]);
 			}
 			else
 			{
-				*log_likelihood += log_FLT_MIN;
+				*log_likelihood += log_DBL_MIN;
 				if(int_VERBOSE == 1)
 				{
 					printf("\r                                                                           ");
@@ -11088,7 +11088,7 @@ double *log_likelihood)
 		{
 		  R_CheckUserInterrupt();
 			sum_ker = sum_ker_temp = 0.0;
-			sum_ker_marginal = FLT_MIN;
+			sum_ker_marginal = DBL_MIN;
 
 			for(i=0; i < num_obs_train; i++)
 			{
@@ -11160,13 +11160,13 @@ double *log_likelihood)
 
 			pdf_stderr[j] = ((num_reg_continuous != 0) ? sqrt(sum_ker_temp*K_INT_KERNEL_P/sum_ker_marginal) : sqrt(sum_ker_temp/sum_ker_marginal));
 
-			if(pdf[j] > FLT_MIN)
+			if(pdf[j] > DBL_MIN)
 			{
 				*log_likelihood += log(pdf[j]);
 			}
 			else
 			{
-				*log_likelihood += log_FLT_MIN;
+				*log_likelihood += log_DBL_MIN;
 				if(int_VERBOSE == 1)
 				{
 					printf("\r                                                                           ");
@@ -11201,7 +11201,7 @@ double *log_likelihood)
 			}
 
 			sum_ker = 0.0;
-			sum_ker_marginal = FLT_MIN;
+			sum_ker_marginal = DBL_MIN;
 
 			for(i=0; i < num_obs_train; i++)
 			{
@@ -11256,13 +11256,13 @@ double *log_likelihood)
 
 			pdf_stderr[j-my_rank*stride] = ((num_reg_continuous != 0) ? sqrt(pdf[j-my_rank*stride]*K_INT_KERNEL_P/prod_h) : sqrt(pdf[j-my_rank*stride]/prod_h));
 
-			if(pdf[j-my_rank*stride] > FLT_MIN)
+			if(pdf[j-my_rank*stride] > DBL_MIN)
 			{
 				log_likelihood_MPI += log(pdf[j-my_rank*stride]);
 			}
 			else
 			{
-				log_likelihood_MPI += log_FLT_MIN;
+				log_likelihood_MPI += log_DBL_MIN;
 				if(int_VERBOSE == 1)
 				{
 					printf("\r                                                                           ");
@@ -11287,7 +11287,7 @@ double *log_likelihood)
 			}
 
 			sum_ker = 0.0;
-			sum_ker_marginal = FLT_MIN;
+			sum_ker_marginal = DBL_MIN;
 
 			for(i=0; i < num_obs_train; i++)
 			{
@@ -11342,13 +11342,13 @@ double *log_likelihood)
 
 			pdf_stderr[j-my_rank*stride] = ((num_reg_continuous != 0) ? sqrt(pdf[j-my_rank*stride]*K_INT_KERNEL_P/prod_h) : sqrt(pdf[j-my_rank*stride]/prod_h));
 
-			if(pdf[j-my_rank*stride] > FLT_MIN)
+			if(pdf[j-my_rank*stride] > DBL_MIN)
 			{
 				log_likelihood_MPI += log(pdf[j-my_rank*stride]);
 			}
 			else
 			{
-				log_likelihood_MPI += log_FLT_MIN;
+				log_likelihood_MPI += log_DBL_MIN;
 				if(int_VERBOSE == 1)
 				{
 					printf("\r                                                                           ");
@@ -11366,7 +11366,7 @@ double *log_likelihood)
 		{
 
 			sum_ker = sum_ker_temp = 0.0;
-			sum_ker_marginal = FLT_MIN;
+			sum_ker_marginal = DBL_MIN;
 
 			for(i=0; i < num_obs_train; i++)
 			{
@@ -11437,13 +11437,13 @@ double *log_likelihood)
 
 			pdf_stderr[j-my_rank*stride] = ((num_reg_continuous != 0) ? sqrt(sum_ker_temp*K_INT_KERNEL_P/sum_ker_marginal) : sqrt(sum_ker_temp/sum_ker_marginal));
 
-			if(pdf[j-my_rank*stride] > FLT_MIN)
+			if(pdf[j-my_rank*stride] > DBL_MIN)
 			{
 				log_likelihood_MPI += log(pdf[j-my_rank*stride]);
 			}
 			else
 			{
-				log_likelihood_MPI += log_FLT_MIN;
+				log_likelihood_MPI += log_DBL_MIN;
 				if(int_VERBOSE == 1)
 				{
 					printf("\r                                                                           ");
@@ -11607,7 +11607,7 @@ int itmax)
 		{
 		  R_CheckUserInterrupt();
 			sum_ker = 0.0;
-			sum_ker_marginal = FLT_MIN;
+			sum_ker_marginal = DBL_MIN;
 
 			for(i=0; i < num_obs_train; i++)
 			{
@@ -11670,7 +11670,7 @@ int itmax)
 		{
 		  R_CheckUserInterrupt();
 			sum_ker = 0.0;
-			sum_ker_marginal = FLT_MIN;
+			sum_ker_marginal = DBL_MIN;
 
 			for(i=0; i < num_obs_train; i++)
 			{
@@ -11733,7 +11733,7 @@ int itmax)
 		{
 		  R_CheckUserInterrupt();
 			sum_ker = 0.0;
-			sum_ker_marginal = FLT_MIN;
+			sum_ker_marginal = DBL_MIN;
 
 			for(i=0; i < num_obs_train; i++)
 			{
@@ -11807,7 +11807,7 @@ int itmax)
 		{
 
 			sum_ker = 0.0;
-			sum_ker_marginal = FLT_MIN;
+			sum_ker_marginal = DBL_MIN;
 
 			for(i=0; i < num_obs_train; i++)
 			{
@@ -11870,7 +11870,7 @@ int itmax)
 		{
 
 			sum_ker = 0.0;
-			sum_ker_marginal = FLT_MIN;
+			sum_ker_marginal = DBL_MIN;
 
 			for(i=0; i < num_obs_train; i++)
 			{
@@ -11933,7 +11933,7 @@ int itmax)
 		{
 
 			sum_ker = 0.0;
-			sum_ker_marginal = FLT_MIN;
+			sum_ker_marginal = DBL_MIN;
 
 			for(i=0; i < num_obs_train; i++)
 			{
@@ -12127,7 +12127,7 @@ int itmax)
 		{
 
 			sum_ker = 0.0;
-			sum_ker_marginal = FLT_MIN;
+			sum_ker_marginal = DBL_MIN;
 
 			for(i=0; i < num_obs_train; i++)
 			{
@@ -12190,7 +12190,7 @@ int itmax)
 		{
 
 			sum_ker = 0.0;
-			sum_ker_marginal = FLT_MIN;
+			sum_ker_marginal = DBL_MIN;
 
 			for(i=0; i < num_obs_train; i++)
 			{
@@ -12253,7 +12253,7 @@ int itmax)
 		{
 
 			sum_ker = 0.0;
-			sum_ker_marginal = FLT_MIN;
+			sum_ker_marginal = DBL_MIN;
 
 			for(i=0; i < num_obs_train; i++)
 			{
@@ -12406,7 +12406,7 @@ double *log_likelihood)
 	/* Difference between int K(z)^p and int K(z-.5)K(z+.5) */
 	double DIFF_KER_PPM;
 
-	double log_FLT_MIN = log(FLT_MIN);
+	double log_DBL_MIN = log(DBL_MIN);
 
 	#ifdef MPI
 	double log_likelihood_MPI;
@@ -12504,7 +12504,7 @@ double *log_likelihood)
 			}
 
 			sum_ker = 0.0;
-			sum_ker_marginal = FLT_MIN;
+			sum_ker_marginal = DBL_MIN;
 
 			for(l = 0; l < num_reg_continuous; l++)
 			{
@@ -12595,13 +12595,13 @@ double *log_likelihood)
 
 			pdf_stderr[j] = ((num_reg_continuous != 0) ? sqrt(pdf[j]*K_INT_KERNEL_P/prod_h) : sqrt(pdf[j]/prod_h));
 
-			if(pdf[j] > FLT_MIN)
+			if(pdf[j] > DBL_MIN)
 			{
 				*log_likelihood += log(pdf[j]);
 			}
 			else
 			{
-				*log_likelihood += log_FLT_MIN;
+				*log_likelihood += log_DBL_MIN;
 				if(int_VERBOSE == 1)
 				{
 					printf("\r                                                                           ");
@@ -12647,7 +12647,7 @@ double *log_likelihood)
 			}
 
 			sum_ker = 0.0;
-			sum_ker_marginal = FLT_MIN;
+			sum_ker_marginal = DBL_MIN;
 
 			for(l = 0; l < num_reg_continuous; l++)
 			{
@@ -12738,13 +12738,13 @@ double *log_likelihood)
 
 			pdf_stderr[j] = ((num_reg_continuous != 0) ? sqrt(pdf[j]*K_INT_KERNEL_P/prod_h) : sqrt(pdf[j]/prod_h));
 
-			if(pdf[j] > FLT_MIN)
+			if(pdf[j] > DBL_MIN)
 			{
 				*log_likelihood += log(pdf[j]);
 			}
 			else
 			{
-				*log_likelihood += log_FLT_MIN;
+				*log_likelihood += log_DBL_MIN;
 				if(int_VERBOSE == 1)
 				{
 					printf("\r                                                                           ");
@@ -12783,7 +12783,7 @@ double *log_likelihood)
 		{
 		  R_CheckUserInterrupt();
 			sum_ker = sum_ker_temp = 0.0;
-			sum_ker_marginal = FLT_MIN;
+			sum_ker_marginal = DBL_MIN;
 
 			for(l = 0; l < num_reg_continuous; l++)
 			{
@@ -12881,13 +12881,13 @@ double *log_likelihood)
 
 			pdf_stderr[j] = ((num_reg_continuous != 0) ? sqrt(sum_ker_temp*K_INT_KERNEL_P/sum_ker_marginal) : sqrt(sum_ker_temp/sum_ker_marginal));
 
-			if(pdf[j] > FLT_MIN)
+			if(pdf[j] > DBL_MIN)
 			{
 				*log_likelihood += log(pdf[j]);
 			}
 			else
 			{
-				*log_likelihood += log_FLT_MIN;
+				*log_likelihood += log_DBL_MIN;
 				if(int_VERBOSE == 1)
 				{
 					printf("\r                                                                           ");
@@ -12943,7 +12943,7 @@ double *log_likelihood)
 			}
 
 			sum_ker = 0.0;
-			sum_ker_marginal = FLT_MIN;
+			sum_ker_marginal = DBL_MIN;
 
 			for(l = 0; l < num_reg_continuous; l++)
 			{
@@ -13034,13 +13034,13 @@ double *log_likelihood)
 
 			pdf_stderr[j-my_rank*stride] = ((num_reg_continuous != 0) ? sqrt(pdf[j-my_rank*stride]*K_INT_KERNEL_P/prod_h) : sqrt(pdf[j-my_rank*stride]/prod_h));
 
-			if(pdf[j-my_rank*stride] > FLT_MIN)
+			if(pdf[j-my_rank*stride] > DBL_MIN)
 			{
 				log_likelihood_MPI += log(pdf[j-my_rank*stride]);
 			}
 			else
 			{
-				log_likelihood_MPI += log_FLT_MIN;
+				log_likelihood_MPI += log_DBL_MIN;
 				if((int_VERBOSE == 1)&&(my_rank == 0))
 				{
 					printf("\r                                                                           ");
@@ -13086,7 +13086,7 @@ double *log_likelihood)
 			}
 
 			sum_ker = 0.0;
-			sum_ker_marginal = FLT_MIN;
+			sum_ker_marginal = DBL_MIN;
 
 			for(l = 0; l < num_reg_continuous; l++)
 			{
@@ -13177,13 +13177,13 @@ double *log_likelihood)
 
 			pdf_stderr[j-my_rank*stride] = ((num_reg_continuous != 0) ? sqrt(pdf[j-my_rank*stride]*K_INT_KERNEL_P/prod_h) : sqrt(pdf[j-my_rank*stride]/prod_h));
 
-			if(pdf[j-my_rank*stride] > FLT_MIN)
+			if(pdf[j-my_rank*stride] > DBL_MIN)
 			{
 				log_likelihood_MPI += log(pdf[j-my_rank*stride]);
 			}
 			else
 			{
-				log_likelihood_MPI += log_FLT_MIN;
+				log_likelihood_MPI += log_DBL_MIN;
 				if((int_VERBOSE == 1)&&(my_rank == 0))
 				{
 					printf("\r                                                                           ");
@@ -13222,7 +13222,7 @@ double *log_likelihood)
 		{
 
 			sum_ker = sum_ker_temp = 0.0;
-			sum_ker_marginal = FLT_MIN;
+			sum_ker_marginal = DBL_MIN;
 
 			for(l = 0; l < num_reg_continuous; l++)
 			{
@@ -13320,13 +13320,13 @@ double *log_likelihood)
 
 			pdf_stderr[j-my_rank*stride] = ((num_reg_continuous != 0) ? sqrt(sum_ker_temp*K_INT_KERNEL_P/sum_ker_marginal) : sqrt(sum_ker_temp/sum_ker_marginal));
 
-			if(pdf[j-my_rank*stride] > FLT_MIN)
+			if(pdf[j-my_rank*stride] > DBL_MIN)
 			{
 				log_likelihood_MPI += log(pdf[j-my_rank*stride]);
 			}
 			else
 			{
-				log_likelihood_MPI += log_FLT_MIN;
+				log_likelihood_MPI += log_DBL_MIN;
 				if((int_VERBOSE == 1)&&(my_rank == 0))
 				{
 					printf("\r                                                                           ");
@@ -14050,7 +14050,7 @@ int itmax)
 		{
 		  R_CheckUserInterrupt();
 			sum_ker = 0.0;
-			sum_ker_marginal = FLT_MIN;
+			sum_ker_marginal = DBL_MIN;
 
 			for(l = 0; l < num_reg_continuous; l++)
 			{
@@ -14169,7 +14169,7 @@ int itmax)
 		{
 		  R_CheckUserInterrupt();
 			sum_ker = 0.0;
-			sum_ker_marginal = FLT_MIN;
+			sum_ker_marginal = DBL_MIN;
 
 			for(l = 0; l < num_reg_continuous; l++)
 			{
@@ -14288,7 +14288,7 @@ int itmax)
 		{
 		  R_CheckUserInterrupt();
 			sum_ker = 0.0;
-			sum_ker_marginal = FLT_MIN;
+			sum_ker_marginal = DBL_MIN;
 
 			for(l = 0; l < num_reg_continuous; l++)
 			{
@@ -14418,7 +14418,7 @@ int itmax)
 		{
 
 			sum_ker = 0.0;
-			sum_ker_marginal = FLT_MIN;
+			sum_ker_marginal = DBL_MIN;
 
 			for(l = 0; l < num_reg_continuous; l++)
 			{
@@ -14537,7 +14537,7 @@ int itmax)
 		{
 
 			sum_ker = 0.0;
-			sum_ker_marginal = FLT_MIN;
+			sum_ker_marginal = DBL_MIN;
 
 			for(l = 0; l < num_reg_continuous; l++)
 			{
@@ -14656,7 +14656,7 @@ int itmax)
 		{
 
 			sum_ker = 0.0;
-			sum_ker_marginal = FLT_MIN;
+			sum_ker_marginal = DBL_MIN;
 
 			for(l = 0; l < num_reg_continuous; l++)
 			{
@@ -15943,7 +15943,7 @@ double *cv)
 
 				sum_ker = 0.0;
 				sum_ker_convol = 0.0;
-				sum_ker_marginal = FLT_MIN;
+				sum_ker_marginal = DBL_MIN;
 
 				for(i=0; i < num_obs; i++)
 				{
@@ -16067,7 +16067,7 @@ double *cv)
 						printf("\r                                                                           ");
 						printf("\r** Trimming binding in kernel_estimate_con_density_categorical_convolution_cv()");
 					}
-					*cv += FLT_MAX;
+					*cv += DBL_MAX;
 				}
 
 			}
@@ -16087,7 +16087,7 @@ double *cv)
 
 				sum_ker = 0.0;
 				sum_ker_convol = 0.0;
-				sum_ker_marginal = FLT_MIN;
+				sum_ker_marginal = DBL_MIN;
 
 				for(i=0; i < num_obs; i++)
 				{
@@ -16211,7 +16211,7 @@ double *cv)
 						printf("\r                                                                           ");
 						printf("\r** Trimming binding in kernel_estimate_con_density_categorical_convolution_cv()");
 					}
-					*cv += FLT_MAX;
+					*cv += DBL_MAX;
 				}
 
 			}
@@ -16231,7 +16231,7 @@ double *cv)
 
 				sum_ker = 0.0;
 				sum_ker_convol = 0.0;
-				sum_ker_marginal = FLT_MIN;
+				sum_ker_marginal = DBL_MIN;
 
 				for(i=0; i < num_obs; i++)
 				{
@@ -16355,7 +16355,7 @@ double *cv)
 						printf("\r                                                                           ");
 						printf("\r** Trimming binding in kernel_estimate_con_density_categorical_convolution_cv()");
 					}
-					*cv += FLT_MAX;
+					*cv += DBL_MAX;
 				}
 
 			}
@@ -16414,7 +16414,7 @@ double *cv)
 
 			sum_ker = 0.0;
 			sum_ker_convol = 0.0;
-			sum_ker_marginal = FLT_MIN;
+			sum_ker_marginal = DBL_MIN;
 
 			pointer_k_xy = &matrix_weights_K_xy[j][0];
 			pointer_k_x = &matrix_weights_K_x[j][0];
@@ -16471,7 +16471,7 @@ double *cv)
 					printf("\r                                                                           ");
 					printf("\r** Trimming binding in kernel_estimate_con_density_categorical_convolution_cv()");
 				}
-				*cv += FLT_MAX;
+				*cv += DBL_MAX;
 			}
 
 		}
@@ -16508,7 +16508,7 @@ double *cv)
 
 				sum_ker = 0.0;
 				sum_ker_convol = 0.0;
-				sum_ker_marginal = FLT_MIN;
+				sum_ker_marginal = DBL_MIN;
 
 				for(i=0; i < num_obs; i++)
 				{
@@ -16632,7 +16632,7 @@ double *cv)
 						printf("\r                                                                           ");
 						printf("\r** Trimming binding in kernel_estimate_con_density_categorical_convolution_cv()");
 					}
-					cv_MPI += FLT_MAX;
+					cv_MPI += DBL_MAX;
 				}
 
 			}
@@ -16652,7 +16652,7 @@ double *cv)
 
 				sum_ker = 0.0;
 				sum_ker_convol = 0.0;
-				sum_ker_marginal = FLT_MIN;
+				sum_ker_marginal = DBL_MIN;
 
 				for(i=0; i < num_obs; i++)
 				{
@@ -16776,7 +16776,7 @@ double *cv)
 						printf("\r                                                                           ");
 						printf("\r** Trimming binding in kernel_estimate_con_density_categorical_convolution_cv()");
 					}
-					cv_MPI += FLT_MAX;
+					cv_MPI += DBL_MAX;
 				}
 
 			}
@@ -16796,7 +16796,7 @@ double *cv)
 
 				sum_ker = 0.0;
 				sum_ker_convol = 0.0;
-				sum_ker_marginal = FLT_MIN;
+				sum_ker_marginal = DBL_MIN;
 
 				for(i=0; i < num_obs; i++)
 				{
@@ -16920,7 +16920,7 @@ double *cv)
 						printf("\r                                                                           ");
 						printf("\r** Trimming binding in kernel_estimate_con_density_categorical_convolution_cv()");
 					}
-					cv_MPI += FLT_MAX;
+					cv_MPI += DBL_MAX;
 				}
 
 			}
@@ -16979,7 +16979,7 @@ double *cv)
 
 			sum_ker = 0.0;
 			sum_ker_convol = 0.0;
-			sum_ker_marginal = FLT_MIN;
+			sum_ker_marginal = DBL_MIN;
 
 			pointer_k_xy = &matrix_weights_K_xy[j][0];
 			pointer_k_x = &matrix_weights_K_x[j][0];
@@ -17036,7 +17036,7 @@ double *cv)
 					printf("\r                                                                           ");
 					printf("\r** Trimming binding in kernel_estimate_con_density_categorical_convolution_cv()");
 				}
-				cv_MPI += FLT_MAX;
+				cv_MPI += DBL_MAX;
 			}
 
 		}
@@ -17723,7 +17723,7 @@ int *num_categories)
 	double **matrix_bandwidth;
 
 	double temp;
-	double temp1 = FLT_MAX;
+	double temp1 = DBL_MAX;
 
 	MATRIX  XTKX;
 	MATRIX  XTKXINV;
@@ -17736,7 +17736,7 @@ int *num_categories)
 	int num_reg_cat_cont;
 
 	double *mean;
-	double prod_kernel_i_eq_j = FLT_MAX;
+	double prod_kernel_i_eq_j = DBL_MAX;
 	double trace_H = 0.0;
 	double aic_c = 0.0;
 	double sigmasq = 0.0;
@@ -17800,7 +17800,7 @@ int *num_categories)
 			free(lambda);
 			free_mat(matrix_bandwidth,num_reg_continuous);
 
-			return(FLT_MAX);
+			return(DBL_MAX);
 		}
 
 		if(BANDWIDTH_reg == 0)
@@ -17812,7 +17812,7 @@ int *num_categories)
 			{
 			  R_CheckUserInterrupt();
 				sum_y_ker = 0.0;
-				sum_ker = FLT_MIN;
+				sum_ker = DBL_MIN;
 
 				pointer_yi = &vector_Y[0];
 
@@ -17860,7 +17860,7 @@ int *num_categories)
 						printf("\r                                                                                        ");
 						printf("\r** sum_ker[%d]==0.0 in kernel_regression_categorical_aic()",j);
 					}
-					return(FLT_MAX);
+					return(DBL_MAX);
 				}
 
 			}
@@ -17875,7 +17875,7 @@ int *num_categories)
 			{
 			  R_CheckUserInterrupt();
 				sum_y_ker = 0.0;
-				sum_ker = FLT_MIN;
+				sum_ker = DBL_MIN;
 
 				pointer_yi = &vector_Y[0];
 
@@ -17923,7 +17923,7 @@ int *num_categories)
 						printf("\r                                                                                        ");
 						printf("\r** sum_ker[%d]==0.0 in kernel_regression_categorical_aic()",j);
 					}
-					return(FLT_MAX);
+					return(DBL_MAX);
 				}
 
 			}
@@ -17938,7 +17938,7 @@ int *num_categories)
 			{
 			  R_CheckUserInterrupt();
 				sum_y_ker = 0.0;
-				sum_ker = FLT_MIN;
+				sum_ker = DBL_MIN;
 
 				pointer_yi = &vector_Y[0];
 
@@ -17986,7 +17986,7 @@ int *num_categories)
 						printf("\r                                                                                        ");
 						printf("\r** sum_ker[%d]==0.0 in kernel_regression_categorical_aic()",j);
 					}
-					return(FLT_MAX);
+					return(DBL_MAX);
 				}
 
 			}
@@ -18035,7 +18035,7 @@ int *num_categories)
 			free(lambda);
 			free_mat(matrix_bandwidth,num_reg_continuous);
 
-			return(FLT_MAX);
+			return(DBL_MAX);
 
 		}
 
@@ -18621,7 +18621,7 @@ int *num_categories)
 			free(lambda);
 			free_mat(matrix_bandwidth,num_reg_continuous);
 
-			return(FLT_MAX);
+			return(DBL_MAX);
 		}
 
 		if(BANDWIDTH_reg == 0)
@@ -18631,7 +18631,7 @@ int *num_categories)
 			{
 
 				sum_y_ker = 0.0;
-				sum_ker = FLT_MIN;
+				sum_ker = DBL_MIN;
 
 				pointer_yi = &vector_Y[0];
 
@@ -18680,7 +18680,7 @@ int *num_categories)
 						printf("\r                                                                                        ");
 						printf("\r** sum_ker[%d]==0.0 in kernel_regression_categorical_aic()",j);
 					}
-					return(FLT_MAX);
+					return(DBL_MAX);
 				}
 
 			}
@@ -18693,7 +18693,7 @@ int *num_categories)
 			{
 
 				sum_y_ker = 0.0;
-				sum_ker = FLT_MIN;
+				sum_ker = DBL_MIN;
 
 				pointer_yi = &vector_Y[0];
 
@@ -18742,7 +18742,7 @@ int *num_categories)
 						printf("\r                                                                                        ");
 						printf("\r** sum_ker[%d]==0.0 in kernel_regression_categorical_aic()",j);
 					}
-					return(FLT_MAX);
+					return(DBL_MAX);
 				}
 
 			}
@@ -18754,7 +18754,7 @@ int *num_categories)
 			for(j=my_rank*stride; (j < num_obs) && (j < (my_rank+1)*stride); j++)
 			{
 				sum_y_ker = 0.0;
-				sum_ker = FLT_MIN;
+				sum_ker = DBL_MIN;
 
 				pointer_yi = &vector_Y[0];
 
@@ -18803,7 +18803,7 @@ int *num_categories)
 						printf("\r                                                                                        ");
 						printf("\r** sum_ker[%d]==0.0 in kernel_regression_categorical_aic()",j);
 					}
-					return(FLT_MAX);
+					return(DBL_MAX);
 				}
 
 			}
@@ -18855,7 +18855,7 @@ int *num_categories)
 			free(lambda);
 			free_mat(matrix_bandwidth,num_reg_continuous);
 
-			return(FLT_MAX);
+			return(DBL_MAX);
 
 		}
 
@@ -19426,7 +19426,7 @@ int *num_categories)
 	}
 	else
 	{
-		return(FLT_MAX);
+		return(DBL_MAX);
 	}
 
 }

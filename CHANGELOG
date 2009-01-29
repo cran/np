@@ -1,3 +1,28 @@
+Changes from Version 0.30-0 to 0.30-1 [29-Jan-2009]
+
+* predict now supports bandwidth, density, distribution, conbandwidth,
+  condensity, and condistribution objects
+
+* Consistently allow predictions for categorical values outside of
+  support of training data
+
+  Note that predictions based upon unconditional density objects
+  defined over categorical variables that lie outside the support of
+  the training data may no longer be true probabilities (i.e., as
+  defined over the training data and the extended/augmented support --
+  their sum may exceed one) and may therefore require renormalization
+  by the user 
+
+* Fixed a numerical issue which could hinder npregbw()'s cross
+  validation with higher-order kernels
+
+* Default nmulti in npplregbw() is now set correctly
+
+* Fixed a bug with the ridging routine in npscoefbw(), added ridging to
+  npscoef
+
+* Fixed trivial i/o issue with "Multistart 1 of" using npscoefbw()
+
 Changes from Version 0.20-4 to 0.30-0 [15-Jan-2009]
 
 * Added basic user-interrupt checking for all underlying C code so
@@ -9,7 +34,7 @@ Changes from Version 0.20-4 to 0.30-0 [15-Jan-2009]
   buffered output now being correctly displayed when using Rgui under
   Windows and Mac OS X
 
-* Note that repeated interruption of large jobs can reduce available
+  Note that repeated interruption of large jobs can reduce available
   memory under R - if this becomes an issue (i.e., you get a `cannot
   allocate...' error under R) simply restart R (i.e., exit then run a
   fresh R session)
@@ -17,7 +42,7 @@ Changes from Version 0.20-4 to 0.30-0 [15-Jan-2009]
 * Added a function npseed() that allows the user to set/reset the
   random seed for all underlying C routines
 
-* Corrected a bug that caused npplregbw() to ignore any kernel options
+* Fixed a bug that caused npplregbw() to ignore any kernel options
   for the regression of y on z
 
 * Refined certain constants used in the normal-reference density
@@ -42,10 +67,10 @@ Changes from Version 0.20-3 to 0.20-4 [19-Nov-2008]
 
 Changes from Version 0.20-2 to 0.20-3 [14-Nov-2008]
 
-* Fixed a typo which caused predict and plot to abort when called on
-  plregression objects, and which also prevented print() and summary()
-  from printing information about the kernels used when called on
-  plregression objects
+* Fixed a typo which caused predict() and plot() to abort when called
+  on plregression objects, and which also prevented print() and
+  summary() from printing information about the kernels used when
+  called on plregression objects
 
 * Fixed a typo which caused partially linear regressions to crash when
   out-of-sample responses were provided with evaluation data
@@ -150,8 +175,8 @@ Changes from Version 0.13-1 to 0.14-1 [18-Dec-2007]
 * New, faster algorithm for least-squares cross-validation for both
   local-constant and local linear regressions
 
-* NB: The estimator has changed somewhat: both cross-validation and
-  the estimator itself use a method of shrinking towards the local
+  Note that the estimator has changed somewhat: both cross-validation
+  and the estimator itself use a method of shrinking towards the local
   constant estimator when singularity would otherwise lead to the
   breakdown of the estimator. This arises in sparse data settings in
   conjunction with small bandwidths for one or more regressor

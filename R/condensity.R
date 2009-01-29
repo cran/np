@@ -83,6 +83,16 @@ gradients.condensity <- function(x, errors = FALSE, ...) {
     return(x$congerr)
 }
 
+predict.condensity <- function(object, se.fit = FALSE, ...) {
+  tr <- eval(npcdens(bws = object$bws, ...), env = parent.frame())
+  if(se.fit)
+    return(list(fit = fitted(tr), se.fit = se(tr), 
+                df = tr$nobs, log.likelihood = tr$ll))
+  else
+    return(fitted(tr))
+}
+
+
 plot.condensity <- function(x, ...) { npplot(bws = x$bws, ...) }
 
 summary.condensity <- function(object, ...){

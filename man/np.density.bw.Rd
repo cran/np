@@ -290,7 +290,7 @@ npudensbw(\dots)
   element \eqn{i} corresponding to column \eqn{i} of input data
   \code{dat}.
 
-  The functions \code{\link{summary}} and \code{\link{plot}} support
+  The functions  \code{\link{predict}}, \code{\link{summary}} and \code{\link{plot}} support
   objects of type \code{bandwidth}.
 }
 \references{

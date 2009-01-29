@@ -116,7 +116,7 @@ npplregbw.plbandwidth =
     ## z is n x p
 
     if (missing(nmulti)){
-      nmulti <- min(5,max(dim(xdat)[2], dim(zdat)[2]))
+      nmulti <- min(5,dim(zdat)[2])
     }
     
     xdat = toFrame(xdat)

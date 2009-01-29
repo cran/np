@@ -62,6 +62,15 @@ fitted.npdistribution <- function(object, ...){
 se.npdistribution <- function(x){ x$derr }
 plot.npdistribution <- function(x, ...) { npplot(bws = x$bws, ...) }
 
+predict.npdistribution <- function(object, se.fit = FALSE, ...) {
+  tr <- eval(npudist(bws = object$bws, ...), env = parent.frame())
+  if(se.fit)
+    return(list(fit = fitted(tr), se.fit = se(tr), 
+                df = tr$nobs))
+  else
+    return(fitted(tr))
+}
+
 summary.npdistribution <- function(object, ...) {
   cat("\nDistribution Data: ", object$ntrain, " training points,",
       ifelse(object$trainiseval, "", paste(" and ", object$nobs,

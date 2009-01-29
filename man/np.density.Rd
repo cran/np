@@ -117,7 +117,7 @@ npudens(bws, \dots)
   \code{\link{npudist}} returns a \code{npdistribution} object. The generic
   accessor functions \code{\link{fitted}}, and \code{\link{se}}, extract estimated
   values and asymptotic standard errors on estimates, respectively, from
-  the returned object. Furthermore, the functions \code{\link{summary}}
+  the returned object. Furthermore, the functions \code{\link{predict}}, \code{\link{summary}}
   and \code{\link{plot}} support objects of both classes. The returned objects
   have the following components:
 

@@ -79,8 +79,8 @@ double **matrix_bandwidth_deriv)
 
 	double temp_inv;
 
-	double temp_pow1 = FLT_MAX;
-	double temp_pow2 = FLT_MAX;
+	double temp_pow1 = DBL_MAX;
+	double temp_pow2 = DBL_MAX;
 
 	double *vec_sdev_x = NULL;
 	double *vec_sdev_y = NULL;
@@ -115,7 +115,7 @@ double **matrix_bandwidth_deriv)
 
 			vec_sdev_x[i] = standerrd(num_obs_train, matrix_X_train[i]);
 
-			if(vec_sdev_x[i] <= FLT_MIN)
+			if(vec_sdev_x[i] <= DBL_MIN)
 			{
 #ifdef MPI
 				if(my_rank == 0) {
@@ -137,7 +137,7 @@ double **matrix_bandwidth_deriv)
 
 			vec_sdev_y[i] = standerrd(num_obs_train, matrix_Y_train[i]);
 
-			if(vec_sdev_y[i] <= FLT_MIN)
+			if(vec_sdev_y[i] <= DBL_MIN)
 			{
 #ifdef MPI
 				if(my_rank == 0) {
@@ -542,7 +542,7 @@ double *vector_lambda)
 	int i;
 	int j;
 
-	double temp_pow = FLT_MAX;
+	double temp_pow = DBL_MAX;
 
 	double temp_inv;
 
@@ -579,7 +579,7 @@ fact constant. */
 
 			vec_sdev_x[i] = standerrd(num_obs_train, matrix_X_train[i]);
 
-			if(vec_sdev_x[i] <= FLT_MIN)
+			if(vec_sdev_x[i] <= DBL_MIN)
 			{
 #ifdef MPI
 				if(my_rank == 0) {
@@ -601,7 +601,7 @@ fact constant. */
 
 			vec_sdev_y[i] = standerrd(num_obs_train, matrix_Y_train[i]);
 
-			if(vec_sdev_y[i] <= FLT_MIN)
+			if(vec_sdev_y[i] <= DBL_MIN)
 			{
 #ifdef MPI
 				if(my_rank == 0) {

@@ -138,8 +138,8 @@ npcdist.conbandwidth <-
     tydat <- adjustLevels(tydat, bws$ydati)
     
     if (!no.exy){
-      exdat <- adjustLevels(exdat, bws$xdati)
-      eydat <- adjustLevels(eydat, bws$ydati)
+      exdat <- adjustLevels(exdat, bws$xdati, allowNewCells = TRUE)
+      eydat <- adjustLevels(eydat, bws$ydati, allowNewCells = TRUE)
     }
 
     ## grab the evaluation data before it is converted to numeric

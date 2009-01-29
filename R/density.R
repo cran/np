@@ -64,6 +64,16 @@ fitted.npdensity <- function(object, ...){
 se.npdensity <- function(x){ x$derr }
 plot.npdensity <- function(x, ...) { npplot(bws = x$bws, ...) }
 
+predict.npdensity <- function(object, se.fit = FALSE, ...) {
+  tr <- eval(npudens(bws = object$bws, ...), env = parent.frame())
+  if(se.fit)
+    return(list(fit = fitted(tr), se.fit = se(tr), 
+                df = tr$nobs, log.likelihood = tr$ll))
+  else
+    return(fitted(tr))
+}
+
+
 summary.npdensity <- function(object, ...) {
   cat("\nDensity Data: ", object$ntrain, " training points,",
       ifelse(object$trainiseval, "", paste(" and ", object$nobs,

@@ -925,7 +925,7 @@ void np_outer_weighted_sum(double * const * const mat_A, double * const sgn_A, c
     mat_B:&punit_weight;
 
   const double db = (bandwidth_divide ? dband : unit_weight);
-  double temp = FLT_MAX;
+  double temp = DBL_MAX;
 
   if (do_leave_one_out) {
     temp = weights[which_k];
@@ -1609,7 +1609,7 @@ double *cv){
 
   for(j = 0; j < num_obs; j++){
     if(sum_ker_marginalf[j] <= 0.0){
-      *cv = FLT_MAX;
+      *cv = DBL_MAX;
       break;
     }
     *cv += (sum_ker_convolf[j]/sum_ker_marginalf[j]-2.0*sum_kerf[j])/sum_ker_marginalf[j];
@@ -1617,14 +1617,14 @@ double *cv){
 #else
   for(j = 0; j < num_obs; j++){
     if(sum_ker_marginal[j] <= 0.0){
-      *cv = FLT_MAX;
+      *cv = DBL_MAX;
       break;
     }
     *cv += (sum_ker_convol[j]/sum_ker_marginal[j]-2.0*sum_ker[j])/sum_ker_marginal[j];
   }
 
 #endif
-  if (*cv != FLT_MAX)
+  if (*cv != DBL_MAX)
     *cv /= (double) num_obs;
     
   free(lambda);
@@ -1714,7 +1714,7 @@ int *num_categories){
     free(lambda);
     free_mat(matrix_bandwidth,num_reg_continuous);
     
-    return(FLT_MAX);
+    return(DBL_MAX);
   }
 
 
@@ -1808,13 +1808,13 @@ int *num_categories){
 
     for(int ii = 0; ii < num_obs; ii++){
       const int ii2 = 2*ii;
-      const double sk = (MAX(FLT_MIN, mean[ii2+1]));
+      const double sk = copysign(DBL_MIN, mean[ii2+1]) + mean[ii2+1];
       const double dy = vector_Y[ii]-mean[ii2]/sk;
       cv += dy*dy;
       if(bwm == RBWM_CVAIC)
         traceH += aicc/sk;
 
-      //fprintf(stderr,"mj: %e\n",mean[ii2]/(MAX(FLT_MIN, mean[ii2+1])));
+      //fprintf(stderr,"mj: %e\n",mean[ii2]/(MAX(DBL_MIN, mean[ii2+1])));
     }
 
 
@@ -2024,7 +2024,7 @@ int *num_categories){
       if(bwm == RBWM_CVAIC)
         traceH += XTKXINV[0][0]*aicc;
    
-      XTKY[0][0] += nepsilon*XTKY[0][0]/(MAX(FLT_MIN,KWM[0][0]));
+      XTKY[0][0] += nepsilon*XTKY[0][0]/(MAX(DBL_MIN,KWM[0][0]));
 
       DELTA = mat_mul(XTKXINV, XTKY, DELTA);
       const double dy = vector_Y[j]-DELTA[0][0];
