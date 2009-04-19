@@ -175,7 +175,7 @@ double standerrd(int n, double *vector)
 
     free(vector_temp);
 
-    if(IQR < DBL_MIN)
+    /*    if(IQR < DBL_MIN)
       {
         if(int_VERBOSE == 1)
           {
@@ -191,6 +191,7 @@ double standerrd(int n, double *vector)
           }
         return((double)0.0);
       }
+    */
 
     pi = &vector[0];
     
@@ -203,7 +204,6 @@ double standerrd(int n, double *vector)
     /* Jan 15 2009, no longer using ml estimate of variance */
     
     temp1 = (sumsq - ipow(sum,2)/(double)n)/((double)(n-1));
-
 
     if(temp1 > 0.0)
       {
@@ -227,16 +227,23 @@ double standerrd(int n, double *vector)
         return((double)0.0);
       }
 
-    /* Return min(std,IQR/1.348980) */
+    if(IQR > 0) {
+      /* Return min(std,IQR/1.348980) */
+      if(std < IQR/1.348980)
+	{
+	  return((double)std);
+	} 
+      else 
+	{
+	  return((double)IQR/1.348980);
+	}
 
-    if(std < IQR/1.348980)
-      {
-        return((double)std);
-      } 
-    else 
-      {
-        return((double)IQR/1.348980);
-      }
+    } else {
+      /* April 19 2009 - pathological case encountered when IQR is
+	 zero but std > 0. Rather than bombing out of R (we return
+	 min(std,IQR/1.348), in this case we return std. */
+      return((double)std);
+    }
 
 }
 

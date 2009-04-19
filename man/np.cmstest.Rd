@@ -47,7 +47,9 @@ npcmstest(formula,
     \code{\link{glm}}). Important: the 
     call to either \code{\link{glm}} or \code{\link{lm}} must have the arguments
     \code{x=TRUE} and 
-    \code{y=TRUE} or \code{npcmstest} will not work.
+    \code{y=TRUE} or \code{npcmstest} will not work. Also, the test is
+    based on residual bootstrapping hence the outcome must be continuous
+    (which rules out Logit, Probit, and Count models).
   }
 
   \item{xdat}{

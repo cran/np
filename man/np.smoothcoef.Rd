@@ -174,7 +174,7 @@ npscoef(bws, \dots)
 \value{
   \code{npscoef} returns a \code{smoothcoefficient} object.   The generic
   functions \code{\link{fitted}}, \code{\link{residuals}}, \code{\link{coef}},
-  \code{\link{se}}, \code{\link{predict}}, and
+  \code{\link{se}}, and \code{\link{predict}},
   extract (or generate) estimated values,
   residuals, coefficients, bootstrapped standard
   errors on estimates, and predictions, respectively, from

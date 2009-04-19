@@ -33,7 +33,7 @@ untangle <- function(frame){
   iuno <- unlist(lapply(frame, is.factor)) & !iord
   icon <- unlist(lapply(frame, is.numeric))
 
-  if(!all(iord | iuno | icon))
+  if(!all(iord | iuno | icon)) 
     stop("non-allowed data type in data frame")
 
   inumord <-
@@ -643,7 +643,8 @@ EssDee <- function(y){
     n <- ifelse(is.vector(y), length(y), nrow(y))
     IQR.vec <- sapply(1:ncol(as.data.frame(y)),function(i){IQR(as.data.frame(y)[,i])})/(qnorm(.25,lower.tail=F)*2)
     sd.vec <- sd(y)
-    t.ret <- ifelse(sd.vec<IQR.vec,sd.vec,IQR.vec)
+    ## April 19 2009 - test for IQR equal to zero
+    t.ret <- ifelse(sd.vec<IQR.vec|IQR.vec==0,sd.vec,IQR.vec)
   }
   return(t.ret)
 }

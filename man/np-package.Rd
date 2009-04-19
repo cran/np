@@ -52,7 +52,7 @@
   reason).  If you find this most natural for your project, you first
   create a data frame casting data according to their type (i.e., one of
   continuous (default, \code{\link{numeric}}), \code{\link{factor}},
-  \code{\link{ordered}}) Then you would simply pass this data frame to
+  \code{\link{ordered}}). Then you would simply pass this data frame to
   the appropriate \code{np} function, for example
   \code{npudensbw(dat=data)}.
 
