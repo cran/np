@@ -253,51 +253,7 @@ npscoef(bws, \dots)
   \code{\link{npudensbw}}, \code{\link{npscoefbw}} }
 
 \examples{
-# EXAMPLE 1 (INTERFACE=FORMULA): Typically, the variables z will be
-# equal to the regressors x, as in the following example.
-
-set.seed(12345)
-
-n <- 250
-x <- sort(runif(n,min=-2*pi,max=2*pi))
-y <- sin(x) + rnorm(n,sd = 0.2)
-
-bw <- npscoefbw(formula=y~x)
-
-model <- npscoef(bw)
-
-# We could manually plot fitted values and error bounds as follows:
-
-plot(x,y)
-lines(x,predict(model))
-lines(x,predict(model)-2*se(model),lty=2,col="red")
-lines(x,predict(model)+2*se(model),lty=2,col="red")
-
-\dontrun{
-
-# EXAMPLE 1 (INTERFACE=DATA FRAME): Typically, the variables z will be
-# equal to the regressors x, as in the following example.
-
-set.seed(12345)
-
-n <- 250
-x <- sort(runif(n,min=-2*pi,max=2*pi))
-y <- sin(x) + rnorm(n,sd = 0.2)
-
-bw <- npscoefbw(xdat=x, ydat=y)
-
-model <- npscoef(bw)
-
-# We could manually plot fitted values and error bounds as follows:
-
-plot(x,y)
-lines(x,predict(model))
-lines(x,predict(model)-2*se(model),lty=2,col="red")
-lines(x,predict(model)+2*se(model),lty=2,col="red")
-
-# EXAMPLE 2 (INTERFACE=FORMULA): We can handle z and x being different
-# (this would be useful in, say, a time series context where z might be
-# time yielding a time-varying smooth coefficient model).
+# EXAMPLE 1 (INTERFACE=FORMULA): 
 
 n <- 250
 x <- runif(n)
@@ -307,9 +263,8 @@ bw <- npscoefbw(y~x|z)
 model <- npscoef(bw)
 plot(model)
 
-# EXAMPLE 2 (INTERFACE=DATA FRAME): We can handle z and x being different
-# (this would be useful in, say, a time series context where z might be
-# time yielding a time-varying smooth coefficient model)
+\dontrun{
+# EXAMPLE 1 (INTERFACE=DATA FRAME): 
 
 n <- 250
 x <- runif(n)

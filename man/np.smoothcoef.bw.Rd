@@ -418,8 +418,7 @@ npscoefbw(\dots)
 \seealso{
   \code{\link{npregbw}}, \code{\link{npreg}} }
 \examples{
-# EXAMPLE 1 (INTERFACE=FORMULA): For this example, we compute a
-# smooth coefficient model with differing X and Z data
+# EXAMPLE 1 (INTERFACE=FORMULA): 
 
 n <- 100
 x <- runif(n)
@@ -429,9 +428,7 @@ bw <- npscoefbw(formula=y~x|z)
 summary(bw)
 
 \dontrun{
-
-# EXAMPLE 1 (INTERFACE=DATA FRAME): For this example, we compute a
-# smooth coefficient model with differing X and Z data
+# EXAMPLE 1 (INTERFACE=DATA FRAME): 
 
 n <- 100
 x <- runif(n)

@@ -520,60 +520,55 @@ double kernel_convol(int KERNEL, int BANDWIDTH, double z, double h1, double h2)
 
 /* Second Order Epanechnikov */
 
-				if (z_squared < 5.0)
-				{
-					return_value = 0.26832815729997476357-0.067082039324993690892*z_squared;
-				}
-				else
-				{
-					return_value = 0.0;
-				}
+/* Error pointed out by Alicia Pérez-Alonso and colleagues May 22
+   2009, previous version incorporated incorrect limits of
+   integration. Confirmed May 27 and incorporated. New version
+   requires additional test for negative and positive values, and
+   reflects limits of -2*sqrt(5) and 2*sqrt(5) rather than -sqrt(5)
+   and sqrt(5). Thanks ever so much Alicia! */
 
+        return((z_squared < 20.0) ? 
+               ((z < 0.0) ? 
+                (5.579734404642339E-9*(26883*ipow(z,5)-2688300*ipow(z,3)-12022443*z_squared+48089773)) : 
+                (-5.579734404642339E-9*(26883*ipow(z,5)-2688300*ipow(z,3)+12022443*z_squared-48089773)))
+               : 0.0);
+        
 				break;
 
 			case 5:
 
 /* Fourth Order Epanechnikov */
-				if (z_squared < 5.0)
-				{
-					return_value = 0.55901699437494742410-0.41926274578121056808*z_squared+0.058696784409369479531*ipow(z,4);
-				}
-				else
-				{
-					return_value = 0.0;
-				}
+
+        return((z_squared < 20.0) ? 
+               ((z < 0.0) ? 
+                (3.756009615384615e-9*(1456*ipow(z,9)-124800*ipow(z,7)+5491200*ipow(z,5)+15627432*ipow(z,4)-24960000*ipow(z,3)-111624513*z_squared+148832684))           :
+                (-3.756009615384615e-9*(1456*ipow(z,9)-124800*ipow(z,7)+5491200*ipow(z,5)-15627432*ipow(z,4)-24960000*ipow(z,3)+111624513*z_squared-148832684)))
+               : 0.0);
 
 				break;
 
 			case 6:
 
 /* Sixth Order Epanechnikov */
-				if (z_squared < 5.0)
-				{
-					return_value = 0.8465882368-0.1283992159E1*z_squared+0.4622371773*ipow(z,4)-0.4842484715E-1*ipow(z,6);
-				}
-				else
-				{
-					return_value = 0.0;
-				}
 
+        return((z_squared < 20.0) ? 
+               ((z < 0.0) ? 
+                (9.390024038461537E-11*(2079*ipow(z,13)-206388*ipow(z,11)+8867040*ipow(z,9)-255528000*ipow(z,7)-515705252*ipow(z,6)+1681680000*ipow(z,5)+4922641042*ipow(z,4)-3057600000*ipow(z,3)-13674002896*z_squared+9015826085)) :
+                (-9.390024038461537E-11*(2079*ipow(z,13)-206388*ipow(z,11)+8867040*ipow(z,9)-255528000*ipow(z,7)+515705252*ipow(z,6)+1681680000*ipow(z,5)-4922641042*ipow(z,4)-3057600000*ipow(z,3)+13674002896*z_squared-9015826085)))
+               : 0.0);
+        
 				break;
 
 			case 7:
 
 /* Eighth Order Epanechnikov */
-				if (z_squared < 5.0)
-				{
-					return_value = 0.692306253E-2*ipow(z,16)+0.1218459005E1*ipow(z,14)+0.7543494061E3
-						*ipow(z,8)+0.3946784693E2*ipow(z,12)+0.3328027507E3*ipow(z,10)+
-						0.3921504652E3*ipow(z,6)+0.2946762005E2*ipow(z,4)+0.1132934258E1;
 
-				}
-				else
-				{
-					return_value = 0.0;
-				}
-
+        return((z_squared < 20.0) ? 
+               ((z < 0.0) ? 
+                (1.121969784007353E-13*(63063*ipow(z,17)-7351344*ipow(z,15)+373222080*ipow(z,13)-11040382080*ipow(z,11)+241727270400*ipow(z,9)+350679571413*ipow(z,8)-1900039680000*ipow(z,7)-4208154856956*ipow(z,6)+5757696000000*ipow(z,5)+16994471537707*ipow(z,4)-5757696000000*ipow(z,3)-25749199299557*z_squared+10097725215512)) :
+                (-1.121969784007353E-13*(63063*ipow(z,17)-7351344*ipow(z,15)+373222080*ipow(z,13)-11040382080*ipow(z,11)+241727270400*ipow(z,9)-350679571413*ipow(z,8)-1900039680000*ipow(z,7)+4208154856956*ipow(z,6)+5757696000000*ipow(z,5)-16994471537707*ipow(z,4)-5757696000000*ipow(z,3)+25749199299557*z_squared-10097725215512)))
+               : 0.0);
+        
 				break;
 
 			case 8:
@@ -688,6 +683,7 @@ double kernel_convol(int KERNEL, int BANDWIDTH, double z, double h1, double h2)
 			case 4:
 
 /* Second Order Epanechnikov */
+/* These are wrong and need to be corrected */
 
 				if (z_squared < 5.0)
 				{
@@ -704,6 +700,7 @@ double kernel_convol(int KERNEL, int BANDWIDTH, double z, double h1, double h2)
 			case 5:
 
 /* Fourth Order Epanechnikov */
+/* These are wrong and need to be corrected */
 				if (z_squared < 5.0)
 				{
 					return_value = 0.1746928108E-3*(6125.0-6750.0*ipow(h2,4)*h1*h1*z_squared
@@ -726,6 +723,7 @@ double kernel_convol(int KERNEL, int BANDWIDTH, double z, double h1, double h2)
 			case 6:
 
 /* Sixth Order Epanechnikov */
+/* These are wrong and need to be corrected */
 				if (z_squared < 5.0)
 				{
 					s2 = 0.4965438428137688E1*ipow(h1,4)*z_squared-0.1787557834129568E1*ipow(z,4)
@@ -767,6 +765,7 @@ double kernel_convol(int KERNEL, int BANDWIDTH, double z, double h1, double h2)
 			case 7:
 
 /* Eighth Order Epanechnikov */
+/* These are wrong and need to be corrected */
 				if (z_squared < 5.0)
 				{
 
