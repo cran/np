@@ -99,9 +99,9 @@ npqreg(bws, \dots)
   }
 
   \item{gradients}{
-    a logical value indicating that you want gradients computed and
-    returned in the resulting \code{npregression} object. Defaults to
-    \code{FALSE}.
+    [currently not supported] a logical value indicating that you want
+    gradients computed and returned in the resulting \code{npregression}
+    object. Defaults to \code{FALSE}.
   }
 
   \item{itmax}{

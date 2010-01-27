@@ -104,6 +104,32 @@ npreg(bws, \dots)
 }
 
 \details{
+
+  Typical usages are (see below for a complete list of options and also
+  the examples at the end of this help file)
+  \preformatted{
+    Usage 1: first compute the bandwidth object via npregbw and then
+    compute the conditional mean:
+    
+    bw <- npregbw(y~x)
+    ghat <- npreg(bw)
+    
+    Usage 2: alternatively, compute the bandwidth object indirectly:
+    
+    ghat <- npreg(y~x)
+    
+    Usage 3: modify the default kernel and order:
+    
+    ghat <- npreg(y~x, ckertype="epanechnikov", ckerorder=4)
+
+    Usage 4: use the data frame interface rather than the formula
+    interface:
+
+    ghat <- npreg(tydat=y, txdat=x, ckertype="epanechnikov", ckerorder=4)
+  }
+
+
+  
   \code{npreg} implements a variety of methods for regression on
   multivariate (\eqn{p}-variate) data, the types of which are possibly
   continuous and/or discrete (unordered, ordered). The approach is

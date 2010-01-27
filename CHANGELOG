@@ -1,3 +1,13 @@
+Changes from Version 0.30-3 to 0.30-4 [27-Jan-2010]
+
+* Added function npsymtest for entropy-based testing of symmetry
+  described in Maasoumi and Racine (2009), Econometric Reviews
+
+* Added function b.star that automates block length selection for
+  the stationary and circular bootstrap
+
+* Cleaned up docs
+
 Changes from Version 0.30-2 to 0.30-3 [29-May-2009]
 
 * Corrected error in Epanechnikov convolution kernels for fixed and

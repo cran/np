@@ -1,6 +1,7 @@
 useDynLib(np)
 import(stats)
-export(npudensbw
+export(b.star
+       ,npudensbw
        ,npudens
        ,npudist
        ,npregbw
@@ -22,6 +23,7 @@ export(npudensbw
        ,npseed
        ,npscoef
        ,npscoefbw
+       ,npsymtest
        ,uocquantile
        ,se
        ,gradients
@@ -46,6 +48,7 @@ S3method(print,singleindex)
 S3method(print,sigtest)
 S3method(print,scbandwidth)
 S3method(print,smoothcoefficient)
+S3method(print,symtest)
 ##
 
 
@@ -124,6 +127,7 @@ S3method(summary, plregression)
 S3method(summary, qregression)
 S3method(summary, singleindex)
 S3method(summary, smoothcoefficient)
+S3method(summary, symtest)
 
 S3method(se, npdensity)
 S3method(se, npdistribution)

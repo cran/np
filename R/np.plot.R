@@ -725,8 +725,7 @@ npplot.rbandwidth <-
 
     if (is.element(plot.errors.boot.method, c("fixed", "geom")) &&
         is.null(plot.errors.boot.blocklen))
-      plot.errors.boot.blocklen = ceiling(3.15*nrow(xdat)^(1/3))
-    
+      plot.errors.boot.blocklen = b.star(xdat,round=TRUE)[1,1]    
 
     plot.errors = (plot.errors.method != "none")
 
@@ -1255,8 +1254,7 @@ npplot.scbandwidth <-
 
     if (is.element(plot.errors.boot.method, c("fixed", "geom")) &&
         is.null(plot.errors.boot.blocklen))
-      plot.errors.boot.blocklen = ceiling(3.15*nrow(xdat)^(1/3))
-    
+      plot.errors.boot.blocklen = b.star(xdat,round=TRUE)[1,1]
 
     plot.errors = (plot.errors.method != "none")
 
@@ -1939,7 +1937,7 @@ npplot.plbandwidth <-
 
     if (is.element(plot.errors.boot.method, c("fixed", "geom")) &&
         is.null(plot.errors.boot.blocklen))
-      plot.errors.boot.blocklen = ceiling(3.15*nrow(xdat)^(1/3))
+      plot.errors.boot.blocklen = b.star(xdat,round=TRUE)[1,1]
 
 
     plot.errors = (plot.errors.method != "none")
@@ -2566,7 +2564,7 @@ npplot.bandwidth <-
 
     if (is.element(plot.errors.boot.method, c("fixed", "geom")) &&
         is.null(plot.errors.boot.blocklen))
-      plot.errors.boot.blocklen = ceiling(3.15*nrow(xdat)^(1/3))
+      plot.errors.boot.blocklen = b.star(xdat,round=TRUE)[1,1]
 
 
     plot.errors = (plot.errors.method != "none")
@@ -3078,7 +3076,7 @@ npplot.conbandwidth <-
 
     if (is.element(plot.errors.boot.method, c("fixed", "geom")) &&
         is.null(plot.errors.boot.blocklen))
-      plot.errors.boot.blocklen = ceiling(3.15*nrow(xdat)^(1/3))
+      plot.errors.boot.blocklen = b.star(xdat,round=TRUE)[1,1]
 
 
     plot.errors = (plot.errors.method != "none")
@@ -3793,7 +3791,7 @@ npplot.sibandwidth <-
     
     if (is.element(plot.errors.boot.method, c("fixed", "geom")) &&
         is.null(plot.errors.boot.blocklen))
-      plot.errors.boot.blocklen = ceiling(3.15*nrow(xdat)^(1/3))
+      plot.errors.boot.blocklen = b.star(xdat,round=TRUE)[1,1]
     
 
     plot.errors = (plot.errors.method != "none")

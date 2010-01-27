@@ -78,9 +78,9 @@ npudensbw(\dots)
 
   \item{na.action}{
     a function which indicates what should happen when the data contain
-   \code{NA}s. The default is set by the \code{\link{na.action}} setting of options, and is
-    \code{\link{na.fail}} if that is unset. The (recommended) default is
-    \code{\link{na.omit}}.  
+   \code{NA}s. The default is set by the \code{\link{na.action}} setting
+   of options, and is \code{\link{na.fail}} if that is unset. The
+   (recommended) default is \code{\link{na.omit}}.
   }
   
   \item{call}{
@@ -96,15 +96,14 @@ npudensbw(\dots)
   }
 
   \item{bws}{
-    a bandwidth specification. This can be set as a bandwidth
-    object returned from a previous invocation, or as a vector of
-    bandwidths, with each element \eqn{i} corresponding to the bandwidth
-    for column \eqn{i} in \code{dat}. In either case, the bandwidth supplied will
+    a bandwidth specification. This can be set as a bandwidth object
+    returned from a previous invocation, or as a vector of bandwidths,
+    with each element \eqn{i} corresponding to the bandwidth for column
+    \eqn{i} in \code{dat}. In either case, the bandwidth supplied will
     serve as a starting point in the numerical search for optimal
     bandwidths. If specified as a vector, then additional arguments will
     need to be supplied as necessary to specify the bandwidth type,
-    kernel types, selection methods, and so on. This can be left
-    unset.
+    kernel types, selection methods, and so on. This can be left unset.
   }
 
   \item{\dots}{
@@ -219,7 +218,25 @@ npudensbw(\dots)
   }
 
 }
+
 \details{
+
+  Typical usages are (see below for a complete list of options and also
+  the examples at the end of this help file)
+  \preformatted{
+    
+    Usage 1: compute a bandwidth object using the formula interface:
+    
+    bw <- npudensbw(~y)
+    
+    Usage 2: compute a bandwidth object using the data frame interface
+    and change the default kernel and order:
+
+    fhat <- npudensbw(tdat = y, ckertype="epanechnikov", ckerorder=4)
+    
+  }
+
+  
   \code{npudensbw} implements a variety of methods for choosing
   bandwidths for multivariate (\eqn{p}-variate) distributions defined over
   a set of possibly continuous and/or discrete (unordered, ordered)
@@ -242,11 +259,10 @@ npudensbw(\dots)
   are constant over the support of \eqn{x}.
 
   \code{npudensbw} may be invoked \emph{either} with a formula-like
-  symbolic 
-  description of variables on which bandwidth selection is to be
-  performed \emph{or} through a simpler interface whereby data is passed
-  directly to the function via the \code{dat} parameter. Use of these
-  two interfaces is \bold{mutually exclusive}.
+  symbolic description of variables on which bandwidth selection is to
+  be performed \emph{or} through a simpler interface whereby data is
+  passed directly to the function via the \code{dat} parameter. Use of
+  these two interfaces is \bold{mutually exclusive}.
 
   Data contained in the data frame \code{dat} may be a mix of continuous
   (default), unordered discrete (to be specified in the data frame
@@ -257,18 +273,18 @@ npudensbw(\dots)
   \code{\link{np}} for details).
 
   Data for which bandwidths are to be estimated may be specified
-  symbolically. A typical description has the form \code{~ data},
-  where \code{data} is a series of variables specified by name, separated by
+  symbolically. A typical description has the form \code{~ data}, where
+  \code{data} is a series of variables specified by name, separated by
   the separation character '+'. For example, \code{ ~ x + y } specifies
   that the bandwidths for the joint distribution of variables \code{x}
   and \code{y} are to be estimated. See below for further examples.
 
   A variety of kernels may be specified by the user. Kernels implemented
-  for continuous data types include the second, fourth, sixth, and eighth
-  order Gaussian and Epanechnikov kernels, and the uniform
+  for continuous data types include the second, fourth, sixth, and
+  eighth order Gaussian and Epanechnikov kernels, and the uniform
   kernel. Unordered discrete data types use a variation on Aitchison and
-  Aitken's (1976) kernel, while ordered data types use a variation of the
-  Wang and van Ryzin (1981) kernel.
+  Aitken's (1976) kernel, while ordered data types use a variation of
+  the Wang and van Ryzin (1981) kernel.
 
 }
 \value{

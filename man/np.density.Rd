@@ -1,36 +1,21 @@
 % $Id: np.density.Rd,v 1.75 2006/11/03 21:19:03 tristen Exp $
 \name{npudens}
 \alias{npudens}
-\alias{npudens.bandwidth}
-\alias{npudens.call}
-\alias{npudens.default}
-\alias{npudens.formula}
-
 \alias{npudist}
 \title{ Kernel Density and Distribution Estimation with Mixed Data Types }
 \description{
 
-  \code{npudens} computes  kernel unconditional density estimates on
+  \code{npudens} computes kernel unconditional density estimates on
   evaluation data, given a set of training data and a bandwidth
   specification (a \code{bandwidth} object or a bandwidth vector,
   bandwidth type, and kernel type) using the method of Li and Racine
-  (2003).  Similarly \code{\link{npudist}} computes  kernel
-  unconditional cumulative distribution estimates.
+  (2003).  Similarly \code{\link{npudist}} computes kernel unconditional
+  cumulative distribution estimates.
 
 }
+
 \usage{
 npudens(bws, \dots)
-
-\method{npudens}{formula}(bws, data = NULL, newdata = NULL, \dots)
-
-\method{npudens}{bandwidth}(bws,
-        tdat = stop("invoked without training data 'tdat'"),
-        edat,
-        \dots)
-
-\method{npudens}{call}(bws, \dots)
-
-\method{npudens}{default}(bws, tdat, \dots)
 }
 
 \arguments{
@@ -44,42 +29,39 @@ npudens(bws, \dots)
     and so on.
   }
 
-  \item{\dots}{
-    additional arguments supplied to specify, the training
-    data, the
-    bandwidth type, kernel types, and so on.
-    This is necessary if you specify bws as a \eqn{p}-vector and not
-    a \code{bandwidth} object, and you do not desire the default
+  \item{\dots}{ additional arguments supplied to specify, the training
+    data, the bandwidth type, kernel types, and so on.  This is
+    necessary if you specify bws as a \eqn{p}-vector and not a
+    \code{bandwidth} object, and you do not desire the default
     behaviours. To do this, you may specify any of \code{bwscaling},
     \code{bwtype}, \code{ckertype}, \code{ckerorder}, \code{ukertype},
     \code{okertype}, as described in \code{\link{npudensbw}}.
   }
-
-  \item{tdat}{
-    a \eqn{p}-variate data frame of sample realizations (training data)
-    used to estimate the density. Defaults to the training data used to
-    compute the bandwidth object.
-  }
-  \item{edat}{
-    a \eqn{p}-variate data frame of density evaluation points. By default,
-    evaluation takes place on the data provided by \code{tdat}.
-  }
-
-  \item{data}{
-    an optional data frame, list or environment (or object
-    coercible to a data frame by \code{\link{as.data.frame}}) containing the variables
-    in the model. If not found in data, the variables are taken from
-    \code{environment(bws)}, typically the environment from which
-    \code{\link{npudensbw}} was called.
-  }
-
-  \item{newdata}{
-    An optional data frame in which to look for evaluation data. If
-    omitted, the training data are used.  
-  }
-  
 }
 \details{
+
+  Typical usages are (see below for a complete list of options and also
+  the examples at the end of this help file)
+  \preformatted{
+    Usage 1: first compute the bandwidth object via npudensbw and then
+    compute the density:
+    
+    bw <- npudensbw(~y)
+    fhat <- npudens(bw)
+    
+    Usage 2: alternatively, compute the bandwidth object indirectly:
+    
+    fhat <- npudens(~y)
+    
+    Usage 3: modify the default kernel and order:
+    
+    fhat <- npudens(~y, ckertype="epanechnikov", ckerorder=4)
+
+    Usage 4: use the data frame interface rather than the formula
+    interface:
+
+    fhat <- npudens(tdat = y, ckertype="epanechnikov", ckerorder=4)
+  }
 
   \code{npudens} and \code{\link{npudist}} implement a variety
   of methods for estimating multivariate distributions (\eqn{p}-variate)
@@ -98,28 +80,30 @@ npudens(bws, \dots)
 
   Data contained in the data frame \code{tdat} (and also \code{edat})
   may be a mix of continuous (default), unordered discrete (to be
-  specified in the data frame \code{tdat} using the \code{\link{factor}} command),
-  and ordered discrete (to be specified in the data frame \code{tdat}
-  using the \code{\link{ordered}} command). Data can be entered in an arbitrary
-  order and data types will be detected automatically by the routine
-  (see \code{\link{np}} for details).
+  specified in the data frame \code{tdat} using the \code{\link{factor}}
+  command), and ordered discrete (to be specified in the data frame
+  \code{tdat} using the \code{\link{ordered}} command). Data can be
+  entered in an arbitrary order and data types will be detected
+  automatically by the routine (see \code{\link{np}} for details).
 
   A variety of kernels may be specified by the user. Kernels implemented
-  for continuous data types include the second, fourth, sixth, and eighth
-  order Gaussian and Epanechnikov kernels, and the uniform
+  for continuous data types include the second, fourth, sixth, and
+  eighth order Gaussian and Epanechnikov kernels, and the uniform
   kernel. Unordered discrete data types use a variation on Aitchison and
-  Aitken's (1976) kernel, while ordered data types use a variation of the
-  Wang and van Ryzin (1981) kernel.
+  Aitken's (1976) kernel, while ordered data types use a variation of
+  the Wang and van Ryzin (1981) kernel.
 
 }
 \value{
+  
   \code{npudens} returns a \code{npdensity} object, similarly
-  \code{\link{npudist}} returns a \code{npdistribution} object. The generic
-  accessor functions \code{\link{fitted}}, and \code{\link{se}}, extract estimated
-  values and asymptotic standard errors on estimates, respectively, from
-  the returned object. Furthermore, the functions \code{\link{predict}}, \code{\link{summary}}
-  and \code{\link{plot}} support objects of both classes. The returned objects
-  have the following components:
+  \code{\link{npudist}} returns a \code{npdistribution} object. The
+  generic accessor functions \code{\link{fitted}}, and \code{\link{se}},
+  extract estimated values and asymptotic standard errors on estimates,
+  respectively, from the returned object. Furthermore, the functions
+  \code{\link{predict}}, \code{\link{summary}} and \code{\link{plot}}
+  support objects of both classes. The returned objects have the
+  following components:
 
   \item{eval}{ the evaluation points. }
   \item{dens or dist}{ estimation of the density (cumulative
@@ -170,6 +154,7 @@ npudens(bws, \dots)
 }
 
 \seealso{ \code{\link{npudensbw}} , \code{\link{density}} }
+
 \examples{
 # EXAMPLE 1 (INTERFACE=FORMULA): For this example, we load Giovanni
 # Baiocchi's Italian GDP panel (see Italy for details), then create a

@@ -10923,7 +10923,7 @@ double *log_likelihood)
 			}
 
 			sum_ker = 0.0;
-			sum_ker_marginal = DBL_MIN;
+			sum_ker_marginal = 0.0;
 
 			for(i=0; i < num_obs_train; i++)
 			{
