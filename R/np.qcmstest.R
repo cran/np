@@ -66,6 +66,9 @@ npqcmstest <- function(formula,
     na.index = which(goodrows==0)
   }
 
+  ## Save seed prior to setting
+
+  save.seed <- get(".Random.seed", .GlobalEnv)
   set.seed(random.seed)
 
   distribution = match.arg(distribution)
@@ -293,6 +296,10 @@ npqcmstest <- function(formula,
     
   }
   
+  ## Restore seed
+
+  assign(".Random.seed", save.seed, .GlobalEnv)
+
   cmstest(Jn = tJn$Jn,
           In = tJn$In,
           Omega.hat = tJn$Omega.hat,

@@ -1,7 +1,7 @@
 % $Id: np.cmstest.Rd,v 1.58 2006/11/03 21:17:20 tristen Exp $
 \name{npsymtest}
 \alias{npsymtest}
-\title{ Kernel Consistent Asymmetry Test with Mixed Data Types }
+\title{ Kernel Consistent Density Asymmetry Test with Mixed Data Types }
 \description{
   \code{npsymtest} implements a consistent entropy-based test for
   asymmetry as described in Maasoumi and Racine (2009).
@@ -10,7 +10,8 @@
 npsymtest(data = NULL,
           boot.num = 399,
           bw = NULL,
-          random.seed = 42)
+          random.seed = 42,
+          \dots)
 }
 
 \arguments{
@@ -31,6 +32,14 @@ npsymtest(data = NULL,
     an integer used to seed R's random number generator. This is to
     ensure replicability. Defaults to 42.
   }
+
+  \item{\dots}{ additional arguments supplied to specify the bandwidth
+    type, kernel types, and so on.  This is used since we specify bw as
+    a numeric scalar and not a \code{bandwidth} object, and is of
+    interest if you do not desire the default behaviours. To change the
+    defaults, you may specify any of \code{bwscaling}, \code{bwtype},
+    \code{ckertype}, \code{ckerorder}, \code{ukertype},
+    \code{okertype}.}
   
 }
 
@@ -49,7 +58,7 @@ npsymtest(data = NULL,
 }
 \references{
 
-  Maasoumi, E. and J. S. Racine(2009), \dQuote{A robust entropy-based
+  Maasoumi, E. and J. S. Racine (2009), \dQuote{A robust entropy-based
   test of asymmetry for discrete and continuous processes}, Econometric
   Reviews, 28, 246-261.
 
@@ -64,7 +73,9 @@ npsymtest(data = NULL,
   \code{npsymtest} computes the Bhattacharya-Matusita-Hellinger metric
   entropy measure of divergence between the densities/probabilities of
   the data and the rotated data. See Maasoumi and Racine (2009) for
-  details.
+  details. Default bandwidths are of the plug-in variety
+  (\code{\link{bw.SJ}} for continuous variables and direct plug-in for
+  discrete variables).
  
 }
 

@@ -4,13 +4,17 @@
 npsymtest <- function(data = NULL,
                       boot.num = 399,
                       bw = NULL,
-                      random.seed = 42) {
+                      random.seed = 42,
+                      ...) {
 
   if(is.data.frame(data)) stop("you must enter a data vector (not data frame)")
   if(is.null(data)) stop("you must enter a data vector")
   if(ncol(data.frame(data)) != 1) stop("data must have one dimension only")
   if(boot.num < 9) stop("number of bootstrap replications must be >= 9")
 
+  ## Save seed prior to setting
+
+  save.seed <- get(".Random.seed", .GlobalEnv)
   set.seed(random.seed)
 
   ## Remove NA
@@ -46,7 +50,7 @@ npsymtest <- function(data = NULL,
       n <- length(data)
       c <- length(unique(data))
       xeval <- unique(data)
-      p <- fitted(npudens(tdat=data,edat=xeval,bws=0))
+      p <- fitted(npudens(tdat=data,edat=xeval,bws=0,...))
       sum.Lambda3 <- c/(c-1)*sum(p*(1-p))
       sum.Lambda2.minus.Lambda1.sq <- c^2/((c-1)^2)*sum(p*(1-p))
       n.sum.Lambda1.sq <- n*sum(((1-c*p)/(c-1))^2)
@@ -74,15 +78,15 @@ npsymtest <- function(data = NULL,
     if(ncol(data.frame(data)) != 1)  stop("data must have one dimension only") 
     if(is.numeric(data)) {
       h <- function(x,data,data.rotate) {
-        f.data <- fitted(npudens(tdat=data,edat=x,bws=bw))
-        f.data.rotate <- fitted(npudens(tdat=data.rotate,edat=x,bws=bw))
+        f.data <- fitted(npudens(tdat=data,edat=x,bws=bw,...))
+        f.data.rotate <- fitted(npudens(tdat=data.rotate,edat=x,bws=bw,...))
         return(0.5*(sqrt(f.data)-sqrt(f.data.rotate))**2)
       }
       return(integrate(h,-Inf,Inf,data=data,data.rotate=data.rotate)$value)
     } else {
       xeval <- unique(data)
-      p.data <- fitted(npudens(tdat=data,edat=xeval,bws=bw))
-      p.data.rotate <- fitted(npudens(tdat=data.rotate,edat=xeval,bws=bw))   
+      p.data <- fitted(npudens(tdat=data,edat=xeval,bws=bw,...))
+      p.data.rotate <- fitted(npudens(tdat=data.rotate,edat=xeval,bws=bw,...))   
       ## Sum the information function over the unique probabilities and
       ## return.
       return(sum(0.5*(sqrt(p.data)-sqrt(p.data.rotate))**2))
@@ -149,6 +153,10 @@ npsymtest <- function(data = NULL,
   console <- printPop(console)  
 
   p.value <- mean(ifelse(resampled.stat > test.stat, 1, 0))
+
+  ## Restore seed
+
+  assign(".Random.seed", save.seed, .GlobalEnv)
 
   symtest(Srho = test.stat,
           Srho.bootstrap = resampled.stat,

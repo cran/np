@@ -622,8 +622,12 @@ uocquantile = function(x, prob) {
 
 
 npplot <- function(bws = stop("'bws' has not been set"), ..., random.seed = 42){
+  ## Save seed prior to setting
+  save.seed <- get(".Random.seed", .GlobalEnv)
   set.seed(random.seed)
   UseMethod("npplot",bws)
+  ## Restore seed
+  assign(".Random.seed", save.seed, .GlobalEnv)
 }
 
 npplot.rbandwidth <-

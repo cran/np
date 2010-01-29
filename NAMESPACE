@@ -15,14 +15,15 @@ export(b.star
        ,npksum
        ,npqreg
        ,npcmstest
-       ,npqcmstest       
        ,npconmode
-       ,npsigtest
+       ,npdeneqtest
        ,npindex
        ,npindexbw
+       ,npqcmstest       
        ,npseed
        ,npscoef
        ,npscoefbw
+       ,npsigtest
        ,npsymtest
        ,uocquantile
        ,se
@@ -49,6 +50,7 @@ S3method(print,sigtest)
 S3method(print,scbandwidth)
 S3method(print,smoothcoefficient)
 S3method(print,symtest)
+S3method(print,deneqtest)
 ##
 
 
@@ -128,6 +130,7 @@ S3method(summary, qregression)
 S3method(summary, singleindex)
 S3method(summary, smoothcoefficient)
 S3method(summary, symtest)
+S3method(summary, deneqtest)
 
 S3method(se, npdensity)
 S3method(se, npdistribution)

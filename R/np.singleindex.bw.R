@@ -148,7 +148,11 @@ npindexbw.sibandwidth <-
            optim.maxit = 500,
            ...){
 
+    ## Save seed prior to setting
+
+    save.seed <- get(".Random.seed", .GlobalEnv)
     set.seed(random.seed)
+
     xdat = toFrame(xdat)
 
     if (missing(nmulti)){
@@ -433,6 +437,10 @@ npindexbw.sibandwidth <-
     ## TRISTEN XXX - kindly make sure I have named return vals consistent
     ## with other functions, e.g., ifval, fval etc? Also, kindly return a
     ## `pretty print' type of object
+
+    ## Restore seed
+
+    assign(".Random.seed", save.seed, .GlobalEnv)
 
     bws <- sibandwidth(beta = bws$beta,
                        h = bws$bw,

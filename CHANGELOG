@@ -1,3 +1,12 @@
+Changes from Version 0.30-4 to 0.30-5 [29-Jan-2010]
+
+* Added function npdeneqtest for integrated squared difference testing
+  of equality of densities as described in Maasoumi, Li, and Racine
+  (2009), Journal of Econometrics
+
+* Save random seed prior to setting seed in certain functions, then
+  restore seed after function completes
+
 Changes from Version 0.30-3 to 0.30-4 [27-Jan-2010]
 
 * Added function npsymtest for entropy-based testing of symmetry

@@ -112,8 +112,10 @@ npsigtest.rbandwidth <- function(bws,
   if (is.factor(ydat))
     stop("dependent variable must be continuous.")
   
+  ## Save seed prior to setting
+
+  save.seed <- get(".Random.seed", .GlobalEnv)
   set.seed(random.seed)
-  
 
   boot.type <- match.arg(boot.type)
   boot.method <- match.arg(boot.method)  
@@ -303,6 +305,10 @@ npsigtest.rbandwidth <- function(bws,
   ## Tristen XXX - I would also like, if/when you implement a pretty
   ## print method, to pass back a matrix each column containing the
   ## bootstrapped In.vec for each variable...
+
+  ## Restore seed
+
+  assign(".Random.seed", save.seed, .GlobalEnv)
 
   sigtest(In=In, In.mat, P=P,
           bws = bws,

@@ -1,12 +1,12 @@
 symtest <- function(Srho, Srho.bootstrap, P, boot.num, data.rotate, bw) {
-
+  
   tsym = list(Srho = Srho,
     Srho.bootstrap = Srho.bootstrap,
     P = P,
     boot.num = boot.num,
     data.rotate = data.rotate,
     bw = bw)
-
+  
   reject <- ''
   
   if (P < 0.1)
