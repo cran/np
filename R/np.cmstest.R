@@ -62,8 +62,12 @@ npcmstest <- function(formula,
 
   ## Save seed prior to setting
 
-  save.seed <- get(".Random.seed", .GlobalEnv)
-  set.seed(random.seed)
+  if(exists(".Random.seed", .GlobalEnv)) {
+    save.seed <- get(".Random.seed", .GlobalEnv)
+    exists.seed = TRUE
+  } else {
+    exists.seed = FALSE
+  }
 
   distribution = match.arg(distribution)
   boot.method = match.arg(boot.method)
@@ -284,8 +288,8 @@ npcmstest <- function(formula,
   
   ## Restore seed
 
-  assign(".Random.seed", save.seed, .GlobalEnv)
-
+  if(exists.seed) assign(".Random.seed", save.seed, .GlobalEnv)
+  
   cmstest(Jn = tJn$Jn,
           In = tJn$In,
           Omega.hat = tJn$Omega.hat,

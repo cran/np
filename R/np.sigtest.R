@@ -1,5 +1,3 @@
-# $Id: np.sigtest.R,v 1.44 2006/11/03 20:41:14 jracine Exp $
-
 # This function implements a test of significance for both discrete
 # and continuous variables. It accepts a data frame for explanatory
 # data (mixed datatypes allowed), a vector for y for a regression
@@ -114,8 +112,12 @@ npsigtest.rbandwidth <- function(bws,
   
   ## Save seed prior to setting
 
-  save.seed <- get(".Random.seed", .GlobalEnv)
-  set.seed(random.seed)
+  if(exists(".Random.seed", .GlobalEnv)) {
+    save.seed <- get(".Random.seed", .GlobalEnv)
+    exists.seed = TRUE
+  } else {
+    exists.seed = FALSE
+  }
 
   boot.type <- match.arg(boot.type)
   boot.method <- match.arg(boot.method)  
@@ -308,8 +310,8 @@ npsigtest.rbandwidth <- function(bws,
 
   ## Restore seed
 
-  assign(".Random.seed", save.seed, .GlobalEnv)
-
+  if(exists.seed) assign(".Random.seed", save.seed, .GlobalEnv)
+  
   sigtest(In=In, In.mat, P=P,
           bws = bws,
           ixvar = index,

@@ -37,7 +37,7 @@ b.star(data,
 \description{
   \code{b.star} is a function which computes the optimal block length
   for a continuous variable  \code{data} using the method described in
-  Patton, Politis, and White (2009).
+  Patton, Politis and White (2009).
 }
 \details{
   \code{b.star} is a function which computes optimal block lengths for
@@ -49,17 +49,18 @@ b.star(data,
 
 \references{
 
-Patton, A. and D. N. Politis and H. White (2009), \dQuote{CORRECTION TO
-  "Automatic block-length selection for the dependent bootstrap" by
-  D. Politis and H. White}, Econometric Reviews 28(4), 372-375.
+  Patton, A. and D.N. Politis and H. White (2009), \dQuote{CORRECTION TO
+    "Automatic block-length selection for the dependent bootstrap" by
+    D. Politis and H. White}, Econometric Reviews 28(4), 372-375.
 
-Politis, D. N. and J. P. Romano (1994), \dQuote{Limit theorems for weakly
-dependent Hilbert space valued random variables with applications to the
-stationary bootstrap}, Statistica Sinica 4, 461-476.
+  Politis, D.N. and J.P. Romano (1994), \dQuote{Limit theorems for
+    weakly dependent Hilbert space valued random variables with
+    applications to the stationary bootstrap}, Statistica Sinica 4,
+    461-476.
 
-Politis, D. N. and H. White (2004), \dQuote{Automatic block-length
-selection for the dependent bootstrap}, Econometric Reviews 23(1),
-53-70.
+  Politis, D.N. and H. White (2004), \dQuote{Automatic block-length
+    selection for the dependent bootstrap}, Econometric Reviews 23(1),
+    53-70.
 
 }
 

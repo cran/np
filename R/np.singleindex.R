@@ -1,5 +1,3 @@
-# $Id: np.singleindex.R,v 1.46 2006/10/13 21:03:31 tristen Exp $
-
 # We implement Ichimura's single index model and Klein and Spady's
 # single index model using npksum() and the nlm() minimization
 # routine in R. These semiparametric models are used to reduce

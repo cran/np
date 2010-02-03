@@ -1,5 +1,3 @@
-## $Id: deneq_lib.R,v 1.2 2007/02/01 19:44:03 jracine Exp jracine $
-
 ## First, write the test statistic function and bootstrap function as
 ## one. Since we wish to pass in different (potentially) bandwidth
 ## vectors, this is perhaps the most flexible wrapper.
@@ -16,6 +14,10 @@ npdeneqtest <- function(x = NULL,
 
   if(is.null(x) || is.null(y)) stop(" you must provide x and y data")
 
+  if(!is.data.frame(x) || !is.data.frame(y)) stop(" x and y must be data frames")
+
+  if(!identical(names(data.frame(x)),names(data.frame(y)))) stop(" data frames x and y must have identical variable names")
+
   if(is.null(bw.x) || is.null(bw.y)) {
     bw.x <- npudensbw(dat=x,...)
     bw.y <- npudensbw(dat=y,...)     
@@ -25,18 +27,16 @@ npdeneqtest <- function(x = NULL,
 
   ## Save seed prior to setting
 
-  save.seed <- get(".Random.seed", .GlobalEnv)
-  set.seed(random.seed)
+  if(exists(".Random.seed", .GlobalEnv)) {
+    save.seed <- get(".Random.seed", .GlobalEnv)
+    exists.seed = TRUE
+  } else {
+    exists.seed = FALSE
+  }
 
   ## First, define test statistic function. This will return the
   ## standardized and unstandardized test statistic along with its
   ## estimated variance.
-
-  ##  x and y may be vectors, so for portability cast as data frame
-  ## then get number of rows.
-
-  x <- data.frame(x)
-  y <- data.frame(y)
 
   teststat <- function(x,y,bw.x,bw.y) {
 
@@ -66,7 +66,7 @@ npdeneqtest <- function(x = NULL,
     ## sum.4 and sum.3 are identical...
     
     In <- sum.1/(n1*(n1-1))+sum.2/(n2*(n2-1))-2*sum.3/(n1*n2)
-    
+
     ## Next, compute sigma^2_n
 
     sum.1 <- sum(npksum(txdat=x,
@@ -89,9 +89,9 @@ npdeneqtest <- function(x = NULL,
                         bandwidth.divide=TRUE)$ksum)
     
     ## sum.4 and sum.3 are identical
-    
-    sigma2.n<- 2*(sum.1/(n1^2*(n1-1)^2)+sum.2/(n2^2*(n2-1)^2)+2*sum.3*(n1^2*n2^2))
-    
+
+    sigma2.n<- 2*(sum.1/(n1^2*(n1-1)^2)+sum.2/(n2^2*(n2-1)^2)+2*sum.3/(n1^2*n2^2))
+
     ## Finally, compute Tn, the standardized statistic
 
     Tn <- In/sqrt(sigma2.n)
@@ -107,9 +107,9 @@ npdeneqtest <- function(x = NULL,
     n2 <- nrow(y)
     ## Resample from pooled data
     z <- data.frame(rbind(x,y))
-    x.resample <- data.frame(z[sample(nrow(z),size=n1,replace=T),])      
-    y.resample <- data.frame(z[sample(nrow(z),size=n2,replace=T),])      
-    output.boot <- teststat(x.resample,y.resample,bw.x,bw.y)
+    x.bootstrap <- data.frame(z[sample(nrow(z),size=n1,replace=TRUE),])      
+    y.bootstrap <- data.frame(z[sample(nrow(z),size=n2,replace=TRUE),])      
+    output.boot <- teststat(x.bootstrap,y.bootstrap,bw.x,bw.y)
     return(list(Tn=output.boot$Tn,
                 In=output.boot$In))
   }
@@ -120,12 +120,12 @@ npdeneqtest <- function(x = NULL,
   console <- newLineConsole()
 
   for(i in 1:boot.num) {
+    console <- printClear(console)
     console <- printPush(paste(sep="", "Bootstrap replication ",
                                i, "/", boot.num, "..."), console)
     output.boot <- teststat.boot(x,y,bw.x,bw.y)
     Tn.vector[i] <- output.boot$Tn
     In.vector[i] <- output.boot$In
-    console <- printPop(console)
   }
   
   console <- printClear(console)
@@ -143,12 +143,12 @@ npdeneqtest <- function(x = NULL,
   
   ## Restore seed
 
-  assign(".Random.seed", save.seed, .GlobalEnv)
-
+  if(exists.seed) assign(".Random.seed", save.seed, .GlobalEnv)
+  
   deneqtest(Tn=output$Tn,
             In=output$In,
-            Tn.resample=Tn.vector,
-            In.resample=In.vector,                
+            Tn.bootstrap=Tn.vector,
+            In.bootstrap=In.vector,                
             Tn.P=Tn.P,
             In.P=In.P,
             boot.num=boot.num)

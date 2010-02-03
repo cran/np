@@ -28,14 +28,14 @@ npsigtest(bws, \dots)
 \method{npsigtest}{default}(bws, xdat, ydat, \dots)
 
 \method{npsigtest}{rbandwidth}(bws,
-                               xdat = stop("data xdat missing"),
-                               ydat = stop("data ydat missing"),
-                               boot.num=399,
-                               boot.method=c("iid","wild","wild-rademacher"),
-                               boot.type=c("I","II"),
-                               index=seq(1,ncol(xdat)),
-                               random.seed = 42,
-                               \dots)
+          xdat = stop("data xdat missing"),
+          ydat = stop("data ydat missing"),
+          boot.num = 399,
+          boot.method = c("iid","wild","wild-rademacher"),
+          boot.type = c("I","II"),
+          index = seq(1,ncol(xdat)),
+          random.seed = 42,
+          \dots)
 
 }
 

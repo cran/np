@@ -11,6 +11,7 @@
 %% need no \usepackage{Sweave.sty}
 
 \usepackage{amsmath}
+\usepackage[utf8x]{inputenc} 
 
 \newcommand{\field}[1]{\mathbb{#1}}
 \newcommand{\R}{\field{R}}

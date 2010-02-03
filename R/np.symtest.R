@@ -4,6 +4,7 @@
 npsymtest <- function(data = NULL,
                       boot.num = 399,
                       bw = NULL,
+                      boot.method = c("iid", "geom"),
                       random.seed = 42,
                       ...) {
 
@@ -12,12 +13,26 @@ npsymtest <- function(data = NULL,
   if(ncol(data.frame(data)) != 1) stop("data must have one dimension only")
   if(boot.num < 9) stop("number of bootstrap replications must be >= 9")
 
+  boot.method <- match.arg(boot.method)
+
   ## Save seed prior to setting
 
-  save.seed <- get(".Random.seed", .GlobalEnv)
-  set.seed(random.seed)
+  if(exists(".Random.seed", .GlobalEnv)) {
+    save.seed <- get(".Random.seed", .GlobalEnv)
+    exists.seed = TRUE
+  } else {
+    exists.seed = FALSE
+  }
 
-  ## Remove NA
+  sym.console <- newLineConsole()
+  sym.console <- printPush(paste(sep="", "Working..."), console = sym.console)
+  sym.console <- printPop(sym.console)
+
+  ## If of type ts convert to numeric to handle time series data
+
+  if(is.ts(data)) data <- as.numeric(data)
+
+  ## Remove NAs
 
   data <- na.omit(data)
 
@@ -93,19 +108,26 @@ npsymtest <- function(data = NULL,
     }
   }
   
-  ## Compute Srho using kernel estimates, same bw is appropriate for
-  ## both densities (they are the same data). Use plug-in estimators
-  ## for both. 
+  ## Compute the test statistic
 
   test.stat <- Srho.sym(data,data.rotate,bw)
+
+  ## Function to be fed to boot - accepts data that gets
+  ## permuted/rearranged to define resampled data. The sole difference
+  ## between boot.fun.boot and boot.fun.tsboot is the order of
+  ## arguments.
+
+  B.counter <- 0
 
   ## Function to be fed to tsboot - accepts a vector of integers
   ## corresponding to all observations in the sample (1,2,...) that
   ## get permuted/rearranged to define resampled data.
 
-	boot.fun <- function(ii,data.null,bw)
-	{
-	  null.sample1 <- data.null[ii]
+	boot.fun <- function(ii,data.null,bw) {
+    sym.console <<- printClear(sym.console)
+    sym.console <<- printPush(paste(sep="", "Bootstrap replication ",
+                                    B.counter, "/", boot.num, "..."), console = sym.console)
+    null.sample1 <- data.null[ii]
     if(is.numeric(data.null)) {
       null.sample2 <- -(null.sample1-mean(null.sample1))+mean(null.sample1)
     } else {
@@ -123,41 +145,59 @@ npsymtest <- function(data = NULL,
         null.sample2 <- factor(-(tmp-location)+location,levels=data.levels)
       }
     }
+    B.counter <<- B.counter + 1
     return(Srho.sym(null.sample1,null.sample2,bw))
 	}
-
-  if(is.numeric(data)) {
-    ## Optimal block length is based upon `data' (not data.null).
-    boot.blocklen <- b.star(data,round=TRUE)[1,1]
-  } else {
-    boot.blocklen <- b.star(as.numeric(data.matrix(data)),round=TRUE)[1,1]
-  }
 
   ## Need to bootstrap integers for data.null to accommodate both
   ## numeric and factor/ordered.
 
-  ii <- 1:(2*length(data))
+  if(boot.method == "iid")  {
 
-  console <- newLineConsole()
-  console <- printPush(paste(sep="", "Working..."), console)
+    ## data.null is of length 2*n - if we use boot() we automatically
+    ## get resamples of length 2*n - however, we want resamples from
+    ## data.null of length n. Solution here is to use the block
+    ## bootstrap with a block length of 1 which is presumed to
+    ## generate an iid bootstrap.
 
-  resampled.stat <- tsboot(ii, boot.fun,
-                           R = boot.num,
-                           n.sim = length(data),
-                           l = boot.blocklen,
-                           sim = "geom",
-                           data.null = data.null,
-                           bw=bw)$t
+    resampled.stat <- tsboot(tseries = 1:(2*length(data)),
+                             statistic = boot.fun,
+                             R = boot.num,
+                             n.sim = length(data),
+                             l = 1,
+                             sim = "fixed",
+                             data.null = data.null,
+                             bw = bw)$t
 
-  console <- printClear(console)
-  console <- printPop(console)  
+  } else {
+
+    if(is.numeric(data)) {
+      ## Optimal block length is based upon `data' (not data.null).
+      boot.blocklen <- b.star(data,round=TRUE)[1,1]
+    } else {
+      boot.blocklen <- b.star(as.numeric(data.matrix(data)),round=TRUE)[1,1]
+    }
+
+    resampled.stat <- tsboot(tseries = 1:(2*length(data)),
+                             statistic = boot.fun,
+                             R = boot.num,
+                             n.sim = length(data),
+                             l = boot.blocklen,
+                             sim = "geom",
+                             data.null = data.null,
+                             bw = bw)$t
+
+  }
+
+  sym.console <- printClear(sym.console)
+  sym.console <- printPop(sym.console)  
 
   p.value <- mean(ifelse(resampled.stat > test.stat, 1, 0))
 
   ## Restore seed
 
-  assign(".Random.seed", save.seed, .GlobalEnv)
-
+  if(exists.seed) assign(".Random.seed", save.seed, .GlobalEnv)
+  
   symtest(Srho = test.stat,
           Srho.bootstrap = resampled.stat,
           P = p.value,

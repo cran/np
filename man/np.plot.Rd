@@ -530,7 +530,7 @@ npplot(bws = stop("'bws' has not been set"), \dots, random.seed = 42)
   Pagan, A. and A. Ullah (1999), \emph{Nonparametric Econometrics,} Cambridge
   University Press. 
 
-  Politis, D.N. and J.P Romano (1994), \dQuote{The stationary
+  Politis, D.N. and J.P. Romano (1994), \dQuote{The stationary
     bootstrap,} Journal of the American Statistical Association, 89,
   1303-1313.
 

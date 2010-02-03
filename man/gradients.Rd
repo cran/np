@@ -59,6 +59,6 @@ gradients(x, \dots)
 \examples{
 x <- runif(10)
 y <- x + rnorm(10, sd = 0.1)
-gradients(npreg(npregbw(y~x), gradients=TRUE))
+gradients(npreg(y~x, gradients=TRUE))
 }
 \keyword{nonparametric}

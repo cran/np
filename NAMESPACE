@@ -11,6 +11,8 @@ export(b.star
        ,npcdensbw
        ,npcdens
        ,npcdist
+       ,npdeptest       
+       ,npsdeptest
        ,npplot
        ,npksum
        ,npqreg
@@ -44,6 +46,8 @@ S3method(print,npkernelsum)
 S3method(print,qregression)
 S3method(print,cmstest)
 S3method(print,conmode)
+S3method(print,deptest)
+S3method(print,sdeptest)
 S3method(print,sibandwidth)
 S3method(print,singleindex)
 S3method(print,sigtest)
@@ -124,6 +128,8 @@ S3method(summary, condistribution)
 S3method(summary, npregression)
 S3method(summary, cmstest)
 S3method(summary, conmode)
+S3method(summary, deptest)
+S3method(summary, sdeptest)
 S3method(summary, sigtest)
 S3method(summary, plregression)
 S3method(summary, qregression)

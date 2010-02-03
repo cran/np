@@ -1,15 +1,15 @@
 deneqtest <- function(Tn,
                       In,
-                      Tn.resample,
-                      In.resample,
+                      Tn.bootstrap,
+                      In.bootstrap,
                       Tn.P,
                       In.P,                      
                       boot.num) {
 
   tdeneq = list(Tn=Tn,
     In=In,
-    Tn.resample=Tn.resample,
-    In.resample=In.resample,                
+    Tn.bootstrap=Tn.bootstrap,
+    In.bootstrap=In.bootstrap,                
     Tn.P=Tn.P,
     In.P=In.P,    
     boot.num=boot.num)

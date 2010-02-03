@@ -58,7 +58,7 @@ detach(wage1)
 
 \references{
 
-  Wooldridge, J.~M. (2000), \emph{Introductory Econometrics: A Modern
+  Wooldridge, J.M. (2000), \emph{Introductory Econometrics: A Modern
   Approach}, South-Western College Publishing.
 
 }

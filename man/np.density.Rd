@@ -1,21 +1,36 @@
 % $Id: np.density.Rd,v 1.75 2006/11/03 21:19:03 tristen Exp $
 \name{npudens}
 \alias{npudens}
+\alias{npudens.bandwidth}
+\alias{npudens.call}
+\alias{npudens.default}
+\alias{npudens.formula}
+
 \alias{npudist}
 \title{ Kernel Density and Distribution Estimation with Mixed Data Types }
 \description{
 
-  \code{npudens} computes kernel unconditional density estimates on
+  \code{npudens} computes  kernel unconditional density estimates on
   evaluation data, given a set of training data and a bandwidth
   specification (a \code{bandwidth} object or a bandwidth vector,
   bandwidth type, and kernel type) using the method of Li and Racine
-  (2003).  Similarly \code{\link{npudist}} computes kernel unconditional
-  cumulative distribution estimates.
+  (2003).  Similarly \code{\link{npudist}} computes  kernel
+  unconditional cumulative distribution estimates.
 
 }
-
 \usage{
 npudens(bws, \dots)
+
+\method{npudens}{formula}(bws, data = NULL, newdata = NULL, \dots)
+
+\method{npudens}{bandwidth}(bws,
+        tdat = stop("invoked without training data 'tdat'"),
+        edat,
+        \dots)
+
+\method{npudens}{call}(bws, \dots)
+
+\method{npudens}{default}(bws, tdat, \dots)
 }
 
 \arguments{
@@ -29,15 +44,42 @@ npudens(bws, \dots)
     and so on.
   }
 
-  \item{\dots}{ additional arguments supplied to specify, the training
-    data, the bandwidth type, kernel types, and so on.  This is
-    necessary if you specify bws as a \eqn{p}-vector and not a
-    \code{bandwidth} object, and you do not desire the default
+  \item{\dots}{
+    additional arguments supplied to specify, the training
+    data, the
+    bandwidth type, kernel types, and so on.
+    This is necessary if you specify bws as a \eqn{p}-vector and not
+    a \code{bandwidth} object, and you do not desire the default
     behaviours. To do this, you may specify any of \code{bwscaling},
     \code{bwtype}, \code{ckertype}, \code{ckerorder}, \code{ukertype},
     \code{okertype}, as described in \code{\link{npudensbw}}.
   }
+
+  \item{tdat}{
+    a \eqn{p}-variate data frame of sample realizations (training data)
+    used to estimate the density. Defaults to the training data used to
+    compute the bandwidth object.
+  }
+  \item{edat}{
+    a \eqn{p}-variate data frame of density evaluation points. By default,
+    evaluation takes place on the data provided by \code{tdat}.
+  }
+
+  \item{data}{
+    an optional data frame, list or environment (or object
+    coercible to a data frame by \code{\link{as.data.frame}}) containing the variables
+    in the model. If not found in data, the variables are taken from
+    \code{environment(bws)}, typically the environment from which
+    \code{\link{npudensbw}} was called.
+  }
+
+  \item{newdata}{
+    An optional data frame in which to look for evaluation data. If
+    omitted, the training data are used.  
+  }
+  
 }
+
 \details{
 
   Typical usages are (see below for a complete list of options and also

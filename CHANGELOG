@@ -1,3 +1,20 @@
+Changes from Version 0.30-5 to 0.30-6 [3-Feb-2010]
+
+* Added function npsdeptest for entropy-based testing of nonlinear
+  serial dependence described in Granger, Maasoumi and Racine (2004)
+
+* Added function npdeptest for entropy-based testing of nonlinear
+  pairwise dependence described in Maasoumi and Racine (2002)
+
+* Added more bootstrap options to npsymtest (now both iid and
+  time-series bootstrapping are supported)
+
+* Cleaned up summary formatting in the vignette by adding
+  \usepackage[utf8x]{inputenc} to the Sweave file np.Rnw
+
+* Fixed issue with saving and restoring random seed when there was
+  none in the environment
+
 Changes from Version 0.30-4 to 0.30-5 [29-Jan-2010]
 
 * Added function npdeneqtest for integrated squared difference testing

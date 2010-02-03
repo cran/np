@@ -19,7 +19,7 @@ npqcmstest(formula,
            tau = 0.5,
            distribution = c("bootstrap", "asymptotic"),
            bwydat = c("y","varepsilon"),
-           boot.method=c("iid","wild","wild-rademacher"),
+           boot.method = c("iid","wild","wild-rademacher"),
            boot.num = 399,
            pivot = TRUE,
            density.weighted = TRUE,
@@ -146,7 +146,7 @@ npqcmstest(formula,
   Aitchison, J. and C.G.G. Aitken (1976), \dQuote{Multivariate binary
     discrimination by the kernel method,} Biometrika, 63, 413-420.
 
-  Koenker, R.W. and G.W. Bassett (1978), \dQuote{Regression quantiles},
+  Koenker, R.W. and G.W. Bassett (1978), \dQuote{Regression quantiles,}
   Econometrica, 46, 33-50.
 
   Li, Q. and J.S. Racine (2007), \emph{Nonparametric Econometrics: Theory
@@ -167,7 +167,7 @@ npqcmstest(formula,
 
   Zheng, J. (1998), \dQuote{A consistent nonparametric test of
     parametric regression models under conditional quantile
-    restrictions}, Econometric Theory, 14, 123-138.
+    restrictions,} Econometric Theory, 14, 123-138.
 
 }
 \author{

@@ -4,17 +4,17 @@
 \title{ Kernel Consistent Density Equality Test with Mixed Data Types }
 \description{
   \code{npdeneqtest} implements a consistent integrated squared
-  difference test for equality of densities as described in Maasoumi, Li
+  difference test for equality of densities as described in Li, Maasoumi,
   and Racine (2009).
 }
 \usage{
-npdeneqtest (x = NULL,
-             y = NULL,
-             bw.x = NULL,
-             bw.y = NULL,
-             boot.num = 399,
-             random.seed = 42,
-             \dots)
+npdeneqtest(x = NULL,
+            y = NULL,
+            bw.x = NULL,
+            bw.y = NULL,
+            boot.num = 399,
+            random.seed = 42,
+            \dots)
 }
 
 \arguments{
@@ -62,11 +62,9 @@ npdeneqtest (x = NULL,
   \code{\link{summary}} supports object of type \code{deneqtest}.
 }
 \references{
-
-Li, Q. and E. Maasoumi and J.S. Racine (2009), \dQuote{A Nonparametric
-Test for Equality of Distributions with Mixed Categorical and Continuous
-Data}' Journal of Econometrics, Volume 148, pp 186-200.
-
+  Li, Q. and E. Maasoumi and J.S. Racine (2009), \dQuote{A Nonparametric
+    Test for Equality of Distributions with Mixed Categorical and
+    Continuous Data,} Journal of Econometrics, 148, pp 186-200.
 }
 \author{
     Tristen Hayfield \email{hayfield@phys.ethz.ch}, Jeffrey S. Racine
@@ -77,7 +75,7 @@ Data}' Journal of Econometrics, Volume 148, pp 186-200.
   
   \code{npdeneqtest} computes the integrated squared density difference
   between the estimated densities/probabilities of two samples having
-  identical variables/datatypes. See Maasoumi, Li and Racine (2009) for
+  identical variables/datatypes. See Li, Maasoumi, and Racine (2009) for
   details.
  
 }
@@ -92,6 +90,10 @@ Data}' Journal of Econometrics, Volume 148, pp 186-200.
 
   It is crucial that both data frames have the same variable names.
 
+}
+
+\seealso{
+  \code{\link{npdeptest},\link{npsdeptest},\link{npsymtest}}
 }
 
 \examples{

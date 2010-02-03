@@ -150,8 +150,12 @@ npindexbw.sibandwidth <-
 
     ## Save seed prior to setting
 
-    save.seed <- get(".Random.seed", .GlobalEnv)
-    set.seed(random.seed)
+    if(exists(".Random.seed", .GlobalEnv)) {
+      save.seed <- get(".Random.seed", .GlobalEnv)
+      exists.seed = TRUE
+    } else {
+      exists.seed = FALSE
+    }
 
     xdat = toFrame(xdat)
 
@@ -440,8 +444,8 @@ npindexbw.sibandwidth <-
 
     ## Restore seed
 
-    assign(".Random.seed", save.seed, .GlobalEnv)
-
+    if(exists.seed) assign(".Random.seed", save.seed, .GlobalEnv)
+    
     bws <- sibandwidth(beta = bws$beta,
                        h = bws$bw,
                        method = bws$method,
