@@ -12010,6 +12010,696 @@ int itmax)
 
 }
 
+/* 2/5/2010 - happy birthday! */
+
+int kernel_estimate_con_distribution_categorical_leave_one_out(
+int KERNEL_den,
+int KERNEL_unordered_den,
+int KERNEL_ordered_den,
+int KERNEL_reg,
+int KERNEL_unordered_reg,
+int KERNEL_ordered_reg,
+int BANDWIDTH_den,
+int num_obs_train,
+int num_obs_eval,
+int num_var_unordered,
+int num_var_ordered,
+int num_var_continuous,
+int num_reg_unordered,
+int num_reg_ordered,
+int num_reg_continuous,
+double **matrix_Y_unordered_train,
+double **matrix_Y_ordered_train,
+double **matrix_Y_continuous_train,
+double **matrix_Y_unordered_eval,
+double **matrix_Y_ordered_eval,
+double **matrix_Y_continuous_eval,
+double **matrix_X_unordered_train,
+double **matrix_X_ordered_train,
+double **matrix_X_continuous_train,
+double **matrix_X_unordered_eval,
+double **matrix_X_ordered_eval,
+double **matrix_X_continuous_eval,
+double *vector_scale_factor,
+int *num_categories,
+double **matrix_categorical_vals,
+double *cdf,
+double small,
+int itmax)
+{
+
+	/* This function estimates a leave-one-out distribution function
+     using both continuous and categorical covariates with three
+     estimation techniques and an assortment of kernels. */
+
+	/* Declarations */
+
+	int i;
+	int j;
+	int l;
+
+	double prod_kernel_cat;
+	double prod_kernel_cont;
+
+	double prod_kernel_marginal_cat;
+	double prod_kernel_marginal_cont;
+
+	double sum_ker;
+	double sum_ker_marginal;
+
+	double prod_h;
+
+	double *lambda;
+	double **matrix_bandwidth_var = NULL;
+	double **matrix_bandwidth_reg = NULL;
+
+	#ifdef MPI
+	int stride = ceil((double) num_obs_eval / (double) iNum_Processors);
+	if(stride < 1) stride = 1;
+	#endif
+
+	/* Allocate memory for objects */
+
+	lambda = alloc_vecd(num_var_unordered+num_reg_unordered+num_var_ordered+num_reg_ordered);
+
+	if((BANDWIDTH_den == 0)||(BANDWIDTH_den == 1))
+	{
+		matrix_bandwidth_var = alloc_matd(num_obs_eval,num_var_continuous);
+		matrix_bandwidth_reg = alloc_matd(num_obs_eval,num_reg_continuous);
+	}
+	else if(BANDWIDTH_den == 2)
+	{
+		matrix_bandwidth_var = alloc_matd(num_obs_train,num_var_continuous);
+		matrix_bandwidth_reg = alloc_matd(num_obs_train,num_reg_continuous);
+	}
+
+	/* Bandwidths for `dependent' variables */
+
+	if(kernel_bandwidth_mean(
+    KERNEL_den,
+		BANDWIDTH_den,
+		num_obs_train,
+		num_obs_eval,
+		num_var_continuous,
+		num_var_unordered,
+		num_var_ordered,
+		num_reg_continuous,
+		num_reg_unordered,
+		num_reg_ordered,
+		vector_scale_factor,
+		matrix_Y_continuous_train,
+		matrix_Y_continuous_eval,
+		matrix_X_continuous_train,
+		matrix_X_continuous_eval,
+		matrix_bandwidth_var,
+		matrix_bandwidth_reg,
+		lambda) == 1)
+	{
+    free(lambda);
+    free_mat(matrix_bandwidth_var,num_var_continuous);
+    free_mat(matrix_bandwidth_reg,num_reg_continuous);
+		return(1);
+	}
+
+	#ifndef MPI
+
+  /* First stab could be brute force copy no saving */
+
+	/* Conduct the estimation */
+
+	if(BANDWIDTH_den == 0)
+	{
+
+		for(j=0; j < num_obs_eval; j++)
+		{
+		  R_CheckUserInterrupt();
+			sum_ker = 0.0;
+			sum_ker_marginal = DBL_MIN;
+
+			for(i=0; i < num_obs_train; i++)
+			{
+
+				prod_kernel_cont = 1.0;
+
+				for(l = 0; l < num_reg_continuous; l++)
+				{
+
+					prod_kernel_cont *= kernel(KERNEL_reg, (matrix_X_continuous_eval[l][j]-matrix_X_continuous_train[l][i])/matrix_bandwidth_reg[l][0]);
+
+				}
+
+				prod_kernel_marginal_cont = prod_kernel_cont;
+
+				for(l = 0; l < num_var_continuous; l++)
+				{
+					prod_kernel_cont *= cdf_kernel(KERNEL_den, (matrix_Y_continuous_eval[l][j]-matrix_Y_continuous_train[l][i])/matrix_bandwidth_var[l][0]);
+				}
+
+				prod_kernel_cat = 1.0;
+
+				for(l = 0; l < num_reg_unordered; l++)
+				{
+					prod_kernel_cat *= kernel_unordered(KERNEL_unordered_reg, matrix_X_unordered_eval[l][j],matrix_X_unordered_train[l][i],lambda[l+num_var_unordered+num_var_ordered],num_categories[l+num_var_unordered+num_var_ordered]);
+				}
+
+				for(l = 0; l < num_reg_ordered; l++)
+				{
+					prod_kernel_cat *= kernel_ordered(KERNEL_ordered_reg, matrix_X_ordered_eval[l][j],matrix_X_ordered_train[l][i],lambda[l+num_var_unordered+num_var_ordered+num_reg_unordered]);
+				}
+
+				prod_kernel_marginal_cat = prod_kernel_cat;
+
+				for(l = 0; l < num_var_unordered; l++)
+				{
+					prod_kernel_cat *= cdf_kernel_unordered(KERNEL_unordered_den, matrix_Y_unordered_eval[l][j],matrix_Y_unordered_train[l][i],lambda[l],num_categories[l],matrix_categorical_vals[l]);
+				}
+
+				for(l = 0; l < num_var_ordered; l++)
+				{
+					prod_kernel_cat *= cdf_kernel_ordered(KERNEL_ordered_den, matrix_Y_ordered_eval[l][j],matrix_Y_ordered_train[l][i],lambda[l+num_var_unordered],num_categories[l+num_var_unordered],matrix_categorical_vals[l+num_var_unordered]);
+				}
+
+				if(i != j) {
+          sum_ker += prod_kernel_cont*prod_kernel_cat;
+          sum_ker_marginal += prod_kernel_marginal_cont*prod_kernel_marginal_cat;
+        }
+
+			}
+
+			cdf[j] = sum_ker/sum_ker_marginal;
+
+		}
+
+	}
+	else if(BANDWIDTH_den == 1)
+	{
+
+		for(j=0; j < num_obs_eval; j++)
+		{
+		  R_CheckUserInterrupt();
+			sum_ker = 0.0;
+			sum_ker_marginal = DBL_MIN;
+
+			for(i=0; i < num_obs_train; i++)
+			{
+
+				prod_kernel_cont = 1.0;
+
+				for(l = 0; l < num_reg_continuous; l++)
+				{
+
+					prod_kernel_cont *= kernel(KERNEL_reg, (matrix_X_continuous_eval[l][j]-matrix_X_continuous_train[l][i])/matrix_bandwidth_reg[l][j]);
+
+				}
+
+				prod_kernel_marginal_cont = prod_kernel_cont;
+
+				for(l = 0; l < num_var_continuous; l++)
+				{
+					prod_kernel_cont *= cdf_kernel(KERNEL_den, (matrix_Y_continuous_eval[l][j]-matrix_Y_continuous_train[l][i])/matrix_bandwidth_var[l][j]);
+				}
+
+				prod_kernel_cat = 1.0;
+
+				for(l = 0; l < num_reg_unordered; l++)
+				{
+					prod_kernel_cat *= kernel_unordered(KERNEL_unordered_reg, matrix_X_unordered_eval[l][j],matrix_X_unordered_train[l][i],lambda[l+num_var_unordered+num_var_ordered],num_categories[l+num_var_unordered+num_var_ordered]);
+				}
+
+				for(l = 0; l < num_reg_ordered; l++)
+				{
+					prod_kernel_cat *= kernel_ordered(KERNEL_ordered_reg, matrix_X_ordered_eval[l][j],matrix_X_ordered_train[l][i],lambda[l+num_var_unordered+num_var_ordered+num_reg_unordered]);
+				}
+
+				prod_kernel_marginal_cat = prod_kernel_cat;
+
+				for(l = 0; l < num_var_unordered; l++)
+				{
+					prod_kernel_cat *= cdf_kernel_unordered(KERNEL_unordered_den, matrix_Y_unordered_eval[l][j],matrix_Y_unordered_train[l][i],lambda[l],num_categories[l],matrix_categorical_vals[l]);
+				}
+
+				for(l = 0; l < num_var_ordered; l++)
+				{
+					prod_kernel_cat *= cdf_kernel_ordered(KERNEL_ordered_den, matrix_Y_ordered_eval[l][j],matrix_Y_ordered_train[l][i],lambda[l+num_var_unordered],num_categories[l+num_var_unordered],matrix_categorical_vals[l+num_var_unordered]);
+				}
+
+				sum_ker += prod_kernel_cont*prod_kernel_cat;
+				sum_ker_marginal += prod_kernel_marginal_cont*prod_kernel_marginal_cat;
+
+			}
+
+      if(i != j) {
+        cdf[j] = sum_ker/sum_ker_marginal;
+      }
+
+		}
+
+	}
+	else
+	{
+
+		for(j=0; j < num_obs_eval; j++)
+		{
+		  R_CheckUserInterrupt();
+			sum_ker = 0.0;
+			sum_ker_marginal = DBL_MIN;
+
+			for(i=0; i < num_obs_train; i++)
+			{
+
+				prod_h = 1.0;
+
+				for(l = 0; l < num_reg_continuous; l++)
+				{
+					prod_h *= matrix_bandwidth_reg[l][i];
+				}
+
+				prod_kernel_cont = 1.0;
+
+				for(l = 0; l < num_reg_continuous; l++)
+				{
+					prod_kernel_cont *= kernel(KERNEL_reg, (matrix_X_continuous_eval[l][j]-matrix_X_continuous_train[l][i])/matrix_bandwidth_reg[l][i]);
+				}
+
+				prod_kernel_marginal_cont = prod_kernel_cont;
+
+				for(l = 0; l < num_var_continuous; l++)
+				{
+					prod_kernel_cont *= cdf_kernel(KERNEL_den, (matrix_Y_continuous_eval[l][j]-matrix_Y_continuous_train[l][i])/matrix_bandwidth_var[l][i]);
+				}
+
+				prod_kernel_cat = 1.0;
+
+				for(l = 0; l < num_reg_unordered; l++)
+				{
+					prod_kernel_cat *= kernel_unordered(KERNEL_unordered_reg, matrix_X_unordered_eval[l][j],matrix_X_unordered_train[l][i],lambda[l+num_var_unordered+num_var_ordered],num_categories[l+num_var_unordered+num_var_ordered]);
+				}
+
+				for(l = 0; l < num_reg_ordered; l++)
+				{
+					prod_kernel_cat *= kernel_ordered(KERNEL_ordered_reg, matrix_X_ordered_eval[l][j],matrix_X_ordered_train[l][i],lambda[l+num_var_unordered+num_var_ordered+num_reg_unordered]);
+				}
+
+				prod_kernel_marginal_cat = prod_kernel_cat;
+
+				for(l = 0; l < num_var_unordered; l++)
+				{
+					prod_kernel_cat *= cdf_kernel_unordered(KERNEL_unordered_den, matrix_Y_unordered_eval[l][j],matrix_Y_unordered_train[l][i],lambda[l],num_categories[l],matrix_categorical_vals[l]);
+				}
+
+				for(l = 0; l < num_var_ordered; l++)
+				{
+					prod_kernel_cat *= cdf_kernel_ordered(KERNEL_ordered_den, matrix_Y_ordered_eval[l][j],matrix_Y_ordered_train[l][i],lambda[l+num_var_unordered],num_categories[l+num_var_unordered],matrix_categorical_vals[l+num_var_unordered]);
+				}
+
+				if(i != j) {
+          sum_ker += prod_kernel_cont*prod_kernel_cat/prod_h;
+          sum_ker_marginal += prod_kernel_marginal_cont*prod_kernel_marginal_cat/prod_h;
+        }
+
+			}
+
+			cdf[j] = sum_ker/sum_ker_marginal;
+
+		}
+
+	}
+	#endif
+
+	#ifdef MPI
+
+	/* Conduct the estimation */
+
+	if(BANDWIDTH_den == 0)
+	{
+
+		for(j=my_rank*stride; (j < num_obs_eval) && (j < (my_rank+1)*stride); j++)
+		{
+
+			sum_ker = 0.0;
+			sum_ker_marginal = DBL_MIN;
+
+			for(i=0; i < num_obs_train; i++)
+			{
+
+				prod_kernel_cont = 1.0;
+
+				for(l = 0; l < num_reg_continuous; l++)
+				{
+
+					prod_kernel_cont *= kernel(KERNEL_reg, (matrix_X_continuous_eval[l][j]-matrix_X_continuous_train[l][i])/matrix_bandwidth_reg[l][0]);
+
+				}
+
+				prod_kernel_marginal_cont = prod_kernel_cont;
+
+				for(l = 0; l < num_var_continuous; l++)
+				{
+					prod_kernel_cont *= cdf_kernel(KERNEL_den, (matrix_Y_continuous_eval[l][j]-matrix_Y_continuous_train[l][i])/matrix_bandwidth_var[l][0]);
+				}
+
+				prod_kernel_cat = 1.0;
+
+				for(l = 0; l < num_reg_unordered; l++)
+				{
+					prod_kernel_cat *= kernel_unordered(KERNEL_unordered_reg, matrix_X_unordered_eval[l][j],matrix_X_unordered_train[l][i],lambda[l+num_var_unordered+num_var_ordered],num_categories[l+num_var_unordered+num_var_ordered]);
+				}
+
+				for(l = 0; l < num_reg_ordered; l++)
+				{
+					prod_kernel_cat *= kernel_ordered(KERNEL_ordered_reg, matrix_X_ordered_eval[l][j],matrix_X_ordered_train[l][i],lambda[l+num_var_unordered+num_var_ordered+num_reg_unordered]);
+				}
+
+				prod_kernel_marginal_cat = prod_kernel_cat;
+
+				for(l = 0; l < num_var_unordered; l++)
+				{
+					prod_kernel_cat *= cdf_kernel_unordered(KERNEL_unordered_den, matrix_Y_unordered_eval[l][j],matrix_Y_unordered_train[l][i],lambda[l],num_categories[l],matrix_categorical_vals[l]);
+				}
+
+				for(l = 0; l < num_var_ordered; l++)
+				{
+					prod_kernel_cat *= cdf_kernel_ordered(KERNEL_ordered_den, matrix_Y_ordered_eval[l][j],matrix_Y_ordered_train[l][i],lambda[l+num_var_unordered],num_categories[l+num_var_unordered],matrix_categorical_vals[l+num_var_unordered]);
+				}
+
+				if(i != j) {
+          sum_ker += prod_kernel_cont*prod_kernel_cat;
+          sum_ker_marginal += prod_kernel_marginal_cont*prod_kernel_marginal_cat;
+        }
+
+			}
+
+			cdf[j-my_rank*stride] = sum_ker/sum_ker_marginal;
+
+		}
+
+	}
+	else if(BANDWIDTH_den == 1)
+	{
+
+		for(j=my_rank*stride; (j < num_obs_eval) && (j < (my_rank+1)*stride); j++)
+		{
+
+			sum_ker = 0.0;
+			sum_ker_marginal = DBL_MIN;
+
+			for(i=0; i < num_obs_train; i++)
+			{
+
+				prod_kernel_cont = 1.0;
+
+				for(l = 0; l < num_reg_continuous; l++)
+				{
+
+					prod_kernel_cont *= kernel(KERNEL_reg, (matrix_X_continuous_eval[l][j]-matrix_X_continuous_train[l][i])/matrix_bandwidth_reg[l][j]);
+
+				}
+
+				prod_kernel_marginal_cont = prod_kernel_cont;
+
+				for(l = 0; l < num_var_continuous; l++)
+				{
+					prod_kernel_cont *= cdf_kernel(KERNEL_den, (matrix_Y_continuous_eval[l][j]-matrix_Y_continuous_train[l][i])/matrix_bandwidth_var[l][j]);
+				}
+
+				prod_kernel_cat = 1.0;
+
+				for(l = 0; l < num_reg_unordered; l++)
+				{
+					prod_kernel_cat *= kernel_unordered(KERNEL_unordered_reg, matrix_X_unordered_eval[l][j],matrix_X_unordered_train[l][i],lambda[l+num_var_unordered+num_var_ordered],num_categories[l+num_var_unordered+num_var_ordered]);
+				}
+
+				for(l = 0; l < num_reg_ordered; l++)
+				{
+					prod_kernel_cat *= kernel_ordered(KERNEL_ordered_reg, matrix_X_ordered_eval[l][j],matrix_X_ordered_train[l][i],lambda[l+num_var_unordered+num_var_ordered+num_reg_unordered]);
+				}
+
+				prod_kernel_marginal_cat = prod_kernel_cat;
+
+				for(l = 0; l < num_var_unordered; l++)
+				{
+					prod_kernel_cat *= cdf_kernel_unordered(KERNEL_unordered_den, matrix_Y_unordered_eval[l][j],matrix_Y_unordered_train[l][i],lambda[l],num_categories[l],matrix_categorical_vals[l]);
+				}
+
+				for(l = 0; l < num_var_ordered; l++)
+				{
+					prod_kernel_cat *= cdf_kernel_ordered(KERNEL_ordered_den, matrix_Y_ordered_eval[l][j],matrix_Y_ordered_train[l][i],lambda[l+num_var_unordered],num_categories[l+num_var_unordered],matrix_categorical_vals[l+num_var_unordered]);
+				}
+
+				if(i != j) {
+          sum_ker += prod_kernel_cont*prod_kernel_cat;
+          sum_ker_marginal += prod_kernel_marginal_cont*prod_kernel_marginal_cat;
+        }
+
+			}
+
+			cdf[j-my_rank*stride] = sum_ker/sum_ker_marginal;
+
+		}
+
+	}
+	else
+	{
+
+		for(j=my_rank*stride; (j < num_obs_eval) && (j < (my_rank+1)*stride); j++)
+		{
+
+			sum_ker = 0.0;
+			sum_ker_marginal = DBL_MIN;
+
+			for(i=0; i < num_obs_train; i++)
+			{
+
+				prod_h = 1.0;
+
+				for(l = 0; l < num_reg_continuous; l++)
+				{
+					prod_h *= matrix_bandwidth_reg[l][i];
+				}
+
+				prod_kernel_cont = 1.0;
+
+				for(l = 0; l < num_reg_continuous; l++)
+				{
+					prod_kernel_cont *= kernel(KERNEL_reg, (matrix_X_continuous_eval[l][j]-matrix_X_continuous_train[l][i])/matrix_bandwidth_reg[l][i]);
+				}
+
+				prod_kernel_marginal_cont = prod_kernel_cont;
+
+				for(l = 0; l < num_var_continuous; l++)
+				{
+					prod_kernel_cont *= cdf_kernel(KERNEL_den, (matrix_Y_continuous_eval[l][j]-matrix_Y_continuous_train[l][i])/matrix_bandwidth_var[l][i]);
+				}
+
+				prod_kernel_cat = 1.0;
+
+				for(l = 0; l < num_reg_unordered; l++)
+				{
+					prod_kernel_cat *= kernel_unordered(KERNEL_unordered_reg, matrix_X_unordered_eval[l][j],matrix_X_unordered_train[l][i],lambda[l+num_var_unordered+num_var_ordered],num_categories[l+num_var_unordered+num_var_ordered]);
+				}
+
+				for(l = 0; l < num_reg_ordered; l++)
+				{
+					prod_kernel_cat *= kernel_ordered(KERNEL_ordered_reg, matrix_X_ordered_eval[l][j],matrix_X_ordered_train[l][i],lambda[l+num_var_unordered+num_var_ordered+num_reg_unordered]);
+				}
+
+				prod_kernel_marginal_cat = prod_kernel_cat;
+
+				for(l = 0; l < num_var_unordered; l++)
+				{
+					prod_kernel_cat *= cdf_kernel_unordered(KERNEL_unordered_den, matrix_Y_unordered_eval[l][j],matrix_Y_unordered_train[l][i],lambda[l],num_categories[l],matrix_categorical_vals[l]);
+				}
+
+				for(l = 0; l < num_var_ordered; l++)
+				{
+					prod_kernel_cat *= cdf_kernel_ordered(KERNEL_ordered_den, matrix_Y_ordered_eval[l][j],matrix_Y_ordered_train[l][i],lambda[l+num_var_unordered],num_categories[l+num_var_unordered],matrix_categorical_vals[l+num_var_unordered]);
+				}
+
+				if(i != j) {
+          sum_ker += prod_kernel_cont*prod_kernel_cat/prod_h;
+          sum_ker_marginal += prod_kernel_marginal_cont*prod_kernel_marginal_cat/prod_h;
+        }
+
+			}
+
+			cdf[j-my_rank*stride] = sum_ker/sum_ker_marginal;
+
+		}
+
+	}
+
+	MPI_Gather(cdf, stride, MPI_DOUBLE, cdf, stride, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+	MPI_Bcast(cdf, num_obs_eval, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+
+	#endif
+
+	free(lambda);
+
+	free_mat(matrix_bandwidth_var,num_var_continuous);
+	free_mat(matrix_bandwidth_reg,num_reg_continuous);
+
+	return(0);
+
+}
+
+/* Feb 6 2010 - this will call
+   kernel_estimate_con_distribution_categorical_leave_one_out and
+   return the cv function */
+
+int indfunc(double a) { return(a <= 0.0 ? 1 : 0); }
+
+int kernel_estimate_con_distribution_categorical_leave_one_out_ccdf(
+int KERNEL_den,
+int KERNEL_unordered_den,
+int KERNEL_ordered_den,
+int KERNEL_reg,
+int KERNEL_unordered_reg,
+int KERNEL_ordered_reg,
+int BANDWIDTH_den,
+int num_obs_train,
+int num_var_unordered,
+int num_var_ordered,
+int num_var_continuous,
+int num_reg_unordered,
+int num_reg_ordered,
+int num_reg_continuous,
+double **matrix_Y_unordered_train,
+double **matrix_Y_ordered_train,
+double **matrix_Y_continuous_train,
+double **matrix_X_unordered_train,
+double **matrix_X_ordered_train,
+double **matrix_X_continuous_train,
+double *vector_scale_factor,
+int *num_categories,
+double **matrix_categorical_vals,
+double *cv, /* Returned by function */
+double small,
+int itmax)
+{
+
+	/* This function constructs the objective function for conditional
+     distribution bandwidth selection */
+
+  /* NOTE - currently supports multivariate continuous variables only */
+  /* NOTE - sloowwww */
+
+  /* For fully general implementation, need to feed in unique values
+     for all ordered and unordered variables */
+
+	/* Declarations and initializations  */
+
+	int i;
+  int l;
+  int j;
+  double indicator;
+  double *cdf_loo;
+	*cv = 0.0;
+
+  /* Must declare and free evaluation */
+
+	double **matrix_Y_unordered_eval;
+	double **matrix_Y_ordered_eval;
+	double **matrix_Y_continuous_eval;
+
+  /* Must declare and free cdf_eval */
+
+  cdf_loo = alloc_vecd(num_obs_train);
+
+	matrix_Y_unordered_eval = alloc_matd(num_obs_train, num_reg_unordered);
+	matrix_Y_ordered_eval = alloc_matd(num_obs_train, num_reg_ordered);
+	matrix_Y_continuous_eval = alloc_matd(num_obs_train, num_reg_continuous);
+
+  /* XXX */
+
+    /*    for(l=0; l < num_reg_unordered; l++)
+      for(j=0; j < num_obs_train; j++)
+        matrix_Y_unordered_eval[l][j] = matrix_Y_unordered_train[l][i];
+    
+    for(l=0; l < num_reg_ordered; l++)
+      for(j=0; j < num_obs_train; j++)
+      matrix_Y_ordered_eval[l][j] = matrix_Y_ordered_train[l][i];*/
+    
+  for(i=0; i < num_obs_train; i++) {
+
+    /* Brute force `copy' Y eval could of course be improved via
+       pointer */
+
+    /* Require nested loops for ordered, unordered, and continuous -
+       not implemented yet (Feb 7 2010) */
+
+    for(l=0; l < num_reg_continuous; l++)
+      for(j=0; j < num_obs_train; j++)
+        matrix_Y_continuous_eval[l][j] = matrix_Y_continuous_train[l][i];
+
+    if(kernel_estimate_con_distribution_categorical_leave_one_out(
+ 			KERNEL_den,
+			KERNEL_unordered_den,
+			KERNEL_ordered_den,
+			KERNEL_reg,
+			KERNEL_unordered_reg,
+			KERNEL_ordered_reg,
+			BANDWIDTH_den,
+			num_obs_train,
+			num_obs_train,
+			num_var_unordered,
+			num_var_ordered,
+			num_var_continuous,
+			num_reg_unordered,
+			num_reg_ordered,
+			num_reg_continuous,
+			matrix_Y_unordered_train,
+			matrix_Y_ordered_train,
+			matrix_Y_continuous_train,
+			matrix_Y_unordered_eval,
+			matrix_Y_ordered_eval,
+			matrix_Y_continuous_eval,
+			matrix_X_unordered_train,
+			matrix_X_ordered_train,
+			matrix_X_continuous_train,
+			matrix_X_unordered_train,
+			matrix_X_ordered_train,
+			matrix_X_continuous_train,
+			vector_scale_factor,
+			num_categories,
+			matrix_categorical_vals,
+			cdf_loo,
+			small,
+			itmax) == 1) 
+    {
+      return(1);
+    }
+
+    /*  If y is a discrete scalar we would replace the integral with
+       the sum over all unique realizations... in a multivariate
+       real-valued setting a multivariate integral becomes a
+       multivariate sum so we would need to loop over all
+       dimensions... for mixed data ditto - sum is certainly easier */
+
+    /* Must use multivariate product indicator function */
+
+    for(j=0; j < num_obs_train; j++) {
+      indicator = 1.0;
+      for(l=0; l < num_reg_continuous; l++) {
+        indicator *= indfunc(matrix_Y_continuous_train[l][j]-matrix_Y_continuous_eval[l][j]);
+      }
+      *cv += ipow(indicator - cdf_loo[j],2);
+    }
+
+  }
+
+  /* Sum over all variables - need to be careful about denominator */
+
+  *cv /= (double) ipow(num_obs_train,1+num_reg_continuous);
+
+  free(cdf_loo);
+	free_mat(matrix_Y_unordered_eval, num_reg_unordered);
+	free_mat(matrix_Y_ordered_eval, num_reg_ordered);
+	free_mat(matrix_Y_continuous_eval, num_reg_continuous);
+
+	return(0);
+
+}
+
 
 /* 11/16/04 */
 

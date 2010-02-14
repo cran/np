@@ -36,7 +36,7 @@ b.star(data,
 }
 \description{
   \code{b.star} is a function which computes the optimal block length
-  for a continuous variable  \code{data} using the method described in
+  for the continuous variable \code{data} using the method described in
   Patton, Politis and White (2009).
 }
 \details{

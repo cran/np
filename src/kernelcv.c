@@ -466,6 +466,68 @@ double cv_func_con_density_categorical_ls(double *vector_scale_factor)
 
 }
 
+/* Feb 7 2010 */
+
+double cv_func_con_distribution_categorical_ccdf(double *vector_scale_factor)
+{
+
+/* Numerical recipes wrapper function for conditional distribution
+function */
+
+/* Declarations */
+
+    double cv = 0.0;
+
+    if(check_valid_scale_factor_cv(
+        KERNEL_den_extern,
+        KERNEL_reg_unordered_extern, /* Only for conditioning vars in conditional den */
+        BANDWIDTH_den_extern,
+        BANDWIDTH_den_extern,
+        0,
+        num_obs_train_extern,
+        num_var_continuous_extern,
+        num_var_unordered_extern,
+        num_var_ordered_extern,
+        num_reg_continuous_extern,
+        num_reg_unordered_extern,
+        num_reg_ordered_extern,
+        num_categories_extern,
+        vector_scale_factor) == 1) return(DBL_MAX);
+
+    if(kernel_estimate_con_distribution_categorical_leave_one_out_ccdf(KERNEL_den_extern,
+        KERNEL_den_unordered_extern,
+        KERNEL_den_ordered_extern,
+				KERNEL_reg_extern,
+        KERNEL_reg_unordered_extern,
+        KERNEL_reg_ordered_extern,
+        BANDWIDTH_den_extern,
+        num_obs_train_extern,
+        num_var_unordered_extern,
+        num_var_ordered_extern,
+        num_var_continuous_extern,
+        num_reg_unordered_extern,
+        num_reg_ordered_extern,
+        num_reg_continuous_extern,
+        matrix_Y_unordered_train_extern,
+        matrix_Y_ordered_train_extern,
+        matrix_Y_continuous_train_extern,
+        matrix_X_unordered_train_extern,
+        matrix_X_ordered_train_extern,
+        matrix_X_continuous_train_extern,
+        &vector_scale_factor[1],
+        num_categories_extern,
+        matrix_categorical_vals_extern,
+        &cv,
+        small_extern,
+        itmax_extern)==1)
+    {
+        return(DBL_MAX);
+    }
+
+
+    return(cv);
+
+}
 
 double cv_func_density_categorical_ls(double *vector_scale_factor)
 {

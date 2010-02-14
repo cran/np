@@ -24,9 +24,9 @@ npsymtest <- function(data = NULL,
     exists.seed = FALSE
   }
 
-  sym.console <- newLineConsole()
-  sym.console <- printPush(paste(sep="", "Working..."), console = sym.console)
-  sym.console <- printPop(sym.console)
+  console <- newLineConsole()
+  console <- printPush(paste(sep="", "Working..."), console = console)
+  console <- printPop(console)
 
   ## If of type ts convert to numeric to handle time series data
 
@@ -97,7 +97,9 @@ npsymtest <- function(data = NULL,
         f.data.rotate <- fitted(npudens(tdat=data.rotate,edat=x,bws=bw,...))
         return(0.5*(sqrt(f.data)-sqrt(f.data.rotate))**2)
       }
-      return(integrate(h,-Inf,Inf,data=data,data.rotate=data.rotate)$value)
+      return.integrate <- integrate(h,-Inf,Inf,subdivisions=1e+05,stop.on.error=FALSE,data=data,data.rotate=data.rotate)
+      if(return.integrate$message != "OK") warning(return.integrate$message)
+      return(return.integrate$value)
     } else {
       xeval <- unique(data)
       p.data <- fitted(npudens(tdat=data,edat=xeval,bws=bw,...))
@@ -124,9 +126,9 @@ npsymtest <- function(data = NULL,
   ## get permuted/rearranged to define resampled data.
 
 	boot.fun <- function(ii,data.null,bw) {
-    sym.console <<- printClear(sym.console)
-    sym.console <<- printPush(paste(sep="", "Bootstrap replication ",
-                                    B.counter, "/", boot.num, "..."), console = sym.console)
+    console <<- printClear(console)
+    console <<- printPush(paste(sep="", "Bootstrap replication ",
+                                    B.counter, "/", boot.num, "..."), console = console)
     null.sample1 <- data.null[ii]
     if(is.numeric(data.null)) {
       null.sample2 <- -(null.sample1-mean(null.sample1))+mean(null.sample1)
@@ -189,8 +191,8 @@ npsymtest <- function(data = NULL,
 
   }
 
-  sym.console <- printClear(sym.console)
-  sym.console <- printPop(sym.console)  
+  console <- printClear(console)
+  console <- printPop(console)  
 
   p.value <- mean(ifelse(resampled.stat > test.stat, 1, 0))
 

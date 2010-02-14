@@ -361,15 +361,15 @@ npscoefbw(\dots)
  Li, Q. and J.S. Racine (2007), \emph{Nonparametric Econometrics: Theory
  and Practice,} Princeton University Press.
 
-  Li, Q. and J.S. Racine (2008), \dQuote{Smooth varying-coefficient
+  Li, Q. and J.S. Racine (2010), \dQuote{Smooth varying-coefficient
     estimation and inference for qualitative and quantitative data,}
-    manuscript.
+    Econometric Theory, 26, 1-31.
 
   Pagan, A. and A. Ullah (1999), \emph{Nonparametric Econometrics,}
  Cambridge University Press.
  
- Racine, J.S. and D. Ouyang and Q. Li (2007), \dQuote{Nonparametric
-   multilevel models: a smoothing approach,} manuscript.
+ Racine, J.S. and D. Ouyang and Q. Li (2010), \dQuote{Semiparametric
+    Hierarchical Models,} manuscript.
 
  Wang, M.C. and J. van Ryzin (1981), \dQuote{A class of smooth estimators
  for discrete distributions,}  Biometrika, 68, 301-309.

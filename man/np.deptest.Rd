@@ -4,7 +4,7 @@
 \title{ Kernel Consistent Pairwise Nonlinear Dependence Test for Univariate Processes }
 \description{
   
-  \code{npdeptest} implements a consistent entropy-based test for
+  \code{npdeptest} implements the consistent metric entropy test of
   pairwise independence as described in Maasoumi and Racine (2002).
   
 }
@@ -64,7 +64,7 @@ npdeptest(data.x = NULL,
   \item{Srho}{ the statistic \code{Srho} }
   \item{Srho.bootstrap.vec}{ contains the bootstrap replications of
     \code{Srho} }
-  \item{Srho.P}{ the P-value of the Srho statistic }
+  \item{P}{ the P-value of the Srho statistic }
   \item{bootstrap}{ a logical value indicating whether bootstrapping was
   performed }
   \item{boot.num}{ number of bootstrap replications }
@@ -79,6 +79,10 @@ npdeptest(data.x = NULL,
 }
 \references{
   
+  Granger, C.W. and E. Maasoumi and J.S. Racine (2004), \dQuote{A
+  dependence metric for possibly nonlinear processes}, Journal of Time
+  Series Analysis, 25, 649-669.
+  
   Maasoumi, E. and J.S. Racine (2002), \dQuote{Entropy and
     Predictability of Stock Market Returns,} Journal of Econometrics,
     107, 2, pp 291-312.
@@ -90,13 +94,14 @@ npdeptest(data.x = NULL,
 }
 
 \details{
-  
-  \code{npdeptest} computes the Bhattacharya-Matusita-Hellinger metric
-  entropy measure of divergence between the densities of two data
-  series. See Maasoumi and Racine (2002) for details. Default bandwidths
-  are of the Kullback-Leibler variety obtained via likelihood
-  cross-validation. The null distribution is obtained via bootstrap
-  resampling under the null of pairwise independence.
+
+  \code{npsdeptest} computes the nonparametric metric entropy
+   (normalized Hellinger of Granger, Maasoumi and Racine (2004)) for
+   testing pairwise nonlinear dependence between the densities of two
+   data series. See Maasoumi and Racine (2002) for details. Default
+   bandwidths are of the Kullback-Leibler variety obtained via
+   likelihood cross-validation. The null distribution is obtained via
+   bootstrap resampling under the null of pairwise independence.
 
   \code{npdeptest} computes the distance between the joint distribution
   and the product of marginals (i.e. the joint distribution under the
@@ -121,14 +126,14 @@ npdeptest(data.x = NULL,
 }
 
 \seealso{
-  \code{\link{npdeneqtest},\link{npsdeptest},\link{npsymtest}}
+  \code{\link{npdeneqtest},\link{npsdeptest},\link{npsymtest}, \link{npunitest}}
 }
 
 \examples{
 set.seed(1234)
 
 ## Test/measure lack of fit between y and its fitted value from a
-## regression model when x is relevant.
+## regression model when x is relevant using the `summation' version.
 
 n <- 100
 x <- rnorm(n)
@@ -136,12 +141,12 @@ y <- 1 + x + rnorm(n)
 model <- lm(y~x)
 y.fit <- fitted(model)
 
-npdeptest(y,y.fit,bootstrap=TRUE,boot.num=99,method="summation")
+npdeptest(y,y.fit,boot.num=99,method="summation")
 
 Sys.sleep(5)
 
 ## Test/measure lack of fit between y and its fitted value from a
-## regression model when x is irrelevant.
+## regression model when x is irrelevant using the `summation' version.
 
 n <- 100
 x <- runif(n,-2,2)
@@ -149,8 +154,35 @@ y <- 1 + rnorm(n)
 model <- lm(y~x)
 y.fit <- fitted(model)
 
-npdeptest(x,y,bootstrap=TRUE,boot.num=99,method="summation")
+npdeptest(x,y,boot.num=99,method="summation")
 
+\dontrun{
+## Test/measure lack of fit between y and its fitted value from a
+## regression model when x is relevant using the `integration'
+## version (default, slower than summation version).
+
+n <- 100
+x <- rnorm(n)
+y <- 1 + x + rnorm(n)
+model <- lm(y~x)
+y.fit <- fitted(model)
+
+npdeptest(y,y.fit,boot.num=99)
+
+Sys.sleep(5)
+
+## Test/measure lack of fit between y and its fitted value from a
+## regression model when x is irrelevant using the `integration'
+## version (default, slower than summation version).
+
+n <- 100
+x <- runif(n,-2,2)
+y <- 1 + rnorm(n)
+model <- lm(y~x)
+y.fit <- fitted(model)
+
+npdeptest(x,y,boot.num=99)
+} % enddontrun
 }
 \keyword{ univar }
 \keyword{ nonparametric }

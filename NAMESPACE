@@ -27,6 +27,7 @@ export(b.star
        ,npscoefbw
        ,npsigtest
        ,npsymtest
+       ,npunitest       
        ,uocquantile
        ,se
        ,gradients
@@ -55,6 +56,7 @@ S3method(print,scbandwidth)
 S3method(print,smoothcoefficient)
 S3method(print,symtest)
 S3method(print,deneqtest)
+S3method(print,unitest)
 ##
 
 
@@ -137,6 +139,7 @@ S3method(summary, singleindex)
 S3method(summary, smoothcoefficient)
 S3method(summary, symtest)
 S3method(summary, deneqtest)
+S3method(summary, unitest)
 
 S3method(se, npdensity)
 S3method(se, npdistribution)

@@ -180,6 +180,7 @@ derivative estimation, varying/smooth coefficient models
 among others. The various functions in the \pkg{np} package are
 described in Table~\ref{np function table}.
 
+
 \begin{table}[!ht]
   \centering\raggedright
   {\small
@@ -194,6 +195,8 @@ described in Table~\ref{np function table}.
 \code{npcdist} &  Nonparametric Conditional Distribution Estimation & \citet{LI_RACINE:2008}\\
 \code{npcmstest} &   Parametric Model Specification Test & \citet{HSIAO_LI_RACINE:2007}\\
 \code{npconmode} &  Nonparametric Modal Regression & \\
+\code{npdeneqtest} &  Nonparametric Test for Equality of Densities & \citet{LI_MAASOUMI_RACINE:2009} \\
+\code{npdeptest} &  Nonparametric Entropy Test for Pairwise Dependence & \citet{MAASOUMI_RACINE:2002} \\
 \code{npindex} & Semiparametric Single Index Model & \citet{ICHIMURA:1993}, \citet{KLEIN_SPADY:1993}\\
 \code{npindexbw} & Semiparametric Single Index Model Parameter and Bandwidth Selection& \citet{ICHIMURA:1993}, \citet{KLEIN_SPADY:1993}\\
 \code{npksum} &  Nonparametric Kernel Sums & \\
@@ -208,10 +211,13 @@ described in Table~\ref{np function table}.
 \code{npregbw} &  Nonparametric Regression Bandwidth Selection & \citet{HURVICH_SIMONOFF_TSAI:1998}, \citet{RACINE_LI:2004}, \citet{LI_RACINE:2004} \\
 \code{npscoef} & Semiparametric Smooth Coefficient  Regression& \citet{LI_RACINE:2007b}\\
 \code{npscoefbw} & Semiparametric Smooth Coefficient  Regression Bandwidth Selection& \citet{LI_RACINE:2007b}\\
+\code{npsdeptest} & Nonparametric Entropy Test for Serial Nonlinear Dependence& \citet{GRANGER_MAASOUMI_RACINE:2004}\\
 \code{npsigtest} &  Nonparametric Regression Significance Test & \citet{RACINE:1997}, \citet{RACINE_HART_LI:2006}\\
+\code{npsymtest} & Nonparametric Entropy Test for Asymmetry& \citet{MAASOUMI_RACINE:2009}\\
 \code{npudens} &  Nonparametric Density Estimation & \citet{PARZEN:1962}, \citet{ROSENBLATT:1956}, \citet{LI_RACINE:2003a}\\
 \code{npudensbw} &  Nonparametric Density Bandwidth Selection & \citet{PARZEN:1962}, \citet{ROSENBLATT:1956}, \citet{LI_RACINE:2003a}\\
 \code{npudist} &  Nonparametric Distribution Estimation & \citet{PARZEN:1962}, \citet{ROSENBLATT:1956}, \citet{LI_RACINE:2003a}\\
+\code{npunitest} &  Nonparametric Entropy Test for Univariate Density Equality & \citet{MAASOUMI_RACINE:2002} \\
 -- Utilities --&&\\
 \code{gradients} & Extract Gradients& \\
 \code{se} &	Extract Standard Errors&\\
@@ -222,7 +228,6 @@ described in Table~\ref{np function table}.
   \caption{\textbf{\pkg{np} functions.}}
 \end{table}
 	
-
 In this article, we illustrate the use of the \pkg{np} package via a
 number of empirical applications. Each application is chosen to
 highlight a specific econometric method in an applied setting. We

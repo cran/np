@@ -152,7 +152,7 @@
 
     \item{Second Order Epanechnikov (\eqn{x} is continuous)}{
       \eqn{k(z) =  3\left(1 - z^2/5\right)/(4\sqrt{5})}{
-        k(z) =  3\left(1 - z^2/5\right)/(4*sqrt(5))}
+        k(z) =  3(1 - z^2/5)/(4*sqrt(5))}
       if \eqn{z^2<5}, \eqn{0} otherwise, where
       \eqn{z=(x_i-x)/h}{z=(x[i]-x)/h}, and \eqn{h>0}.
     }

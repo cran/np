@@ -186,12 +186,12 @@ npsdeptest <- function(data = NULL,
 
     ## Compute P-values
 
-    Srho.P.vec <- numeric()
-    Srho.cumulant.P.vec <- numeric()
+    P.vec <- numeric()
+    P.cumulant.vec <- numeric()
     
     for(k in 1:lag.num) {
-      Srho.P.vec[k] <- mean(ifelse(Srho.bootstrap.mat[,k]>Srho.vec[k],1,0))
-      Srho.cumulant.P.vec[k] <- mean(ifelse(Srho.cumulant.bootstrap.mat[,k]>Srho.cumulant.vec[k],1,0))
+      P.vec[k] <- mean(ifelse(Srho.bootstrap.mat[,k]>Srho.vec[k],1,0))
+      P.cumulant.vec[k] <- mean(ifelse(Srho.cumulant.bootstrap.mat[,k]>Srho.cumulant.vec[k],1,0))
     }
 
   }
@@ -209,8 +209,8 @@ npsdeptest <- function(data = NULL,
              Srho.cumulant = Srho.cumulant.vec,
              Srho.bootstrap.mat = Srho.bootstrap.mat,
              Srho.cumulant.bootstrap.mat = Srho.cumulant.bootstrap.mat,
-             Srho.P = Srho.P.vec,
-             Srho.cumulant.P = Srho.cumulant.P.vec,
+             P = P.vec,
+             P.cumulant = P.cumulant.vec,
              bootstrap = bootstrap,
              boot.num = boot.num,
              lag.num = lag.num,
@@ -224,8 +224,8 @@ npsdeptest <- function(data = NULL,
              Srho.cumulant = Srho.cumulant.vec,
              Srho.bootstrap.mat = NULL,
              Srho.cumulant.bootstrap.mat = NULL,
-             Srho.P = NULL,
-             Srho.cumulant.P = NULL,
+             P = NULL,
+             P.cumulant = NULL,
              bootstrap = bootstrap,
              boot.num = NULL,
              lag.num = lag.num,

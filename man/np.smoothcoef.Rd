@@ -8,14 +8,15 @@
 \title{Smooth Coefficient Kernel Regression}
 
 \description{
-  \code{npscoef} computes a kernel regression estimate of a one
-  (1) dimensional dependent variable on \eqn{p}-variate explanatory
-  data, using the model \eqn{Y_i = W_{i}^{\prime} \gamma (Z_i) +
-    u_i}{Y_i = t(W_i) * gamma(Z_i) + u_i} where \eqn{W_i'=(1,X_i')}{t(W_i)=(1,t(X_i))},
-  given a set of evaluation points, training points (consisting of
-  explanatory data and dependent data), and a bandwidth specification. A
-  bandwidth specification can be a \code{scbandwidth} object, or a
-  bandwidth vector, bandwidth type and kernel type.
+  \code{npscoef} computes a kernel regression estimate of a one (1)
+  dimensional dependent variable on \eqn{p}-variate explanatory data,
+  using the model \eqn{Y_i = W_{i}^{\prime} \gamma (Z_i) + u_i}{Y_i =
+  t(W_i) * gamma(Z_i) + u_i} where
+  \eqn{W_i'=(1,X_i')}{t(W_i)=(1,t(X_i))}, given a set of evaluation
+  points, training points (consisting of explanatory data and dependent
+  data), and a bandwidth specification. A bandwidth specification can be
+  a \code{scbandwidth} object, or a bandwidth vector, bandwidth type and
+  kernel type.
 }
 
 \usage{
@@ -216,15 +217,15 @@ npscoef(bws, \dots)
   Li, Q. and J.S. Racine (2007), \emph{Nonparametric Econometrics:
     Theory and Practice,} Princeton University Press.
 
-  Li, Q. and J.S. Racine (2008), \dQuote{Smooth varying-coefficient
+  Li, Q. and J.S. Racine (2010), \dQuote{Smooth varying-coefficient
     estimation and inference for qualitative and quantitative data,}
-    manuscript.
+    Econometric Theory, 26, 1-31.
 
   Pagan, A. and A. Ullah (1999), \emph{Nonparametric Econometrics,}
   Cambridge University Press.
 
- Racine, J.S. and D. Ouyang and Q. Li (2007), \dQuote{Nonparametric
-   multilevel models: a smoothing approach,} manuscript.
+ Racine, J.S. and D. Ouyang and Q. Li (2010), \dQuote{Semiparametric
+    Hierarchical Models,} manuscript.
  
   Wang, M.C. and J. van Ryzin (1981), \dQuote{A class of smooth
     estimators for discrete distributions,}  Biometrika, 68, 301-309.

@@ -1,3 +1,11 @@
+Changes from Version 0.30-6 to 0.30-7 [15-Feb-2010]
+
+* Added function npunitest for entropy-based testing of equality of
+  univariate densities as described in Maasoumi and Racine (2002,
+  2009)
+
+* Updated vignette to reflect new functions (Table 1: np functions)
+
 Changes from Version 0.30-5 to 0.30-6 [3-Feb-2010]
 
 * Added function npsdeptest for entropy-based testing of nonlinear

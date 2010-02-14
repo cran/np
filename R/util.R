@@ -704,10 +704,11 @@ BWM_CVAIC = 0
 REGTYPE_LC = 0
 REGTYPE_LL = 1
 
-##conditional density
+##conditional density/distribution
 CBWM_CVML = 0
 CBWM_CVLS = 1
 CBWM_NPLS = 2
+CBWM_CCDF = 3 # Added 7/2/2010 jracine
 
 ##integral operators on kernels
 OP_NORMAL      = 0

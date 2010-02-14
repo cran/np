@@ -101,9 +101,9 @@ npdeptest <- function(data.x = NULL,
 
   } ## end of Srho.bivar function
 
-  console <- newLineConsole()
-  console <- printClear(console)
-  console <- printPop(console)  
+ console <- newLineConsole()
+ console <- printClear(console)
+ console <- printPop(console)  
   
   ## Compute and save bandwidths (save for bootstrapping if requested)
   
@@ -111,8 +111,8 @@ npdeptest <- function(data.x = NULL,
   bw.data.y <- npudensbw(~data.y)$bw
   bw.joint <- npudensbw(~data.x+data.y)$bw
   
-  console <- printClear(console)
-  console <- printPush(paste(sep="", "Constructing metric entropy..."), console = console)
+ console <- printClear(console)
+ console <- printPush(paste(sep="", "Constructing metric entropy..."), console = console)
   
   Srho.vec <- Srho.bivar(data.x,data.y,bw.data.x,bw.data.y,bw.joint,method=method)
 
@@ -125,8 +125,8 @@ npdeptest <- function(data.x = NULL,
 
     for(b in 1:boot.num) {
 
-      console <- printClear(console)
-      console <- printPush(paste(sep="", "Bootstrap replication ",
+     console <- printClear(console)
+     console <- printPush(paste(sep="", "Bootstrap replication ",
                                  b, "/", boot.num, "..."), console)
 
       ## Break systematic relationship between x and y (null)
@@ -139,12 +139,12 @@ npdeptest <- function(data.x = NULL,
 
     ## Compute P-values
 
-    Srho.P <- mean(ifelse(Srho.vec.boot>Srho.vec,1,0))
+    P <- mean(ifelse(Srho.vec.boot>Srho.vec,1,0))
 
   }
 
-  console <- printClear(console)
-  console <- printPop(console)
+ console <- printClear(console)
+ console <- printPop(console)
 
   ## Restore seed
 
@@ -154,7 +154,7 @@ npdeptest <- function(data.x = NULL,
 
     deptest(Srho = Srho.vec,
             Srho.bootstrap.vec = Srho.vec.boot,
-            Srho.P = Srho.P,
+            P = P,
             bootstrap = bootstrap,
             boot.num = boot.num,
             bw.data.x = bw.data.x,
@@ -165,7 +165,7 @@ npdeptest <- function(data.x = NULL,
 
     deptest(Srho = Srho.vec,
             Srho.bootstrap.vec = NULL,
-            Srho.P = NULL,
+            P = NULL,
             bootstrap = bootstrap,
             boot.num = NULL,
             bw.data.x = bw.data.x,

@@ -1,6 +1,6 @@
 deptest <- function(Srho,
                     Srho.bootstrap.vec,
-                    Srho.P,
+                    P,
                     bootstrap,
                     boot.num,
                     bw.data.x,
@@ -9,7 +9,7 @@ deptest <- function(Srho,
   
   tdep = list(Srho = Srho,
     Srho.bootstrap.vec = Srho.bootstrap.vec,
-    Srho.P = Srho.P,
+    P = P,
     bootstrap = bootstrap,
     boot.num = boot.num,
     bw.data.x = bw.data.x,
@@ -18,16 +18,16 @@ deptest <- function(Srho,
 
   reject <- ''
   
-  if (Srho.P < 0.1)
+  if (P < 0.1)
     reject <- '.'
   
-  if (Srho.P < 0.05)
+  if (P < 0.05)
     reject <- '*'
   
-  if (Srho.P < 0.01)
+  if (P < 0.01)
     reject <- '**'
   
-  if (Srho.P < 0.001)
+  if (P < 0.001)
     reject <- '***'
   
   tdep$reject <- reject
@@ -47,7 +47,7 @@ print.deptest <- function(x, ...){
     cat("\nConsistent Metric Entropy Test for Dependence",
         paste("\n", format(x$boot.num), " Bootstrap Replications",sep=""))
     cat(paste("\n\nTest Statistic ", sQuote("Srho"), ": ",
-              format(x$Srho), "\tP Value: ", format.pval(x$Srho.P)," ", x$reject,sep=""))
+              format(x$Srho), "\tP Value: ", format.pval(x$P)," ", x$reject,sep=""))
     cat("\n---\nSignif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1")
     cat(ifelse(x$reject == '', paste("\nFail to reject the null of independence at the 10% level\n\n",sep=""),
                paste("\nNull of independence is rejected at the ", x$rejectNum, "% level\n\n", sep="")))

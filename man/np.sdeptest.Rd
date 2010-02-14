@@ -3,7 +3,7 @@
 \alias{npsdeptest}
 \title{ Kernel Consistent Serial Dependence Test for Univariate Nonlinear Processes }
 \description{
-  \code{npsdeptest} implements a consistent entropy-based test for serial
+  \code{npsdeptest} implements the consistent metric entropy test of serial
   nonlinear dependence as described in Granger, Maasoumi and Racine
   (2004).
 }
@@ -67,8 +67,8 @@ npsdeptest(data = NULL,
     \code{Srho} }
   \item{Srho.cumulant.bootstrap.mat}{ contains the bootstrap
     replications of \code{Srho.cumulant} }
-  \item{Srho.P}{ the P-value of the Srho statistic vector }
-  \item{Srho.cumulant.P}{ the P-value of the cumulant Srho statistic vector }  
+  \item{P}{ the P-value vector of the Srho statistic vector }
+  \item{P.cumulant}{ the P-value vector of the cumulant Srho statistic vector }  
   \item{bootstrap}{ a logical value indicating whether bootstrapping was
   performed }
   \item{boot.num}{ number of bootstrap replications }
@@ -96,12 +96,12 @@ npsdeptest(data = NULL,
 
 \details{
   
-  \code{npsdeptest} computes the Bhattacharya-Matusita-Hellinger metric
-  entropy measure of divergence between the densities of the data and
-  the lagged data, \eqn{D[f(y_t, \hat y_{t-k}), f(y_t)\times f(\hat
-  y_{t-k})]}{D[f(y[t], y[t-k]), f(y[t])*f(y[t-k])]}. See Granger,
-  Maasoumi and Racine (2004) for details. Default bandwidths are of the
-  Kullback-Leibler variety obtained via likelihood cross-validation.
+  \code{npsdeptest} computes the nonparametric metric entropy
+   (normalized Hellinger of Granger, Maasoumi and Racine (2004)) for
+   testing for nonlinear serial dependence, \eqn{D[f(y_t, \hat y_{t-k}),
+   f(y_t)\times f(\hat y_{t-k})]}{D[f(y[t], y[t-k]),
+   f(y[t])*f(y[t-k])]}.  Default bandwidths are of the Kullback-Leibler
+   variety obtained via likelihood cross-validation.
 
   The test may be applied to a raw data series or to residuals of user
   estimated models.
@@ -120,7 +120,7 @@ npsdeptest(data = NULL,
 }
 
 \seealso{
-  \code{\link{npdeptest},\link{npdeneqtest},\link{npsymtest}}
+  \code{\link{npdeptest},\link{npdeneqtest},\link{npsymtest},\link{npunitest}}
 }
 
 \examples{
@@ -143,14 +143,14 @@ n <- 100
 ## Stationary persistent time-series
 
 yt <- ar.series(0.95,rnorm(n))
-npsdeptest(yt,lag.num=2,bootstrap=TRUE,boot.num=99,method="summation")
+npsdeptest(yt,lag.num=2,boot.num=99,method="summation")
 
 Sys.sleep(5)
 
 ## Stationary independent time-series
 
 yt <- ar.series(0.0,rnorm(n))
-npsdeptest(yt,lag.num=2,bootstrap=TRUE,boot.num=99,method="summation")
+npsdeptest(yt,lag.num=2,boot.num=99,method="summation")
 
 \dontrun{
 
@@ -158,14 +158,14 @@ npsdeptest(yt,lag.num=2,bootstrap=TRUE,boot.num=99,method="summation")
 ## Stationary persistent time-series
 
 yt <- ar.series(0.95,rnorm(n))
-npsdeptest(yt,lag.num=2,bootstrap=TRUE,boot.num=99,method="integration")
+npsdeptest(yt,lag.num=2,boot.num=99,method="integration")
 
 Sys.sleep(5)
 
 ## Stationary independent time-series
 
 yt <- ar.series(0.0,rnorm(n))
-npsdeptest(yt,lag.num=2,bootstrap=TRUE,boot.num=99,method="integration")
+npsdeptest(yt,lag.num=2,boot.num=99,method="integration")
 
 } % enddontrun
 

@@ -659,8 +659,11 @@ void np_density_conditional_bw(double * c_uno, double * c_ord, double * c_con,
   /* assign the function to be optimized */
 
   ibwmfunc = myopti[CBW_MI];
+
+  /* 7/2/2010 */
   
-  if((ibwmfunc != CBWM_CVML) && autoSelectCVLS){
+  /*  if((ibwmfunc != CBWM_CVML) && autoSelectCVLS){*/
+  if((ibwmfunc != CBWM_CVML && ibwmfunc != CBWM_CCDF) && autoSelectCVLS){
 #ifdef MPI
     int nobs_proc = (num_obs_train_extern / iNum_Processors) + 
       ((num_obs_train_extern%iNum_Processors) != 0);
@@ -677,6 +680,7 @@ void np_density_conditional_bw(double * c_uno, double * c_ord, double * c_con,
   case CBWM_CVML : bwmfunc = cv_func_con_density_categorical_ml; break;
   case CBWM_CVLS : bwmfunc = cv_func_con_density_categorical_ls; break;
   case CBWM_NPLS : bwmfunc = np_cv_func_con_density_categorical_ls;break;
+  case CBWM_CCDF : bwmfunc = cv_func_con_distribution_categorical_ccdf; break;
   default : REprintf("np.c: invalid bandwidth selection method.");
     exit(0); break;
   }

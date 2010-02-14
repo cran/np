@@ -93,7 +93,7 @@ npdeneqtest(x = NULL,
 }
 
 \seealso{
-  \code{\link{npdeptest},\link{npsdeptest},\link{npsymtest}}
+  \code{\link{npdeptest},\link{npsdeptest},\link{npsymtest},\link{npunitest}}
 }
 
 \examples{

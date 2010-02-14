@@ -2,8 +2,8 @@ sdeptest <- function(Srho,
                     Srho.cumulant,
                     Srho.bootstrap.mat,
                     Srho.cumulant.bootstrap.mat,
-                    Srho.P,
-                    Srho.cumulant.P,
+                    P,
+                    P.cumulant,
                     bootstrap,
                     boot.num,
                     lag.num,
@@ -15,8 +15,8 @@ sdeptest <- function(Srho,
     Srho.cumulant = Srho.cumulant,
     Srho.bootstrap.mat = Srho.bootstrap.mat,
     Srho.cumulant.bootstrap.mat = Srho.cumulant.bootstrap.mat,
-    Srho.P = Srho.P,
-    Srho.cumulant.P = Srho.cumulant.P,
+    P = P,
+    P.cumulant = P.cumulant,
     bootstrap = bootstrap,
     boot.num = boot.num,
     lag.num = lag.num,
@@ -33,16 +33,16 @@ sdeptest <- function(Srho,
       
       reject <- ''
       
-      if (Srho.P[k] < 0.1)
+      if (P[k] < 0.1)
         reject <- '.'
       
-      if (Srho.P[k] < 0.05)
+      if (P[k] < 0.05)
         reject <- '*'
       
-      if (Srho.P[k] < 0.01)
+      if (P[k] < 0.01)
         reject <- '**'
       
-      if (Srho.P[k] < 0.001)
+      if (P[k] < 0.001)
         reject <- '***'
       
       tsdep$reject[k] <- reject
@@ -68,7 +68,7 @@ print.sdeptest <- function(x, ...){
               format(x$lag.num), " Lags\n",sep=""))
     for(k in 1:x$lag.num) {
       cat(paste("\n\nTest Statistic ", sQuote(paste("Srho[", k , "]",sep="")), ": ",
-          format(x$Srho[k]), "\tP Value: ", format.pval(x$Srho.P[k])," ", x$reject[k],sep=""))
+          format(x$Srho[k]), "\tP Value: ", format.pval(x$P[k])," ", x$reject[k],sep=""))
     }
 
     cat("\n---\nSignif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1")

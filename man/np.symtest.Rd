@@ -3,7 +3,7 @@
 \alias{npsymtest}
 \title{ Kernel Consistent Density Asymmetry Test with Mixed Data Types }
 \description{
-  \code{npsymtest} implements a consistent entropy-based test for
+  \code{npsymtest} implements the consistent metric entropy test of
   asymmetry as described in Maasoumi and Racine (2009).
 }
 \usage{
@@ -64,6 +64,10 @@ npsymtest(data = NULL,
 }
 \references{
 
+  Granger, C.W. and E. Maasoumi and J.S. Racine (2004), \dQuote{A
+  dependence metric for possibly nonlinear processes}, Journal of Time
+  Series Analysis, 25, 649-669.
+
   Maasoumi, E. and J.S. Racine (2009), \dQuote{A robust entropy-based
   test of asymmetry for discrete and continuous processes,} Econometric
   Reviews, 28, 246-261.
@@ -79,13 +83,14 @@ npsymtest(data = NULL,
 }
 
 \details{
-  
-  \code{npsymtest} computes the Bhattacharya-Matusita-Hellinger metric
-  entropy measure of divergence between the densities/probabilities of
-  the data and the rotated data, \eqn{D[f(y), f(\tilde y)]}{D[f(y),
-  f(y-tilde)]}. See Maasoumi and Racine (2009) for details. Default
-  bandwidths are of the plug-in variety (\code{\link{bw.SJ}} for
-  continuous variables and direct plug-in for discrete variables).
+
+  \code{npsymtest} computes the nonparametric metric entropy (normalized
+   Hellinger of Granger, Maasoumi and Racine (2004)) for testing
+   symmetry using the densities/probabilities of the data and the
+   rotated data, \eqn{D[f(y), f(\tilde y)]}{D[f(y), f(y-tilde)]}. See
+   Maasoumi and Racine (2009) for details. Default bandwidths are of the
+   plug-in variety (\code{\link{bw.SJ}} for continuous variables and
+   direct plug-in for discrete variables).
  
   For bootstrapping the null distribution of the statistic, \code{iid}
   conducts simple random resampling, while \code{geom} conducts Politis
@@ -108,7 +113,7 @@ npsymtest(data = NULL,
 }
 
 \seealso{
-  \code{\link{npdeneqtest},\link{npdeptest},\link{npsdeptest}}
+  \code{\link{npdeneqtest},\link{npdeptest},\link{npsdeptest},\link{npunitest}}
 }
 
 \examples{
