@@ -94,7 +94,9 @@ npsigtest.rbandwidth <- function(bws,
 
   
   xdat <- toFrame(xdat)
-    
+
+  if(boot.num < 9) stop("number of bootstrap replications must be >= 9")
+
   ## catch and destroy NA's
   goodrows <- 1:dim(xdat)[1]
   rows.omit <- attr(na.omit(data.frame(xdat,ydat)), "na.action")

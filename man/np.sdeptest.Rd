@@ -3,9 +3,9 @@
 \alias{npsdeptest}
 \title{ Kernel Consistent Serial Dependence Test for Univariate Nonlinear Processes }
 \description{
-  \code{npsdeptest} implements the consistent metric entropy test of serial
-  nonlinear dependence as described in Granger, Maasoumi and Racine
-  (2004).
+  \code{npsdeptest} implements the consistent metric entropy test of
+  nonlinear serial dependence as described in Granger, Maasoumi and
+  Racine (2004).
 }
 \usage{
 
@@ -34,15 +34,12 @@ npsdeptest(data = NULL,
     version or the summation version of the statistic. Can be set as
     \code{integration} or \code{summation} (see below for
     details). Defaults to \code{integration}.
-
-    The null distribution of the test statistic (the null being no
-    dependence) is obtained via bootstrapping.
   }
   
   \item{bootstrap}{
-    a logical value which specifies whether to conduct the bootstrap
-    test or not. If set to \code{FALSE}, only the statistic will be
-    computed. Defaults to \code{TRUE}.
+    a logical value which specifies whether to conduct
+    the bootstrap test or not. If set to \code{FALSE}, only the
+    statistic will be computed. Defaults to \code{TRUE}.
   }
   
   \item{boot.num}{
@@ -105,6 +102,12 @@ npsdeptest(data = NULL,
 
   The test may be applied to a raw data series or to residuals of user
   estimated models.
+
+  The summation version of this statistic may be numerically unstable
+  when \code{data} is sparse (the summation version involves division of
+  densities while the integration version involves differences). Warning
+  messages are produced should this occur (`integration recommended')
+  and should be heeded.
  
 }
 
@@ -153,7 +156,6 @@ yt <- ar.series(0.0,rnorm(n))
 npsdeptest(yt,lag.num=2,boot.num=99,method="summation")
 
 \dontrun{
-
 
 ## Stationary persistent time-series
 

@@ -1,4 +1,3 @@
-% $Id: np.cmstest.Rd,v 1.58 2006/11/03 21:17:20 tristen Exp $
 \name{npsymtest}
 \alias{npsymtest}
 \title{ Kernel Consistent Density Asymmetry Test with Mixed Data Types }
@@ -8,6 +7,7 @@
 }
 \usage{
 npsymtest(data = NULL,
+          method = c("integration","summation"),
           boot.num = 399,
           bw = NULL,
           boot.method = c("iid", "geom"),
@@ -18,6 +18,13 @@ npsymtest(data = NULL,
 \arguments{
   \item{data}{
     a vector containing the variable.
+  }
+  
+  \item{method}{
+    a character string used to specify whether to compute the integral
+    version or the summation version of the statistic. Can be set as
+    \code{integration} or \code{summation} (see below for
+    details). Defaults to \code{integration}.
   }
   
   \item{boot.num}{
@@ -98,7 +105,13 @@ npsymtest(data = NULL,
   selection via the \code{\link{b.star}} function in the
   \code{\link{np}} package. See the \code{\link{boot}} package for
   details.
-  
+
+  The summation version of this statistic may be numerically unstable
+  when \code{y} is sparse (the summation version involves division of
+  densities while the integration version involves differences). Warning
+  messages are produced should this occur (`integration recommended')
+  and should be heeded.
+ 
 }
 
 \section{Usage Issues}{
@@ -121,28 +134,28 @@ set.seed(1234)
 
 n <- 100
 
-# Asymmetric discrete probability function
+## Asymmetric discrete probability distribution function
 
 x <- factor(rbinom(n,2,.8))
 npsymtest(x,boot.num=99)
 
 Sys.sleep(5)
 
-# Symmetric discrete probability function
+## Symmetric discrete probability distribution function
 
 x <- factor(rbinom(n,2,.5))
 npsymtest(x,boot.num=99)
 
 Sys.sleep(5)
 
-# Asymmetric continuous density function
+## Asymmetric continuous distribution function
 
 y <- rchisq(n,df=2)
 npsymtest(y,boot.num=99)
 
 Sys.sleep(5)
 
-# Symmetric continuous density function
+## Symmetric continuous distribution function
 
 y <- rnorm(n)
 npsymtest(y,boot.num=99)

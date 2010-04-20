@@ -20,8 +20,7 @@ npcmstest <- function(formula,
                " with ", sQuote("x=TRUE"), " and ", sQuote("y=TRUE"),
                ".\nSee help for further info.", sep=""))
 
-  if (boot.num < 1)
-    stop("less than one bootstrap replication")
+  if(boot.num < 9) stop("number of bootstrap replications must be >= 9")
 
   ## checking for consistent interface usage
   miss.xy = c(missing(xdat),missing(ydat))

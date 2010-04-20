@@ -16,26 +16,35 @@ deptest <- function(Srho,
     bw.data.y = bw.data.y,
     bw.joint = bw.joint)
 
-  reject <- ''
-  
-  if (P < 0.1)
-    reject <- '.'
-  
-  if (P < 0.05)
-    reject <- '*'
-  
-  if (P < 0.01)
-    reject <- '**'
-  
-  if (P < 0.001)
-    reject <- '***'
-  
-  tdep$reject <- reject
-  tdep$rejectNum <- switch(reject,
-                           '.' = 10,
-                           '*' = 5,
-                           '**' = 1,
-                           '***' = 0.1)
+  if(is.null(P)) {
+
+    tdep$reject <- NA
+    tdep$rejectNum <- NA
+
+  } else {
+
+    reject <- ''
+    
+    if (P < 0.1)
+      reject <- '.'
+    
+    if (P < 0.05)
+      reject <- '*'
+    
+    if (P < 0.01)
+      reject <- '**'
+    
+    if (P < 0.001)
+      reject <- '***'
+    
+    tdep$reject <- reject
+    tdep$rejectNum <- switch(reject,
+                             '.' = 10,
+                             '*' = 5,
+                             '**' = 1,
+                             '***' = 0.1)
+    
+  }
   
   class(tdep) <- "deptest"
 

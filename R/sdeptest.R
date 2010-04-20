@@ -67,7 +67,7 @@ print.sdeptest <- function(x, ...){
         paste("\n", format(x$boot.num), " Bootstrap Replications, ",
               format(x$lag.num), " Lags\n",sep=""))
     for(k in 1:x$lag.num) {
-      cat(paste("\n\nTest Statistic ", sQuote(paste("Srho[", k , "]",sep="")), ": ",
+      cat(paste("\nTest Statistic ", sQuote(paste("Srho[", k , "]",sep="")), ": ",
           format(x$Srho[k]), "\tP Value: ", format.pval(x$P[k])," ", x$reject[k],sep=""))
     }
 

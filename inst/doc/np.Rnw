@@ -71,7 +71,7 @@
   McMaster University\\
   Hamilton, Ontario, Canada, L8S 4L8\\
   E-mail: \email{racinej@mcmaster.ca}\\
-  URL: \url{http://http://www.mcmaster.ca/economics/racine/}\\
+  URL: \url{http://www.mcmaster.ca/economics/racine/}\\
 }
 
 \begin{document}
@@ -1555,6 +1555,6 @@ the Social Sciences and Humanities Research Council of Canada
 (\url{http://www.sshrc.ca}), and the Shared Hierarchical Academic
 Research Computing Network (\url{http://www.sharcnet.ca}).
 
-\bibliography{jss_np}
+\bibliography{np}
 
 \end{document}

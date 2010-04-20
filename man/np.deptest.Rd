@@ -34,15 +34,12 @@ npdeptest(data.x = NULL,
     \code{integration} or \code{summation} (see below for
     details). Defaults to \code{integration}.
 
-    The null distribution of the test statistic (the null being no
-    pairwise dependence) is obtained via bootstrapping.
-    
   }
   
   \item{bootstrap}{
-    a logical value which specifies whether to conduct the bootstrap
-    test or not. If set to \code{FALSE}, only the statistic will be
-    computed. Defaults to \code{TRUE}.
+    a logical value which specifies whether to conduct
+    the bootstrap test or not. If set to \code{FALSE}, only the
+    statistic will be computed. Defaults to \code{TRUE}.    
   }
   
   \item{boot.num}{
@@ -111,6 +108,13 @@ npdeptest(data.x = NULL,
   \eqn{\hat y}{y-hat}, and (b) a measure of \dQuote{predictability} for
   a variable \eqn{y} and its predicted values \eqn{\hat y}{y-hat} (from
   a user implemented model).
+
+  The summation version of this statistic will be numerically unstable
+  when \code{data.x} and \code{data.y} lack common support or are sparse
+  (the summation version involves division of densities while the
+  integration version involves differences). Warning messages are
+  produced should this occur (`integration recommended') and should be
+  heeded.
  
 }
 
@@ -126,7 +130,7 @@ npdeptest(data.x = NULL,
 }
 
 \seealso{
-  \code{\link{npdeneqtest},\link{npsdeptest},\link{npsymtest}, \link{npunitest}}
+  \code{\link{npdeneqtest},\link{npsdeptest},\link{npsymtest},\link{npunitest}}
 }
 
 \examples{

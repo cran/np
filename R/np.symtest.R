@@ -1,19 +1,24 @@
-## Test for asymmetry applicable to both real-values and categorical
-## univariate data.
+## Function that implements the test for asymmetry applicable to both
+## real-values and categorical univariate data described in Maasoumi,
+## E. and J.S. Racine (2009), "A Robust Entropy-Based Test of
+## Asymmetry for Discrete and Continuous Processes," Econometric
+## Reviews, Volume 28, pp 246-261.
 
 npsymtest <- function(data = NULL,
+                      method = c("integration","summation"),
                       boot.num = 399,
                       bw = NULL,
                       boot.method = c("iid", "geom"),
                       random.seed = 42,
                       ...) {
 
-  if(is.data.frame(data)) stop("you must enter a data vector (not data frame)")
-  if(is.null(data)) stop("you must enter a data vector")
-  if(ncol(data.frame(data)) != 1) stop("data must have one dimension only")
-  if(boot.num < 9) stop("number of bootstrap replications must be >= 9")
+  if(is.data.frame(data)) stop(" you must enter a data vector (not data frame)")
+  if(is.null(data)) stop(" you must enter a data vector")
+  if(ncol(data.frame(data)) != 1) stop(" data must have one dimension only")
+  if(boot.num < 9) stop(" number of bootstrap replications must be >= 9")
 
   boot.method <- match.arg(boot.method)
+  method <- match.arg(method)
 
   ## Save seed prior to setting
 
@@ -89,17 +94,45 @@ npsymtest <- function(data = NULL,
   ## the rotated data. This function accepts numeric and
   ## factor/ordered.
   
-  Srho.sym <- function(data,data.rotate,bw) {
-    if(ncol(data.frame(data)) != 1)  stop("data must have one dimension only") 
+  Srho.sym <- function(data,
+                       data.rotate,
+                       bw,
+                       method=c("integration","summation")) {
+    
+    if(ncol(data.frame(data)) != 1)  stop(" data must have one dimension only") 
+
     if(is.numeric(data)) {
-      h <- function(x,data,data.rotate) {
-        f.data <- fitted(npudens(tdat=data,edat=x,bws=bw,...))
-        f.data.rotate <- fitted(npudens(tdat=data.rotate,edat=x,bws=bw,...))
-        return(0.5*(sqrt(f.data)-sqrt(f.data.rotate))**2)
+      if(method=="summation") {
+        ## Summation version uses
+        ##  0.5\sum_i(1-sqrt(f.data.rotate/f.data)^2). Note that here
+        ##  we must evaluate on common sample, so we use `data' for
+        ##  the evaluation points. We could also combine both data and
+        ##  data.rotate for the evaluation points if we chose (would
+        ##  this improve power?).
+        f.data <- fitted(npudens(tdat=data,edat=data,bws=bw,...))
+        f.data.rotate <- fitted(npudens(tdat=data.rotate,edat=data,bws=bw,...))
+        ## In summation version we divide densities which can lead to
+        ## numerical instability issues not present in the integrand
+        ## version (which uses differences instead). We check for this
+        ## case, remove offending points, and warn. This traps -Inf,
+        ## Inf, and NaN.
+        summand <- f.data.rotate/f.data
+        if(!all(is.finite(summand))) {
+          warning(" non-finite value in summation-based statistic: integration recommended")
+          summand <- summand[is.finite(summand)]
+        }
+        return(0.5*mean((1-sqrt(summand))**2))
+      } else {
+        ## Integration version
+        h <- function(x,data,data.rotate) {
+          f.data <- fitted(npudens(tdat=data,edat=x,bws=bw,...))
+          f.data.rotate <- fitted(npudens(tdat=data.rotate,edat=x,bws=bw,...))
+          return(0.5*(sqrt(f.data)-sqrt(f.data.rotate))**2)
+        }
+        return.integrate <- integrate(h,-Inf,Inf,subdivisions=1e+05,stop.on.error=FALSE,data=data,data.rotate=data.rotate)
+        if(return.integrate$message != "OK") warning(return.integrate$message)
+        return(return.integrate$value)
       }
-      return.integrate <- integrate(h,-Inf,Inf,subdivisions=1e+05,stop.on.error=FALSE,data=data,data.rotate=data.rotate)
-      if(return.integrate$message != "OK") warning(return.integrate$message)
-      return(return.integrate$value)
     } else {
       xeval <- unique(data)
       p.data <- fitted(npudens(tdat=data,edat=xeval,bws=bw,...))
@@ -112,7 +145,7 @@ npsymtest <- function(data = NULL,
   
   ## Compute the test statistic
 
-  test.stat <- Srho.sym(data,data.rotate,bw)
+  test.stat <- Srho.sym(data,data.rotate,bw,method=method)
 
   ## Function to be fed to boot - accepts data that gets
   ## permuted/rearranged to define resampled data. The sole difference
@@ -148,7 +181,7 @@ npsymtest <- function(data = NULL,
       }
     }
     B.counter <<- B.counter + 1
-    return(Srho.sym(null.sample1,null.sample2,bw))
+    return(Srho.sym(null.sample1,null.sample2,bw,method=method))
 	}
 
   ## Need to bootstrap integers for data.null to accommodate both

@@ -7,17 +7,20 @@
 	This package provides a variety of nonparametric and semiparametric
 	kernel methods that seamlessly handle a mix of continuous, unordered,
 	and ordered factor data types (unordered and ordered factors are often
-	referred to as `nominal' and `ordinal' categorical variables
-	respectively). A vignette containing many of the examples found in the
-	help files accompanying the \pkg{np} package that is intended to serve
-	as a gentle introduction to this package can be accessed via
-	\code{vignette("np", package="np")}.
+	referred to as \sQuote{nominal} and \sQuote{ordinal} categorical
+	variables respectively). A vignette containing many of the examples
+	found in the help files accompanying the \pkg{np} package that is
+	intended to serve as a gentle introduction to this package can be
+	accessed via \code{vignette("np", package="np")}.
+
+  For a listing of all routines in the \pkg{np} package type:
+  \sQuote{library(help="np")}.  
 
   Bandwidth selection is a key aspect of sound nonparametric and
   semiparametric kernel estimation. \code{np} is designed from the
   ground up to make bandwidth selection the focus of attention. To this
-  end, one typically begins by creating a `bandwidth object' which
-  embodies all aspects of the method, including specific kernel
+  end, one typically begins by creating a \sQuote{bandwidth object}
+  which embodies all aspects of the method, including specific kernel
   functions, data names, data types, and the like. One then passes these
   bandwidth objects to other functions, and those functions can grab the
   specifics from the bandwidth object thereby removing potential

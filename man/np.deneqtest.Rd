@@ -99,7 +99,7 @@ npdeneqtest(x = NULL,
 \examples{
 set.seed(1234)
 
-## Densities are equal
+## Distributions are equal
 
 n <- 250
 
@@ -110,7 +110,7 @@ npdeneqtest(sample.A,sample.B,boot.num=99)
 
 Sys.sleep(5)
 
-## Densities are unequal
+## Distributions are unequal
 
 sample.A <- data.frame(x=rnorm(n))
 sample.B <- data.frame(x=rchisq(n,df=5))
@@ -118,7 +118,7 @@ sample.B <- data.frame(x=rchisq(n,df=5))
 npdeneqtest(sample.A,sample.B,boot.num=99)
 
 \dontrun{
-## Mixed datatypes, densities are equal
+## Mixed datatypes, distributions are equal
 
 sample.A <- data.frame(a=rnorm(n),b=factor(rbinom(n,2,.5)))
 sample.B <- data.frame(a=rnorm(n),b=factor(rbinom(n,2,.5)))
@@ -127,7 +127,7 @@ npdeneqtest(sample.A,sample.B,boot.num=99)
 
 Sys.sleep(5)
 
-## Mixed datatypes, densities are unequal
+## Mixed datatypes, distributions are unequal
 
 sample.A <- data.frame(a=rnorm(n),b=factor(rbinom(n,2,.5)))
 sample.B <- data.frame(a=rnorm(n,sd=10),b=factor(rbinom(n,2,.25)))

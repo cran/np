@@ -12,11 +12,11 @@ npsdeptest <- function(data = NULL,
   
   ## Trap fatal errors
 
-  if(is.data.frame(data)) stop("you must enter a data vector (not data frame)")
-  if(is.null(data)) stop("you must enter a data vector")
-  if((lag.num < 1) || (lag.num > length(data))) stop("lag.num must be a positive integer less than the number of observations")
-  if(ncol(data.frame(data)) != 1) stop("data must have one dimension only")
-  if(boot.num < 9) stop("number of bootstrap replications must be >= 9")
+  if(is.data.frame(data)) stop(" you must enter a data vector (not data frame)")
+  if(is.null(data)) stop(" you must enter a data vector")
+  if((lag.num < 1) || (lag.num > length(data))) stop(" lag.num must be a positive integer less than the number of observations")
+  if(ncol(data.frame(data)) != 1) stop(" data must have one dimension only")
+  if(boot.num < 9) stop(" number of bootstrap replications must be >= 9")
 
   method <- match.arg(method)
 
@@ -46,9 +46,9 @@ npsdeptest <- function(data = NULL,
                          bw.x = NULL,
                          bw.y = NULL,
                          bw.joint = NULL,
-                         method=c("summation","integration")) {
+                         method=c("integration","summation")) {
     
-    if(is.null(bw.x)||is.null(bw.y)||is.null(bw.joint)) stop("you must provide numeric bandwidths for f(x), f(y) and f(x,y)")
+    if(is.null(bw.x)||is.null(bw.y)||is.null(bw.joint)) stop(" you must provide numeric bandwidths for f(x), f(y) and f(x,y)")
     
     method <- match.arg(method)
     
@@ -58,13 +58,26 @@ npsdeptest <- function(data = NULL,
       ## \sum_i(1-sqrt(f(x_i)f(y_i)/f(x_i,y_i)))^2
       ## We could code this by hand per below, however, there is no
       ## performance penalty imposed by sum() so no need.
+
+      ## Issue of common support points for evaluation
       
       f.x <- fitted(npudens(tdat=x.dat,bws=bw.x))
       f.y <- fitted(npudens(tdat=y.dat,bws=bw.y))
       f.xy <- fitted(npudens(tdat=cbind(x.dat,y.dat),bws=bw.joint))
-      summand <- ifelse(f.xy > .Machine$double.xmin, f.x*f.y/f.xy, f.x*f.y/(f.xy+.Machine$double.xmin))
-      
-      return(0.5*sum((1-sqrt(summand))**2)/length(x.dat))
+      summand <- f.x*f.y/f.xy
+
+      ## In summation version we divide densities which can lead to
+      ## numerical instability issues not present in the integrand
+      ## version (which uses differences instead). We check for this
+      ## case, remove offending points, and warn. This traps -Inf,
+      ## Inf, and NaN.
+
+      if(!all(is.finite(summand))) {
+        warning(" non-finite value in summation-based statistic: integration recommended")
+        summand <- summand[is.finite(summand)]
+      }
+
+      return(0.5*mean((1-sqrt(summand))**2))
       
     } else {
       
@@ -85,11 +98,12 @@ npsdeptest <- function(data = NULL,
         ##      f.x <- fitted(npudens(tdat=x.dat,edat=xy[1],bws=bw.x))
         ##      f.y <- fitted(npudens(tdat=y.dat,edat=xy[2],bws=bw.y))
         ##      f.xy <- fitted(npudens(tdat=cbind(x.dat,y.dat),edat=cbind(xy[1],xy[2]),bws=bw.joint))
-        
-        f.x <- sum(dnorm((xy[1]-x.dat)/bw.x))/(length(x.dat)*bw.x)
-        f.y <- sum(dnorm((xy[2]-y.dat)/bw.y))/(length(x.dat)*bw.y)
-        f.xy <- sum(dnorm((xy[1]-x.dat)/bw.joint[1])*dnorm((xy[2]-y.dat)/bw.joint[2])
-                    / (length(x.dat)*bw.joint[1]*bw.joint[2]))
+
+
+        f.x <- mean(dnorm((xy[1]-x.dat)/bw.x))/bw.x
+        f.y <- mean(dnorm((xy[2]-y.dat)/bw.y))/bw.y
+        f.xy <- mean(dnorm((xy[1]-x.dat)/bw.joint[1])*dnorm((xy[2]-y.dat)/bw.joint[2])
+                    / (bw.joint[1]*bw.joint[2]))
         
         return((sqrt(f.xy)-sqrt(f.x)*sqrt(f.y))**2)
         
@@ -141,7 +155,7 @@ npsdeptest <- function(data = NULL,
 
     console <- printClear(console)
     console <- printPush(paste(sep="", "Constructing metric entropy at lag ", k, "/", lag.num, "..."), console = console)
-
+    
     Srho.vec[k] <- Srho.bivar(y,y.lag,bw.y[k],bw.y.lag[k],bw.joint,method=method)
 
   }
@@ -167,6 +181,8 @@ npsdeptest <- function(data = NULL,
       console <- printClear(console)
       console <- printPush(paste(sep="", "Bootstrap replication ",
                                  b, "/", boot.num, "..."), console)
+
+      ## Resample under the null
 
       tmp <- as.ts(sample(data,replace=TRUE))
       tmp <- ts.intersect(tmp,lag(tmp,k))
@@ -198,13 +214,13 @@ npsdeptest <- function(data = NULL,
 
   console <- printClear(console)
   console <- printPop(console)
-
+  
   ## Restore seed
-
+  
   if(exists.seed) assign(".Random.seed", save.seed, .GlobalEnv)
-
+  
   if(bootstrap) {
-
+    
     sdeptest(Srho = Srho.vec,
              Srho.cumulant = Srho.cumulant.vec,
              Srho.bootstrap.mat = Srho.bootstrap.mat,

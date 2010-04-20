@@ -1,3 +1,11 @@
+Changes from Version 0.30-7 to 0.30-8 [20-Apr-2010]
+
+* Implemented moment version of metric entropy in npsymtest and
+  npunitest with warnings about their use documented carefully and
+  exceptions trapped and warnings issuing when detected
+ 
+* Cleaned up print/summary output formatting of some functions
+
 Changes from Version 0.30-6 to 0.30-7 [15-Feb-2010]
 
 * Added function npunitest for entropy-based testing of equality of

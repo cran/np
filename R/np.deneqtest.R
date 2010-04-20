@@ -1,6 +1,8 @@
-## First, write the test statistic function and bootstrap function as
-## one. Since we wish to pass in different (potentially) bandwidth
-## vectors, this is perhaps the most flexible wrapper.
+## Function that implements the multivariate density equality test
+## described in Li, Q., E. Maasoumi, and J.S. Racine (2009), “A
+## Nonparametric Test for Equality of Distributions with Mixed
+## Categorical and Continuous Data,” Journal of Econometrics, Volume
+## 148, pp 186-200.
 
 npdeneqtest <- function(x = NULL,
                         y = NULL,
@@ -10,20 +12,17 @@ npdeneqtest <- function(x = NULL,
                         random.seed = 42,
                         ...) {
 
-  ## Some testing
+  ## Some testing of input values
 
   if(is.null(x) || is.null(y)) stop(" you must provide x and y data")
-
   if(!is.data.frame(x) || !is.data.frame(y)) stop(" x and y must be data frames")
-
   if(!identical(names(data.frame(x)),names(data.frame(y)))) stop(" data frames x and y must have identical variable names")
+  if(boot.num < 9) stop(" number of bootstrap replications must be >= 9")
 
   if(is.null(bw.x) || is.null(bw.y)) {
     bw.x <- npudensbw(dat=x,...)
     bw.y <- npudensbw(dat=y,...)     
   }
-
-  if(boot.num < 9) stop(" boot.num must be >= 9")
 
   ## Save seed prior to setting
 
