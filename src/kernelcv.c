@@ -10,7 +10,7 @@
 
 #include "headers.h"
 
-#ifdef MPI
+#ifdef MPI2
 
 #include "mpi.h"
 
@@ -152,9 +152,9 @@ double cv_func_regression_categorical_ls(double *vector_scale_factor){
         vector_Y_extern,
         &vector_scale_factor[1],
         num_categories_extern));
-    } else {
+        } else {
       return(cv_func_regression_categorical_ls_nn(vector_scale_factor));
-    }
+          }
 }
 
 double cv_func_regression_categorical_ls_nn(double *vector_scale_factor)
@@ -174,17 +174,17 @@ double cv_func_regression_categorical_ls_nn(double *vector_scale_factor)
     double *py;
     double *pm;
 
-#ifdef MPI
+#ifdef MPI2
     int stride;
 #endif
 
 /* Allocate memory for objects */
 
-#ifndef MPI
+#ifndef MPI2
     mean = alloc_vecd(num_obs_train_extern);
 #endif
 
-#ifdef MPI
+#ifdef MPI2
 
     stride = ceil((double) num_obs_train_extern / (double) iNum_Processors);
     if(stride < 1) stride = 1;
@@ -673,6 +673,9 @@ double cv_func_regression_categorical_aic_c(double *vector_scale_factor)
     }
 
 /* Compute the AIC_c function */
+/* The local linear component of Tristen's efficient code is broken
+   under MPI, so we comment it out for the MPI code here pending a
+   fix. Also, bwscaling and cv.aic break this code. */
     if((BANDWIDTH_reg_extern == BW_FIXED)||(int_ll_extern == LL_LC)){
       return(np_kernel_estimate_regression_categorical_ls_aic(
         int_ll_extern,
@@ -711,5 +714,3 @@ double cv_func_regression_categorical_aic_c(double *vector_scale_factor)
     }
 
 }
-
-

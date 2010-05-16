@@ -10,7 +10,7 @@
 static char rcsid[] = "$Id: statmods.c,v 1.7 2006/11/02 16:56:49 tristen Exp $";
 #endif
 
-#ifdef MPI
+#ifdef MPI2
 
 #include "mpi.h"
 
@@ -179,13 +179,13 @@ double standerrd(int n, double *vector)
       {
         if(int_VERBOSE == 1)
           {
-#ifdef MPI
+#ifdef MPI2
             if(my_rank == 0)
               {
 #endif
                 printf("\nFunction standerrd(): invalid interquartile range estimate (%d,%d,%lg)", fround(3.0*(double)n/4.0), fround((double)n/4.0), IQR);
                 printf("\nsum = %lg, sumsq = %lg, n = %d", (double) sum, (double) sumsq, n);
-#ifdef MPI
+#ifdef MPI2
               }
 #endif
           }
@@ -213,14 +213,14 @@ double standerrd(int n, double *vector)
       {
         if(int_VERBOSE == 1)
           {
-#ifdef MPI
+#ifdef MPI2
             if(my_rank == 0)
               {
 #endif
                 printf("\nFunction standerrd(): invalid standard error estimate (%lg)", temp1);
                 printf("\nsum = %lg, sumsq = %lg, n = %d", (double) sum, (double) sumsq, n);
                 printf("\nVar 1");
-#ifdef MPI
+#ifdef MPI2
               }
 #endif
           }
@@ -268,7 +268,7 @@ int int_k_nn, double *nn_distance)
     double *pointer_dj;
     double *pointer_nndi;
 
-#ifdef MPI
+#ifdef MPI2
     int stride = ceil((double) num_obs / (double) iNum_Processors);
 		int return_flag = 0;
 		int return_flag_MPI = 0;
@@ -278,7 +278,7 @@ int int_k_nn, double *nn_distance)
     vector_dist = alloc_vecd(num_obs);
     vector_unique_dist = alloc_vecd(num_obs);
 
-#ifndef MPI
+#ifndef MPI2
 
     if((int_k_nn < 1)||(int_k_nn > num_obs-1))
     {
@@ -353,7 +353,7 @@ int int_k_nn, double *nn_distance)
 
 #endif
 
-#ifdef MPI
+#ifdef MPI2
 
     if((int_k_nn < 1)||(int_k_nn > num_obs-1))
     {
@@ -466,7 +466,7 @@ double *nn_distance)
     double *pointer_dj;
     double *pointer_nndi;
 
-#ifdef MPI
+#ifdef MPI2
     int stride = ceil((double) num_obs_eval / (double) iNum_Processors);
 		int return_flag = 0;
 		int return_flag_MPI = 0;
@@ -477,13 +477,13 @@ double *nn_distance)
     {
         if(int_VERBOSE == 1)
         {
-#ifdef MPI
+#ifdef MPI2
             if(my_rank == 0)
             {
 #endif
                 printf("\n** Error: Invalid Kth nearest neighbor (%d).", int_k_nn);
                 fflush(stdout);
-#ifdef MPI
+#ifdef MPI2
             }
 #endif
 
@@ -494,7 +494,7 @@ double *nn_distance)
     vector_dist = alloc_vecd(num_obs_train);
     vector_unique_dist = alloc_vecd(num_obs_train);
 
-#ifndef MPI
+#ifndef MPI2
 
 /* Verified algorithm 3/25/98 */
 
@@ -558,7 +558,7 @@ double *nn_distance)
 
 #endif
 
-#ifdef MPI
+#ifdef MPI2
 
 /* Verified algorithm 3/25/98 */
 
@@ -697,7 +697,7 @@ double *vector_scale_factor)
     double n_norm = pow((double)num_obs, 2.0/(4.0 + (double) (num_reg_continuous+num_var_continuous)));
     double n_norm_1_inv = 1.0/pow((double)num_obs, (1.0/(4.0 + (double) (num_reg_continuous+num_var_continuous))));
 
-#ifndef MPI
+#ifndef MPI2
 
     if(RANDOM == 0)
     {
@@ -1163,7 +1163,7 @@ double *vector_scale_factor)
     }
 #endif
 
-#ifdef MPI
+#ifdef MPI2
 
     if(RANDOM == 0)
     {
@@ -1866,7 +1866,7 @@ double **matrix_categorical_vals)
         return(0);
     }
 
-#ifdef MPI
+#ifdef MPI2
     if(my_rank == 0)
     {
 #endif
@@ -1874,7 +1874,7 @@ double **matrix_categorical_vals)
         {
             File10 = fopen("cat_dat.dbg", "w");
         }
-#ifdef MPI
+#ifdef MPI2
     }
 #endif
 
@@ -1908,12 +1908,12 @@ double **matrix_categorical_vals)
 
             if(num_categories[k] == num_obs)
             {
-#ifdef MPI
+#ifdef MPI2
                 if(my_rank == 0)
                 {
 #endif
                     printf("\n** Note: unordered variable %d contains strictly unique values\n** [%d out of %d are unique]", (int) k+1, (int) num_categories[k], (int) num_obs);
-#ifdef MPI
+#ifdef MPI2
                 }
 #endif
 
@@ -1922,7 +1922,7 @@ double **matrix_categorical_vals)
 
         }
 
-#ifdef MPI
+#ifdef MPI2
         if(my_rank == 0)
         {
 #endif
@@ -1937,7 +1937,7 @@ double **matrix_categorical_vals)
                 }
 
             }
-#ifdef MPI
+#ifdef MPI2
         }
 #endif
 
@@ -1973,12 +1973,12 @@ double **matrix_categorical_vals)
 
             if(num_categories[k+num_var_unordered] == num_obs)
             {
-#ifdef MPI
+#ifdef MPI2
                 if(my_rank == 0)
                 {
 #endif
                     printf("\n** Note: ordered variable %d contains strictly unique values\n** [%d out of %d are unique]", (int) k+num_var_ordered+1, (int) num_categories[k+num_var_unordered], (int) num_obs);
-#ifdef MPI
+#ifdef MPI2
                 }
 #endif
 
@@ -1987,7 +1987,7 @@ double **matrix_categorical_vals)
 
         }
 
-#ifdef MPI
+#ifdef MPI2
         if(my_rank == 0)
         {
 #endif
@@ -2002,7 +2002,7 @@ double **matrix_categorical_vals)
                 }
 
             }
-#ifdef MPI
+#ifdef MPI2
         }
 #endif
 
@@ -2040,12 +2040,12 @@ double **matrix_categorical_vals)
 
             if(num_categories[k+num_var_unordered+num_var_ordered] == num_obs)
             {
-#ifdef MPI
+#ifdef MPI2
                 if(my_rank == 0)
                 {
 #endif
                     printf("\n** Note: unordered predictor %d contains strictly unique values\n** [%d out of %d are unique]", (int) k+1, (int) num_categories[k+num_var_unordered+num_var_ordered], (int) num_obs);
-#ifdef MPI
+#ifdef MPI2
                 }
 #endif
 
@@ -2054,7 +2054,7 @@ double **matrix_categorical_vals)
 
         }
 
-#ifdef MPI
+#ifdef MPI2
         if(my_rank == 0)
         {
 #endif
@@ -2069,7 +2069,7 @@ double **matrix_categorical_vals)
                 }
 
             }
-#ifdef MPI
+#ifdef MPI2
         }
 #endif
 
@@ -2105,12 +2105,12 @@ double **matrix_categorical_vals)
 
             if(num_categories[k+num_var_unordered+num_var_ordered+num_reg_unordered] == num_obs)
             {
-#ifdef MPI
+#ifdef MPI2
                 if(my_rank == 0)
                 {
 #endif
                     printf("\n** Note: ordered predictor %d contains strictly unique values\n** [%d out of %d are unique]", (int) k+1, (int) num_categories[k+num_var_unordered+num_var_ordered+num_reg_unordered], (int) num_obs);
-#ifdef MPI
+#ifdef MPI2
                 }
 #endif
 
@@ -2119,7 +2119,7 @@ double **matrix_categorical_vals)
 
         }
 
-#ifdef MPI
+#ifdef MPI2
         if(my_rank == 0)
         {
 #endif
@@ -2134,7 +2134,7 @@ double **matrix_categorical_vals)
                 }
 
             }
-#ifdef MPI
+#ifdef MPI2
         }
 #endif
 
@@ -2142,17 +2142,17 @@ double **matrix_categorical_vals)
 
     if(int_VERBOSE == 1)
     {
-#ifdef MPI
+#ifdef MPI2
         if(my_rank == 0)
         {
 #endif
             printf("\n");
-#ifdef MPI
+#ifdef MPI2
         }
 #endif
     }
 
-#ifdef MPI
+#ifdef MPI2
     if(my_rank == 0)
     {
 #endif
@@ -2160,7 +2160,7 @@ double **matrix_categorical_vals)
         {
             fclose(File10);
         }
-#ifdef MPI
+#ifdef MPI2
     }
 #endif
 
@@ -2512,13 +2512,13 @@ double *vector_continuous_stddev)
 
             if(vector_continuous_stddev[i] <= DBL_MIN)
             {
-#ifdef MPI
+#ifdef MPI2
                 if(my_rank == 0)
                 {
 #endif
                     printf("\r ** Fatal Error in routine kernel_bandwidth() ** variable %d appears to be constant!", i);
                     printf("\n ** Program terminated abnormally!\n");
-#ifdef MPI
+#ifdef MPI2
                 }
 /* Since program terminates, clean up */
                 MPI_Finalize();
@@ -2535,13 +2535,13 @@ double *vector_continuous_stddev)
 
             if(vector_continuous_stddev[i+num_reg_continuous] <= DBL_MIN)
             {
-#ifdef MPI
+#ifdef MPI2
                 if(my_rank == 0)
                 {
 #endif
                     printf("\r ** Fatal Error in routine kernel_bandwidth() ** variable %d appears to be constant!", i+num_reg_continuous);
                     printf("\n ** Program terminated abnormally!\n");
-#ifdef MPI
+#ifdef MPI2
                 }
 /* Since program terminates, clean up */
                 MPI_Finalize();

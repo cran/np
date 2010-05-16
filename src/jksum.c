@@ -15,7 +15,7 @@
 
 
 
-#ifdef MPI
+#ifdef MPI2
 
 #include "mpi.h"
 
@@ -164,7 +164,7 @@ double *kernel_sum)
 	double *psum;
 	double *py;
 
-#ifdef MPI
+#ifdef MPI2
 	int stride = ceil((double) num_obs_eval / (double) iNum_Processors);
 	if(stride < 1) stride = 1;
 #endif
@@ -204,12 +204,12 @@ double *kernel_sum)
 		matrix_bandwidth,
 		lambda) == 1)
 	{
-#ifndef MPI
+#ifndef MPI2
 		printf("\n** Error: invalid bandwidth.");
 		printf("\nProgram Terminated.\n");
 		exit(EXIT_FAILURE);
 #endif
-#ifdef MPI
+#ifdef MPI2
 		if(my_rank == 0)
 		{
 			printf("\n** Error: invalid bandwidth.");
@@ -221,7 +221,7 @@ double *kernel_sum)
 #endif
 	}
 
-#ifndef MPI
+#ifndef MPI2
 
 	if(BANDWIDTH_reg == 0)
 	{
@@ -384,7 +384,7 @@ double *kernel_sum)
 	}
 #endif
 
-#ifdef MPI
+#ifdef MPI2
 
 	if(BANDWIDTH_reg == 0)
 	{
@@ -1111,7 +1111,7 @@ double *weighted_sum){
   double * const * const xo = (BANDWIDTH_reg == BW_ADAP_NN)?
     matrix_X_ordered_train:matrix_X_ordered_eval;
 
-#ifdef MPI
+#ifdef MPI2
   int stride = MAX(ceil((double) num_obs_eval / (double) iNum_Processors),1);
   num_obs_eval_alloc = stride*iNum_Processors;
 #else
@@ -1225,7 +1225,7 @@ double *weighted_sum){
   }
 
   if (BANDWIDTH_reg == BW_FIXED || BANDWIDTH_reg == BW_GEN_NN){
-#ifdef MPI
+#ifdef MPI2
     js = stride * my_rank;
     je = MIN(num_obs_eval - 1, js + stride - 1);
 #else
@@ -1235,7 +1235,7 @@ double *weighted_sum){
     
     ws = weighted_sum + js * sum_element_length;
   } else {
-#ifdef MPI
+#ifdef MPI2
     js = stride * my_rank;
     je = MIN(num_obs_train - 1, js + stride - 1);
     ws = buf;
@@ -1316,7 +1316,7 @@ double *weighted_sum){
 
   }
 
-#ifdef MPI
+#ifdef MPI2
   if (BANDWIDTH_reg == BW_FIXED || BANDWIDTH_reg == BW_GEN_NN){
     MPI_Allgather(weighted_sum + js * sum_element_length, stride * sum_element_length, MPI_DOUBLE, weighted_sum, stride * sum_element_length, MPI_DOUBLE, MPI_COMM_WORLD);
   } else if(BANDWIDTH_reg == BW_ADAP_NN){
@@ -1386,7 +1386,7 @@ double *cv){
 
   // load balancing / allocation
   // very simple : set k,j,i
-#ifdef MPI
+#ifdef MPI2
 
   double * sum_ker_convolf, * sum_ker_marginalf, *sum_kerf;
 
@@ -1478,7 +1478,7 @@ double *cv){
 
   // top level loop corresponds to a block of X_l's 
   // (leave one out evaluation points)
-#ifdef MPI
+#ifdef MPI2
   for(; (k < num_obs) && (W < Wf); k+=blklen)
 #else
   for(; k < num_obs; k+=blklen)
@@ -1493,7 +1493,7 @@ double *cv){
     // one improvement would be a flip-flop algorithm where the roles
     // of X_j and X_i are swapped and only a new Y_ji need be generated
     R_CheckUserInterrupt();
-#ifdef MPI
+#ifdef MPI2
     for(; (j < num_obs) && (W < Wf); j+=blklen)
 #else
     for(; j < num_obs; j+=blklen)
@@ -1546,7 +1546,7 @@ double *cv){
         }
       }
 
-#ifdef MPI
+#ifdef MPI2
       for(; (i < num_obs) && (W < Wf); i+=blklen, W++)
 #else
       for(; i < num_obs; i+=blklen)
@@ -1622,24 +1622,26 @@ double *cv){
     j = 0;
   }
 
-#ifdef MPI
+#ifdef MPI2
   MPI_Allreduce(sum_ker, sum_kerf, num_obs, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
   MPI_Allreduce(sum_ker_convol, sum_ker_convolf, num_obs, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
   MPI_Allreduce(sum_ker_marginal, sum_ker_marginalf, num_obs, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
 
   for(j = 0; j < num_obs; j++){
-    if(sum_ker_marginalf[j] <= 0.0){
+    /*    if(sum_ker_marginalf[j] <= 0.0){
       *cv = DBL_MAX;
       break;
-    }
+      } jracine 16/05/10, test for zero respecting sign */
+    sum_ker_marginalf[j] =  NZD(sum_ker_marginalf[j]);
     *cv += (sum_ker_convolf[j]/sum_ker_marginalf[j]-2.0*sum_kerf[j])/sum_ker_marginalf[j];
   }
 #else
   for(j = 0; j < num_obs; j++){
-    if(sum_ker_marginal[j] <= 0.0){
+    /*    if(sum_ker_marginal[j] <= 0.0){
       *cv = DBL_MAX;
       break;
-    }
+      } jracine 16/05/10 */
+    sum_ker_marginal[j] =  NZD(sum_ker_marginal[j]);
     *cv += (sum_ker_convol[j]/sum_ker_marginal[j]-2.0*sum_ker[j])/sum_ker_marginal[j];
   }
 
@@ -1659,7 +1661,7 @@ double *cv){
   free(sum_ker_convol);
   free(sum_ker_marginal);
 
-#ifdef MPI
+#ifdef MPI2
   free(sum_kerf);
   free(sum_ker_convolf);
   free(sum_ker_marginalf);
@@ -1995,7 +1997,7 @@ int *num_categories){
                                vsf,
                                num_categories,
                                NULL,
-                               kwm+j*nrcc22);
+                               kwm+j*nrcc22); // weighted sum
         // need to use reference weight to fix weight sum
         for(int jj = j+1; jj < num_obs; jj++){
           const double RW = kwm[jj*nrcc22+nrc1]*(XTKX[0][-1]-XTKX[0][jj-j-1]);
@@ -2012,22 +2014,6 @@ int *num_categories){
         }
       }
       
-      /*
-      if(j == (num_obs-1)){
-      fprintf(stderr,"\n");
-      fprintf(stderr,"bw: %e\n",vector_scale_factor[0]);
-      for(int kk = 0; kk < num_obs; kk++){
-        for(int jj = 0; jj < nrc2; jj++){
-          for(int ii = 0; ii < nrc2; ii++){
-            fprintf(stderr,"%e\t",kwm[kk*nrcc22+jj*nrc2+ii]);
-          }
-          fprintf(stderr,"\n");
-        }
-        fprintf(stderr,"\n");
-      }
-      exit(1);
-      }
-      */
       // need to manipulate KWM pointers and XTKY - done
 
       if(bwm == RBWM_CVAIC){
@@ -2044,7 +2030,7 @@ int *num_categories){
       if(bwm == RBWM_CVAIC)
         traceH += XTKXINV[0][0]*aicc;
    
-      XTKY[0][0] += nepsilon*XTKY[0][0]/(MAX(DBL_MIN,KWM[0][0]));
+      XTKY[0][0] += nepsilon*XTKY[0][0]/NZD(KWM[0][0]);
 
       DELTA = mat_mul(XTKXINV, XTKY, DELTA);
       const double dy = vector_Y[j]-DELTA[0][0];

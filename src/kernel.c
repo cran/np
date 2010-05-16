@@ -10,7 +10,7 @@
 
 #include "headers.h"
 
-#ifdef MPI
+#ifdef MPI2
 
 #include "mpi.h"
 

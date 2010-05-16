@@ -10,7 +10,7 @@
 
 #include <R.h>
 
-#ifdef MPI
+#ifdef MPI2
 #include "mpi.h"
 int my_rank;
 int iNum_Processors;
@@ -150,7 +150,7 @@ void np_set_seed(int * num){
 }
 
 void np_mpi_init(int * mpi_status){
-#ifdef MPI 
+#ifdef MPI2 
   MPI_Comm_rank(MPI_COMM_WORLD, &my_rank);
   MPI_Comm_size(MPI_COMM_WORLD, &iNum_Processors);
   mpi_status[MPI_RANKI] = my_rank;
@@ -502,7 +502,7 @@ void np_density_conditional_bw(double * c_uno, double * c_ord, double * c_con,
   int itmax, iter;
   int int_use_starting_values, autoSelectCVLS, ibwmfunc;
 
-#ifdef MPI
+#ifdef MPI2
   int work_np;
 #endif // MPI
 
@@ -664,7 +664,7 @@ void np_density_conditional_bw(double * c_uno, double * c_ord, double * c_con,
   
   /*  if((ibwmfunc != CBWM_CVML) && autoSelectCVLS){*/
   if((ibwmfunc != CBWM_CVML && ibwmfunc != CBWM_CCDF) && autoSelectCVLS){
-#ifdef MPI
+#ifdef MPI2
     int nobs_proc = (num_obs_train_extern / iNum_Processors) + 
       ((num_obs_train_extern%iNum_Processors) != 0);
     
@@ -930,7 +930,7 @@ void np_density_conditional(double * tc_uno, double * tc_ord, double * tc_con,
   dens_or_dist = myopti[CD_DODENI];
 
 
-#ifdef MPI
+#ifdef MPI2
   num_obs_eval_alloc = MAX(ceil((double) num_obs_eval_extern / (double) iNum_Processors),1)*iNum_Processors;
 #else
   num_obs_eval_alloc = num_obs_eval_extern;
@@ -1410,7 +1410,7 @@ void np_density(double * tuno, double * tord, double * tcon,
 
   dens_or_dist = myopti[DEN_DODENI];
 
-#ifdef MPI
+#ifdef MPI2
   num_obs_eval_alloc = MAX(ceil((double) num_obs_eval_extern / (double) iNum_Processors),1)*iNum_Processors;
 #else
   num_obs_eval_alloc = num_obs_eval_extern;
@@ -1953,7 +1953,7 @@ void np_regression(double * tuno, double * tord, double * tcon, double * ty,
   max_lev = myopti[REG_MLEVI];
   pad_num = *padnum;
 
-#ifdef MPI
+#ifdef MPI2
   num_obs_eval_alloc = MAX(ceil((double) num_obs_eval_extern / (double) iNum_Processors),1)*iNum_Processors;
 #else
   num_obs_eval_alloc = num_obs_eval_extern;
@@ -2266,7 +2266,7 @@ void np_kernelsum(double * tuno, double * tord, double * tcon,
 
   sum_element_length = (no_y ? 1 : num_var_continuous_extern)*(no_weights ? 1 : num_var_ordered_extern);
 
-#ifdef MPI
+#ifdef MPI2
   num_obs_eval_alloc = MAX(ceil((double) num_obs_eval_extern / (double) iNum_Processors),1)*iNum_Processors;
 #else
   num_obs_eval_alloc = num_obs_eval_extern;
@@ -2517,7 +2517,7 @@ void np_quantile_conditional(double * tc_con,
 
   gamma_extern = *quantile;
 
-#ifdef MPI
+#ifdef MPI2
   num_obs_eval_alloc = MAX(ceil((double) num_obs_eval_extern / (double) iNum_Processors),1)*iNum_Processors;
 #else
   num_obs_eval_alloc = num_obs_eval_extern;

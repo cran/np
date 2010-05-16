@@ -10,7 +10,7 @@
 
 #include "headers.h"
 
-#ifdef MPI
+#ifdef MPI2
 
 #include "mpi.h"
 
@@ -91,7 +91,7 @@ double **matrix_bandwidth_deriv)
 	double *pointer_bwd;
 	double *pointer_nn;
 
-#ifdef MPI 
+#ifdef MPI2 
 	int stride;
 #endif
 
@@ -117,12 +117,12 @@ double **matrix_bandwidth_deriv)
 
 			if(vec_sdev_x[i] <= DBL_MIN)
 			{
-#ifdef MPI
+#ifdef MPI2
 				if(my_rank == 0) {
 #endif
 				printf("\r ** Fatal Error in routine kernel_bandwidth() ** The variable appears to be constant!");
 				printf("\n ** Program terminated abnormally!\n");
-#ifdef MPI
+#ifdef MPI2
 				}
 				/* Since we are exiting and this will terminate the program, clean up */
 				MPI_Finalize();
@@ -139,12 +139,12 @@ double **matrix_bandwidth_deriv)
 
 			if(vec_sdev_y[i] <= DBL_MIN)
 			{
-#ifdef MPI
+#ifdef MPI2
 				if(my_rank == 0) {
 #endif
 				printf("\r ** Fatal Error in routine kernel_bandwidth() ** The variable appears to be constant!");
 				printf("\n ** Program terminated abnormally!\n");
-#ifdef MPI
+#ifdef MPI2
 				}
 				/* Since we are exiting and this will terminate the program, clean up */
 				MPI_Finalize();
@@ -156,7 +156,7 @@ double **matrix_bandwidth_deriv)
 
 	}
 
-#ifndef MPI
+#ifndef MPI2
 
 	if(BANDWIDTH == 1)
 	{
@@ -170,7 +170,7 @@ double **matrix_bandwidth_deriv)
 
 #endif
 
-#ifdef MPI
+#ifdef MPI2
 
 	if(BANDWIDTH == 1)
 	{
@@ -554,7 +554,7 @@ double *vector_lambda)
 	double *pointer_bw;
 	double *pointer_nn;
 
-#ifdef MPI
+#ifdef MPI2
 	int stride;
 #endif
 
@@ -581,12 +581,12 @@ fact constant. */
 
 			if(vec_sdev_x[i] <= DBL_MIN)
 			{
-#ifdef MPI
+#ifdef MPI2
 				if(my_rank == 0) {
 #endif
 				printf("\r ** Fatal Error in routine kernel_bandwidth() ** The variable appears to be constant!");
 				printf("\n ** Program terminated abnormally!\n");
-#ifdef MPI
+#ifdef MPI2
 				}
 				/* Since we are exiting and this will terminate the program, clean up */
 				MPI_Finalize();
@@ -603,12 +603,12 @@ fact constant. */
 
 			if(vec_sdev_y[i] <= DBL_MIN)
 			{
-#ifdef MPI
+#ifdef MPI2
 				if(my_rank == 0) {
 #endif
 				printf("\r ** Fatal Error in routine kernel_bandwidth() ** The variable appears to be constant!");
 				printf("\n ** Program terminated abnormally!\n");
-#ifdef MPI
+#ifdef MPI2
 				}
 				/* Since we are exiting and this will terminate the program, clean up */
 				MPI_Finalize();
@@ -620,7 +620,7 @@ fact constant. */
 
 	}
 
-#ifndef MPI
+#ifndef MPI2
 
 	if(BANDWIDTH == 1)
 	{
@@ -634,7 +634,7 @@ fact constant. */
 
 #endif
 
-#ifdef MPI
+#ifdef MPI2
 
 	if(BANDWIDTH == 1)
 	{
