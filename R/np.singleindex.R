@@ -361,6 +361,76 @@ npindex.sibandwidth <-
 
     if (no.ex) index.tmean <- index.mean
 
+    ## June 3 2010, jracine, added vcov methods... thanks to Juan
+    ## Carlos Escanciano <jescanci@indiana.edu> for pushing me on this
+    ## for the Klein and Spady estimator... use index.tmean (training
+    ## X) and index (tx) - need gradients == TRUE in order for this to
+    ## work
+
+    if(bws$method == "ichimura" & gradients == TRUE) {
+
+      ## First row & column of covariance matrix are zero due to
+      ## identification condition that beta_1=0. Note the n^{-1} in
+      ## the E and the \sqrt{n} in the normalization of \hat\beta will
+      ## cancel.
+
+      q <- ncol(txdat)
+      Bvcov <- matrix(0,q,q)
+      dimnames(Bvcov) <- list(bws$xnames,bws$xnames)
+
+      W <- txdat[,-1,drop=FALSE]
+
+      tyindex <- npksum(txdat = index, tydat = rep(1,length(tydat)), weights = W, bws = bws$bw)$ksum
+      tindex <- npksum(txdat = index, bws = bws$bw)$ksum
+
+      ## Need to trap case where k-1=1... ksum will return a 1 D
+      ## array, need a 1 x n matrix
+
+      if(length(dim(tyindex))==1) tyindex <- matrix(tyindex,nrow=1,ncol=dim(tyindex))
+
+      ## xmex = X_i-\hat E(X_i|X_i'\beta), dimension k\times n.
+
+      xmex <- sapply(1:length(tydat),function(i){W[i,]-tyindex[,i]/tindex[i]})
+
+      ## Need to trap case where k-1=1..., sapply will return a
+      ## vector, need a 1 x n matrix
+
+      if(is.vector(xmex)) xmex <- matrix(xmex,nrow=1,ncol=length(xmex))
+
+      dg.db.sq <- (W*index.grad[,1])^2
+
+      dg.db.sq.xmex <- sapply(1:length(tydat),function(i){dg.db.sq[i,]*xmex[,i]})      
+
+      uhat <- tydat - index.tmean ## Training y and training mean
+
+      Vinv <- solve(dg.db.sq.xmex%*%t(xmex))
+
+      Sigma <- ((uhat^2)*dg.db.sq.xmex)%*%t(xmex)
+
+      Bvcov[-1,-1] <- Vinv %*% Sigma %*% Vinv
+    
+      dimnames(Bvcov) <- list(bws$xnames,bws$xnames)      
+
+    } else if(bws$method == "kleinspady" & gradients == TRUE) {
+
+      ## We divide by P(1-P) so test for P=0 or 1...
+      keep <- which(index.tmean < 1 & index.tmean > 0)
+      dg.db <- txdat[,-1,drop=FALSE]*index.grad[,1]
+      ## First row & column of covariance matrix are zero due to
+      ## identification condition that beta_1=0. Note the n^{-1} in
+      ## the E and the \sqrt{n} in the normalization of \hat\beta will
+      ## cancel.
+      q <- ncol(txdat)
+      Bvcov <- matrix(0,q,q)
+      Bvcov[-1,-1] <- solve(t(dg.db[keep,])%*%(dg.db[keep,]/(index.tmean[keep]*
+        (1-index.tmean[keep]))))
+
+      dimnames(Bvcov) <- list(bws$xnames,bws$xnames)      
+
+      ## Now export these in an S3 method...
+
+    }
+
     ## TRISTEN XXX - for continuous y we want to return the fitted model
     ## along with the measures of goodness of fit RSQ, MSE, and other
     ## measures of goodness of fit. For discrete y (0/1), npconmode()
@@ -457,12 +527,10 @@ npindex.sibandwidth <-
     eval(parse(text=paste(
                  "singleindex(bws = bws, index = index.eval, mean = index.mean,",
                  ifelse(errors,"merr = index.merr,",""),
-                 ifelse(gradients,"grad = index.grad, mean.grad = colMeans(index.grad),",""),
+                 ifelse(gradients,"grad = index.grad, mean.grad = colMeans(index.grad), betavcov = Bvcov,",""),
                  ifelse(errors & gradients,"gerr = index.gerr, mean.gerr = index.mgerr,",""),
                  strres,
                  "ntrain = nrow(txdat),", strgof,
                  "trainiseval = no.ex, residuals = residuals, gradients = gradients)")))
   
   }
-
-
