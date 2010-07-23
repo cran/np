@@ -1,0 +1,79 @@
+\begin{thebibliography}{11}
+\newcommand{\enquote}[1]{``#1''}
+\providecommand{\natexlab}[1]{#1}
+\providecommand{\url}[1]{\texttt{#1}}
+\providecommand{\urlprefix}{URL }
+\expandafter\ifx\csname urlstyle\endcsname\relax
+  \providecommand{\doi}[1]{doi:\discretionary{}{}{}#1}\else
+  \providecommand{\doi}{doi:\discretionary{}{}{}\begingroup
+  \urlstyle{rm}\Url}\fi
+\providecommand{\eprint}[2][]{\url{#2}}
+
+\bibitem[{Granger \emph{et~al.}(2004)Granger, Maasoumi, and
+  Racine}]{GRANGER_MAASOUMI_RACINE:2004}
+Granger C, Maasoumi E, Racine JS (2004).
+\newblock \enquote{A Dependence Metric for Possibly Nonlinear Time Series.}
+\newblock \emph{Journal of Time Series Analysis}, \textbf{25}(5), 649--669.
+
+\bibitem[{Hahn \emph{et~al.}(2010)Hahn, Bouvier, and Ki\^{e}u}]{R2CUBA}
+Hahn T, Bouvier A, Ki\^{e}u K (2010).
+\newblock \emph{R2Cuba: Multidimensional Numerical Integration}.
+\newblock R package version 1.0-4,
+  \urlprefix\url{http://CRAN.R-project.org/package=R2Cuba}.
+
+\bibitem[{Hayfield and Racine(2008)}]{np}
+Hayfield T, Racine JS (2008).
+\newblock \enquote{Nonparametric Econometrics: The np Package.}
+\newblock \emph{Journal of Statistical Software}, \textbf{27}(5).
+\newblock \urlprefix\url{http://www.jstatsoft.org/v27/i05/}.
+
+\bibitem[{Johnson and Narasimhan(2009)}]{CUBATURE}
+Johnson SG, Narasimhan B (2009).
+\newblock \emph{cubature: Adaptive multivariate integration over hypercubes}.
+\newblock R package version 1.0,
+  \urlprefix\url{http://CRAN.R-project.org/package=cubature}.
+
+\bibitem[{Li \emph{et~al.}(2009)Li, Maasoumi, and
+  Racine}]{LI_MAASOUMI_RACINE:2009}
+Li Q, Maasoumi E, Racine JS (2009).
+\newblock \enquote{A Nonparametric Test for Equality of Distributions with
+  Mixed Categorical and Continuous Data.}
+\newblock \emph{Journal of Econometrics}, \textbf{148}, 186--200.
+
+\bibitem[{Maasoumi and Racine(2002)}]{MAASOUMI_RACINE:2002}
+Maasoumi E, Racine JS (2002).
+\newblock \enquote{Entropy and Predictability of Stock Market Returns.}
+\newblock \emph{Journal of Econometrics}, \textbf{107}(2), 291--312.
+
+\bibitem[{Maasoumi and Racine(2009)}]{MAASOUMI_RACINE:2009}
+Maasoumi E, Racine JS (2009).
+\newblock \enquote{A robust entropy-based test of asymmetry for discrete and
+  continuous processes.}
+\newblock \emph{Econometric Reviews}, \textbf{28}, 246--261.
+
+\bibitem[{Patton \emph{et~al.}(2009)Patton, Politis, and
+  White}]{PATTON_POLITIS_WHITE:2009}
+Patton A, Politis DN, White H (2009).
+\newblock \enquote{{CORRECTION TO} ``{A}utomatic block-length selection for the
+  dependent bootstrap'' by {D}. {P}olitis and {H}. {W}hite.}
+\newblock \emph{Econometric Reviews}, \textbf{28}(4), 372--375.
+
+\bibitem[{Politis and Romano(1994)}]{POLITIS_ROMANO:1994}
+Politis DN, Romano JP (1994).
+\newblock \enquote{Limit theorems for weakly dependent {H}ilbert space valued
+  random variables with applications to the stationary bootstrap.}
+\newblock \emph{Statistica Sinica}, \textbf{4}, 461--476.
+
+\bibitem[{Politis and White(2004)}]{POLITIS_WHITE:2004}
+Politis DN, White H (2004).
+\newblock \enquote{Automatic block-length selection for the dependent
+  bootstrap.}
+\newblock \emph{Econometric Reviews}, \textbf{23}, 53--70.
+
+\bibitem[{{R Development Core Team}(2010)}]{R}
+{R Development Core Team} (2010).
+\newblock \emph{R: A Language and Environment for Statistical Computing}.
+\newblock R Foundation for Statistical Computing, Vienna, Austria.
+\newblock {ISBN} 3-900051-07-0, \urlprefix\url{http://www.R-project.org}.
+
+\end{thebibliography}
