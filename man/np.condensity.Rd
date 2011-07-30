@@ -197,7 +197,7 @@ npcdens(bws, \dots)
 
 }
 \author{
-  Tristen Hayfield \email{hayfield@phys.ethz.ch}, Jeffrey S. Racine
+  Tristen Hayfield \email{hayfield@mpia.de}, Jeffrey S. Racine
   \email{racinej@mcmaster.ca}    
 }
 
@@ -223,11 +223,9 @@ data("Italy")
 attach(Italy)
 
 # First, compute the bandwidths... note that this may take a minute or
-# two depending on the speed of your computer. We override the default
-# tolerances for the search method as the objective function is
-# well-behaved (don't of course do this in general).
+# two depending on the speed of your computer. 
 
-bw <- npcdensbw(formula=gdp~ordered(year), tol=.1, ftol=.1)
+bw <- npcdensbw(formula=gdp~ordered(year))
 
 # Next, compute the condensity object...
 
@@ -240,17 +238,17 @@ summary(fhat)
 
 \dontrun{
 
-# Call the npplot() function to visualize the results (<ctrl>-C will
+# Call the plot() function to visualize the results (<ctrl>-C will
 # interrupt on *NIX systems, <esc> will interrupt on MS Windows
 # systems).
 
-npplot(bws=bw)
+plot(bw)
 
-# To plot the conditional distribution we use cdf=TRUE in npplot
+# To plot the conditional distribution we use cdf=TRUE in plot
 # (<ctrl>-C will interrupt on *NIX systems, <esc> will interrupt on MS
 # Windows systems)
 
-npplot(bws=bw, cdf=TRUE)
+plot(bw, cdf=TRUE)
 
 detach(Italy)
 
@@ -264,11 +262,9 @@ data("Italy")
 attach(Italy)
 
 # First, compute the bandwidths... note that this may take a minute or
-# two depending on the speed of your computer. We override the default
-# tolerances for the search method as the objective function is
-# well-behaved (don't of course do this in general).
+# two depending on the speed of your computer. 
 
-# Note - we cast `X' and `y' as data frames so that npplot() can
+# Note - we cast `X' and `y' as data frames so that plot() can
 # automatically grab names (this looks like overkill, but in
 # multivariate settings you would do this anyway, so may as well get in
 # the habit).
@@ -276,7 +272,7 @@ attach(Italy)
 X <- data.frame(year=ordered(year))
 y <- data.frame(gdp)
 
-bw <- npcdensbw(xdat=X, ydat=y, tol=.1, ftol=.1)
+bw <- npcdensbw(xdat=X, ydat=y)
 
 # Next, compute the condensity object...
 
@@ -287,16 +283,16 @@ fhat <- npcdens(bws=bw)
 
 summary(fhat)
 
-# Call the npplot() function to visualize the results (<ctrl>-C will
+# Call the plot() function to visualize the results (<ctrl>-C will
 # interrupt on *NIX systems, <esc> will interrupt on MS Windows systems).
 
-npplot(bws=bw)
+plot(bw)
 
-# To plot the conditional distribution we use cdf=TRUE in npplot
+# To plot the conditional distribution we use cdf=TRUE in plot
 # (<ctrl>-C will interrupt on *NIX systems, <esc> will interrupt on MS
 # Windows systems)
 
-npplot(bws=bw, cdf=TRUE)
+plot(bw, cdf=TRUE)
 
 detach(Italy)
 
@@ -318,12 +314,12 @@ summary(bw)
 # Plot the density function (<ctrl>-C will interrupt on *NIX systems,
 # <esc> will interrupt on MS Windows systems).
 
-npplot(bws=bw)
+plot(bw)
 
 # Plot the distribution function (cdf=TRUE) (<ctrl>-C will interrupt on
 # *NIX systems, <esc> will interrupt on MS Windows systems)
 
-npplot(bws=bw, cdf=TRUE)
+plot(bw, cdf=TRUE)
 
 detach(faithful)
 
@@ -338,7 +334,7 @@ attach(faithful)
 # Note - this may take a few minutes depending on the speed of your
 # computer...
 
-# Note - we cast `X' and `y' as data frames so that npplot() can
+# Note - we cast `X' and `y' as data frames so that plot() can
 # automatically grab names (this looks like overkill, but in
 # multivariate settings you would do this anyway, so may as well get in
 # the habit).
@@ -353,12 +349,12 @@ summary(bw)
 # Plot the density function (<ctrl>-C will interrupt on *NIX systems, 
 # <esc> will interrupt on MS Windows systems)
 
-npplot(bws=bw)
+plot(bw)
 
 # Plot the distribution function (cdf=TRUE) (<ctrl>-C will interrupt on
 # *NIX systems, <esc> will interrupt on MS Windows systems)
 
-npplot(bws=bw, cdf=TRUE)
+plot(bw, cdf=TRUE)
 
 detach(faithful)
 
@@ -385,12 +381,10 @@ x2 <- ifelse(abs(x) < 2 , x, 2) / 0.8796
 
 y <- ifelse(x1 + x2 + rnorm(n) > 0, 1, 0)
 
-# Generate data-driven bandwidths (likelihood cross-validation).  We
-# override the default tolerances for the search method as the objective
-# function is well-behaved (don't of course do this in general).  Note -
+# Generate data-driven bandwidths (likelihood cross-validation). Note -
 # this may take a few minutes depending on the speed of your computer...
 
-bw <- npcdensbw(formula=factor(y)~x1+x2, tol=.1, ftol=.1)
+bw <- npcdensbw(formula=factor(y)~x1+x2)
 
 # Next, create the evaluation data in order to generate a perspective
 # plot
@@ -452,12 +446,10 @@ y <- ifelse(x1 + x2 + rnorm(n) > 0, 1, 0)
 
 X <- cbind(x1, x2)
 
-# Generate data-driven bandwidths (likelihood cross-validation).  We
-# override the default tolerances for the search method as the objective
-# function is well-behaved (don't of course do this in general).  Note -
+# Generate data-driven bandwidths (likelihood cross-validation). Note -
 # this may take a few minutes depending on the speed of your computer...
 
-bw <- npcdensbw(xdat=X, ydat=factor(y), tol=.1, ftol=.1)
+bw <- npcdensbw(xdat=X, ydat=factor(y))
 
 # Next, create the evaluation data in order to generate a perspective
 # plot

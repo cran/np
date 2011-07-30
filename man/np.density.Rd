@@ -183,7 +183,7 @@ npudens(bws, \dots)
     for discrete distributions,}  Biometrika, 68, 301-309.
 }
 \author{
-    Tristen Hayfield \email{hayfield@phys.ethz.ch}, Jeffrey S. Racine
+    Tristen Hayfield \email{hayfield@mpia.de}, Jeffrey S. Racine
     \email{racinej@mcmaster.ca}
 }
 
@@ -208,11 +208,9 @@ npudens(bws, \dots)
 data("Italy")
 attach(Italy)
 
-# Compute bandwidths using likelihood cross-validation (default), but we
-# override the default search tolerances to speed things up as this is a
-# well-behaved dataset (don't of course do this in general).
+# Compute bandwidths using likelihood cross-validation (default).
 
-bw <- npudensbw(formula=~ordered(year)+gdp, tol=.01, ftol=.01)
+bw <- npudensbw(formula=~ordered(year)+gdp)
 
 # At this stage you could use npudens() to do a variety of
 # things. Here we compute the npudens() object and place it in fhat.
@@ -266,11 +264,11 @@ contour(as.integer(levels(year.seq)),
 
 Sys.sleep(5)
 
-# Alternatively, you could use the npplot() command (<ctrl>-C will
+# Alternatively, you could use the plot() command (<ctrl>-C will
 # interrupt on *NIX systems, <esc> will interrupt on MS Windows
 # systems).
 
-npplot(bws=bw)
+plot(bw)
 
 detach(Italy)
 
@@ -286,11 +284,9 @@ attach(Italy)
 
 data <- data.frame(year=ordered(year), gdp)
 
-# Compute bandwidths using likelihood cross-validation (default), but we
-# override the default search tolerances to speed things up as this is a
-# well-behaved dataset (don't of course do this in general).
+# Compute bandwidths using likelihood cross-validation (default).
 
-bw <- npudensbw(dat=data, tol=.01, ftol=.01)
+bw <- npudensbw(dat=data)
 
 # At this stage you could use npudens() to do a variety of
 # things. Here we compute the npudens() object and place it in fhat.
@@ -342,11 +338,11 @@ contour(as.integer(levels(year.seq)),
 
 Sys.sleep(5)
 
-# Alternatively, you could use the npplot() command (<ctrl>-C will
+# Alternatively, you could use the plot() command (<ctrl>-C will
 # interrupt on *NIX systems, <esc> will interrupt on MS Windows
 # systems).
 
-npplot(bws=bw)
+plot(bw)
 
 detach(Italy)
 
@@ -370,11 +366,11 @@ summary(bw)
 # -0.2 to extend the plot outside the support of the data (i.e., extend
 # the tails of the estimate to meet the horizontal axis).
 
-npplot(bws=bw, xtrim=-0.2)
+plot(bw, xtrim=-0.2)
 
 # Plot the distribution function (cdf=TRUE) (<ctrl>-C will interrupt)
 
-npplot(bws=bw, cdf=TRUE)
+plot(bw, cdf=TRUE)
 
 detach(faithful)
 
@@ -398,11 +394,11 @@ summary(bw)
 # -0.2 to extend the plot outside the support of the data (i.e., extend
 # the tails of the estimate to meet the horizontal axis).
 
-npplot(bws=bw, xtrim=-0.2)
+plot(bw, xtrim=-0.2)
 
 # Plot the distribution function (cdf=TRUE) (<ctrl>-C will interrupt)
 
-npplot(bws=bw, cdf=TRUE)
+plot(bw, cdf=TRUE)
 
 detach(faithful)
 } % enddontrun

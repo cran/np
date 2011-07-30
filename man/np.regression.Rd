@@ -221,7 +221,7 @@ npreg(bws, \dots)
 }
 
 \author{
-  Tristen Hayfield \email{hayfield@phys.ethz.ch}, Jeffrey S. Racine \email{racinej@mcmaster.ca}
+  Tristen Hayfield \email{hayfield@mpia.de}, Jeffrey S. Racine \email{racinej@mcmaster.ca}
 }
 
 \section{Usage Issues}{
@@ -244,11 +244,9 @@ data("Italy")
 attach(Italy)
 
 # First, compute the least-squares cross-validated bandwidths for the
-# local constant estimator (default). We override the default tolerances
-# for the search method as the objective function is well-behaved (don't
-# of course do this in general).
+# local constant estimator (default).
 
-bw <- npregbw(formula=gdp~ordered(year), tol=.1, ftol=.1)
+bw <- npregbw(formula=gdp~ordered(year))
 
 # Now take these bandwidths and fit the model and gradients
 
@@ -258,7 +256,7 @@ summary(model)
 
 \dontrun{
 
-# Use npplot() to visualize the regression function, add bootstrap
+# Use plot() to visualize the regression function, add bootstrap
 # error bars, and overlay the data on the same plot.
 
 # Note - this may take a minute or two depending on the speed of your
@@ -267,7 +265,7 @@ summary(model)
 # all computations are completed (if you use
 # plot.errors.method="asymptotic" the figure will instantly appear).
 
-npplot(bws=bw, plot.errors.method="bootstrap")
+plot(bw, plot.errors.method="bootstrap")
 points(ordered(year), gdp, cex=.2, col="red")
 
 detach(Italy)
@@ -284,11 +282,9 @@ data("Italy")
 attach(Italy)
 
 # First, compute the least-squares cross-validated bandwidths for the
-# local constant estimator (default). We override the default tolerances
-# for the search method as the objective function is well-behaved (don't
-# of course do this in general).
+# local constant estimator (default).
 
-bw <- npregbw(xdat=ordered(year), ydat=gdp, tol=.1, ftol=.1)
+bw <- npregbw(xdat=ordered(year), ydat=gdp)
 
 # Now take these bandwidths and fit the model and gradients
 
@@ -296,7 +292,7 @@ model <- npreg(bws = bw, gradients = TRUE)
 
 summary(model)
 
-# Use npplot() to visualize the regression function, add bootstrap
+# Use plot() to visualize the regression function, add bootstrap
 # error bars, and overlay the data on the same plot.
 
 # Note - this may take a minute or two depending on the speed of your
@@ -305,7 +301,7 @@ summary(model)
 # all computations are completed (if you use
 # plot.errors.method="asymptotic" the figure will instantly appear).
 
-npplot(bws=bw, plot.errors.method="bootstrap")
+plot(bw, plot.errors.method="bootstrap")
 points(ordered(year), gdp, cex=.2, col="red")
 
 detach(Italy)
@@ -325,7 +321,7 @@ bw <- npregbw(logwage~age, regtype="ll", bwmethod="cv.aic")
 
 # Next, plot the regression function...
 
-npplot(bws=bw, plot.errors.method="asymptotic")
+plot(bw, plot.errors.method="asymptotic")
 points(age, logwage, cex=.2, col="red")
 
 # Sleep for 5 seconds so that we can examine the output...
@@ -334,7 +330,7 @@ Sys.sleep(5)
 
 # Next, plot the derivative...
 
-npplot(bws=bw, plot.errors.method="asymptotic", gradient=TRUE)
+plot(bw, plot.errors.method="asymptotic", gradient=TRUE)
 
 detach(cps71)
 
@@ -353,7 +349,7 @@ bw <- npregbw(xdat=age, ydat=logwage, regtype="ll", bwmethod="cv.aic")
 
 # Next, plot the regression function...
 
-npplot(bws=bw, plot.errors.method="asymptotic")
+plot(bw, plot.errors.method="asymptotic")
 points(age, logwage, cex=.2, col="red")
 
 # Sleep for 5 seconds so that we can examine the output...
@@ -362,7 +358,7 @@ Sys.sleep(5)
 
 # Next, plot the derivative...
 
-npplot(bws=bw, plot.errors.method="asymptotic", gradient=TRUE)
+plot(bw, plot.errors.method="asymptotic", gradient=TRUE)
 
 detach(cps71)
 
@@ -379,20 +375,15 @@ Sys.sleep(5)
 data("oecdpanel")
 attach(oecdpanel)
 
-# We override the default tolerances for the search method as the
-# objective function is well-behaved (don't of course do this in
-# general).
-
 bw <- npregbw(formula=growth~
               factor(oecd)+
               factor(year)+
               initgdp+
               popgro+
               inv+
-              humancap,
-              tol=.1, ftol=.1)
+              humancap)
 
-npplot(bws=bw, plot.errors.method="asymptotic")
+plot(bw, plot.errors.method="asymptotic")
 
 detach(oecdpanel)
 
@@ -408,13 +399,9 @@ attach(oecdpanel)
 y <- growth
 X <- data.frame(factor(oecd), factor(year), initgdp, popgro, inv, humancap)
 
-# We override the default tolerances for the search method as the
-# objective function is well-behaved (don't of course do this in
-# general).
+bw <- npregbw(xdat=X, ydat=y)
 
-bw <- npregbw(xdat=X, ydat=y, tol=.1, ftol=.1)
-
-npplot(bws=bw, plot.errors.method="asymptotic")
+plot(bw, plot.errors.method="asymptotic")
 
 detach(oecdpanel)
 
@@ -451,7 +438,7 @@ bw <- npregbw(formula=len~factor(supp)+ordered(dose))
 # Now plot the partial regression surfaces with bootstrapped
 # nonparametric confidence bounds
 
-npplot(bws=bw, plot.errors.method="bootstrap", plot.errors.type="quantile")
+plot(bw, plot.errors.method="bootstrap", plot.errors.type="quantile")
 
 detach(ToothGrowth)
 
@@ -490,7 +477,7 @@ bw <- npregbw(X, y)
 # Now plot the partial regression surfaces with bootstrapped
 # nonparametric confidence bounds
 
-npplot(bws=bw, plot.errors.method="bootstrap", plot.errors.type="quantile")
+plot(bw, plot.errors.method="bootstrap", plot.errors.type="quantile")
 
 detach(ToothGrowth)
 
@@ -533,8 +520,7 @@ persp(xs, zs, dgp, xlab="x1", ylab="x2", zlab="y", main="True DGP")
 
 # Next, compute a local linear fit and plot that
 
-bw <- npregbw(formula=y~x+z, regtype="ll", bwmethod="cv.aic",
-                       tol=.01, ftol=.01)
+bw <- npregbw(formula=y~x+z, regtype="ll", bwmethod="cv.aic")
 fit <- fitted(npreg(bws=bw, newdata=X.eval))
 fit.mat <- matrix(fit, 30, 30)
 
@@ -583,8 +569,7 @@ persp(xs, zs, dgp, xlab="x1", ylab="x2", zlab="y", main="True DGP")
 
 # Next, compute a local linear fit and plot that
 
-bw <- npregbw(xdat=X, ydat=y, regtype="ll", bwmethod="cv.aic",
-                       tol=.01, ftol=.01)
+bw <- npregbw(xdat=X, ydat=y, regtype="ll", bwmethod="cv.aic")
 fit <- fitted(npreg(exdat=X.eval, bws=bw))
 fit.mat <- matrix(fit, 30, 30)
 

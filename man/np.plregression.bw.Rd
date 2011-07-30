@@ -268,7 +268,7 @@ npplregbw(\dots)
 
 }
 \author{
-    Tristen Hayfield \email{hayfield@phys.ethz.ch}, Jeffrey S. Racine
+    Tristen Hayfield \email{hayfield@mpia.de}, Jeffrey S. Racine
     \email{racinej@mcmaster.ca}
 }
 
@@ -308,24 +308,24 @@ npplregbw(\dots)
 # EXAMPLE 1 (INTERFACE=FORMULA): For this example, we simulate an
 # example for a partially linear model and perform bandwidth selection
 
-set.seed(123)
+set.seed(42)
 
 n <- 250
 x1 <- rnorm(n)
-x2 <- rbinom(n, 5, .3)
+x2 <- rbinom(n, 1, .5)
 
-z1 <- rbinom(n, 2, .3)
+z1 <- rbinom(n, 1, .5)
 z2 <- rnorm(n)
 
 y <- 1 + x1 + x2 + z1 + sin(z2) + rnorm(n)
 
-X <- data.frame(x1, ordered(x2))
-Z <- data.frame(ordered(z1), z2)
+X <- data.frame(x1, factor(x2))
+Z <- data.frame(factor(z1), z2)
 
 # Compute data-driven bandwidths... this may take a minute or two
 # depending on the speed of your computer...
 
-bw <- npplregbw(formula=y~x1+ordered(x2)|ordered(z1)+z2, tol=.1, ftol=.1)
+bw <- npplregbw(formula=y~x1+factor(x2)|factor(z1)+z2)
 
 summary(bw)
 
@@ -333,7 +333,7 @@ summary(bw)
 
 # Note - the default is to use the local constant estimator. If you wish
 # to use instead a local linear estimator, this is accomplished via
-# npplregbw(xdat=X, zdat=Z, ydat=y, regtype="ll", tol=.1, ftol=.1)
+# npplregbw(xdat=X, zdat=Z, ydat=y, regtype="ll")
 
 # Note - see the example for npudensbw() for multiple illustrations
 # of how to change the kernel function, kernel order, and so forth.
@@ -341,10 +341,10 @@ summary(bw)
 # You may want to manually specify your bandwidths
 bw.mat <- matrix(data =  c(0.19, 0.34,  # y on Z
                            0.00, 0.74,  # X[,1] on Z
-                           0.99, 0.23), # X[,2] on Z
+                           0.29, 0.23), # X[,2] on Z
                 ncol = ncol(Z), byrow=TRUE)
 
-bw <- npplregbw(formula=y~x1+ordered(x2)|ordered(z1)+z2, 
+bw <- npplregbw(formula=y~x1+factor(x2)|factor(z1)+z2, 
                           bws=bw.mat, bandwidth.compute=FALSE)
 summary(bw)
 
@@ -364,30 +364,30 @@ summary(bw)
 # EXAMPLE 1 (INTERFACE=DATA FRAME): For this example, we simulate an
 # example for a partially linear model and perform bandwidth selection
 
-set.seed(123)
+set.seed(42)
 
 n <- 250
 x1 <- rnorm(n)
-x2 <- rbinom(n, 5, .3)
+x2 <- rbinom(n, 1, .5)
 
-z1 <- rbinom(n, 2, .3)
+z1 <- rbinom(n, 1, .5)
 z2 <- rnorm(n)
 
 y <- 1 + x1 + x2 + z1 + sin(z2) + rnorm(n)
 
-X <- data.frame(x1, ordered(x2))
-Z <- data.frame(ordered(z1), z2)
+X <- data.frame(x1, factor(x2))
+Z <- data.frame(factor(z1), z2)
 
 # Compute data-driven bandwidths... this may take a minute or two
 # depending on the speed of your computer...
 
-bw <- npplregbw(xdat=X, zdat=Z, ydat=y, tol=.1, ftol=.1)
+bw <- npplregbw(xdat=X, zdat=Z, ydat=y)
 
 summary(bw)
 
 # Note - the default is to use the local constant estimator. If you wish
 # to use instead a local linear estimator, this is accomplished via
-# npplregbw(xdat=X, zdat=Z, ydat=y, regtype="ll", tol=.1, ftol=.1)
+# npplregbw(xdat=X, zdat=Z, ydat=y, regtype="ll")
 
 # Note - see the example for npudensbw() for multiple illustrations
 # of how to change the kernel function, kernel order, and so forth.
@@ -395,7 +395,7 @@ summary(bw)
 # You may want to manually specify your bandwidths
 bw.mat <- matrix(data =  c(0.19, 0.34,  # y on Z
                            0.00, 0.74,  # X[,1] on Z
-                           0.99, 0.23), # X[,2] on Z
+                           0.29, 0.23), # X[,2] on Z
                 ncol = ncol(Z), byrow=TRUE)
 
 bw <- npplregbw(xdat=X, zdat=Z, ydat=y, 

@@ -339,7 +339,7 @@ npregbw(\dots)
     for discrete distributions,}  Biometrika, 68, 301-309.
 }
 \author{
-    Tristen Hayfield \email{hayfield@phys.ethz.ch}, Jeffrey S. Racine
+    Tristen Hayfield \email{hayfield@mpia.de}, Jeffrey S. Racine
     \email{racinej@mcmaster.ca}
 }
 
@@ -387,7 +387,7 @@ attach(Italy)
 # Compute the least-squares cross-validated bandwidths for the local
 # constant estimator (default)
 
-bw <- npregbw(formula=gdp~ordered(year), tol=.1, ftol=.1)
+bw <- npregbw(formula=gdp~ordered(year))
 
 summary(bw)
 
@@ -433,7 +433,7 @@ attach(Italy)
 # Compute the least-squares cross-validated bandwidths for the local
 # constant estimator (default)
 
-bw <- npregbw(xdat=ordered(year), ydat=gdp, tol=.1, ftol=.1)
+bw <- npregbw(xdat=ordered(year), ydat=gdp)
 
 summary(bw)
 
