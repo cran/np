@@ -1,6 +1,6 @@
 Package: np
-Version: 0.40-9
-Date: 2011-07-30
+Version: 0.40-10
+Date: 2011-10-24
 Depends: boot, cubature
 Suggests: quantreg, MASS
 Title: Nonparametric kernel smoothing methods for mixed data types
@@ -19,5 +19,5 @@ Description: This package provides a variety of nonparametric (and
 License: GPL
 URL:
 Repository: CRAN
-Date/Publication: 2011-07-30 15:03:13
-Packaged: 2011-07-30 12:36:44 UTC; jracine
+Date/Publication: 2011-10-24 19:19:07
+Packaged: 2011-10-24 18:55:30 UTC; jracine
