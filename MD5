@@ -1,6 +1,6 @@
-0eee705d0fcab7fc07b8f227e5063f6c *CHANGELOG
+1064dafd028cecaebaaabdc3b709005c *CHANGELOG
 371ac3437cacde0134516d8db3cb1b74 *COPYRIGHTS
-5ec92853f4578a30cd169692fe62a438 *DESCRIPTION
+63c236ed672ce156621a826af03b6cd8 *DESCRIPTION
 8f6630fc6be94da3c52552ca275144fb *NAMESPACE
 a4f77ea4846cb0e731df7ae0da6772a5 *R/b.star.R
 277ab6956cbdc1b88e563f1473821670 *R/bandwidth.R
@@ -37,7 +37,7 @@ cd40e9f93fd84da4551b8e0c0d7607c8 *R/np.regression.bw.R
 77975d3e1c6ad8a054fe1fc7b9ad9c11 *R/np.sdeptest.R
 4f0b8d72bd83545c7eaf968e8e220753 *R/np.sigtest.R
 45c9329350c4066cbebb82ddfd694d42 *R/np.singleindex.R
-2ad0949961c5628ae03585b0a0700b14 *R/np.singleindex.bw.R
+ea8a48f274ed37ba0be82510e88e7a5a *R/np.singleindex.bw.R
 838f3057a433e910b8bbd0302984dcee *R/np.smoothcoef.R
 5cc35feae5347dac2f4a1d7df7a53c00 *R/np.smoothcoef.bw.R
 9b9f909503883260a54bd5042d9196c4 *R/np.symtest.R
@@ -49,7 +49,7 @@ e0b45fc47cbf4625b25754653e6ec321 *R/plregression.R
 1ffcaff56c1d2c46165bdfe0d134e7ec *R/rbandwidth.R
 923e9a6c9a20f3fcbcf385747bf9bd62 *R/regression.R
 3e7d831e0be4be1df0120e7cca55c9b5 *R/sdeptest.R
-a9f26d5e6300878446889d6f26abf113 *R/sibandwidth.R
+e016c8888161b9fe66a5f1b616b18224 *R/sibandwidth.R
 441c1fcc286157dfb62ac4f68596a3b7 *R/sigtest.R
 e63526940fcfd31a25408df1b555539a *R/singleindex.R
 68c01b8af11e7360e3c496687a131ef8 *R/smoothbandwidth.R
@@ -57,12 +57,12 @@ e63526940fcfd31a25408df1b555539a *R/singleindex.R
 067c61c6f97e33bdfddcd73944647a39 *R/symtest.R
 2e9502d45ba2bd09f44655f219058616 *R/unitest.R
 b5059ddd30675ba7c343dfe7b62a8969 *R/util.R
-d8d8b037c63ac2a070cbd954077f9655 *R/zzz.R
+03397d38a4b20b16741fa66a5051901e *R/zzz.R
 1540bc97d61c6b1be114cafad1de7bbb *README
 de734afb3ccca281f6d67bae125963e2 *cleanup
 6389d84d62cccc437d6f253a491f2b37 *data/Engel95.rda
 d3e01c9812b9b01fffcb9c5e2b8ef6da *data/Italy.rda
-e975f158acf26454162b0799e1b192e5 *data/cps71.rda
+eec323d8f32a44faa4fd35109bfd9701 *data/cps71.rda
 b58744d73b095299ebc00e4fb23d0a0a *data/oecdpanel.rda
 35a2ac3894487b205f3d427a092e2b48 *data/wage1.rda
 a1f8183f742add0a432edeb70f320f13 *demo/00Index
@@ -72,13 +72,13 @@ a1f8183f742add0a432edeb70f320f13 *demo/00Index
 db76c60075997a5c88e8583e70ed274c *inst/CITATION
 b67ea10c654a441e16cf2867e8c2d76f *inst/doc/entropy_np.Rnw
 86546679856047afedfcfda79ec96d85 *inst/doc/entropy_np.bib
-d96c0d73f89b7af67d5cf23b18c452be *inst/doc/entropy_np.pdf
+91fa0c9599b7592284f29d1d3234c386 *inst/doc/entropy_np.pdf
 92e903f33d4067a7fbc89fa4e7571c92 *inst/doc/jss.bst
 597d284e5204836c015463ad73e972ab *inst/doc/jss.cls
 44620d00f0a90df4c62d52ceef7928f3 *inst/doc/np.Rnw
 640eb15b3e6e00148003afe582b291cf *inst/doc/np.bib
-f41ea343499642ee4bb1e4b8cc37f87a *inst/doc/np.pdf
-efbe573be64f3d4ced9a29bf5c33b81d *inst/doc/np_faq.pdf
+e73166e2b5606cc6eda7d7549365f456 *inst/doc/np.pdf
+331875f8898f00700be062df88db3517 *inst/doc/np_faq.pdf
 2ffa633e03c621c097becc37449175df *man/b.star.Rd
 c38f6e41d6dcd2841af600203f45881b *man/data-Engel95.Rd
 ab3e375f9c8ca7ab298dd6d961c767ad *man/data-cps71.Rd
@@ -87,7 +87,7 @@ b3823e5a4f819b89da79c0f79ec4e80c *man/data-oecd.Rd
 e0c9838e3b44310e326fc4ddb1f79574 *man/data-wage1.Rd
 313d517263aa18efced2c47fa35678cb *man/gradients.Rd
 89c9aaf0ffb29ebbea7d815d7c00533b *man/np-package.Rd
-1d69ebf47b89b88120d4d78addf3554d *man/np.cmstest.Rd
+3b687bf305d4ff876c1b450d71caca90 *man/np.cmstest.Rd
 e3b40b007f31e3fd29c826d56fa5f419 *man/np.condensity.Rd
 731dac3b2feea99368d5ae2ee593d60a *man/np.condensity.bw.Rd
 7ec2692727dcfa6e8f1fedfe0e721712 *man/np.conmode.Rd
@@ -107,7 +107,7 @@ a442107b6b637cbc8edc059df982d50c *man/np.regression.bw.Rd
 1d1083ec96512aa3741c25c45cfe8a10 *man/np.sdeptest.Rd
 e2a2b3ff22d28f15745f0afb2d0aac93 *man/np.sigtest.Rd
 a7ff9178f2b7320081fd97d50219ea2e *man/np.singleindex.Rd
-cf4368392fd834f0e6c256daf4d4701f *man/np.singleindex.bw.Rd
+02d537e82ec1f7586c416337f7157c83 *man/np.singleindex.bw.Rd
 6104c543821c0c8b63baad990f879877 *man/np.smoothcoef.Rd
 ac08efe26c5f8d20272f77aee4c800f8 *man/np.smoothcoef.bw.Rd
 e440d3df7568786e29a186d5cc184c6a *man/np.symtest.Rd
@@ -116,7 +116,7 @@ a29067615c4dbc0893ee848fa713ab4c *man/np.unitest.Rd
 a76c1ce171c6841a2677df5bed8033a2 *man/se.Rd
 ae3defc1a051ef3e60ffd4efc74a1c71 *man/uocquantile.Rd
 feffc471ca4d0be7d64f443e4f106111 *mknpkg.sh
-efc5488217ec8e796cb15da1215db44b *npver
+2414b846e21ac1b0d64f1fcec335c33f *npver
 f7eda19ee9f1f3fe7ea0c8cb1283452e *src/Makevars
 51fcf3bebf204c85abad85e9c226f539 *src/Makevars.win
 5ffe819054e02361cf5bb08f966f5403 *src/headers.h
