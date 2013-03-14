@@ -35,7 +35,6 @@ npplot(bws = stop("'bws' has not been set"), \dots, random.seed = 42)
        view = c("rotate","fixed"),
        type = "l",
        ylim = NULL,
-       cdf = FALSE,
        plot.behavior = c("plot","plot-data","data"),
        plot.errors.method = c("none","bootstrap","asymptotic"),
        plot.errors.boot.method = c("inid", "fixed", "geom"),
@@ -61,9 +60,7 @@ npplot(bws = stop("'bws' has not been set"), \dots, random.seed = 42)
        xtrim = 0.0,
        ytrim = 0.0,
        neval = 50,
-       quantreg = FALSE,
        gradients = FALSE,
-       cdf = FALSE,
        common.scale = TRUE,
        perspective = TRUE,
        main = "",
@@ -311,21 +308,9 @@ npplot(bws = stop("'bws' has not been set"), \dots, random.seed = 42)
     displayed (if possible). Defaults to \code{TRUE}.
   }
 
-  \item{quantreg}{
-    a logical value specifying whether a quantile regression should be
-    plotted (\code{conbandwidth} objects only). See related parameter
-    'tau'. Defaults to \code{FALSE}.
-  }
-
   \item{gradients}{
     a logical value specifying whether gradients should be plotted
     (if possible). Defaults to \code{FALSE}.
-  }
-
-  \item{cdf}{
-    a logical value specifying whether cumulative distributions should
-    be plotted instead of densities (when appropriate). Defaults to
-    \code{FALSE}.
   }
 
   \item{main}{ the title, see \code{\link{title}} }

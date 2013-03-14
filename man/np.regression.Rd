@@ -183,7 +183,7 @@ npreg(bws, \dots)
   \item{gerr}{ standard errors of the gradient estimates }
   \item{resid}{ if \code{residuals = TRUE}, in-sample or out-of-sample
     residuals where appropriate (or possible) }
-  \item{R2}{ coefficient of determination }
+  \item{R2}{ coefficient of determination (Doksum and Samarov (1995))}
   \item{MSE}{ mean squared error }
   \item{MAE}{ mean absolute error }
   \item{MAPE}{ mean absolute percentage error }
@@ -197,6 +197,10 @@ npreg(bws, \dots)
 
   Aitchison, J. and C.G.G. Aitken (1976), \dQuote{Multivariate binary
   discrimination by the kernel method,} Biometrika, 63, 413-420.
+
+  Doksum, K. and A. Samarov (1995), \dQuote{Nonparametric Estimation of
+  Global Functionals and a Measure of the Explanatory Power of
+  Covariates in Regression,} The Annals of Statistics, 23 1443-1473.  
 
   Hall, P. and Q. Li and J.S. Racine (2007), \dQuote{Nonparametric
   estimation of regression functions in the presence of irrelevant
@@ -236,6 +240,7 @@ npreg(bws, \dots)
   \code{\link{loess}}
 }
 \examples{
+\dontrun{
 # EXAMPLE 1 (INTERFACE=FORMULA): For this example, we compute a
 # bivariate nonparametric regression estimate for Giovanni Baiocchi's
 # Italian income panel (see Italy for details)
@@ -253,8 +258,6 @@ bw <- npregbw(formula=gdp~ordered(year))
 model <- npreg(bws = bw, gradients = TRUE)
 
 summary(model)
-
-\dontrun{
 
 # Use plot() to visualize the regression function, add bootstrap
 # error bars, and overlay the data on the same plot.

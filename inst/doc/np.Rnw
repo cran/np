@@ -171,12 +171,12 @@ quantile), significance tests (\citeauthor{RACINE:1997}
 \citeyear{RACINE:1997}, \citeauthor{RACINE_HART_LI:2006}
 \citeyear{RACINE_HART_LI:2006}), semiparametric regression (partially
 linear \citeauthor{ROBINSON:1988} \citeyear{ROBINSON:1988},
-\citeauthor{RACINE_LIU:2007} \citeyear{RACINE_LIU:2007}, index models
+\citeauthor{GAO_LIU_RACINE:2012} \citeyear{GAO_LIU_RACINE:2012}, index models
 \citeauthor{KLEIN_SPADY:1993} \citeyear{KLEIN_SPADY:1993},
 \citeauthor{ICHIMURA:1993} \citeyear{ICHIMURA:1993}, average
 derivative estimation, varying/smooth coefficient models
-\citeauthor{LI_RACINE:2007b} \citeyear{LI_RACINE:2007b},
-\citeauthor{RACINE_OUYANG_LI:2007} \citeyear{RACINE_OUYANG_LI:2007}),
+\citeauthor{LI_RACINE:2010} \citeyear{LI_RACINE:2010},
+\citeauthor{LI_OUYANG_RACINE:2012} \citeyear{LI_OUYANG_RACINE:2012}),
 among others. The various functions in the \pkg{np} package are
 described in Table~\ref{np function table}.
 
@@ -202,15 +202,15 @@ described in Table~\ref{np function table}.
 \code{npksum} &  Nonparametric Kernel Sums & \\
 \code{npplot} & General Purpose Plotting of Nonparametric Objects& \\
 \code{npplreg} & Semiparametric Partially Linear  Regression &
-\citet{ROBINSON:1988}, \citet{RACINE_LIU:2007} \\
-\code{npplregbw} & Semiparametric Partially Linear  Regression Bandwidth Selection & \citet{ROBINSON:1988}, \citet{RACINE_LIU:2007} \\
+\citet{ROBINSON:1988}, \citet{GAO_LIU_RACINE:2012} \\
+\code{npplregbw} & Semiparametric Partially Linear  Regression Bandwidth Selection & \citet{ROBINSON:1988}, \citet{GAO_LIU_RACINE:2012} \\
 \code{npqcmstest} &  Parametric Quantile Regression Model Specification Test
 & \citet{ZHENG:1998}, \citet{RACINE:2006}\\
 \code{npqreg} & Nonparametric Quantile Regression & \citet{LI_RACINE:2008} \\
 \code{npreg} &  Nonparametric Regression & \citet{RACINE_LI:2004}, \citet{LI_RACINE:2004}\\
 \code{npregbw} &  Nonparametric Regression Bandwidth Selection & \citet{HURVICH_SIMONOFF_TSAI:1998}, \citet{RACINE_LI:2004}, \citet{LI_RACINE:2004} \\
-\code{npscoef} & Semiparametric Smooth Coefficient  Regression& \citet{LI_RACINE:2007b}\\
-\code{npscoefbw} & Semiparametric Smooth Coefficient  Regression Bandwidth Selection& \citet{LI_RACINE:2007b}\\
+\code{npscoef} & Semiparametric Smooth Coefficient  Regression& \citet{LI_RACINE:2010}\\
+\code{npscoefbw} & Semiparametric Smooth Coefficient  Regression Bandwidth Selection& \citet{LI_RACINE:2010}\\
 \code{npsdeptest} & Nonparametric Entropy Test for Serial Nonlinear Dependence& \citet{GRANGER_MAASOUMI_RACINE:2004}\\
 \code{npsigtest} &  Nonparametric Regression Significance Test & \citet{RACINE:1997}, \citet{RACINE_HART_LI:2006}\\
 \code{npsymtest} & Nonparametric Entropy Test for Asymmetry& \citet{MAASOUMI_RACINE:2009}\\
@@ -559,11 +559,12 @@ summary(model.par)
 @ 
 
 If we first consider the model's goodness of fit, the model has an
-unadjusted $R^2$ of 23.1\%.  Next, we consider the local linear
-nonparametric method proposed by \citet{LI_RACINE:2004} employing
-cross-validated bandwidth selection using the method of
-\citet{HURVICH_SIMONOFF_TSAI:1998}. Note that in this example we
-conduct bandwidth selection and estimation in one step.
+unadjusted $R^2$ of \Sexpr{summary(model.par)$r.squared}\%.  Next, we
+consider the local linear nonparametric method proposed by
+\citet{LI_RACINE:2004} employing cross-validated bandwidth selection
+using the method of \citet{HURVICH_SIMONOFF_TSAI:1998}. Note that in
+this example we conduct bandwidth selection and estimation in one
+step.
 
 
 <<eval=TRUE,keep.source=TRUE>>=
@@ -578,8 +579,8 @@ summary(model.np)
 Using the measure of goodness of fit introduced in the next section,
 we see that this method produces a better in-sample model, at least as
 measured by the $R^2$ criterion, having an $R^2$ of
-32.5\%.\footnote{See Section~\ref{r-squared section} for details on
-  computation of the nonparametric $R^2$ measure.}
+\Sexpr{model.np$R2}\%.\footnote{See Section~\ref{r-squared section}
+  for details on computation of the nonparametric $R^2$ measure.}
 
 So far we have summarized the model's goodness-of-fit. However,
 econometricians also routinely report the results from tests of
@@ -841,6 +842,7 @@ X <- data.frame(wage1$female,
 output <- npcmstest(model = model.ols, 
                     xdat = X, 
                     ydat = wage1$lwage, 
+                    nmulti = 1,
                     tol = 0.1, 
                     ftol = 0.1)
 summary(output)
@@ -977,17 +979,17 @@ fit.np.freq <- predict(model.np.freq,
                        data = wage1.train,
                        newdata = wage1.eval)
 pse.np.freq <- mean((wage1.eval$lwage - fit.np.freq)^2)
-pse.ols
-pse.np
-pse.np.freq
 @
 
-The predicted square error on the hold-out data was $0.147$ for the
-parametric linear model, $0.145$ for the traditional nonparametric
-estimator that splits the data into subsets, and $0.134$ for the
-nonparametric estimator that uses the full sample but smooths both the
-qualitative and quantitative data. The nonparametric model that
-smooths both the quantitative and qualitative data is more than 8\%
+The predicted square error on the hold-out data was
+\Sexpr{formatC(pse.ols,format="f",digits=3)} for the parametric linear
+model, \Sexpr{formatC(pse.np.freq,format="f",digits=3)} for the
+traditional nonparametric estimator that splits the data into subsets,
+and \Sexpr{formatC(pse.np,format="f",digits=3)} for the nonparametric
+estimator that uses the full sample but smooths both the qualitative
+and quantitative data. The nonparametric model that smooths both the
+quantitative and qualitative data is more than
+\Sexpr{formatC(((pse.ols-pse.np)/pse.ols)*100,format="f",digits=1)}\%
 more efficient in terms of out-of-sample predictive ability than the
 parametric or frequency nonparametric model, and therefore appears to
 provide a better description of the underlying data generating process
@@ -1104,8 +1106,10 @@ summary(model.np)
 
 For this example the nonparametric model is better able to predict low
 birthweight infants than its parametric counterpart, correctly
-predicting 161/189 birthweights compared with 144/189 for the
-parametric model.
+predicting
+\Sexpr{sum(diag(model.np$confusion.matrix))}/\Sexpr{sum(model.np$confusion.matrix)}
+birthweights compared with \Sexpr{sum(diag(cm))}/\Sexpr{sum(cm)} for
+the parametric model.
 
 \section{Nonparametric unconditional PDF and CDF estimation}\label{pdf
   and cdf section}
@@ -1120,23 +1124,24 @@ time that has elapsed since the previous eruption. Modeling the joint
 distribution is, however, of interest in its own right, and the
 underlying bimodal nature of the joint PDF and CDF is readily revealed
 by the kernel estimator.  For this example, we load the old faithful
-geyser data and compute the density and distribution functions. To
-plot the conditional distribution we use \code{cdf = TRUE} in
-\code{plot}. Results are presented in Figure~\ref{faithful plot}. Note
+geyser data and compute the density and distribution
+functions. Results are presented in Figure~\ref{faithful plot}. Note
 that in this example we conduct bandwidth selection and estimation in
 one step.
 
 <<eval=TRUE,keep.source=TRUE>>=
 data("faithful", package = "datasets")
 f.faithful <- npudens(~ eruptions + waiting, data = faithful)
+F.faithful <- npudist(~ eruptions + waiting, data = faithful)
 summary(f.faithful)
+summary(F.faithful)
 @
 
 The following code will generate Figure~\ref{faithful plot}.
 
 <<eval=FALSE, keep.source=TRUE>>=
 plot(f.faithful, xtrim = -0.2, view = "fixed", main = "")
-plot(f.faithful, cdf = TRUE, xtrim = -0.2, view = "fixed", main = "")
+plot(F.faithful, xtrim = -0.2, view = "fixed", main = "")
 @
 
 \begin{figure}[!ht]
@@ -1150,13 +1155,12 @@ plot.x1 <- unique(plot.output$d1$eval[,1])
 plot.x2 <- unique(plot.output$d1$eval[,2])
 persp(plot.x1,plot.x2,f,xlab="eruptions",ylab="waiting",zlab="Joint Density",col="lightblue", ticktype="detailed")
 
-plot.output <- plot(f.faithful, cdf = TRUE, xtrim = -0.2, view = "fixed", main="",plot.behavior="data")
+plot.output <- plot(F.faithful, xtrim = -0.2, view = "fixed", main="",plot.behavior="data")
 # Retrieve data from plot() to create multiple figures
-f <- matrix(plot.output$d1$dist, 50, 50)
+F <- matrix(plot.output$d1$dist, 50, 50)
 plot.x1 <- unique(plot.output$d1$eval[,1])
 plot.x2 <- unique(plot.output$d1$eval[,2])
-persp(plot.x1,plot.x2,f,xlab="eruptions",ylab="waiting",zlab="Joint Distribution",col="lightblue", ticktype="detailed")
-
+persp(plot.x1,plot.x2,F,xlab="eruptions",ylab="waiting",zlab="Joint Distribution",col="lightblue", ticktype="detailed")
 @
 \caption{\label{faithful plot}Nonparametric multivariate PDF and CDF
   estimates for the Old Faithful data.}
@@ -1179,8 +1183,7 @@ are $n=1,008$ observations in total, and two variables, \code{gdp} and
 take a minute or two depending on the speed of your computer. We
 override the default tolerances for the search method as the objective
 function is well-behaved (do not of course do this in general), then
-we compute the \code{npcdens} object.  To plot the conditional
-distribution we use \code{cdf = TRUE} in \code{plot}.  Note that in this
+we compute the \code{npcdens} object. Note that in this
 example we conduct bandwidth selection and estimation in one step.
 
 <<eval=TRUE,keep.source=TRUE>>=
@@ -1190,6 +1193,11 @@ fhat <- npcdens(gdp ~ year,
                 ftol = 0.1,
                 data = Italy)
 summary(fhat)
+Fhat <- npcdist(gdp ~ year,
+                tol = 0.1,
+                ftol = 0.1,
+                data = Italy)
+summary(Fhat)
 @ 
 
 Figure~\ref{italy conditional plot} plots the resulting conditional
@@ -1198,7 +1206,7 @@ generate Figure~\ref{italy conditional plot}.
 
 <<eval=FALSE, keep.source=TRUE>>=
 plot(fhat, view = "fixed", main = "", theta = 300, phi = 50)
-plot(fhat, cdf = TRUE, view = "fixed", main = "", theta = 300, phi = 50)
+plot(Fhat, view = "fixed", main = "", theta = 300, phi = 50)
 @
 
 \begin{figure}[!ht]
@@ -1212,12 +1220,12 @@ plot.y1 <- unique(plot.output$cd1$yeval)
 plot.x1 <- unique(plot.output$cd1$xeval)
 persp(as.integer(levels(plot.x1)),plot.y1,f,xlab="year",ylab="gdp",zlab="Conditional Density",col="lightblue", ticktype="detailed",theta=300,phi=50)
 
-plot.output <- plot(fhat, cdf = TRUE, view="fixed", main="",plot.behavior="data")
+plot.output <- plot(Fhat, view="fixed", main="",plot.behavior="data")
 # Retrieve data from plot() to create multiple figures
-f <- matrix(plot.output$cd1$condist, 48, 50)
+F <- matrix(plot.output$cd1$condist, 48, 50)
 plot.y1 <- unique(plot.output$cd1$yeval)
 plot.x1 <- unique(plot.output$cd1$xeval)
-persp(as.numeric(plot.x1)+1951,plot.y1,f,xlab="year",ylab="gdp",zlab="Conditional Distribution",col="lightblue", ticktype="detailed",theta=300,phi=50)
+persp(as.numeric(plot.x1)+1951,plot.y1,F,xlab="year",ylab="gdp",zlab="Conditional Distribution",col="lightblue", ticktype="detailed",theta=300,phi=50)
 
 @
 \caption{\label{italy conditional plot}Nonparametric conditional PDF
@@ -1245,11 +1253,11 @@ general). Then we compute the resulting conditional quantile estimates
 using the method of \citet{LI_RACINE:2008}. By way of example, we
 compute the 25th, 50th, and 75th conditional quantiles. Note that this
 may take a minute or two depending on the speed of your computer.
-Note that for this example we first call \code{npcdensbw} to avoid
+Note that for this example we first call \code{npcdistbw} to avoid
 unnecessary re-computation of the bandwidth object.
 
 <<eval=TRUE,keep.source=TRUE>>=
-bw <- npcdensbw(formula = gdp ~ year,
+bw <- npcdistbw(formula = gdp ~ year,
                 tol = 0.1,
                 ftol = 0.1,
                 data = Italy)
@@ -1312,7 +1320,7 @@ is unwilling to presume the nature of the relationship between
 nonparametric part of a semiparametric partially linear model.  The
 partially linear model was proposed by \citet{ROBINSON:1988} and
 extended to handle the presence of categorical covariates by
-\citet{RACINE_LIU:2007}.
+\citet{GAO_LIU_RACINE:2012}.
 
 Before proceeding, we ought to clarify a common misunderstanding about
 partially linear models. Many believe that, as the model is apparently
@@ -1413,8 +1421,8 @@ We revisit the \code{wage1} dataset found in
 \citet[p.~222]{WOOLDRIDGE:2003}, but assume that the researcher
 believes that the model's parameters may differ depending on one's
 sex. In this case, one might adopt a varying coefficient approach such
-as that found in \citet{LI_RACINE:2007b} and
-\citet{RACINE_OUYANG_LI:2007}. We compare a simple linear model with
+as that found in \citet{LI_RACINE:2010} and
+\citet{LI_OUYANG_RACINE:2012}. We compare a simple linear model with
 the semiparametric varying coefficient model.  Note that the $X$ data
 in the varying coefficient model must be of type \code{numeric}, so we
 create a 0/1 dummy variable from the qualitative variable for $X$, but

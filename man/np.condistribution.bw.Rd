@@ -1,50 +1,60 @@
-% $Id: np.condensity.bw.Rd,v 1.52 2006/11/03 21:17:20 tristen Exp $
-\name{npcdensbw}
-\alias{npcdensbw}
-\alias{npcdensbw.NULL}
-\alias{npcdensbw.conbandwidth}
-\alias{npcdensbw.default}
-\alias{npcdensbw.formula}
-\title{Kernel Conditional Density Bandwidth Selection with Mixed Data Types}
+
+\name{npcdistbw}
+\alias{npcdistbw}
+\alias{npcdistbw.NULL}
+\alias{npcdistbw.condbandwidth}
+\alias{npcdistbw.default}
+\alias{npcdistbw.formula}
+\title{Kernel Conditional Distribution Bandwidth Selection with Mixed
+Data Types}
 
 \description{
-  \code{npcdensbw} computes a \code{conbandwidth} object for
-  estimating the conditional density of a \eqn{p+q}-variate kernel
-  density estimator defined over mixed continuous and discrete
-  (unordered, ordered) data using either the normal-reference
-  rule-of-thumb, likelihood cross-validation, or least-squares cross
-  validation using the method of Hall, Racine, and Li (2004). }
+  \code{npcdistbw} computes a \code{condbandwidth} object for estimating
+  a \eqn{p+q}-variate kernel conditional cumulative distribution
+  estimator defined over mixed continuous and discrete (unordered,
+  ordered) data using either the normal-reference rule-of-thumb or
+  least-squares cross validation using the method of Li and Racine
+  (2008) and Li, Lin and Racine (2013).
+}
 
 \usage{
-npcdensbw(\dots)
+npcdistbw(\dots)
 
-\method{npcdensbw}{formula}(formula, data, subset, na.action, call, \dots)
+\method{npcdistbw}{formula}(formula, data, subset, na.action, call, gdata = NULL,\dots)
 
-\method{npcdensbw}{NULL}(xdat = stop("data 'xdat' missing"),
+\method{npcdistbw}{NULL}(xdat = stop("data 'xdat' missing"),
           ydat = stop("data 'ydat' missing"),
           bws, \dots)
 
-\method{npcdensbw}{conbandwidth}(xdat = stop("data 'xdat' missing"),
+\method{npcdistbw}{condbandwidth}(xdat = stop("data 'xdat' missing"),
           ydat = stop("data 'ydat' missing"),
+          gydat = NULL,
           bws,
           bandwidth.compute = TRUE,
           auto = TRUE,
           nmulti,
           remin = TRUE,
           itmax = 10000,
+          fast.cdf = TRUE,
+          do.full.integral = FALSE,
+          ngrid = 100,
           ftol = 1.19209e-07,
           tol = 1.49012e-08,
           small = 2.22045e-16,
           \dots)
 
-\method{npcdensbw}{default}(xdat = stop("data 'xdat' missing"),
+\method{npcdistbw}{default}(xdat = stop("data 'xdat' missing"),
           ydat = stop("data 'ydat' missing"),
+          gydat,
           bws,
           bandwidth.compute = TRUE,
           auto,
           nmulti,
           remin,
           itmax,
+          fast.cdf,
+          do.full.integral,
+          ngrid,
           ftol,
           tol,
           small,
@@ -56,7 +66,6 @@ npcdensbw(\dots)
           cykertype,
           cykerorder,
           uxkertype,
-          uykertype,
           oxkertype,
           oykertype,
           \dots)
@@ -95,6 +104,11 @@ npcdensbw(\dots)
     another function. It is not recommended that the user set this.
   }
 
+  \item{gdata}{
+    a grid of data on which the indicator function for
+    least-squares cross-validation is to be computed (can be the sample
+    or a grid of quantiles).
+  }
 
   \item{xdat}{
     a \eqn{p}-variate data frame of explanatory data on which bandwidth selection will
@@ -108,8 +122,14 @@ npcdensbw(\dots)
     and ordered factors), or some combination thereof.
   }
 
+  \item{gydat}{
+    a grid of data on which the indicator function for
+    least-squares cross-validation is to be computed (can be the sample
+    or a grid of quantiles for \code{ydat}).
+  }
+
   \item{bws}{
-    a bandwidth specification. This can be set as a \code{conbandwidth}
+    a bandwidth specification. This can be set as a \code{condbandwidth}
     object returned from a previous invocation, or as a \eqn{p+q}-vector
     of bandwidths, with each element \eqn{i} up to \eqn{i=p}
     corresponding to the bandwidth for column \eqn{i} in \code{xdat}, 
@@ -135,9 +155,9 @@ npcdensbw(\dots)
   }
 
     
-  \item{bwmethod}{ which method to use to select
-    bandwidths. \code{cv.ml} specifies likelihood cross-validation,
-    \code{cv.ls} specifies least-squares cross-validation, and
+  \item{bwmethod}{
+    which method to use to select bandwidths.  \code{cv.ls} specifies
+    least-squares cross-validation (Li, Lin and Racine (2013), and
     \code{normal-reference} just computes the \sQuote{rule-of-thumb}
     bandwidth \eqn{h_j}{h[j]} using the standard formula \eqn{h_j = 1.06
     \sigma_j n^{-1/(2P+l)}}{h[j] = 1.06*sigma[j]*n^(-1.0/(2.0*P+l))},
@@ -147,7 +167,8 @@ npcdensbw(\dots)
     \eqn{P} the order of the kernel, and \eqn{l} the number of
     continuous variables. Note that when there exist factors and the
     normal-reference rule is used, there is zero smoothing of the
-    factors. Defaults to \code{cv.ml}.  }
+    factors. Defaults to \code{cv.ls}.
+  }
 
   \item{bwscaling}{ a logical value that when set to \code{TRUE} the
     supplied bandwidths are interpreted as `scale factors'
@@ -169,7 +190,7 @@ npcdensbw(\dots)
   \item{bwtype}{
     character string used for the continuous variable bandwidth type,
     specifying the type of bandwidth to compute and return in the
-    \code{conbandwidth} object. Defaults to \code{fixed}. Option
+    \code{condbandwidth} object. Defaults to \code{fixed}. Option
     summary:\cr
     \code{fixed}: compute fixed bandwidths \cr
     \code{generalized_nn}: compute generalized nearest neighbors \cr
@@ -178,7 +199,7 @@ npcdensbw(\dots)
 
   \item{bandwidth.compute}{
     a logical value which specifies whether to do a numerical search for
-    bandwidths or not. If set to \code{FALSE}, a \code{conbandwidth} object
+    bandwidths or not. If set to \code{FALSE}, a \code{condbandwidth} object
     will be returned with bandwidths set to those specified
     in \code{bws}. Defaults to \code{TRUE}.
   }
@@ -213,10 +234,6 @@ npcdensbw(\dots)
     kernel type. Can be set as \code{aitchisonaitken} or
     \code{liracine}. Defaults to \code{aitchisonaitken}.
   }
-  \item{uykertype}{
-    character string used to specify the unordered categorical
-    kernel type. Can be set as \code{aitchisonaitken}.
-  }
   \item{oxkertype}{
     character string used to specify the ordered categorical
     kernel type. Can be set as \code{wangvanryzin} or
@@ -243,6 +260,21 @@ npcdensbw(\dots)
     optimization routine. Defaults to \code{10000}.
   }
 
+  \item{fast.cdf}{
+    a logical value which when set as \code{TRUE} uses a computationally
+    efficient but potentially memory intensive computational algorithm.
+  }
+
+  \item{do.full.integral}{
+    a logical value which when set as \code{TRUE} evaluates the
+    moment-based integral on the entire sample.
+  }
+
+  \item{ngrid}{
+    integer number of grid points to use when computing the moment-based
+    integral. Defaults to \code{100}.
+  }
+
   \item{ftol}{
     tolerance on the value of the cross-validation function 
     evaluated at located minima. Defaults to \code{1.19e-07
@@ -263,7 +295,7 @@ npcdensbw(\dots)
 }
 
 \details{
-  \code{npcdensbw} implements a variety of methods for choosing
+  \code{npcdistbw} implements a variety of methods for choosing
   bandwidths for multivariate distributions (\eqn{p+q}-variate) defined
   over a set of possibly continuous and/or discrete (unordered, ordered)
   data. The approach is based on Li and Racine (2004) who employ
@@ -280,11 +312,11 @@ npcdensbw(\dots)
   available: fixed, adaptive nearest-neighbor, and generalized
   nearest-neighbor. Adaptive nearest-neighbor bandwidths change with
   each sample realization in the set, \eqn{x_i}{x[i]}, when estimating
-  the density at the point \eqn{x}. Generalized nearest-neighbor
-  bandwidths change with the point at which the density is estimated,
+  the cumulative distribution at the point \eqn{x}. Generalized nearest-neighbor
+  bandwidths change with the point at which the cumulative distribution is estimated,
   \eqn{x}. Fixed bandwidths are constant over the support of \eqn{x}.
 
-  \code{npcdensbw} may be invoked \emph{either} with a formula-like
+  \code{npcdistbw} may be invoked \emph{either} with a formula-like
   symbolic 
   description of variables on which bandwidth selection is to be
   performed \emph{or} through a simpler interface whereby data is passed
@@ -318,7 +350,7 @@ npcdensbw(\dots)
 }
 \value{
 
-  \code{npcdensbw} returns a \code{conbandwidth} object, with the
+  \code{npcdistbw} returns a \code{condbandwidth} object, with the
   following components:
 
   \item{xbw}{ bandwidth(s), scale factor(s) or nearest neighbours for the
@@ -335,7 +367,7 @@ npcdensbw(\dots)
   for the discrete variables.
 
   The functions \code{\link{predict}}, \code{\link{summary}} and \code{\link{plot}} support
-  objects of type \code{conbandwidth}.
+  objects of type \code{condbandwidth}.
 }
 
 \references{
@@ -350,8 +382,17 @@ npcdensbw(\dots)
   Li, Q. and J.S. Racine (2007), \emph{Nonparametric Econometrics: Theory
   and Practice,} Princeton University Press.
 
-  Pagan, A. and A. Ullah (1999), \emph{Nonparametric Econometrics,} Cambridge
-  University Press. 
+  Li, Q. and J.S. Racine (2008), \dQuote{Nonparametric estimation of
+  conditional CDF and quantile functions with mixed categorical and
+  continuous data,} Journal of Business and Economic Statistics, 26,
+  423-434.
+  
+  Li, Q. and J. Lin and J.S. Racine (2013), \dQuote{Optimal Bandwidth
+  Selection for Nonparametric Conditional Distribution and Quantile
+  Functions}, Journal of Business and Economic Statistics, 31, 57-65.
+
+  Pagan, A. and A. Ullah (1999), \emph{Nonparametric Econometrics,}
+  Cambridge University Press.
 
   Scott, D.W. (1992), \emph{Multivariate Density Estimation. Theory,
   Practice and Visualization,} New York: Wiley.
@@ -407,17 +448,17 @@ npcdensbw(\dots)
 \examples{
 \dontrun{
 # EXAMPLE 1 (INTERFACE=FORMULA): For this example, we compute the
-# likelihood cross-validated bandwidths (default) using a second-order
-# Gaussian kernel (default). Note - this may take a minute or two
-# depending on the speed of your computer.
+# cross-validated bandwidths (default) using a second-order Gaussian
+# kernel (default). Note - this may take a minute or two depending on
+# the speed of your computer.
 
 data("Italy")
 attach(Italy)
 
-bw <- npcdensbw(formula=gdp~ordered(year))
+bw <- npcdistbw(formula=gdp~ordered(year))
 
 # The object bw can be used for further estimation using
-# npcdens(), plotting using plot() etc. Entering the name of
+# npcdist(), plotting using plot() etc. Entering the name of
 # the object provides useful summary information, and names() will also
 # provide useful information.
 
@@ -429,19 +470,19 @@ summary(bw)
 detach(Italy)
 
 # EXAMPLE 1 (INTERFACE=DATA FRAME): For this example, we compute the
-# likelihood cross-validated bandwidths (default) using a second-order
-# Gaussian kernel (default). Note - this may take a minute or two
-# depending on the speed of your computer.
+# cross-validated bandwidths (default) using a second-order Gaussian
+# kernel (default). Note - this may take a minute or two depending on
+# the speed of your computer.
 
 data("Italy")
 attach(Italy)
 
-bw <- npcdensbw(xdat=ordered(year), ydat=gdp)
+bw <- npcdistbw(xdat=ordered(year), ydat=gdp)
 
-# The object bw can be used for further estimation using
-# npcdens(), plotting using plot() etc. Entering the name of
-# the object provides useful summary information, and names() will also
-# provide useful information.
+# The object bw can be used for further estimation using npcdist(),
+# plotting using plot() etc. Entering the name of the object provides
+# useful summary information, and names() will also provide useful
+# information.
 
 summary(bw)
 

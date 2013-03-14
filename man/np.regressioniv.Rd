@@ -42,10 +42,13 @@ npregiv(y,
         alpha.max = 1e-01,
         alpha.tol = .Machine$double.eps^0.25,
         iterate.max = 1000,
-        iterate.tol = 1.0e-04,
         iterate.diff.tol = 1.0e-08,
         constant = 0.5,
         method = c("Landweber-Fridman","Tikhonov"),
+        penalize.iteration = TRUE,
+        smooth.residuals = TRUE,        
+        start.from = c("Eyz","EEywz"),
+        starting.values  = NULL,
         stop.on.increase = TRUE,
         ...)
 }
@@ -167,9 +170,6 @@ npregiv(y,
   an integer indicating the maximum number of iterations permitted
   before termination occurs when using \code{method="Landweber-Fridman"}.
 }
-\item{iterate.tol}{
-  the search tolerance for the stopping rule when using \code{method="Landweber-Fridman"}.
-}
 \item{iterate.diff.tol}{
   the search tolerance for the difference in the stopping rule from
   iteration to iteration when using \code{method="Landweber-Fridman"}
@@ -184,11 +184,31 @@ npregiv(y,
    Fan, Florens and Renault (2011) for details for
    \code{"Tikhonov"}).
 }
+\item{penalize.iteration}{ a logical value indicating whether to
+    penalize the norm by the number of iterations or not (default
+    \code{TRUE})
+}    
+\item{smooth.residuals}{
+  a logical value (defaults to \code{TRUE}) indicating whether to
+  optimize bandwidths for the regression of \eqn{y-\varphi(z)}{y-phi(z)}
+  on \eqn{w} or for the regression of \eqn{\varphi(z)}{phi(z)} on
+  \eqn{w} during iteration
+ }
+\item{start.from}{ a character string indicating whether to start from
+  \eqn{E(Y|z)} (default, \code{"Eyz"}) or from \eqn{E(E(Y|z)|z)} (this can
+  be overridden by providing \code{starting.values} below)
+}  
+\item{starting.values}{ a value indicating whether to commence
+  Landweber-Fridman assuming
+  \eqn{\varphi_{-1}=starting.values}{phi[-1]=starting.values} (proper
+  Landweber-Fridman) or instead begin from \eqn{E(y|z)} (defaults to
+  \code{NULL}, see details below)
+}
 \item{stop.on.increase}{
   a logical value (defaults to \code{TRUE}) indicating whether to halt
   iteration if the stopping criterion (see below) increases over the
   course of one iteration (i.e. it may be above the iteration tolerance
-  but increased).
+  but increased)
 }
 \item{...}{
   additional arguments supplied to \code{\link{npksum}}.
@@ -214,15 +234,18 @@ npregiv(y,
   when either the change in the value of
   \eqn{||(E(y|w)-E(\varphi_k(z,x)|w))/E(y|w)||^2
   }{||(E(y|w)-E(phi(z,x)|w))/E(y|w)||^2 } from iteration to iteration is
-  less than \code{iterate.tol} or we hit \code{iterate.max} or
-  \eqn{||E((y|w)-E(\varphi_k(z,x)|w))/E(y|w)||^2
+  less than \code{iterate.diff.tol} or we hit \code{iterate.max} or
+  \eqn{||(E(y|w)-E(\varphi_k(z,x)|w))/E(y|w)||^2
   }{||(E(y|w)-E(phi(z,x)|w))/E(y|w)||^2 } stops falling in value and
   starts rising.  }
 
-\value{ \code{npregiv} returns a list with
-  components \code{phi} and either \code{alpha} when
-  \code{method="Tikhonov"} or \code{num.iterations} and \code{norm.stop}
-  when \code{method="Landweber-Fridman"}.
+\value{
+
+  \code{npregiv} returns a list with components \code{phi} and either
+  \code{alpha} when \code{method="Tikhonov"} or \code{num.iterations},
+  \code{norm.stop} and \code{convergence} when
+  \code{method="Landweber-Fridman"}.
+  
 }
 
 \references{
@@ -237,9 +260,9 @@ npregiv(y,
   \dQuote{Nonparametric Instrumental Regression,} Econometrica, 79,
   1541-1565.
   
-  Feve, F. and J.P. Florens (2010), \dQuote{The practice of
-  non-parametric estimation by solving inverse problems: the example of
-  transformation models,} Econometrics Journal, 13, S1-S27.
+  Feve, F. and J.P. Florens (2010), \dQuote{The Practice of
+  Non-parametric Estimation by Solving Inverse Problems: The Example of
+  Transformation Models,} Econometrics Journal, 13, S1-S27.
 
   Florens, J.P. and J.S. Racine (2012), \dQuote{Nonparametric
   Instrumental Derivatives,} Working Paper.
@@ -249,17 +272,17 @@ npregiv(y,
   Math. Nauk., 11, 233-334, in Russian.
 
   Horowitz, J.L. (2011), \dQuote{Applied Nonparametric Instrumental
-  Variables Estimation,}, Econometrica, 79, 347-394.
+  Variables Estimation,} Econometrica, 79, 347-394.
   
-  Landweber, L. (1951), \dQuote{An iterative formula for Fredholm
-  integral equations of the first kind,} American Journal of
+  Landweber, L. (1951), \dQuote{An Iterative Formula for Fredholm
+  Integral Equations of the First Kind,} American Journal of
   Mathematics, 73, 615-24.
 
   Li, Q. and J.S. Racine (2007), \emph{Nonparametric Econometrics:
   Theory and Practice,} Princeton University Press.
 
-  Li, Q. and J.S. Racine (2004), \dQuote{Cross-validated local linear
-  nonparametric regression,} Statistica Sinica, 14, 485-512.
+  Li, Q. and J.S. Racine (2004), \dQuote{Cross-validated Local Linear
+  Nonparametric Regression,} Statistica Sinica, 14, 485-512.
 
 }
 \author{

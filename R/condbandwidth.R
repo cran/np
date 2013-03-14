@@ -1,7 +1,7 @@
-conbandwidth <-
+condbandwidth <-
   function(xbw,
            ybw,
-           bwmethod = c("cv.ml","cv.ls","normal-reference", "cv.ls.np", "manual"),
+           bwmethod = c("cv.ls","normal-reference", "manual"),
            bwscaling = FALSE,
            bwtype = c("fixed","generalized_nn","adaptive_nn"),
            cxkertype = c("gaussian", "epanechnikov","uniform"), 
@@ -22,7 +22,7 @@ conbandwidth <-
            rows.omit = NA, bandwidth.compute = TRUE,...){
 
   if (missing(xbw) | missing(ybw))
-    stop("improper invocation of conbandwidth constructor: 'bw' or i[cuo]* missing")
+    stop("improper invocation of condbandwidth constructor: 'bw' or i[cuo]* missing")
   
   xndim = length(xbw)
   yndim = length(ybw)
@@ -112,9 +112,7 @@ conbandwidth <-
     ybw=ybw,
     method = bwmethod,
     pmethod = switch( bwmethod,
-      cv.ml = "Maximum Likelihood Cross-Validation",
       cv.ls = "Least Squares Cross-Validation",
-      cv.ls.np = "Least Squares Cross-Validation (block algorithm)",
       "normal-reference" = "Normal Reference"),
     fval = fval,
     ifval = ifval,
@@ -204,14 +202,14 @@ conbandwidth <-
     mybw$pmethod <- "Manual"
 
 
-  class(mybw) = "conbandwidth"
+  class(mybw) = "condbandwidth"
   if(!any(is.na(mybw$bandwidth)))
     validateBandwidth(mybw)
   mybw
 }
 
-print.conbandwidth <- function(x, digits=NULL, ...){
-  cat("\nConditional density data (",x$nobs," observations, ",
+print.condbandwidth <- function(x, digits=NULL, ...){
+  cat("\nConditional distribution data (",x$nobs," observations, ",
       (x$xndim+x$yndim)," variable(s))",
       "\n(", x$yndim, " dependent variable(s), and ", x$xndim, " explanatory variable(s))\n\n",
       sep="")
@@ -228,10 +226,10 @@ print.conbandwidth <- function(x, digits=NULL, ...){
   invisible(x)
 }
 
-plot.conbandwidth <- function(...) { npplot(...) }
+plot.condbandwidth <- function(...) { npplot(...) }
 
-summary.conbandwidth <- function(object, ...) {
-  cat("\nConditional density data (",object$nobs," observations, ",
+summary.condbandwidth <- function(object, ...) {
+  cat("\nConditional distribution data (",object$nobs," observations, ",
       (object$xndim+object$yndim)," variable(s))",
       "\n(", object$yndim, " dependent variable(s), and ", object$xndim, " explanatory variable(s))\n",
       sep="")
@@ -245,4 +243,4 @@ summary.conbandwidth <- function(object, ...) {
   cat("\n\n")
 }
 
-predict.conbandwidth <- function(...) { eval(npcdens(...), envir = parent.frame()) }
+predict.condbandwidth <- function(...) { eval(npcdist(...), envir = parent.frame()) }

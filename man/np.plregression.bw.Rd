@@ -9,14 +9,14 @@
 \title{Partially Linear Kernel Regression Bandwidth Selection with Mixed Data Types}
 
 \description{
-  \code{npplregbw} computes a bandwidth object for a partially linear kernel regression estimate of a one (1)
-  dimensional dependent variable on
-  \eqn{p+q}-variate explanatory data, using the model
-  \eqn{Y = X\beta + \Theta (Z) + \epsilon}{Y = XB + theta(Z) + epsilon}
-  given a set of estimation points, training
-  points (consisting of explanatory data and dependent data), and a
-  bandwidth specification, which can be a \code{rbandwidth} object, or a
-  bandwidth vector, bandwidth type and kernel type. 
+  \code{npplregbw} computes a bandwidth object for a partially linear
+  kernel regression estimate of a one (1) dimensional dependent variable
+  on \eqn{p+q}-variate explanatory data, using the model \eqn{Y = X\beta
+  + \Theta (Z) + \epsilon}{Y = XB + theta(Z) + epsilon} given a set of
+  estimation points, training points (consisting of explanatory data and
+  dependent data), and a bandwidth specification, which can be a
+  \code{rbandwidth} object, or a bandwidth vector, bandwidth type and
+  kernel type.
 }
 
 \usage{
@@ -244,14 +244,15 @@ npplregbw(\dots)
  Aitchison, J. and C.G.G. Aitken (1976), \dQuote{Multivariate binary
  discrimination by the kernel method,} Biometrika, 63, 413-420.
 
+ Gao, Q. and L. Liu and J.S. Racine (forthcoming), \dQuote{A
+ partially linear kernel estimator for categorical data,} Econometric
+ Reviews.
+
  Li, Q. and J.S. Racine (2007), \emph{Nonparametric Econometrics: Theory
  and Practice,} Princeton University Press.
 
  Li, Q. and J.S. Racine (2004), \dQuote{Cross-validated local linear
    nonparametric regression,} Statistica Sinica, 14, 485-512.
-
- Racine, J.S. and L. Liu (2006), \dQuote{A partially linear kernel
- estimator for categorical data,} manuscript.
 
  Pagan, A. and A. Ullah (1999), \emph{Nonparametric Econometrics,}
  Cambridge University Press.
@@ -305,6 +306,7 @@ npplregbw(\dots)
 \seealso{
   \code{\link{npregbw}}, \code{\link{npreg}} }
 \examples{
+\dontrun{
 # EXAMPLE 1 (INTERFACE=FORMULA): For this example, we simulate an
 # example for a partially linear model and perform bandwidth selection
 
@@ -328,8 +330,6 @@ Z <- data.frame(factor(z1), z2)
 bw <- npplregbw(formula=y~x1+factor(x2)|factor(z1)+z2)
 
 summary(bw)
-
-\dontrun{
 
 # Note - the default is to use the local constant estimator. If you wish
 # to use instead a local linear estimator, this is accomplished via
