@@ -1,5 +1,5 @@
 useDynLib(np)
-import(stats)
+import(stats, boot, cubature)
 export(b.star
        ,npudensbw
        ,npudistbw
@@ -21,6 +21,7 @@ export(b.star
        ,npplot
        ,npksum
        ,npqreg
+       ,npquantile
        ,npcmstest
        ,npconmode
        ,npdeneqtest
@@ -36,6 +37,7 @@ export(b.star
        ,uocquantile
        ,se
        ,gradients
+       ,nptgauss
        )
 
 S3method(print,bandwidth)

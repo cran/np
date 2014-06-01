@@ -9,20 +9,19 @@
 
 \usage{
 npcopula(bws,
-         bws.pdf,
          data,
          u = NULL,
-         density = FALSE,
          n.quasi.inv = 1000,
          er.quasi.inv = 1) 
 }
 
 \arguments{
   \item{bws}{
-    an unconditional joint distribution bandwidth object
-  }
-  \item{bws.pdf}{
-    an unconditional joint density bandwidth object (only needed when \code{density=TRUE})
+    an unconditional joint distribution (\code{npudistbw}) or joint
+    density (\code{npudensbw}) bandwidth object (if \code{bws} is
+    delivered via \code{npudistbw} the copula distribution is estimated,
+    while if if \code{bws} is delivered via \code{npudensbw} the copula
+    density is estimated)
   }
   \item{data}{
     a data frame containing variables used to construct \code{bws}
@@ -32,10 +31,6 @@ npcopula(bws,
     which corresponds to the vector of uth quantile values desired for
     each variable in the copula (otherwise the u values returned are
     those corresponding to the sample realizations)
-  }
-  \item{density}{
-    a logical value indicating whether to compute and return the copula
-    or copula density (default is \code{FALSE} [copula])
   }
   \item{n.quasi.inv}{
     number of grid points generated when \code{u} is provided in order to
@@ -54,8 +49,10 @@ npcopula(bws,
   \code{npcopula} returns an object of type \code{\link{data.frame}}
   with the following components
 
-  \item{copula}{ the copula (default) or copula density
-  (\code{density=TRUE}) }
+  \item{copula}{
+    the copula (bandwidth object obtained from \code{npudistbw}) or
+    copula density (bandwidth object obtained from \code{npudenstbw})
+  }
 
   \item{u}{ the matrix of marginal u values associated with the sample
   realizations (\code{u=NULL}) or those created via
@@ -112,27 +109,12 @@ npcopula(bws,
   grids, concatenate and sort, and these form the final grid of length
   \code{n.quasi.inv} for computing the quasi-inverse.
 
-  Note that \code{npcopula}, when called with the option
-  \code{density=TRUE}, allows for two levels of smoothing if desired,
-  one for the distribution, \eqn{F(x,y)}, and one for the density,
-  \eqn{f(x,y)}. These can be different or the same, for instance, that
-  for the density only (we include this flexibility for extensibility
-  purposes). If the user wishes to use the same bandwidths throughout
-  then simply copy the bandwidths from, e.g. the \code{npudensbw}
-  bandwidth object, \code{bw.pdf}, into those from, e.g the
-  \code{npudistbw} bandwidth object, \code{bw.cdf}, as follows:
-
-  \preformatted{
-
-    bw.cdf$bws$bandwidth$x <- bw.pdf$bws$bandwidth$x
-    bw.cdf$bw <- bw.pdf$bw
-
-  }
-
-  When these two bandwidth objects are passed to \code{npcopula} the
-  same bandwidths will be used everywhere (i.e when inverting
-  \eqn{F(x,y)} and when computing
-  \eqn{f(F_x^{-1}(u_x),F_y^{-1}(u_y))/(f_x(F_x^{-1}(u_x))f_x(F_y^{-1}(u_y)))}).
+  Note that if \code{u} is provided and any elements of (the columns of)
+  \code{u} are such that they lie beyond the respective values of
+  \code{F} for the evaluation data for the respective marginal, such
+  values are reset to the minimum/maximum values of \code{F} for the
+  respective marginal. It is therefore prudent to inspect the values of
+  \code{u} returned by \code{\link{npcopula}} when \code{u} is provided.
 
   Note that copula are only defined for data of type
   \code{\link{numeric}} or \code{\link{ordered}}.
@@ -150,13 +132,82 @@ npcopula(bws,
 
 \examples{
 \dontrun{
+## Example 1: Bivariate Mixed Data
+
 require(MASS)
 
 set.seed(42)
 
-n <- 100
-n.eval <- 25
-rho <- 0.95
+## Simulate correlated Gaussian data (rho(x,y)=0.99)
+
+n <- 1000
+n.eval <- 100
+rho <- 0.99
+mu <- c(0,0)
+Sigma <- matrix(c(1,rho,rho,1),2,2)
+mydat <- mvrnorm(n=n, mu, Sigma)
+mydat <- data.frame(x=mydat[,1],
+                    y=ordered(as.integer(cut(mydat[,2],
+                      quantile(mydat[,2],seq(0,1,by=.1)),
+                      include.lowest=TRUE))-1))
+q.min <- 0.0
+q.max <- 1.0
+grid.seq <- seq(q.min,q.max,length=n.eval)
+grid.dat <- cbind(grid.seq,grid.seq)
+
+## Estimate the copula (bw object obtained from npudistbw())
+
+bw.cdf <- npudistbw(~x+y,data=mydat)
+copula <- npcopula(bws=bw.cdf,data=mydat,u=grid.dat)
+
+## Plot the copula
+
+
+contour(grid.seq,grid.seq,matrix(copula$copula,n.eval,n.eval),
+        xlab="u1",
+        ylab="u2",
+        main="Copula Contour")
+
+persp(grid.seq,grid.seq,matrix(copula$copula,n.eval,n.eval),
+      ticktype="detailed",
+      xlab="u1",
+      ylab="u2",
+      zlab="Copula",zlim=c(0,1))
+
+## Plot the empirical copula
+
+copula.emp <- npcopula(bws=bw.cdf,data=mydat)
+
+plot(copula.emp$u1,copula.emp$u2,
+     xlab="u1",
+     ylab="u2",
+     cex=.25,
+     main="Empirical Copula")
+
+## Estimate the copula density (bw object obtained from npudensbw())
+
+bw.pdf <- npudensbw(~x+y,data=mydat)
+copula <- npcopula(bws=bw.pdf,data=mydat,u=grid.dat)
+
+## Plot the copula density
+
+persp(grid.seq,grid.seq,matrix(copula$copula,n.eval,n.eval),
+      ticktype="detailed",
+      xlab="u1",
+      ylab="u2",
+      zlab="Copula Density")
+
+## Example 2: Bivariate Continuous Data
+
+require(MASS)
+
+set.seed(42)
+
+## Simulate correlated Gaussian data (rho(x,y)=0.99)
+
+n <- 1000
+n.eval <- 100
+rho <- 0.99
 mu <- c(0,0)
 Sigma <- matrix(c(1,rho,rho,1),2,2)
 mydat <- mvrnorm(n=n, mu, Sigma)
@@ -167,31 +218,47 @@ q.max <- 1.0
 grid.seq <- seq(q.min,q.max,length=n.eval)
 grid.dat <- cbind(grid.seq,grid.seq)
 
-## Estimate the copula
+## Estimate the copula (bw object obtained from npudistbw())
 
-bw <- npudistbw(~x+y,data=mydat)
-copula <- npcopula(bws=bw,data=mydat,u=grid.dat)
+bw.cdf <- npudistbw(~x+y,data=mydat)
+copula <- npcopula(bws=bw.cdf,data=mydat,u=grid.dat)
 
 ## Plot the copula
 
-contour(grid.seq,grid.seq,matrix(copula$copula,n.eval,n.eval),xlab="u1",ylab="u2")
-persp(grid.seq,grid.seq,matrix(copula$copula,n.eval,n.eval),ticktype="detailed",xlab="u1",ylab="u2",
-      zlab="Copula",zlim=c(0,1))
+contour(grid.seq,grid.seq,matrix(copula$copula,n.eval,n.eval),
+        xlab="u1",
+        ylab="u2",
+        main="Copula Contour")
 
-## Estimate the copula density
-
-bw.pdf <- npudensbw(~x+y,data=mydat)
-copula <- npcopula(bws=bw,bws.pdf=bw.pdf,data=mydat,u=grid.dat,density=TRUE)
-
-## Plot the copula density
-
-persp(grid.seq,grid.seq,matrix(copula$copula,n.eval,n.eval),ticktype="detailed",xlab="u1",
-      ylab="u2",zlab="Copula Density")
+persp(grid.seq,grid.seq,matrix(copula$copula,n.eval,n.eval),
+      ticktype="detailed",
+      xlab="u1",
+      ylab="u2",
+      zlab="Copula",
+      zlim=c(0,1))
 
 ## Plot the empirical copula
 
-copula.emp <- npcopula(bws=bw,data=mydat)
-plot(copula.emp$u1,copula.emp$u2,xlab="u1",ylab="u2",cex=.25)
+copula.emp <- npcopula(bws=bw.cdf,data=mydat)
+
+plot(copula.emp$u1,copula.emp$u2,
+     xlab="u1",
+     ylab="u2",
+     cex=.25,
+     main="Empirical Copula")
+
+## Estimate the copula density (bw object obtained from npudensbw())
+
+bw.pdf <- npudensbw(~x+y,data=mydat)
+copula <- npcopula(bws=bw.pdf,data=mydat,u=grid.dat)
+
+## Plot the copula density
+
+persp(grid.seq,grid.seq,matrix(copula$copula,n.eval,n.eval),
+      ticktype="detailed",
+      xlab="u1",
+      ylab="u2",
+      zlab="Copula Density")
 } % enddontrun
 }
 
