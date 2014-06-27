@@ -136,7 +136,7 @@ npqreg(bws, \dots)
     a small number used to bracket a minimum (it is hopeless to ask for
     a bracketing interval of width less than sqrt(epsilon) times its
     central value, a fractional width of only about 10-04 (single
-    precision) or 3x10-8 (double prevision)). Defaults to \code{small
+    precision) or 3x10-8 (double precision)). Defaults to \code{small
       = 1.490116e-05 (1.0e+03*sqrt(.Machine$double.eps))}.
   }
 
@@ -170,21 +170,22 @@ npqreg(bws, \dots)
   modifying \code{nmulti}). Further refinement for difficult cases can
   be achieved by modifying these sets of parameters. However, these
   parameters are intended more for the authors of the package to enable
-  \sQuote{tuning} for various methods rather than for the user themself.
+  \sQuote{tuning} for various methods rather than for the user themselves.
 
 }
 
 \value{
-  \code{npqreg} returns a \code{npqregression} object.
-  The generic
+
+  \code{npqreg} returns a \code{npqregression} object.  The generic
   functions \code{\link{fitted}} (or \code{\link{quantile}}),
-  \code{\link{se}}, \code{\link{predict}}, and
+  \code{\link{se}}, \code{\link{predict}} (when using
+  \code{\link{predict}} you must add the argument \code{tau=} to
+  generate predictions other than the median), and
   \code{\link{gradients}}, extract (or generate) estimated values,
-  asymptotic standard 
-  errors on estimates, predictions, and gradients, respectively, from
-  the returned object. Furthermore, the functions \code{\link{summary}}
-  and \code{\link{plot}} support objects of this type. The returned object
-  has the following components:
+  asymptotic standard errors on estimates, predictions, and gradients,
+  respectively, from the returned object. Furthermore, the functions
+  \code{\link{summary}} and \code{\link{plot}} support objects of this
+  type. The returned object has the following components:
 
   \item{eval}{ evaluation points }
   \item{quantile}{ estimation of the quantile regression function

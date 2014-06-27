@@ -8,9 +8,15 @@
 \title{Semiparametric Single Index Model Parameter and Bandwidth Selection}
 
 \description{
-  \code{npindexbw} computes a \code{npindexbw} bandwidth
-  specification using the model \eqn{Y = G(X\beta) + \epsilon}{Y = G(XB)
-    + epsilon}. The bandwidth object contains parameters for the single
+  \code{npindexbw} computes a \code{npindexbw} bandwidth specification
+  using the model \eqn{Y = G(X\beta) + \epsilon}{Y = G(XB) +
+  epsilon}. For continuous \eqn{Y}, the approach is that of Hardle, Hall
+  and Ichimura (1993) which jointly minimizes a least-squares
+  cross-validation function with respect to the parameters and
+  bandwidth. For binary \eqn{Y}, a likelihood-based cross-validation
+  approach is employed which jointly maximizes a likelihood
+  cross-validation function with respect to the parameters and
+  bandwidth. The bandwidth object contains parameters for the single
   index model and the (scalar) bandwidth for the index function.
 }
 
@@ -114,7 +120,7 @@ npindexbw(\dots)
 
   \item{method}{
     the single index model method, one of either \dQuote{ichimura}
-    (default) (Ichimura (1993)) or \dQuote{kleinspady} (Klein and Spady
+    (Ichimura (1993)) or \dQuote{kleinspady} (Klein and Spady
     (1993)). Defaults to
     \code{ichimura}.
   }
@@ -266,6 +272,10 @@ npindexbw(\dots)
 
   Aitchison, J. and C.G.G. Aitken (1976), \dQuote{Multivariate binary
     discrimination by the kernel method,} Biometrika, 63, 413-420.
+
+  Hardle, W. and P. Hall and H. Ichimura (1993), \dQuote{Optimal
+  Smoothing in Single-Index Models,} The Annals of Statistics, 21,
+  157-178.
 
   Ichimura, H., (1993), \dQuote{Semiparametric least squares (SLS) and
   weighted SLS estimation of single-index models,} Journal of
