@@ -31,7 +31,7 @@ npudistbw(\dots)
           nmulti,
           remin = TRUE,
           itmax = 10000,
-          do.full.integral = TRUE,
+          do.full.integral = FALSE,
           ngrid = 100,
           ftol = 1.490116e-07,
           tol = 1.490116e-04,
@@ -245,7 +245,8 @@ npudistbw(\dots)
 
   \item{do.full.integral}{
     a logical value which when set as \code{TRUE} evaluates the
-    moment-based integral on the entire sample.
+    moment-based integral on the entire sample. Defaults
+    to \code{FALSE}.
   }
 
   \item{ngrid}{
@@ -422,8 +423,12 @@ npudistbw(\dots)
 }
 \references{
 
-  Aitchison, J. and , C.G.G. Aitken (1976), \dQuote{Multivariate binary
-   discrimination by the kernel method,} Biometrika, 63, 413-420.
+  Aitchison, J. and C.G.G. Aitken (1976), \dQuote{Multivariate binary
+    discrimination by the kernel method,} Biometrika, 63, 413-420.
+
+  Bowman, A. and P. Hall and T. Prvan (1998), \dQuote{Bandwidth
+    selection for the smoothing of distribution functions,} Biometrika,
+    85, 799-808.
 
   Li, Q. and J.S. Racine (2007), \emph{Nonparametric Econometrics: Theory
   and Practice,} Princeton University Press.

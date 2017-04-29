@@ -1,3 +1,10 @@
+Changes from Version 0.60-2 to 0.60-3 [29-Apr-2017]
+
+* fixed the `cannot find function is()' glitch that just surfaced with R 3.4.0
+
+* fixed glitch in npconmode when randomizing if all probabilities
+  are equal
+
 Changes from Version 0.60-1 to 0.60-2 [27-Jun-2014]
 
 * added timeseries support for all relevant objects (i.e. for a

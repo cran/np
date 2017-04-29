@@ -1,4 +1,4 @@
-%% $Id: np_faq.tex,v 1.90 2014/06/27 14:22:06 jracine Exp jracine $
+%% $Id: np_faq.tex,v 1.97 2016/07/14 13:19:29 jracine Exp jracine $
 %\VignetteIndexEntry{Frequently Asked Questions (np)}
 %\VignetteDepends{np}
 %\VignetteKeywords{nonparametric, kernel, categorical}
@@ -59,7 +59,7 @@ to others, kindly email me the relevant information and I will
 incorporate it into this FAQ.
 
 This FAQ refers to the most recent version, which as of this writing
-is 0.60-2. Kindly update your version should you not be using the most
+is 0.60-3. Kindly update your version should you not be using the most
 current (from within R, \texttt{update.packages()} ought to do it,
 though also see \ref{update} below.). See the appendix in this file
 for cumulative changes between this and previous versions of the
@@ -107,7 +107,7 @@ A BibTeX entry for LaTeX users is
   Documentation/Manuals (\url{http://cran.r-project.org/manuals.html})
   where you will discover a wealth of documentation for \texttt{R} users
   of all levels. See also the \texttt{R} task views summary page
-  (\url{http://cran.nedmirror.nl/web/views/index.html}) for
+  (\url{http://cran.r-project.org/web/views}) for
   information grouped under field of interest. A few documents that I
   mention to my students which are tailored to econometricians include
   \url{http://cran.r-project.org/doc/contrib/Verzani-SimpleR.pdf},
@@ -281,19 +281,45 @@ as one could always do with, say, \texttt{read.table()}.
 
   \begin{enumerate}
 
-  \item Some background may be in order. Cross-validation methods have
-    run times that are proportional to the square of the number of
-    observations (of computational order $n^2$ hence a doubling of the
-    sample size will increase run time by a factor of four). The
-    solution I favor is to run the code in a parallel computing
-    environment. The underlying C code for \texttt{np} is MPI-aware
-    (MPI denotes the `message passing interface', a popular parallel
-    programming library that is an international standard), and a
-    version of the \texttt{np} package titled `\texttt{npRmpi}' exists
-    for running jobs in a parallel environment that leverages the
-    \texttt{Rmpi} package (\cite{Rmpi}).\footnote{We are extremely
-      grateful to Hao Yu for providing the MPI functionality contained
-      in the \texttt{Rmpi} package.}
+  \item Some background may be in order.  Suppose, by way of
+    illustration, that you are conducting nonparametric regression
+    (local constant or local linear) for a \textsl{given} bandwidth
+    vector (nonparametric kernel regression is simply locally weighted
+    least squares estimation). Let $g(x)$ denote the true conditional
+    mean at some point $x$, and $\hat g(x)$ some estimate. To solve
+    this problem requires computing weighted least squares not once
+    (as would be the case for parametric regression), but $n$ times
+    (the weights are local to the point at which you construct the
+    regression model, $x_i$, $i=1,\dots,n$). That is, to compute
+    $\hat g(x_i)$, $i=1,\dots,n$ requires an order of magnitude
+    ($O(n)$) times more computation than that for parametric
+    regression. So, for a \textsl{given} bandwidth, we require $O(n)$
+    more computation than parametric regression. But to determine the
+    appropriate bandwidth vector, we minimize, say, a cross-validation
+    function numerically, which requires a large number of evaluations
+    of some objective function, say the delete-one least squares
+    criterion function $CV=n^{-1}\sum_{i=1}^n(y_i-\hat g_{-i}(x_i))^2$
+    where $\hat g_{-i}(x_i)$ is the leave-one-out estimator of
+    $g(x_i)$. This takes a problem that is already an order of
+    magnitude more computationally involved than parametric regression
+    and again increases the computational burden by potentially
+    another order of magnitude. It is evident that as $n$ increases
+    the computational burden associated with optimal bandwidth
+    selection will increase exponentially.
+
+    In general, cross-validation methods have run times that are
+    proportional to the square of the number of observations (of
+    computational order $n^2$ hence a doubling of the sample size will
+    increase run time by a factor of four). The solution I currently
+    favor is to run the code in a parallel computing environment. The
+    underlying C code for \texttt{np} is MPI-aware (MPI denotes the
+    `message passing interface', a popular parallel programming
+    library that is an international standard), and a version of the
+    \texttt{np} package titled `\texttt{npRmpi}' exists for running
+    jobs in a parallel environment that leverages the \texttt{Rmpi}
+    package (\cite{Rmpi}).\footnote{We are extremely grateful to Hao
+      Yu for providing the MPI functionality contained in the
+      \texttt{Rmpi} package.}
 
     With respect to the \texttt{npRmpi} package, kindly note that I
     cannot assist with issues surrounding installation and setup due
@@ -474,55 +500,19 @@ plot(bw,xtrim=.01)
       delivers the linear OLS fit to the data.}) to admit categorical
     predictors (see references for papers with Yang and Ma in the
     \texttt{crs} package). Because regression splines involve simple
-    least-squares fits, they scale much better with respect to the
-    sample size so for large sample sizes you may wish to instead
-    consider this approach (kindly see my webpage for further
-    details). You can run cross-validation with hundreds of thousands
-    of observations on a decent desktop in far less time than that
-    required for cross-validated kernel estimates.
+    (i.e., `global' as opposed to local) least-squares fits, they
+    scale much better with respect to the sample size so for large
+    sample sizes you may wish to instead consider this approach
+    (kindly see my webpage for further details). You can run
+    cross-validation with hundreds of thousands of observations on a
+    decent desktop in far less time than that required for
+    cross-validated kernel estimates. Be forewarned, however, that the
+    presence of categorical predictors can lead to increased execution
+    time unless the option \texttt{kernel=FALSE} is invoked (the
+    default is to use local kernel weighting in the presence of
+    categorical predictors).
 
   \end{enumerate}
-
-\subsection{I estimated a parametric model using the
-  \texttt{lm()} function. How can I compare the cross-validation score
-  from the \texttt{npreg()} approach with that for the parametric
-  model?}
-
-This can be readily achieved for the parametric model as follows:
-\begin{verbatim}
-data(wage1)
-model.lm <- lm(lwage ~ married + female + nonwhite + educ +
-                       exper + tenure, data = wage1)
-cv.lm <-mean(residuals(model.lm)^2/(1-hatvalues(model.lm))^2)                                      
-cv.lm
-\end{verbatim}
-You can then compare \verb+cv.lm+ with the cross-validation score for
-the \verb+npreg+ object as follows: if your model is named \verb+foo+
-(i.e.\ you ran something like \verb^foo <- npreg(y~x1+x2)^) then
-\verb+summary(foo$bws)+ will give you a summary of the model's
-bandwidth object (the value of the objective function is the
-cross-validation score), while \verb+foo$bws$fval+ will give you the
-function value, i.e.\ the value of the cross-validation function, {\em
-  provided} that the model was estimated via least-squares
-cross-validation (default, \verb+bwmethod="cv.ls"+). If the
-cross-validation score is lower for one model, that indicates that the
-model possessing the lowest score is to be preferred.
-
-\subsection{Where can I get some examples of R code for the np
-  package in addition to the examples in the help files?}
-
-Start \texttt{R} then type \verb+demo(package="np")+ and you will be
-presented with a list of demos for constrained estimation, inference,
-and so forth. To run one of these demos type, for example,
-\verb+demo(npregiv)+ (note that you must first install the \texttt{rgl} package to run this particular demo).
-
-To find the location of a demo type
-\verb+system.file("demo","npregiv.R",package="np")+ for example,
-then you can take the source code for this demo and modify it for your
-particular application.
-
-You can also find examples and illustrations at the `Gallery' located
-at \url{http://socserv.mcmaster.ca/racinej/Gallery/Home.html}.
 
 \subsection{Is
     there a way to figure out roughly how long
@@ -586,12 +576,55 @@ plot(n.seq.aug,time.fcst/3600,type="b",
 \end{verbatim}
   \end{singlespacing}
 
+\subsection{I estimated a parametric model using the
+  \texttt{lm()} function. How can I compare the cross-validation score
+  from the \texttt{npreg()} approach with that for the parametric
+  model?}
+
+This can be readily achieved for the parametric model as follows:
+\begin{verbatim}
+data(wage1)
+model.lm <- lm(lwage ~ married + female + nonwhite + educ +
+                       exper + tenure, data = wage1)
+cv.lm <-mean(residuals(model.lm)^2/(1-hatvalues(model.lm))^2)                                      
+cv.lm
+\end{verbatim}
+You can then compare \verb+cv.lm+ with the cross-validation score for
+the \verb+npreg+ object as follows: if your model is named \verb+foo+
+(i.e.\ you ran something like \verb^foo <- npreg(y~x1+x2)^) then
+\verb+summary(foo$bws)+ will give you a summary of the model's
+bandwidth object (the value of the objective function is the
+cross-validation score), while \verb+foo$bws$fval+ will give you the
+function value, i.e.\ the value of the cross-validation function, {\em
+  provided} that the model was estimated via least-squares
+cross-validation (default, \verb+bwmethod="cv.ls"+). If the
+cross-validation score is lower for one model, that indicates that the
+model possessing the lowest score is to be preferred.
+
+\subsection{Where can I get some examples of R code for the np
+  package in addition to the examples in the help files?}
+
+Start \texttt{R} then type \verb+demo(package="np")+ and you will be
+presented with a list of demos for constrained estimation, inference,
+and so forth. To run one of these demos type, for example,
+\verb+demo(npregiv)+ (note that you must first install the \texttt{rgl} package to run this particular demo).
+
+To find the location of a demo type
+\verb+system.file("demo","npregiv.R",package="np")+ for example,
+then you can take the source code for this demo and modify it for your
+particular application.
+
+You can also find examples and illustrations at the `Gallery' located
+at \url{http://socserv.mcmaster.ca/racinej/Gallery/Home.html}.
+
 \subsection{I need to apply a boundary correction for a univariate
   density estimate - how can I do this?}
 
 You could do this using `data-reflection' (see the description in
 \cite[Page 30]{SILVERMAN:1986}, as the following illustration
-demonstrates.
+demonstrates; see also \cite{KARUNAMUNIA_ZHANG:2008} for improved data
+reflection approaches and \cite{MARRON_RUPPERT:1994} for alternative
+transformations to reduce boundary bias.
 
 \begin{verbatim}
 ## Use trees to speed up estimation 
@@ -1587,6 +1620,8 @@ x2.boot <- rnorm(n.boot,x2[i.boot],bw$bw[2])
 plot(npudens(~x1.boot+x2.boot,bws=bw$bw),view="fixed",xtrim=-.2,neval=100)
 \end{verbatim}
 
+%% See page 294 and up in cosma_resampling_ch15.pdf in ~/R/
+
 \subsection{Some of my variables are measured with an unusually large
   number of digits\dots should I rescale?}
 
@@ -1660,6 +1695,133 @@ model.np <- suppressWarnings(npreg(y~x+z))
 ought to produce no console I/O whatsoever in the call to
 \texttt{npreg}.
 
+\subsection{Is there a way to exploit the sparse nature of the design
+  matrix when all predictors are categorical and reduce computation
+  time, particularly for cross-validation?}
+
+Certainly. This would occur if, for instance, you had 4 predictors
+each of which was binary 0/1, so there are only $2^4=16$ possible
+unique rows in the design matrix. The following conducts kernel
+regression with exclusively binary predictors by way of illustration.
+\begin{verbatim}
+## This routine exploits a sparse design matrix when computing the
+## kernel estimator of a conditional mean presuming unordered
+## categorical predictors. Numerical optimization is undertaken, and
+## this function can be much faster than that ignoring the sparse
+## structure for large n and small k (the function npreg() currently
+## does not attempt to exploit this structure).
+
+rm(list=ls())
+
+## Set the number of observations and number of binary predictors
+
+n <- 1000
+k <- 4
+
+## Create data/DGP
+
+z <- matrix(rbinom(n*k,1,.5),n,k)
+y <- rowSums(z) + rnorm(n)
+
+## Fire up uniquecombs() on a matrix of discrete support predictors.
+## We call the crs() variant of uniquecombs (the function is taken
+## from mgcv(), but mgcv() has serious load time overhead, and I don't
+## want to rely on other packages unnecessarily).
+
+z.unique <- crs:::uniquecombs(as.matrix(z))
+num.z <- ncol(z.unique)
+ind <-  attr(z.unique,"index")
+ind.vals <-  unique(ind)
+c <- nrow(z.unique)
+if(c == n) stop("design is not sparse (no repeated rows)")
+
+## Kernel function (li-racine unordered kernel)
+
+kernel <- function(X,x,lambda) ifelse(X==x,1,lambda)
+
+## Least-squares cross-validation objective function
+
+cv.ls.uniquecombs <- function(lambda,y,z,z.unique,ind,ind.vals,num.z,c) {
+    g <- numeric()
+    for(i in 1:c) {
+        zz <- ind == ind.vals[i]
+        L <- apply(sapply(1:num.z, function(j){kernel(z[,j],
+                                                      z.unique[ind.vals[i],j],
+                                                      lambda[j])}),1,prod)
+        g[zz] <- (sum(y*L)-(y*L)[zz])/np:::NZD(sum(L)-L[zz])
+    }
+    return(mean((y-g)^2))
+}
+
+## Start timing for comparison with npreg()
+
+ptm <- proc.time()
+
+## Numerical optimization via optim() - could be faster if we also
+## used fn.gradient (not done here)
+
+optim.out <- optim(runif(num.z),
+                   fn=cv.ls.uniquecombs,
+                   method="L-BFGS-B",
+                   lower=rep(0,num.z),
+                   upper=rep(1,num.z),
+                   y=y,
+                   z=z,
+                   z.unique=z.unique,
+                   ind=ind,
+                   ind.vals=ind.vals,
+                   num.z=num.z,
+                   c=c)
+
+## Extract least-squares cross-validation optimal bandwidths
+
+lambda.opt <- optim.out$par
+
+## Compute the estimator using the optimal bandwidths
+
+g <- numeric()
+for(i in 1:c) {
+    zz <- ind == ind.vals[i]
+    L <- apply(sapply(1:num.z, function(j){kernel(z[,j],
+                                                  z.unique[ind.vals[i],j],
+                                                  lambda.opt[j])}),1,prod)
+    g[zz] <- sum(y*L)/np:::NZD(sum(L))
+}
+
+## Save execution time for optimization and estimation
+
+t.uniquecombs <- proc.time() - ptm
+
+## Compare timing and results with npreg() (comment out the following
+## for general use)
+
+library(np)
+g.Formula <- "y ~"
+for (p in 1:k) {
+  g.Formula <- paste(g.Formula," + factor(z[,",p,"])")
+}
+g.Formula <- formula(g.Formula)
+t.npreg <- system.time(g.npreg <- npreg(g.Formula,
+                                        ukertype="liracine",
+                                        nmulti=1))
+
+## Compare fitted values for first 10 observations
+
+cbind(g[1:10],fitted(g.npreg)[1:10])
+
+## Compare bandwidths
+
+cbind(lambda.opt,g.npreg$bws$bw)
+
+## Compare objective function values
+
+cbind(optim.out$value,g.npreg$bws$fval)
+
+## Compare computation time in seconds
+
+cbind(t.uniquecombs[1],t.npreg[1])
+\end{verbatim}
+
 \bibliographystyle{plain} 
 
 \bibliography{np_faq}
@@ -1667,6 +1829,17 @@ ought to produce no console I/O whatsoever in the call to
 \clearpage
 
 \appendix
+
+\section*{Changes from Version 0.60-2 to 0.60-3 [29-Apr-201]}
+
+\begin{itemize}
+
+\item fixed the `cannot find function \texttt{is()}' glitch that just surfaced with R 3.4.0
+
+\item fixed glitch in \texttt{npconmode()} when randomizing if all probabilities
+  are equal
+
+\end{itemize}
 
 \section*{Changes from Version 0.60-1 to 0.60-2 [27-Jun-2014]}
 

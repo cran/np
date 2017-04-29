@@ -152,6 +152,7 @@ int BANDWIDTH_den_extern;
 // cdf algorithm extern
 double dbl_memfac_ccdf_extern = 1.0;
 double dbl_memfac_dls_extern = 1.0;
+int cdfontrain_extern = 0;
 
 /* Statics for dependence metric */
 
@@ -788,7 +789,7 @@ void np_distribution_bw(double * myuno, double * myord, double * mycon,
 
   int * ipt = NULL, * ipe = NULL;
 
-  cdfontrain =  myopti[DBW_CDFONTRAIN];
+  cdfontrain_extern = cdfontrain =  myopti[DBW_CDFONTRAIN];
 
   num_reg_unordered_extern = myopti[DBW_NUNOI];
   num_reg_ordered_extern = myopti[DBW_NORDI];
@@ -2114,7 +2115,7 @@ void np_distribution_conditional_bw(double * c_uno, double * c_ord, double * c_c
   int * ipt_lookup_XY = NULL, * ipt_lookup_Y = NULL, * ipt_lookup_X = NULL;
   int num_obs_alt;
 
-  cdfontrain =  myopti[CDBW_CDFONTRAIN];
+  cdfontrain_extern = cdfontrain =  myopti[CDBW_CDFONTRAIN];
 
   num_var_unordered_extern = myopti[CDBW_CNUNOI];
   num_var_ordered_extern = myopti[CDBW_CNORDI];
@@ -2280,7 +2281,7 @@ void np_distribution_conditional_bw(double * c_uno, double * c_ord, double * c_c
   num_all_uvar = num_reg_unordered_extern + num_var_unordered_extern;
   num_all_ovar = num_reg_ordered_extern + num_var_ordered_extern;
 
-  // we need 3 trees to accelerate ccdf :)
+  // we need 3 trees to accelerate cg_concdf :)
 
   ipt_X = (int *)malloc(num_obs_train_extern*sizeof(int));
   if(!(ipt_X != NULL))
@@ -2313,7 +2314,7 @@ void np_distribution_conditional_bw(double * c_uno, double * c_ord, double * c_c
   ipt_extern_Y = ipt_Y;
   ipt_lookup_extern_Y = ipt_lookup_Y;
 
-  num_obs_alt = (BANDWIDTH_den_extern != BW_ADAP_NN) ? num_obs_train_extern : num_obs_eval_extern;
+  num_obs_alt = (BANDWIDTH_den_extern != BW_ADAP_NN) ? num_obs_train_extern : 0;
 
   ipt_XY = (int *)malloc(num_obs_alt*sizeof(int));
   if(!(ipt_XY != NULL))
@@ -2388,34 +2389,36 @@ void np_distribution_conditional_bw(double * c_uno, double * c_ord, double * c_c
   matrix_XY_unordered_train_extern = alloc_matd(num_obs_alt, num_all_uvar);
   matrix_XY_ordered_train_extern = alloc_matd(num_obs_alt, num_all_ovar);
 
-  for(j = 0; j < num_reg_unordered_extern; j++)
-    for(i = 0; i < num_obs_train_extern; i++)
-      matrix_XY_unordered_train_extern[j][i]=u_uno[j*num_obs_train_extern+i];
+  if(int_TREE_XY == NP_TREE_TRUE){
 
-  for(j = num_reg_unordered_extern; j < num_all_uvar; j++)
-    for(i = 0; i < num_obs_train_extern; i++)
-      matrix_XY_unordered_train_extern[j][i]=c_uno[(j-num_reg_unordered_extern)*num_obs_train_extern+i];
+    for(j = 0; j < num_reg_unordered_extern; j++)
+      for(i = 0; i < num_obs_train_extern; i++)
+        matrix_XY_unordered_train_extern[j][i]=u_uno[j*num_obs_train_extern+i];
 
-
-  for(j = 0; j < num_reg_ordered_extern; j++)
-    for(i = 0; i < num_obs_train_extern; i++)
-      matrix_XY_ordered_train_extern[j][i]=u_ord[j*num_obs_train_extern+i];
-
-  for(j = num_reg_ordered_extern; j < num_all_ovar; j++)
-    for(i = 0; i < num_obs_train_extern; i++)
-      matrix_XY_ordered_train_extern[j][i]=c_ord[(j-num_reg_ordered_extern)*num_obs_train_extern+i];
+    for(j = num_reg_unordered_extern; j < num_all_uvar; j++)
+      for(i = 0; i < num_obs_train_extern; i++)
+        matrix_XY_unordered_train_extern[j][i]=c_uno[(j-num_reg_unordered_extern)*num_obs_train_extern+i];
 
 
-  for(j = 0; j < num_reg_continuous_extern; j++)
-    for(i = 0; i < num_obs_train_extern; i++)
-      matrix_XY_continuous_train_extern[j][i]=u_con[j*num_obs_train_extern+i];
+    for(j = 0; j < num_reg_ordered_extern; j++)
+      for(i = 0; i < num_obs_train_extern; i++)
+        matrix_XY_ordered_train_extern[j][i]=u_ord[j*num_obs_train_extern+i];
 
-  for(j = num_reg_continuous_extern; j < num_all_cvar; j++)
-    for(i = 0; i < num_obs_train_extern; i++)
-      matrix_XY_continuous_train_extern[j][i]=c_con[(j-num_reg_continuous_extern)*num_obs_train_extern+i];
+    for(j = num_reg_ordered_extern; j < num_all_ovar; j++)
+      for(i = 0; i < num_obs_train_extern; i++)
+        matrix_XY_ordered_train_extern[j][i]=c_ord[(j-num_reg_ordered_extern)*num_obs_train_extern+i];
+
+
+    for(j = 0; j < num_reg_continuous_extern; j++)
+      for(i = 0; i < num_obs_train_extern; i++)
+        matrix_XY_continuous_train_extern[j][i]=u_con[j*num_obs_train_extern+i];
+
+    for(j = num_reg_continuous_extern; j < num_all_cvar; j++)
+      for(i = 0; i < num_obs_train_extern; i++)
+        matrix_XY_continuous_train_extern[j][i]=c_con[(j-num_reg_continuous_extern)*num_obs_train_extern+i];
 
   // XY tree!
-  if(int_TREE_XY == NP_TREE_TRUE){
+
     build_kdtree(matrix_XY_continuous_train_extern, num_obs_train_extern, num_all_cvar, 
                  4*num_all_cvar, ipt_XY, &kdt_extern_XY);
 

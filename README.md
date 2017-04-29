@@ -1,10 +1,12 @@
 # np
 
+![CRAN downloads](https://cranlogs.r-pkg.org/badges/grand-total/np)
+
 This is the R package `np' (Nonparametric Kernel Methods for Mixed Datatypes) written and maintained by Jeffrey S. Racine (racinej@mcmaster.ca) and co-authored by Tristen Hayfield (tristen.hayfield@gmail.com)
 
 ## Installation
 
-You can install the stable version on [CRAN](http://cran.r-project.org/package=np):
+You can install the stable version on [CRAN](https://cran.r-project.org/package=np):
 
 ```r
 install.packages('np', dependencies = TRUE)
@@ -18,7 +20,7 @@ Or download the [zip
 
 Alternatively, you can install the development version but before
 doing so Windows users have to first install
-[Rtools](http://cran.r-project.org/bin/windows/Rtools), while OS X
+[Rtools](https://cran.r-project.org/bin/windows/Rtools), while OS X
 users have to first install
 [Xcode](https://itunes.apple.com/us/app/xcode/id497799835) and the
 command line tools (in OS X 10.9 or higher, once you have Xcode
@@ -28,12 +30,12 @@ you have the latest version of R installed prior to commencing this
 process.
 
 After installing
-[Rtools](http://cran.r-project.org/bin/windows/Rtools)/[Xcode](https://itunes.apple.com/us/app/xcode/id497799835)
+[Rtools](https://cran.r-project.org/bin/windows/Rtools)/[Xcode](https://itunes.apple.com/us/app/xcode/id497799835)
 and **devtools** (via install.packages("devtools")), install the
 development package using the following command:
 
 ```r
-library(devtools); install_github('R-Package-np', 'JeffreyRacine')
+library(devtools); install_github('JeffreyRacine/R-Package-np')
 ```
 
 Note also that if you wish a fast install without the building of
@@ -46,5 +48,5 @@ ref='npRmpi' to the install_github call above presuming that your
 system has the required MPI subsystem installed (see my homepage for
 further details).
 
-For more information on this project please visit the maintainer's website (http://www.economics.mcmaster.ca/faculty/racinej).
+For more information on this project please visit the maintainer's website (https://www.socialsciences.mcmaster.ca/people/racinej).
 

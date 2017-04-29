@@ -27,7 +27,6 @@ npregiv(y,
         w,
         x = NULL,
         zeval = NULL,
-        weval = NULL,
         xeval = NULL,
         p = 1,
         nmulti = 1,
@@ -38,9 +37,12 @@ npregiv(y,
         optim.abstol = .Machine$double.eps,
         optim.maxit = 500,
         alpha = NULL,
+        alpha.iter = NULL,
         alpha.min = 1e-10,
         alpha.max = 1e-01,
         alpha.tol = .Machine$double.eps^0.25,
+        iterate.Tikhonov = TRUE,
+        iterate.Tikhonov.num = 1,
         iterate.max = 1000,
         iterate.diff.tol = 1.0e-08,
         constant = 0.5,
@@ -50,7 +52,11 @@ npregiv(y,
         start.from = c("Eyz","EEywz"),
         starting.values  = NULL,
         stop.on.increase = TRUE,
-        ...)
+        return.weights.phi = FALSE,
+        return.weights.phi.deriv.1 = FALSE,
+        return.weights.phi.deriv.2 = FALSE,
+        bw = NULL,
+        \dots)
 }
 \arguments{
   \item{y}{
@@ -78,11 +84,6 @@ npregiv(y,
     a \eqn{p}-variate data frame of endogenous regressors on which the
     regression will be estimated (evaluation data). By default, evaluation
     takes place on the data provided by \code{z}.
-  }
-  \item{weval}{
-    a \eqn{q}-variate data frame of instruments on which the regression
-    will be estimated (evaluation data). By default, evaluation
-    takes place on the data provided by \code{w}.
   }
   \item{xeval}{
     an \eqn{r}-variate data frame of exogenous regressors on which the
@@ -153,6 +154,11 @@ npregiv(y,
     a numeric scalar that, if supplied, is used rather than numerically
     solving for \code{alpha}, when using \code{method="Tikhonov"}.
     }
+  \item{alpha.iter}{
+    a numeric scalar that, if supplied, is used for iterated Tikhonov
+    rather than numerically solving for \code{alpha}, when using
+    \code{method="Tikhonov"}.
+  }
   \item{alpha.min}{
     minimum of search range for \eqn{\alpha}{alpha}, the Tikhonov
     regularization parameter, when using \code{method="Tikhonov"}.
@@ -161,58 +167,90 @@ npregiv(y,
     maximum of search range for \eqn{\alpha}{alpha}, the Tikhonov
     regularization parameter, when using  \code{method="Tikhonov"}.
   }
-\item{alpha.tol}{
-  the search tolerance for \code{optimize} when solving for
-  \eqn{\alpha}{alpha}, the Tikhonov regularization parameter,
-  when using \code{method="Tikhonov"}.
-}
-\item{iterate.max}{
-  an integer indicating the maximum number of iterations permitted
-  before termination occurs when using \code{method="Landweber-Fridman"}.
-}
-\item{iterate.diff.tol}{
-  the search tolerance for the difference in the stopping rule from
-  iteration to iteration when using \code{method="Landweber-Fridman"}
-  (disable by setting to zero).
-}
-\item{constant}{
-  the constant to use when using  \code{method="Landweber-Fridman"}.
-}
-\item{method}{
-  the regularization method employed (defaults to
-   \code{"Landweber-Fridman"}, see Horowitz (2011); see Darolles,
-   Fan, Florens and Renault (2011) for details for
-   \code{"Tikhonov"}).
-}
-\item{penalize.iteration}{ a logical value indicating whether to
+  \item{alpha.tol}{
+    the search tolerance for \code{optimize} when solving for
+    \eqn{\alpha}{alpha}, the Tikhonov regularization parameter,
+    when using \code{method="Tikhonov"}.
+  }
+  \item{iterate.Tikhonov}{
+    a logical value indicating whether to use iterated Tikhonov (one
+    iteration) or not when using \code{method="Tikhonov"}.
+  }
+  \item{iterate.Tikhonov.num}{
+    an integer indicating the number of iterations to conduct when using
+    \code{method="Tikhonov"}.
+  }
+  \item{iterate.max}{
+    an integer indicating the maximum number of iterations permitted
+    before termination occurs when using \code{method="Landweber-Fridman"}.
+  }
+  \item{iterate.diff.tol}{
+    the search tolerance for the difference in the stopping rule from
+    iteration to iteration when using \code{method="Landweber-Fridman"}
+    (disable by setting to zero).
+  }
+  \item{constant}{
+    the constant to use when using  \code{method="Landweber-Fridman"}.
+  }
+  \item{method}{
+    the regularization method employed (defaults to
+    \code{"Landweber-Fridman"}, see Horowitz (2011); see Darolles,
+    Fan, Florens and Renault (2011) for details for
+    \code{"Tikhonov"}).
+  }
+  \item{penalize.iteration}{ a logical value indicating whether to
     penalize the norm by the number of iterations or not (default
     \code{TRUE})
-}    
-\item{smooth.residuals}{
-  a logical value (defaults to \code{TRUE}) indicating whether to
-  optimize bandwidths for the regression of \eqn{y-\varphi(z)}{y-phi(z)}
-  on \eqn{w} or for the regression of \eqn{\varphi(z)}{phi(z)} on
-  \eqn{w} during iteration
- }
-\item{start.from}{ a character string indicating whether to start from
-  \eqn{E(Y|z)} (default, \code{"Eyz"}) or from \eqn{E(E(Y|z)|z)} (this can
-  be overridden by providing \code{starting.values} below)
-}  
-\item{starting.values}{ a value indicating whether to commence
-  Landweber-Fridman assuming
-  \eqn{\varphi_{-1}=starting.values}{phi[-1]=starting.values} (proper
-  Landweber-Fridman) or instead begin from \eqn{E(y|z)} (defaults to
-  \code{NULL}, see details below)
-}
-\item{stop.on.increase}{
-  a logical value (defaults to \code{TRUE}) indicating whether to halt
-  iteration if the stopping criterion (see below) increases over the
-  course of one iteration (i.e. it may be above the iteration tolerance
-  but increased)
-}
-\item{...}{
-  additional arguments supplied to \code{\link{npksum}}.
-}
+  }    
+  \item{smooth.residuals}{ a logical value indicating whether to
+    optimize bandwidths for the regression of
+    \eqn{(y-\varphi(z))}{(y-phi(z))} on \eqn{w} (defaults to
+    \code{TRUE}) or for the regression of \eqn{\varphi(z)}{phi(z)} on
+    \eqn{w} during iteration
+  }
+  \item{start.from}{ a character string indicating whether to start from
+    \eqn{E(Y|z)} (default, \code{"Eyz"}) or from \eqn{E(E(Y|z)|z)} (this can
+    be overridden by providing \code{starting.values} below)
+  }  
+  \item{starting.values}{ a value indicating whether to commence
+    Landweber-Fridman assuming
+    \eqn{\varphi_{-1}=starting.values}{phi[-1]=starting.values} (proper
+    Landweber-Fridman) or instead begin from \eqn{E(y|z)} (defaults to
+    \code{NULL}, see details below)
+  }
+  \item{stop.on.increase}{
+    a logical value (defaults to \code{TRUE}) indicating whether to halt
+    iteration if the stopping criterion (see below) increases over the
+    course of one iteration (i.e. it may be above the iteration tolerance
+    but increased)
+  }
+  \item{return.weights.phi}{
+    a logical value (defaults to \code{FALSE}) indicating whether to
+    return the weight matrix which when postmultiplied by the response
+    \eqn{y} delivers the instrumental regression
+  }
+  \item{return.weights.phi.deriv.1}{
+    a logical value (defaults to \code{FALSE}) indicating whether to
+    return the weight matrix which when postmultiplied by the response
+    \eqn{y} delivers the first partial derivative of the instrumental
+    regression with respect to \eqn{z}
+  }
+  \item{return.weights.phi.deriv.2}{
+    a logical value (defaults to \code{FALSE}) indicating whether to
+    return the weight matrix which when postmultiplied by the response
+    \eqn{y} delivers the second partial derivative of the instrumental
+    regression with respect to \eqn{z}
+  }
+  \item{bw}{
+    an object which, if provided, contains bandwidths and parameters
+    (obtained from a previous invocation of \code{npregiv}) required to
+    re-compute the estimator without having to re-run cross-validation
+    and/or numerical optimization which is particularly costly in this
+    setting (see details below for an illustration of its use)
+  }
+  \item{\dots}{
+    additional arguments supplied to \code{\link{npksum}}.
+  }
 }
 \details{
   Tikhonov regularization requires computation of weight matrices of
@@ -228,7 +266,7 @@ npregiv(y,
   }{||E(y|w)-E(phi(z,x)|w)||^2 }. However, if insufficient training is
   conducted the estimates can be overly noisy. To best guard against
   this eventuality set \code{nmulti} to a larger number than the default
-  \code{nmulti=0} for \code{\link{npreg}}.
+  \code{nmulti=1} for \code{\link{npreg}}.
 
   When using \code{method="Landweber-Fridman"}, iteration will terminate
   when either the change in the value of
@@ -237,14 +275,96 @@ npregiv(y,
   less than \code{iterate.diff.tol} or we hit \code{iterate.max} or
   \eqn{||(E(y|w)-E(\varphi_k(z,x)|w))/E(y|w)||^2
   }{||(E(y|w)-E(phi(z,x)|w))/E(y|w)||^2 } stops falling in value and
-  starts rising.  }
+  starts rising.
+
+  The option \code{bw=} would be useful, say, when bootstrapping is
+  necessary. Note that when passing \code{bw}, it must be obtained from
+  a previous invocation of \code{npregiv}. For instance, if
+  \code{model.iv} was obtained from an invocation of \code{npregiv} with
+  \code{method="Landweber-Fridman"}, then the following needs to be fed
+  to the subsequent invocation of \code{npregiv}:
+
+  \preformatted{
+
+    model.iv <- npregiv(\dots)
+
+    bw <- NULL
+    bw$bw.E.y.w <- model.iv$bw.E.y.w
+    bw$bw.E.y.z <- model.iv$bw.E.y.z
+    bw$bw.resid.w <- model.iv$bw.resid.w
+    bw$bw.resid.fitted.w.z <- model.iv$bw.resid.fitted.w.z
+    bw$norm.index <- model.iv$norm.index
+
+    foo <- npregiv(\dots,bw=bw)
+  }
+
+  If, on the other hand \code{model.iv} was obtained from an invocation
+  of \code{npregiv} with \code{method="Tikhonov"}, then the following
+  needs to be fed to the subsequent invocation of \code{npregiv}:
+
+  \preformatted{
+
+    model.iv <- npregiv(\dots)
+
+    bw <- NULL
+    bw$alpha <- model.iv$alpha
+    bw$alpha.iter <- model.iv$alpha.iter
+    bw$bw.E.y.w <- model.iv$bw.E.y.w
+    bw$bw.E.E.y.w.z <- model.iv$bw.E.E.y.w.z
+    bw$bw.E.phi.w <- model.iv$bw.E.phi.w
+    bw$bw.E.E.phi.w.z <- model.iv$bw.E.E.phi.w.z
+
+    foo <- npregiv(\dots,bw=bw)    
+
+  }
+
+  Or, if \code{model.iv} was obtained from an invocation of
+  \code{npregiv} with either \code{method="Landweber-Fridman"} or
+  \code{method="Tikhonov"}, then the following would also work:
+
+  \preformatted{
+
+    model.iv <- npregiv(\dots)
+
+    foo <- npregiv(\dots,bw=model.iv)    
+
+  }
+
+  
+  When exogenous predictors \code{x} (\code{xeval}) are passed, they are
+  appended to both the endogenous predictors \code{z} and the
+  instruments \code{w} as additional columns. If this is not desired,
+  one can manually append the exogenous variables to \code{z} (or
+  \code{w}) prior to passing \code{z} (or \code{w}), and then they will
+  only appear among the \code{z} or \code{w} as desired.
+  
+}
 
 \value{
 
-  \code{npregiv} returns a list with components \code{phi} and either
-  \code{alpha} when \code{method="Tikhonov"} or \code{num.iterations},
-  \code{norm.stop} and \code{convergence} when
-  \code{method="Landweber-Fridman"}.
+  \code{npregiv} returns a list with components \code{phi},
+  \code{phi.mat} and either \code{alpha} when \code{method="Tikhonov"}
+  or \code{norm.index}, \code{norm.stop} and \code{convergence} when
+  \code{method="Landweber-Fridman"}, among others.
+
+  In addition, if any of \code{return.weights.*} are invoked
+  (\code{*=1,2}), then \code{phi.weights} and \code{phi.deriv.*.weights}
+  return weight matrices for computing the instrumental regression and
+  its partial derivatives. Note that these weights, post multiplied by
+  the response vector \eqn{y}, will deliver the estimates returned in
+  \code{phi}, \code{phi.deriv.1}, and \code{phi.deriv.2} (the latter
+  only being produced when \code{p} is 2 or greater). When invoked with
+  evaluation data, similar matrices are returned but named
+  \code{phi.eval.weights} and \code{phi.deriv.eval.*.weights}. These
+  weights can be used for constrained estimation, among others.
+
+  When \code{method="Landweber-Fridman"} is invoked, bandwidth objects
+  are returned in \code{bw.E.y.w} (scalar/vector), \code{bw.E.y.z}
+  (scalar/vector), and \code{bw.resid.w} (matrix) and
+  \code{bw.resid.fitted.w.z}, the latter matrices containing bandwidths
+  for each iteration stored as rows. When \code{method="Tikhonov"} is
+  invoked, bandwidth objects are returned in \code{bw.E.y.w},
+  \code{bw.E.E.y.w.z}, and \code{bw.E.phi.w} and \code{bw.E.E.phi.w.z}.
   
 }
 
@@ -302,7 +422,7 @@ This function should be considered to be in `beta test' status until further not
 ## <samuele.centorrino@univ-tlse1.fr>
 
 set.seed(42)
-n <- 1500
+n <- 500
 
 ## The DGP is as follows:
 
@@ -376,13 +496,14 @@ lines(z,phi.iv,col="blue",lwd=2,lty=2)
 
 lines(z,ll.mean,col="red",lwd=2,lty=4)
 
-legend(quantile(z,trim),quantile(y,1-trim),
+legend("topright",
        c(expression(paste(varphi(z))),
          expression(paste("Nonparametric ",hat(varphi)(z))),
          "Nonparametric E(y|z)"),
        lty=c(1,2,4),
        col=c("black","blue","red"),
-       lwd=c(2,2,2))
+       lwd=c(2,2,2),
+       bty="n")
        
 } % enddontrun
 }
