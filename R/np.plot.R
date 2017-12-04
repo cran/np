@@ -10,12 +10,6 @@ gen.tflabel = function(condition, tlabel, flabel){
   paste(ifelse(condition,tlabel,flabel))
 }
 
-dim.plot = function(x) {
-  a1 = round(sqrt(4.0/3.0*x))
-  a2 = ceiling(x/a1)
-  c(a1,a2)
-}
-
 draw.error.bands = function(ex, ely, ehy, lty = 2){
   lines(ex,ely,lty=lty)
   lines(ex,ehy,lty=lty)
@@ -838,13 +832,28 @@ npplot.rbandwidth <-
            xdat,
            ydat,
            data = NULL,
-           xq = 0.5, xtrim = 0.0, neval = 50,
-           common.scale = TRUE, perspective = TRUE,
+           xq = 0.5,
+           xtrim = 0.0,
+           neval = 50,
+           common.scale = TRUE,
+           perspective = TRUE,
            gradients = FALSE,
-           main = "",
-           theta = 0.0, phi = 10.0,
-           view = c("rotate","fixed"), type = "l",
+           main = NULL,
+           type = NULL,
+           border = NULL,
+           col = NULL,
+           ylab = NULL,
+           xlab = NULL,
+           zlab = NULL,
+           sub = NULL,
            ylim = NULL,
+           xlim = NULL,
+           zlim = NULL,
+           lty = NULL,
+           lwd = NULL,
+           theta = 0.0,
+           phi = 10.0,
+           view = c("rotate","fixed"),
            plot.behavior = c("plot","plot-data","data"),
            plot.errors.method = c("none","bootstrap","asymptotic"),
            plot.errors.boot.num = 399,
@@ -853,14 +862,18 @@ npplot.rbandwidth <-
            plot.errors.center = c("estimate","bias-corrected"),
            plot.errors.type = c("standard","quantiles"),
            plot.errors.quantiles = c(0.025,0.975),
-           plot.errors.style = c("bar","band"),
+           plot.errors.style = c("band","bar"),
            plot.errors.bar = c("|","I"),
            plot.errors.bar.num = min(neval,25),
            plot.bxp = FALSE,
            plot.bxp.out = TRUE,
+           plot.par.mfrow = TRUE,
            ...,
            random.seed){
 
+    if(!is.null(options('plot.par.mfrow')$plot.par.mfrow))
+        plot.par.mfrow <- options('plot.par.mfrow')$plot.par.mfrow
+      
     miss.xy = c(missing(xdat),missing(ydat))
     
     if (any(miss.xy) && !all(miss.xy))
@@ -1010,11 +1023,13 @@ npplot.rbandwidth <-
 
       }
 
-      zlim =
-        if (plot.errors)
-          c(min(lerr),max(herr))
-        else
-          c(min(tobj$mean),max(tobj$mean))
+      if(is.null(zlim)) {
+          zlim =
+              if (plot.errors)
+                  c(min(lerr),max(herr))
+              else
+                  c(min(tobj$mean),max(tobj$mean))
+      }
         
       if (plot.behavior != "plot"){
         r1 = npregression(bws = bws,
@@ -1035,23 +1050,23 @@ npplot.rbandwidth <-
       dtheta = 5.0
       dphi = 10.0
 
-      persp.col = ifelse(plot.errors, FALSE, "lightblue")
+      persp.col = ifelse(plot.errors, FALSE, ifelse(!is.null(col),col,"lightblue"))
       
-##      for (j in 0:((50 %/% dphi - 1)*rotate)*dphi+phi){
-        for (i in 0:((360 %/% dtheta - 1)*rotate)*dtheta+theta){
+      for (i in 0:((360 %/% dtheta - 1)*rotate)*dtheta+theta){
           if (plot.errors){
             persp(x1.eval,
                   x2.eval,
                   lerr,
                   zlim = zlim,
                   col = persp.col,
-                  border = "grey",
+                  border = ifelse(!is.null(border),border,"grey"),
                   ticktype = "detailed",
                   xlab = "",
                   ylab = "",
                   zlab = "",
                   theta = i,
-                  phi = phi)
+                  phi = phi,
+                  lwd = ifelse(!is.null(lwd),lwd,1))
             par(new = TRUE)
           }
 
@@ -1060,14 +1075,14 @@ npplot.rbandwidth <-
                 treg,
                 zlim = zlim,
                 col = persp.col,
-                border = "black",
-                ticktype="detailed",
-                xlab=gen.label(bws$xnames[1], "X1"),
-                ylab=gen.label(bws$xnames[2], "X2"),
-                zlab=gen.label(bws$ynames,"Conditional Mean"),
+                border = ifelse(!is.null(border),border,"black"),
+                ticktype = "detailed",
+                xlab = ifelse(!is.null(xlab),xlab,gen.label(bws$xnames[1], "X1")),
+                ylab = ifelse(!is.null(ylab),ylab,gen.label(bws$xnames[2], "X2")),
+                zlab = ifelse(!is.null(zlab),zlab,gen.label(bws$ynames,"Conditional Mean")),
                 theta = i,
                 phi = phi,
-                main=gen.tflabel(!missing(main), main, paste("[theta= ", i,", phi= ", phi,"]", sep="")))
+                main = gen.tflabel(!is.null(main), main, paste("[theta= ", i,", phi= ", phi,"]", sep="")))
 
           if (plot.errors){
             par(new = TRUE)
@@ -1076,26 +1091,26 @@ npplot.rbandwidth <-
                   herr,
                   zlim = zlim,
                   col = persp.col,
-                  border = "grey",
+                  border = ifelse(!is.null(border),border,"grey"),
                   ticktype = "detailed",
                   xlab = "",
                   ylab = "",
                   zlab = "",
                   theta = i,
-                  phi = phi)
+                  phi = phi,
+                  lwd = ifelse(!is.null(lwd),lwd,1))
           }
 
           Sys.sleep(0.5)
-        }
-      ##}
+      }
 
       if (plot.behavior == "plot-data")
         return ( list(r1 = r1) )
 
     } else {
 
-      if (plot.behavior != "data")
-        par(mfrow=dim.plot(bws$ndim))
+      if (plot.behavior != "data" && plot.par.mfrow)
+        par(mfrow=n2mfrow(bws$ndim))
 
       ev = xdat[1,,drop = FALSE]
 
@@ -1141,13 +1156,15 @@ npplot.rbandwidth <-
         ifelse(plot.errors, "ylim = c(min(na.omit(c(temp.mean - temp.err[,1], temp.err[,3] - temp.err[,1]))),
               max(na.omit(c(temp.mean + temp.err[,2], temp.err[,3] + temp.err[,2])))),", ""))
 
-      pxlabE = "xlab = gen.label(bws$xnames[i], paste('X', i, sep = '')),"
-      pylabE = "ylab = paste(ifelse(gradients,
+      pxlabE = "xlab = ifelse(!is.null(xlab),xlab,gen.label(bws$xnames[i], paste('X', i, sep = ''))),"
+      pylabE = "ylab = ifelse(!is.null(ylab),ylab,paste(ifelse(gradients,
           paste('Gradient Component ', i, ' of', sep=''), ''),
-          gen.label(bws$ynames, 'Conditional Mean')),"
+          gen.label(bws$ynames, 'Conditional Mean'))),"
 
-      prestE = expression(ifelse(xi.factor,"", "type = type, lty = 1,"))
-      pmainE = "main = main"
+      prestE = expression(ifelse(xi.factor,"", "type = ifelse(!is.null(type),type,'l'), lty = ifelse(!is.null(lty),lty,1),"))
+
+      ## Hack, adding col to main
+      pmainE = "main = ifelse(!is.null(main),main,''), col = ifelse(!is.null(col),col,1), sub = ifelse(!is.null(sub),sub,''),"
 
       ## error plotting expressions
       plotOnEstimate = (plot.errors.center == "estimate")
@@ -1317,7 +1334,7 @@ npplot.rbandwidth <-
         }
       }
 
-      if (plot.behavior != "data")
+      if (plot.behavior != "data" && plot.par.mfrow)
         par(mfrow=c(1,1))
       
       if (plot.behavior != "plot"){
@@ -1339,15 +1356,30 @@ npplot.scbandwidth <-
            ydat,
            zdat = NULL,
            data = NULL,
-           xq = 0.5, zq = 0.5,
-           xtrim = 0.0, ztrim = 0.0,
+           xq = 0.5,
+           zq = 0.5,
+           xtrim = 0.0,
+           ztrim = 0.0,
            neval = 50,
-           common.scale = TRUE, perspective = TRUE,
+           common.scale = TRUE,
+           perspective = TRUE,
            gradients = FALSE,
-           main = "",
-           theta = 0.0, phi = 10.0,
-           view = c("rotate","fixed"), type = "l",
+           main = NULL,
+           type = NULL,
+           border = NULL,
+           col = NULL,
+           ylab = NULL,
+           xlab = NULL,
+           zlab = NULL,
+           sub = NULL,
            ylim = NULL,
+           xlim = NULL,
+           zlim = NULL,
+           lty = NULL,
+           lwd = NULL,
+           theta = 0.0,
+           phi = 10.0,
+           view = c("rotate","fixed"),
            plot.behavior = c("plot","plot-data","data"),
            plot.errors.method = c("none","bootstrap","asymptotic"),
            plot.errors.boot.num = 399,
@@ -1356,17 +1388,20 @@ npplot.scbandwidth <-
            plot.errors.center = c("estimate","bias-corrected"),
            plot.errors.type = c("standard","quantiles"),
            plot.errors.quantiles = c(0.025,0.975),
-           plot.errors.style = c("bar","band"),
+           plot.errors.style = c("band","bar"),
            plot.errors.bar = c("|","I"),
            plot.errors.bar.num = min(neval,25),
            plot.bxp = FALSE,
            plot.bxp.out = TRUE,
+           plot.par.mfrow = TRUE,
            ...,
            random.seed){
 
+    if(!is.null(options('plot.par.mfrow')$plot.par.mfrow))
+        plot.par.mfrow <- options('plot.par.mfrow')$plot.par.mfrow      
+
     if(!missing(gradients))
       stop("gradients not supported with smooth coefficient models.")
-
 
     miss.xy = c(missing(xdat),missing(ydat))
     miss.z = missing(zdat) & is.null(bws$zdati)
@@ -1558,11 +1593,13 @@ npplot.scbandwidth <-
 
       }
 
-      zlim =
-        if (plot.errors)
-          c(min(lerr),max(herr))
-        else
-          c(min(tobj$mean),max(tobj$mean))
+      if(is.null(zlim)) {
+          zlim =
+              if (plot.errors)
+                  c(min(lerr),max(herr))
+              else
+                  c(min(tobj$mean),max(tobj$mean))
+      }
         
       if (plot.behavior != "plot"){
         r1 <-
@@ -1584,7 +1621,7 @@ npplot.scbandwidth <-
       dtheta = 5.0
       dphi = 10.0
 
-      persp.col = ifelse(plot.errors, FALSE, "lightblue")
+      persp.col = ifelse(plot.errors, FALSE, ifelse(!is.null(col),col,"lightblue"))
       
       ##for (j in 0:((50 %/% dphi - 1)*rotate)*dphi+phi){
         for (i in 0:((360 %/% dtheta - 1)*rotate)*dtheta+theta){
@@ -1594,13 +1631,14 @@ npplot.scbandwidth <-
                   lerr,
                   zlim = zlim,
                   col = persp.col,
-                  border = "grey",
+                  border = ifelse(!is.null(border),border,"grey"),
                   ticktype = "detailed",
                   xlab = "",
                   ylab = "",
                   zlab = "",
                   theta = i,
-                  phi = phi)
+                  phi = phi,
+                  lwd = ifelse(!is.null(lwd),lwd,1))
             par(new = TRUE)
           }
 
@@ -1609,14 +1647,14 @@ npplot.scbandwidth <-
                 treg,
                 zlim = zlim,
                 col = persp.col,
-                border = "black",
-                ticktype="detailed",
-                xlab=gen.label(bws$xnames[1], "X1"),
-                ylab=gen.label(x2.names[1], "X2"),
-                zlab=gen.label(bws$ynames,"Conditional Mean"),
+                border = ifelse(!is.null(border),border,"black"),
+                ticktype = "detailed",
+                xlab = ifelse(!is.null(xlab),xlab,gen.label(bws$xnames[1], "X1")),
+                ylab = ifelse(!is.null(ylab),ylab,gen.label(x2.names[1], "X2")),
+                zlab = ifelse(!is.null(zlab),zlab,gen.label(bws$ynames,"Conditional Mean")),
                 theta = i,
                 phi = phi,
-                main=gen.tflabel(!missing(main), main, paste("[theta= ", i,", phi= ", phi,"]", sep="")))
+                main = gen.tflabel(!is.null(main), main, paste("[theta= ", i,", phi= ", phi,"]", sep="")))
 
           if (plot.errors){
             par(new = TRUE)
@@ -1625,13 +1663,14 @@ npplot.scbandwidth <-
                   herr,
                   zlim = zlim,
                   col = persp.col,
-                  border = "grey",
+                  border = ifelse(!is.null(border),border,"grey"),
                   ticktype = "detailed",
                   xlab = "",
                   ylab = "",
                   zlab = "",
                   theta = i,
-                  phi = phi)
+                  phi = phi,
+                  lwd = ifelse(!is.null(lwd),lwd,1))
           }
 
           Sys.sleep(0.5)
@@ -1645,8 +1684,8 @@ npplot.scbandwidth <-
 
       tot.dim <- (bws$xndim <- length(bws$xdati$icon)) + (bws$zndim <- length(bws$zdati$icon))
 
-      if (plot.behavior != "data")
-        par(mfrow=dim.plot(tot.dim))
+      if (plot.behavior != "data" && plot.par.mfrow)
+        par(mfrow=n2mfrow(tot.dim))
 
       maxneval = max(c(sapply(xdat,nlevels), unlist(sapply(zdat,nlevels)), neval))
       all.isFactor = c(sapply(xdat, is.factor), unlist(sapply(zdat, is.factor)))
@@ -1721,8 +1760,9 @@ npplot.scbandwidth <-
           paste('Gradient Component ', i, ' of', sep=''), ''),
           gen.label(bws$ynames, 'Conditional Mean')),"
 
-      prestE = expression(ifelse(xi.factor,"", "type = type, lty = 1,"))
-      pmainE = "main = main"
+      prestE = expression(ifelse(xi.factor,"", "type = ifelse(!is.null(type),type,'l'), lty = ifelse(!is.null(lty),lty,1),"))
+#      pmainE = "main = ifelse(!is.null(main),main,'')"
+      pmainE = "main = ifelse(!is.null(main),main,''), col = ifelse(!is.null(col),col,1), sub = ifelse(!is.null(sub),sub,''),"
 
       txobjE <-
         parse(text = paste("npscoef(txdat = xdat, tydat = ydat,",
@@ -2019,7 +2059,7 @@ npplot.scbandwidth <-
         }
       }
 
-      if (plot.behavior != "data")
+      if (plot.behavior != "data" && plot.par.mfrow)
         par(mfrow=c(1,1))
       
       if (plot.behavior != "plot"){
@@ -2041,15 +2081,30 @@ npplot.plbandwidth <-
            ydat,
            zdat,
            data = NULL,
-           xq = 0.5, zq = 0.5,
-           xtrim = 0.0,  ztrim = 0.0,
+           xq = 0.5,
+           zq = 0.5,
+           xtrim = 0.0,
+           ztrim = 0.0,
            neval = 50,
-           common.scale = TRUE, perspective = TRUE,
+           common.scale = TRUE,
+           perspective = TRUE,
            gradients = FALSE,
-           main = "",
-           theta = 0.0, phi = 10.0,
-           view = c("rotate","fixed"), type = "l",
+           main = NULL,
+           type = NULL,
+           border = NULL,
+           col = NULL,
+           ylab = NULL,
+           xlab = NULL,
+           zlab = NULL,
+           sub = NULL,
            ylim = NULL,
+           xlim = NULL,
+           zlim = NULL,
+           lty = NULL,
+           lwd = NULL,
+           theta = 0.0,
+           phi = 10.0,
+           view = c("rotate","fixed"),
            plot.behavior = c("plot","plot-data","data"),
            plot.errors.method = c("none","bootstrap","asymptotic"),
            plot.errors.boot.method = c("inid", "fixed", "geom"),
@@ -2058,14 +2113,18 @@ npplot.plbandwidth <-
            plot.errors.center = c("estimate","bias-corrected"),
            plot.errors.type = c("standard","quantiles"),
            plot.errors.quantiles = c(0.025,0.975),
-           plot.errors.style = c("bar","band"),
+           plot.errors.style = c("band","bar"),
            plot.errors.bar = c("|","I"),
            plot.errors.bar.num = min(neval,25),
            plot.bxp = FALSE,
            plot.bxp.out = TRUE,
+           plot.par.mfrow = TRUE,
            ...,
            random.seed){
 
+    if(!is.null(options('plot.par.mfrow')$plot.par.mfrow))
+        plot.par.mfrow <- options('plot.par.mfrow')$plot.par.mfrow
+      
     if(!missing(gradients))
       stop("gradients not supported with partially linear models. Coefficients may be extracted with coef()")
 
@@ -2238,11 +2297,13 @@ npplot.plbandwidth <-
 
       }
       
-      zlim =
-        if (plot.errors)
-          c(min(lerr),max(herr))
-        else
-          c(min(tobj$mean),max(tobj$mean))
+      if(is.null(zlim)) {
+          zlim =
+              if (plot.errors)
+                  c(min(lerr),max(herr))
+              else
+                  c(min(tobj$mean),max(tobj$mean))
+      }
         
       if (plot.behavior != "plot"){
         r1 = plregression(bws = bws, xcoef = tobj$xcoef,
@@ -2272,7 +2333,7 @@ npplot.plbandwidth <-
       dtheta = 5.0
       dphi = 10.0
 
-      persp.col = ifelse(plot.errors, FALSE, "lightblue")
+      persp.col = ifelse(plot.errors, FALSE, ifelse(!is.null(col),col,"lightblue"))
       
       ##for (j in 0:((50 %/% dphi - 1)*rotate)*dphi+phi){
         for (i in 0:((360 %/% dtheta - 1)*rotate)*dtheta+theta){
@@ -2282,13 +2343,14 @@ npplot.plbandwidth <-
                   lerr,
                   zlim = zlim,
                   col = persp.col,
-                  border = "grey",
+                  border = ifelse(!is.null(border),border,"grey"),
                   ticktype = "detailed",
                   xlab = "",
                   ylab = "",
                   zlab = "",
                   theta = i,
-                  phi = phi)
+                  phi = phi,
+                  lwd = ifelse(!is.null(lwd),lwd,1))
             par(new = TRUE)
           }
 
@@ -2297,14 +2359,14 @@ npplot.plbandwidth <-
                 treg,
                 zlim = zlim,
                 col = persp.col,
-                border = "black",
-                ticktype="detailed",
-                xlab=gen.label(names(xdat)[1], "X1"),
-                ylab=gen.label(names(xdat)[2], "Z1"),
-                zlab=gen.label(names(ydat),"Conditional Mean"),
+                border = ifelse(!is.null(border),border,"black"),
+                ticktype = "detailed",
+                xlab = ifelse(!is.null(xlab),xlab,gen.label(names(xdat)[1], "X1")),
+                ylab = ifelse(!is.null(ylab),ylab,gen.label(names(xdat)[2], "Z1")),
+                zlab = ifelse(!is.null(zlab),zlab,gen.label(names(ydat),"Conditional Mean")),
                 theta = i,
                 phi = phi,
-                main=gen.tflabel(!missing(main), main, paste("[theta= ", i,", phi= ", phi,"]", sep="")))
+                main = gen.tflabel(!is.null(main), main, paste("[theta= ", i,", phi= ", phi,"]", sep="")))
 
           if (plot.errors){
             par(new = TRUE)
@@ -2313,13 +2375,14 @@ npplot.plbandwidth <-
                   herr,
                   zlim = zlim,
                   col = persp.col,
-                  border = "grey",
+                  border = ifelse(!is.null(border),border,"grey"),
                   ticktype = "detailed",
                   xlab = "",
                   ylab = "",
                   zlab = "",
                   theta = i,
-                  phi = phi)
+                  phi = phi,
+                  lwd = ifelse(!is.null(lwd),lwd,1))
           }
 
           Sys.sleep(0.5)
@@ -2332,8 +2395,8 @@ npplot.plbandwidth <-
     } else {
 ##      stop("not yet supported!")
       
-      if (plot.behavior != "data")
-        par(mfrow=dim.plot(bws$xndim + bws$zndim))
+      if (plot.behavior != "data" && plot.par.mfrow)
+        par(mfrow=n2mfrow(bws$xndim + bws$zndim))
 
       x.ev = xdat[1,,drop = FALSE]
       z.ev = zdat[1,,drop = FALSE]
@@ -2405,8 +2468,9 @@ npplot.plbandwidth <-
           paste('Gradient Component ', i, ' of', sep=''), ''),
           gen.label(bws$ynames, 'Conditional Mean')),"
 
-      prestE = expression(ifelse(xi.factor,"", "type = type, lty = 1,"))
-      pmainE = "main = main"
+      prestE = expression(ifelse(xi.factor,"", "type = ifelse(!is.null(type),type,'l'), lty = ifelse(!is.null(lty),lty,1),"))
+#      pmainE = "main = ifelse(!is.null(main),main,'')"
+      pmainE = "main = ifelse(!is.null(main),main,''), col = ifelse(!is.null(col),col,1), sub = ifelse(!is.null(sub),sub,''),"
 
       ## error plotting expressions
       plotOnEstimate = (plot.errors.center == "estimate")
@@ -2697,7 +2761,7 @@ npplot.plbandwidth <-
         }
       }
 
-      if (plot.behavior != "data")
+      if (plot.behavior != "data" && plot.par.mfrow)
         par(mfrow=c(1,1))
       
       if (plot.behavior != "plot"){
@@ -2716,12 +2780,27 @@ npplot.bandwidth <-
   function(bws,
            xdat,
            data = NULL,
-           xq = 0.5, xtrim = 0.0, neval = 50,
-           common.scale = TRUE, perspective = TRUE,
-           main = "",
-           theta = 0.0, phi = 10.0,
-           view = c("rotate","fixed"), type = "l",
+           xq = 0.5,
+           xtrim = 0.0,
+           neval = 50,
+           common.scale = TRUE,
+           perspective = TRUE,
+           main = NULL,
+           type = NULL,
+           border = NULL,
+           col = NULL,
+           ylab = NULL,
+           xlab = NULL,
+           zlab = NULL,
+           sub = NULL,
            ylim = NULL,
+           xlim = NULL,
+           zlim = NULL,
+           lty = NULL,
+           lwd = NULL,
+           theta = 0.0,
+           phi = 10.0,
+           view = c("rotate","fixed"),
            plot.behavior = c("plot","plot-data","data"),
            plot.errors.method = c("none","bootstrap","asymptotic"),
            plot.errors.boot.method = c("inid", "fixed", "geom"),
@@ -2730,14 +2809,18 @@ npplot.bandwidth <-
            plot.errors.center = c("estimate","bias-corrected"),
            plot.errors.type = c("standard","quantiles"),
            plot.errors.quantiles = c(0.025,0.975),
-           plot.errors.style = c("bar","band"),
+           plot.errors.style = c("band","bar"),
            plot.errors.bar = c("|","I"),
            plot.errors.bar.num = min(neval,25),
            plot.bxp = FALSE,
            plot.bxp.out = TRUE,
+           plot.par.mfrow = TRUE,
            ...,
            random.seed){
 
+    if(!is.null(options('plot.par.mfrow')$plot.par.mfrow))
+        plot.par.mfrow <- options('plot.par.mfrow')$plot.par.mfrow
+      
     miss.x <- missing(xdat)
 
     if(miss.x && !is.null(bws$formula)){
@@ -2875,12 +2958,14 @@ npplot.bandwidth <-
 
       }
 
-      zlim =
-        if (plot.errors)
-          c(min(lerr),max(herr))
-        else
-          c(min(eval(tcomp)),max(eval(tcomp)))
-
+      if(is.null(zlim)) {
+          zlim =
+              if (plot.errors)
+                  c(min(lerr),max(herr))
+              else
+                  c(min(eval(tcomp)),max(eval(tcomp)))
+      }
+          
       tret = parse(text=paste(
                      "npdensity",
                      "(bws = bws, eval = x.eval,",
@@ -2904,23 +2989,23 @@ npplot.bandwidth <-
       dtheta = 5.0
       dphi = 10.0
 
-      persp.col = ifelse(plot.errors, FALSE, "lightblue")
+      persp.col = ifelse(plot.errors, FALSE, ifelse(!is.null(col),col,"lightblue"))
       
-##      for (j in 0:((50 %/% dphi - 1)*rotate)*dphi+phi){
-        for (i in 0:((360 %/% dtheta - 1)*rotate)*dtheta+theta){
+      for (i in 0:((360 %/% dtheta - 1)*rotate)*dtheta+theta){
           if (plot.errors){
             persp(x1.eval,
                   x2.eval,
                   lerr,
                   zlim = zlim,
                   col = persp.col,
-                  border = "grey",
+                  border = ifelse(!is.null(border),border,"grey"),
                   ticktype = "detailed",
                   xlab = "",
                   ylab = "",
                   zlab = "",
                   theta = i,
-                  phi = phi)
+                  phi = phi,
+                  lwd = ifelse(!is.null(lwd),lwd,1))
             par(new = TRUE)
           }
           
@@ -2928,15 +3013,15 @@ npplot.bandwidth <-
                 x2.eval,
                 tdens,
                 zlim = zlim,
-                col= persp.col,
-                border = "black",
-                ticktype="detailed",
-                xlab=gen.label(names(xdat)[1], "X1"),
-                ylab=gen.label(names(xdat)[2], "X2"),
-                zlab=paste("Joint", "Density"),
+                col = persp.col,
+                border = ifelse(!is.null(border),border,"black"),
+                ticktype = "detailed",
+                xlab = ifelse(!is.null(xlab),xlab,gen.label(names(xdat)[1], "X1")),
+                ylab = ifelse(!is.null(ylab),ylab,gen.label(names(xdat)[2], "X2")),
+                zlab = ifelse(!is.null(zlab),zlab,"Joint Density"),
                 theta = i,
                 phi = phi,
-                main=gen.tflabel(!missing(main), main, paste("[theta= ", i,", phi= ", phi,"]", sep="")))
+                main = gen.tflabel(!is.null(main), main, paste("[theta= ", i,", phi= ", phi,"]", sep="")))
 
           if (plot.errors){
             par(new = TRUE)
@@ -2945,26 +3030,27 @@ npplot.bandwidth <-
                   herr,
                   zlim = zlim,
                   col = persp.col,
-                  border = "grey",
+                  border = ifelse(!is.null(border),border,"grey"),
                   ticktype = "detailed",
                   xlab = "",
                   ylab = "",
                   zlab = "",
                   theta = i,
-                  phi = phi)
+                  phi = phi,
+                  lwd = ifelse(!is.null(lwd),lwd,1))
           }
 
           Sys.sleep(0.5)
-        }
-      ##}
+      }
+      
 
       if (plot.behavior == "plot-data")
         return ( list(d1 = d1) )        
 
     } else {
 
-      if (plot.behavior != "data")
-        par(mfrow=dim.plot(bws$ndim))
+      if (plot.behavior != "data" && plot.par.mfrow)
+        par(mfrow=n2mfrow(bws$ndim))
 
       ev = xdat[1,,drop = FALSE]
 
@@ -3011,13 +3097,17 @@ npplot.bandwidth <-
         ifelse(plot.errors, "ylim = c(min(na.omit(c(temp.dens - temp.err[,1], temp.err[,3] - temp.err[,1]))),
               max(na.omit(c(temp.dens + temp.err[,2], temp.err[,3] + temp.err[,2])))),", ""))
 
-      pxlabE = "xlab = gen.label(bws$xnames[i], paste('X', i, sep = '')),"
+      pxlabE = "xlab = ifelse(!is.null(xlab),xlab,gen.label(bws$xnames[i], paste('X', i, sep = ''))),"
 
-      pylabE = paste("ylab = ", "'Density'", ",")
+      pylabE = paste("ylab = ", "ifelse(!is.null(ylab),ylab,'Density')", ",")
 
-      prestE = expression(ifelse(xi.factor,"", "type = type, lty = 1,"))
-      pmainE = "main = main"
+      prestE = expression(ifelse(xi.factor,"", "type = ifelse(!is.null(type),type,'l'), lty = ifelse(!is.null(lty),lty,1),"))
 
+      ## Hack (works) added color...
+      
+#      pmainE = "main = ifelse(!is.null(main),main,''), col = ifelse(!is.null(col),col,1)"
+      pmainE = "main = ifelse(!is.null(main),main,''), col = ifelse(!is.null(col),col,1), sub = ifelse(!is.null(sub),sub,''), lwd = ifelse(!is.null(lwd),lwd,1),"
+      
       ## error plotting expressions
       plotOnEstimate = (plot.errors.center == "estimate")
 
@@ -3038,7 +3128,7 @@ npplot.bandwidth <-
       erestE = "plot.errors.style = ifelse(xi.factor,'bar',plot.errors.style),
                 plot.errors.bar = ifelse(xi.factor,'I',plot.errors.bar),
                 plot.errors.bar.num = plot.errors.bar.num,
-                lty = ifelse(xi.factor,1,2)"
+                lty = ifelse(!is.null(lty),lty,ifelse(xi.factor,1,2))"
 
       ## density / distribution expressions
 
@@ -3178,7 +3268,7 @@ npplot.bandwidth <-
         }
       }
 
-      if (plot.behavior != "data")
+      if (plot.behavior != "data" && plot.par.mfrow)
         par(mfrow=c(1,1))
 
       if (plot.behavior != "plot"){
@@ -3192,12 +3282,27 @@ npplot.dbandwidth <-
   function(bws,
            xdat,
            data = NULL,
-           xq = 0.5, xtrim = 0.0, neval = 50,
-           common.scale = TRUE, perspective = TRUE,
-           main = "",
-           theta = 0.0, phi = 10.0,
-           view = c("rotate","fixed"), type = "l",
+           xq = 0.5,
+           xtrim = 0.0,
+           neval = 50,
+           common.scale = TRUE,
+           perspective = TRUE,
+           main = NULL,
+           type = NULL,
+           border = NULL,
+           col = NULL,
+           ylab = NULL,
+           xlab = NULL,
+           zlab = NULL,
+           sub = NULL,
            ylim = NULL,
+           xlim = NULL,
+           zlim = NULL,
+           lty = NULL,
+           lwd = NULL,
+           theta = 0.0,
+           phi = 10.0,
+           view = c("rotate","fixed"),
            plot.behavior = c("plot","plot-data","data"),
            plot.errors.method = c("none","bootstrap","asymptotic"),
            plot.errors.boot.method = c("inid", "fixed", "geom"),
@@ -3206,13 +3311,17 @@ npplot.dbandwidth <-
            plot.errors.center = c("estimate","bias-corrected"),
            plot.errors.type = c("standard","quantiles"),
            plot.errors.quantiles = c(0.025,0.975),
-           plot.errors.style = c("bar","band"),
+           plot.errors.style = c("band","bar"),
            plot.errors.bar = c("|","I"),
            plot.errors.bar.num = min(neval,25),
            plot.bxp = FALSE,
            plot.bxp.out = TRUE,
+           plot.par.mfrow = TRUE,
            ...,
            random.seed){
+
+    if(!is.null(options('plot.par.mfrow')$plot.par.mfrow))
+        plot.par.mfrow <- options('plot.par.mfrow')$plot.par.mfrow      
 
     miss.x <- missing(xdat)
 
@@ -3348,12 +3457,13 @@ npplot.dbandwidth <-
 
       }
 
-      zlim =
-        if (plot.errors)
-          c(min(lerr),max(herr))
-        else
-          c(min(tobj$dist),max(tobj$dist))
-
+      if(is.null(zlim)) {
+          zlim =
+              if (plot.errors)
+                  c(min(lerr),max(herr))
+              else
+                  c(min(tobj$dist),max(tobj$dist))
+      }
 
       if (plot.behavior != "plot"){
         d1 <- npdistribution(bws = bws, eval = x.eval,
@@ -3373,23 +3483,23 @@ npplot.dbandwidth <-
       dtheta = 5.0
       dphi = 10.0
 
-      persp.col = ifelse(plot.errors, FALSE, "lightblue")
+      persp.col = ifelse(plot.errors, FALSE, ifelse(!is.null(col),col,"lightblue"))
       
-##      for (j in 0:((50 %/% dphi - 1)*rotate)*dphi+phi){
-        for (i in 0:((360 %/% dtheta - 1)*rotate)*dtheta+theta){
+      for (i in 0:((360 %/% dtheta - 1)*rotate)*dtheta+theta){
           if (plot.errors){
             persp(x1.eval,
                   x2.eval,
                   lerr,
                   zlim = zlim,
                   col = persp.col,
-                  border = "grey",
+                  border = ifelse(!is.null(border),border,"grey"),
                   ticktype = "detailed",
                   xlab = "",
                   ylab = "",
                   zlab = "",
                   theta = i,
-                  phi = phi)
+                  phi = phi,
+                  lwd = ifelse(!is.null(lwd),lwd,1))
             par(new = TRUE)
           }
           
@@ -3397,15 +3507,15 @@ npplot.dbandwidth <-
                 x2.eval,
                 tdens,
                 zlim = zlim,
-                col= persp.col,
-                border = "black",
-                ticktype="detailed",
-                xlab=gen.label(names(xdat)[1], "X1"),
-                ylab=gen.label(names(xdat)[2], "X2"),
-                zlab="Joint Distribution",
+                col = persp.col,
+                border = ifelse(!is.null(border),border,"black"),
+                ticktype = "detailed",
+                xlab = ifelse(!is.null(xlab),xlab,gen.label(names(xdat)[1], "X1")),
+                ylab = ifelse(!is.null(ylab),ylab,gen.label(names(xdat)[2], "X2")),
+                zlab = ifelse(!is.null(zlab),zlab,"Joint Distribution"),
                 theta = i,
                 phi = phi,
-                main=gen.tflabel(!missing(main), main, paste("[theta= ", i,", phi= ", phi,"]", sep="")))
+                main = gen.tflabel(!is.null(main), main, paste("[theta= ", i,", phi= ", phi,"]", sep="")))
 
           if (plot.errors){
             par(new = TRUE)
@@ -3414,26 +3524,27 @@ npplot.dbandwidth <-
                   herr,
                   zlim = zlim,
                   col = persp.col,
-                  border = "grey",
+                  border = ifelse(!is.null(border),border,"grey"),
                   ticktype = "detailed",
                   xlab = "",
                   ylab = "",
                   zlab = "",
                   theta = i,
-                  phi = phi)
+                  phi = phi,
+                  lwd = ifelse(!is.null(lwd),lwd,1))
           }
 
           Sys.sleep(0.5)
-        }
-      ##}
+      }
+
 
       if (plot.behavior == "plot-data")
         return ( list(d1 = d1) )        
 
     } else {
 
-      if (plot.behavior != "data")
-        par(mfrow=dim.plot(bws$ndim))
+      if (plot.behavior != "data" && plot.par.mfrow)
+        par(mfrow=n2mfrow(bws$ndim))
 
       ev = xdat[1,,drop = FALSE]
 
@@ -3480,12 +3591,17 @@ npplot.dbandwidth <-
         ifelse(plot.errors, "ylim = c(min(na.omit(c(temp.dens - temp.err[,1], temp.err[,3] - temp.err[,1]))),
               max(na.omit(c(temp.dens + temp.err[,2], temp.err[,3] + temp.err[,2])))),", ""))
 
-      pxlabE = "xlab = gen.label(bws$xnames[i], paste('X', i, sep = '')),"
+      pxlabE = "xlab = ifelse(!is.null(xlab),xlab,gen.label(bws$xnames[i], paste('X', i, sep = ''))),"
 
-      pylabE = "ylab = 'Distribution',"
+      pylabE = "ylab = ifelse(!is.null(ylab),ylab,'Distribution'),"
 
-      prestE = expression(ifelse(xi.factor,"", "type = type, lty = 1,"))
-      pmainE = "main = main"
+      prestE = expression(ifelse(xi.factor,"", "type = ifelse(!is.null(type),type,'l'), lty = ifelse(!is.null(lty),lty,1),"))
+
+#      pmainE = "main = ifelse(!is.null(main),main,'')"
+      ## Hack (works) added color...
+      
+#      pmainE = "main = ifelse(!is.null(main),main,''), col = ifelse(!is.null(col),col,1)"
+      pmainE = "main = ifelse(!is.null(main),main,''), col = ifelse(!is.null(col),col,1), sub = ifelse(!is.null(sub),sub,''), lwd = ifelse(!is.null(lwd),lwd,1),"
 
       ## error plotting expressions
       plotOnEstimate = (plot.errors.center == "estimate")
@@ -3639,7 +3755,7 @@ npplot.dbandwidth <-
         }
       }
 
-      if (plot.behavior != "data")
+      if (plot.behavior != "data" && plot.par.mfrow)
         par(mfrow=c(1,1))
 
       if (plot.behavior != "plot"){
@@ -3655,15 +3771,31 @@ npplot.conbandwidth <-
            xdat,
            ydat,
            data = NULL,
-           xq = 0.5, yq = 0.5,
-           xtrim = 0.0, ytrim = 0.0, neval = 50,
+           xq = 0.5,
+           yq = 0.5,
+           xtrim = 0.0,
+           ytrim = 0.0,
+           neval = 50,
            gradients = FALSE,
-           common.scale = TRUE, perspective = TRUE,
-           main = "",
-           theta = 0.0, phi = 10.0,
-           tau = 0.5,
-           view = c("rotate","fixed"), type = "l",
+           common.scale = TRUE,
+           perspective = TRUE,
+           main = NULL,
+           type = NULL,
+           border = NULL,
+           col = NULL,
+           ylab = NULL,
+           xlab = NULL,
+           zlab = NULL,
+           sub = NULL,
            ylim = NULL,
+           xlim = NULL,
+           zlim = NULL,
+           lty = NULL,
+           lwd = NULL,
+           theta = 0.0,
+           phi = 10.0,
+           tau = 0.5,
+           view = c("rotate","fixed"),
            plot.behavior = c("plot","plot-data","data"),
            plot.errors.method = c("none","bootstrap","asymptotic"),
            plot.errors.boot.method = c("inid", "fixed", "geom"),
@@ -3672,13 +3804,18 @@ npplot.conbandwidth <-
            plot.errors.center = c("estimate","bias-corrected"),
            plot.errors.type = c("standard","quantiles"),
            plot.errors.quantiles = c(0.025,0.975),
-           plot.errors.style = c("bar","band"),
+           plot.errors.style = c("band","bar"),
            plot.errors.bar = c("|","I"),
            plot.errors.bar.num = min(neval,25),
            plot.bxp = FALSE,
            plot.bxp.out = TRUE,
+           plot.par.mfrow = TRUE,
            ...,
            random.seed){
+
+    if(!is.null(options('plot.par.mfrow')$plot.par.mfrow))
+        plot.par.mfrow <- options('plot.par.mfrow')$plot.par.mfrow      
+
     cdf <- FALSE
     quantreg <- FALSE
     miss.xy = c(missing(xdat),missing(ydat))
@@ -3886,11 +4023,13 @@ npplot.conbandwidth <-
 
       }
 
-      zlim =
-        if (plot.errors)
-          c(min(lerr),max(herr))
-        else
-          c(min(eval(tcomp)),max(eval(tcomp)))
+      if(is.null(zlim)) {
+          zlim =
+              if (plot.errors)
+                  c(min(lerr),max(herr))
+              else
+                  c(min(eval(tcomp)),max(eval(tcomp)))
+      }
 
       ## I am sorry it had to come to this ...
       tret = parse(text=paste(
@@ -3922,23 +4061,23 @@ npplot.conbandwidth <-
       dtheta = 5.0
       dphi = 10.0
 
-      persp.col = ifelse(plot.errors, FALSE, "lightblue")
+      persp.col = ifelse(plot.errors, FALSE, ifelse(!is.null(col),col,"lightblue"))
       
-      ##for (j in 0:((50 %/% dphi - 1)*rotate)*dphi+phi){
-        for (i in 0:((360 %/% dtheta - 1)*rotate)*dtheta+theta){
+      for (i in 0:((360 %/% dtheta - 1)*rotate)*dtheta+theta){
           if (plot.errors){
             persp(x1.eval,
                   x2.eval,
                   lerr,
                   zlim = zlim,
                   col = persp.col,
-                  border = "grey",
+                  border = ifelse(!is.null(border),border,"grey"),
                   ticktype = "detailed",
                   xlab = "",
                   ylab = "",
                   zlab = "",
                   theta = i,
-                  phi = phi)
+                  phi = phi,
+                  lwd = ifelse(!is.null(lwd),lwd,1))
             par(new = TRUE)
           }
 
@@ -3946,15 +4085,15 @@ npplot.conbandwidth <-
                 x2.eval,
                 tdens,
                 zlim = zlim,
-                col=persp.col,
-                border = "black",
-                ticktype="detailed",
-                xlab=gen.label(names(xdat)[1], "X"),
-                ylab=gen.label(names(ydat)[1], "Y"),
-                zlab=paste("Conditional", ifelse(cdf,"Distribution", "Density")),
+                col = persp.col,
+                border = ifelse(!is.null(border),border,"black"),
+                ticktype = "detailed",
+                xlab = ifelse(!is.null(xlab),xlab,gen.label(names(xdat)[1], "X")),
+                ylab = ifelse(!is.null(ylab),ylab,gen.label(names(ydat)[1], "Y")),
+                zlab = ifelse(!is.null(zlab),zlab,paste("Conditional", ifelse(cdf,"Distribution", "Density"))),
                 theta = i,
                 phi = phi,
-                main=gen.tflabel(!missing(main), main, paste("[theta= ", i,", phi= ", phi,"]", sep="")))
+                main = gen.tflabel(!is.null(main), main, paste("[theta= ", i,", phi= ", phi,"]", sep="")))
 
           if (plot.errors){
             par(new = TRUE)
@@ -3963,25 +4102,25 @@ npplot.conbandwidth <-
                   herr,
                   zlim = zlim,
                   col = persp.col,
-                  border = "grey",
+                  border = ifelse(!is.null(border),border,"grey"),
                   ticktype = "detailed",
                   xlab = "",
                   ylab = "",
                   zlab = "",
                   theta = i,
-                  phi = phi)
+                  phi = phi,
+                  lwd = ifelse(!is.null(lwd),lwd,1))
           }
 
           Sys.sleep(0.5)
-        }
-      ##}
+      }
     } else {
 
       dsf = ifelse(gradients,bws$xndim,1)
       tot.dim = bws$xndim + bws$yndim - quantreg
 
-      if (plot.behavior != "data")
-        par(mfrow=dim.plot(dsf*tot.dim))
+      if (plot.behavior != "data" && plot.par.mfrow)
+        par(mfrow=n2mfrow(dsf*tot.dim))
 
       x.ev = xdat[1,,drop = FALSE]
       y.ev = ydat[1,,drop = FALSE]
@@ -4046,16 +4185,18 @@ npplot.conbandwidth <-
         ifelse(plot.errors, "ylim = c(min(na.omit(c(temp.dens - temp.err[,1], temp.err[,3] - temp.err[,1]))),
               max(na.omit(c(temp.dens + temp.err[,2], temp.err[,3] + temp.err[,2])))),", ""))
 
-      pxlabE = expression(paste("xlab = gen.label(bws$",
-          xOrY, "names[i], paste('", toupper(xOrY),"', i, sep = '')),",sep=''))
+      pxlabE = expression(paste("xlab = ifelse(!is.null(xlab),xlab,gen.label(bws$",
+          xOrY, "names[i], paste('", toupper(xOrY),"', i, sep = ''))),",sep=''))
 
       tylabE = ifelse(quantreg, paste(tau, 'quantile'),
         paste('Conditional', ifelse(cdf,'Distribution', 'Density')))
 
-      pylabE = paste("ylab =", "paste(", ifelse(gradients,"'GC',j,'of',",''), "tylabE),")
+      pylabE = paste("ylab =", "ifelse(!is.null(ylab),ylab,paste(", ifelse(gradients,"'GC',j,'of',",''), "tylabE)),")
 
-      prestE = expression(ifelse(xi.factor,"", "type = type, lty = 1,"))
-      pmainE = "main = main"
+      prestE = expression(ifelse(xi.factor,"", "type = ifelse(!is.null(type),type,'l'), lty = ifelse(!is.null(lty),lty,1),"))
+#      pmainE = "main = ifelse(!is.null(main),main,'')"
+#      pmainE = "main = ifelse(!is.null(main),main,''), col = ifelse(!is.null(col),col,1)"
+      pmainE = "main = ifelse(!is.null(main),main,''), col = ifelse(!is.null(col),col,1), sub = ifelse(!is.null(sub),sub,''),"
 
       ## error plotting expressions
       plotOnEstimate = (plot.errors.center == "estimate")
@@ -4381,7 +4522,7 @@ npplot.conbandwidth <-
         }
       }
 
-      if (plot.behavior != "data")
+      if (plot.behavior != "data" && plot.par.mfrow)
         par(mfrow=c(1,1))
 
       if (plot.behavior != "plot"){
@@ -4396,15 +4537,32 @@ npplot.condbandwidth <-
            xdat,
            ydat,
            data = NULL,
-           xq = 0.5, yq = 0.5,
-           xtrim = 0.0, ytrim = 0.0, neval = 50,
-           quantreg = FALSE, gradients = FALSE,
-           common.scale = TRUE, perspective = TRUE,
-           main = "",
-           theta = 0.0, phi = 10.0,
-           tau = 0.5,
-           view = c("rotate","fixed"), type = "l",
+           xq = 0.5,
+           yq = 0.5,
+           xtrim = 0.0,
+           ytrim = 0.0,
+           neval = 50,
+           quantreg = FALSE,
+           gradients = FALSE,
+           common.scale = TRUE,
+           perspective = TRUE,
+           main = NULL,
+           type = NULL,
+           border = NULL,
+           col = NULL,
+           ylab = NULL,
+           xlab = NULL,
+           zlab = NULL,
+           sub = NULL,
            ylim = NULL,
+           xlim = NULL,
+           zlim = NULL,
+           lty = NULL,
+           lwd = NULL,
+           theta = 0.0,
+           phi = 10.0,
+           tau = 0.5,
+           view = c("rotate","fixed"),
            plot.behavior = c("plot","plot-data","data"),
            plot.errors.method = c("none","bootstrap","asymptotic"),
            plot.errors.boot.method = c("inid", "fixed", "geom"),
@@ -4413,14 +4571,18 @@ npplot.condbandwidth <-
            plot.errors.center = c("estimate","bias-corrected"),
            plot.errors.type = c("standard","quantiles"),
            plot.errors.quantiles = c(0.025,0.975),
-           plot.errors.style = c("bar","band"),
+           plot.errors.style = c("band","bar"),
            plot.errors.bar = c("|","I"),
            plot.errors.bar.num = min(neval,25),
            plot.bxp = FALSE,
            plot.bxp.out = TRUE,
+           plot.par.mfrow = TRUE,
            ...,
            random.seed){
 
+    if(!is.null(options('plot.par.mfrow')$plot.par.mfrow))
+        plot.par.mfrow <- options('plot.par.mfrow')$plot.par.mfrow
+      
     cdf <- TRUE
     miss.xy = c(missing(xdat),missing(ydat))
     
@@ -4663,23 +4825,23 @@ npplot.condbandwidth <-
       dtheta = 5.0
       dphi = 10.0
 
-      persp.col = ifelse(plot.errors, FALSE, "lightblue")
+      persp.col = ifelse(plot.errors, FALSE, ifelse(!is.null(col),col,"lightblue"))
       
-      ##for (j in 0:((50 %/% dphi - 1)*rotate)*dphi+phi){
-        for (i in 0:((360 %/% dtheta - 1)*rotate)*dtheta+theta){
+      for (i in 0:((360 %/% dtheta - 1)*rotate)*dtheta+theta){
           if (plot.errors){
             persp(x1.eval,
                   x2.eval,
                   lerr,
                   zlim = zlim,
                   col = persp.col,
-                  border = "grey",
+                  border = ifelse(!is.null(border),border,"grey"),
                   ticktype = "detailed",
                   xlab = "",
                   ylab = "",
                   zlab = "",
                   theta = i,
-                  phi = phi)
+                  phi = phi,
+                  lwd = ifelse(!is.null(lwd),lwd,1))
             par(new = TRUE)
           }
 
@@ -4687,15 +4849,15 @@ npplot.condbandwidth <-
                 x2.eval,
                 tdens,
                 zlim = zlim,
-                col=persp.col,
-                border = "black",
-                ticktype="detailed",
-                xlab=gen.label(names(xdat)[1], "X"),
-                ylab=gen.label(names(ydat)[1], "Y"),
-                zlab=paste("Conditional", ifelse(cdf,"Distribution", "Density")),
+                col = persp.col,
+                border = ifelse(!is.null(border),border,"black"),
+                ticktype = "detailed",
+                xlab = ifelse(!is.null(xlab),xlab,gen.label(names(xdat)[1], "X")),
+                ylab = ifelse(!is.null(ylab),ylab,gen.label(names(ydat)[1], "Y")),
+                zlab = ifelse(!is.null(zlab),zlab,paste("Conditional", ifelse(cdf,"Distribution", "Density"))),
                 theta = i,
                 phi = phi,
-                main=gen.tflabel(!missing(main), main, paste("[theta= ", i,", phi= ", phi,"]", sep="")))
+                main = gen.tflabel(!is.null(main), main, paste("[theta= ", i,", phi= ", phi,"]", sep="")))
 
           if (plot.errors){
             par(new = TRUE)
@@ -4704,25 +4866,25 @@ npplot.condbandwidth <-
                   herr,
                   zlim = zlim,
                   col = persp.col,
-                  border = "grey",
+                  border = ifelse(!is.null(border),border,"grey"),
                   ticktype = "detailed",
                   xlab = "",
                   ylab = "",
                   zlab = "",
                   theta = i,
-                  phi = phi)
+                  phi = phi,
+                  lwd = ifelse(!is.null(lwd),lwd,1))
           }
 
           Sys.sleep(0.5)
         }
-      ##}
     } else {
 
       dsf = ifelse(gradients,bws$xndim,1)
       tot.dim = bws$xndim + bws$yndim - quantreg
 
-      if (plot.behavior != "data")
-        par(mfrow=dim.plot(dsf*tot.dim))
+      if (plot.behavior != "data" && plot.par.mfrow)
+        par(mfrow=n2mfrow(dsf*tot.dim))
 
       x.ev = xdat[1,,drop = FALSE]
       y.ev = ydat[1,,drop = FALSE]
@@ -4787,16 +4949,18 @@ npplot.condbandwidth <-
         ifelse(plot.errors, "ylim = c(min(na.omit(c(temp.dens - temp.err[,1], temp.err[,3] - temp.err[,1]))),
               max(na.omit(c(temp.dens + temp.err[,2], temp.err[,3] + temp.err[,2])))),", ""))
 
-      pxlabE = expression(paste("xlab = gen.label(bws$",
-          xOrY, "names[i], paste('", toupper(xOrY),"', i, sep = '')),",sep=''))
+      pxlabE = expression(paste("xlab = ifelse(!is.null(xlab),xlab,gen.label(bws$",
+          xOrY, "names[i], paste('", toupper(xOrY),"', i, sep = ''))),",sep=''))
 
       tylabE = ifelse(quantreg, paste(tau, 'quantile'),
         paste('Conditional', ifelse(cdf,'Distribution', 'Density')))
 
       pylabE = paste("ylab =", "paste(", ifelse(gradients,"'GC',j,'of',",''), "tylabE),")
 
-      prestE = expression(ifelse(xi.factor,"", "type = type, lty = 1,"))
-      pmainE = "main = main"
+      prestE = expression(ifelse(xi.factor,"", "type = ifelse(!is.null(type),type,'l'), lty = ifelse(!is.null(lty),lty,1),"))
+#      pmainE = "main = ifelse(!is.null(main),main,'')"
+#      pmainE = "main = ifelse(!is.null(main),main,''), col = ifelse(!is.null(col),col,1)"
+      pmainE = "main = ifelse(!is.null(main),main,''), col = ifelse(!is.null(col),col,1), sub = ifelse(!is.null(sub),sub,''),"
 
       ## error plotting expressions
       plotOnEstimate = (plot.errors.center == "estimate")
@@ -5122,7 +5286,7 @@ npplot.condbandwidth <-
         }
       }
 
-      if (plot.behavior != "data")
+      if (plot.behavior != "data" && plot.par.mfrow)
         par(mfrow=c(1,1))
 
       if (plot.behavior != "plot"){
@@ -5139,8 +5303,16 @@ npplot.sibandwidth <-
            data = NULL,
            common.scale = TRUE,
            gradients = FALSE,
-           main = "", type = "l",
+           main = NULL,
+           type = NULL,
+           col = NULL,
+           ylab = NULL,
+           xlab = NULL,
+           sub = NULL,
            ylim = NULL,
+           xlim = NULL,
+           lty = NULL,
+           lwd = NULL,
            plot.behavior = c("plot","plot-data","data"),
            plot.errors.method = c("none","bootstrap","asymptotic"),
            plot.errors.boot.num = 399,
@@ -5149,9 +5321,10 @@ npplot.sibandwidth <-
            plot.errors.center = c("estimate","bias-corrected"),
            plot.errors.type = c("standard","quantiles"),
            plot.errors.quantiles = c(0.025,0.975),
-           plot.errors.style = c("bar","band"),
+           plot.errors.style = c("band","bar"),
            plot.errors.bar = c("|","I"),
            plot.errors.bar.num = NULL,
+           plot.par.mfrow = TRUE,
            ...,
            random.seed){
 
@@ -5224,9 +5397,8 @@ npplot.sibandwidth <-
     plot.errors = (plot.errors.method != "none")
 
 
-    if (plot.behavior != "data")
-      par(mfrow=if(gradients) dim.plot(bws$ndim) else c(1,1))
-
+    if (plot.behavior != "data" && plot.par.mfrow)
+      par(mfrow=if(gradients) n2mfrow(bws$ndim) else c(1,1))
 
     plot.out = list()
 
@@ -5284,12 +5456,16 @@ npplot.sibandwidth <-
       if (plot.behavior != "data"){      
         if (plot.errors){
           plot(tobj$index[i.sort], temp.mean[i.sort],
-               ylim = c(ymin,ymax),
-               xlab = "index",
-               ylab = gen.label(bws$ynames, 'Conditional Mean'),
-               type = type,
-               lty = 1,
-               main = main)
+               ylim = ifelse(!is.null(ylim),ylim,c(ymin,ymax)),
+               xlim = xlim,
+               xlab = ifelse(!is.null(xlab),xlab,"index"),
+               ylab = ifelse(!is.null(ylab),ylab,gen.label(bws$ynames, 'Conditional Mean')),
+               type = ifelse(!is.null(type),type,'l'),
+               lty = ifelse(!is.null(lty),lty,1),
+               col = ifelse(!is.null(col),col,1),
+               main = main,
+               sub = sub,
+               lwd = ifelse(!is.null(lwd),lwd,1))
           if (plot.errors.center == "estimate") {
             draw.errors(ex = na.omit(tobj$index[i.sort]),
                         ely = na.omit(temp.mean[i.sort] - temp.err[i.sort,1]),
@@ -5310,11 +5486,16 @@ npplot.sibandwidth <-
           }
         } else {
           plot(tobj$index[i.sort], temp.mean[i.sort],
-               xlab = "Index",
-               ylab = gen.label(bws$ynames, 'Conditional Mean'),
-               type = type,
-               lty = 1,
-               main = main)
+               xlab = ifelse(!is.null(xlab),xlab,"Index"),
+               ylab = ifelse(!is.null(ylab),ylab,gen.label(bws$ynames, 'Conditional Mean')),
+               type = ifelse(!is.null(type),type,'l'),
+               lty = ifelse(!is.null(lty),lty,1),
+               col = ifelse(!is.null(col),col,1),
+               main = main,
+               sub = sub,
+               xlim = xlim,
+               ylim = ylim,
+               lwd = ifelse(!is.null(lwd),lwd,1))
         }
       }
 
@@ -5365,11 +5546,14 @@ npplot.sibandwidth <-
             
             plot(tobj$index[i.sort], temp.mean[i.sort]*bws$beta[i],
                  ylim = ylim,
-                 xlab = "Index",
+                 xlab = ifelse(!is.null(xlab),xlab,"index"),
                  ylab = paste("Gradient Component",i, "of", gen.label(bws$ynames, 'Conditional Mean')),
-                 type = type,
-                 lty = 1,
-                 main = main)
+                 lty = ifelse(!is.null(lty),lty,1),
+                 col = ifelse(!is.null(col),col,1),
+                 type = ifelse(!is.null(type),type,'l'),
+                 main = main,
+                 sub = sub,
+                 lwd = ifelse(!is.null(lwd),lwd,1))
             
             if (plot.errors){
               if (plot.errors.center == "estimate") {
@@ -5403,10 +5587,7 @@ npplot.sibandwidth <-
         }
       }
     
-
-    
-    
-    if (plot.behavior != "data")
+    if (plot.behavior != "data" && plot.par.mfrow)
       par(mfrow=c(1,1))
     
     if (plot.behavior != "plot"){

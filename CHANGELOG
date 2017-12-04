@@ -1,9 +1,58 @@
+Changes from Version 0.60-3 to 0.60-4 [03-Dec-2017]
+
+* Default plot.errors.style changed to "band"
+
+* Using wrapLines(strwrap(...)) for summary output for model specification
+  test to automatically wrap long formula lines
+
+* plot() calls npplot() and npplot() behaves better when most passable
+  parameters are fed (col =, lty =, xlab =, etc.) but there may still
+  be room for improvement
+
+* Added option plot.par.mfrow=TRUE/FALSE to npplot() so that the
+  automated setting of par(mfrow=c(,)) in plot is disabled and the
+  user can do this manually if desired
+
+* Option plot.par.mfrow=TRUE/FALSE can be overridden by setting
+  options(plot.par.mfrow=TRUE/FALSE)
+
 Changes from Version 0.60-2 to 0.60-3 [29-Apr-2017]
 
-* fixed the `cannot find function is()' glitch that just surfaced with R 3.4.0
+* Fixed the `cannot find function is()' glitch that just surfaced with R 3.4.0
 
-* fixed glitch in npconmode when randomizing if all probabilities
-  are equal
+* Fixed glitch in npconmode when randomizing if all probabilities are equal
+
+* Migrated some code from crs (which I wrote) to avoid crs:::
+
+* Fixed	outstanding glitch in npscoef() with tydat being converted
+
+* Leave.one.out not properly implemented in npscoef, corrected
+
+* Using pmin/pmax in NZD (parallel min/max more efficient with vectors)
+
+* Improved screen i/o when smooth.residuals=TRUE/FALSE
+
+* Corrected glitch in npregiv() where multivariate z would halt with error
+
+* Npregiv with method="Landweber-Fridman" no longer passes back lists
+
+* Fixed glitch in Kmat.lp with p=0 and derivatives
+
+* Tikhonov regularization in npregiv now supports evaluation data
+
+* Updated npregiv (was sorely lacking, did not support eval etc.)
+
+* Use of .onLoad suggested (by Bernd Bischl)
+
+* Fixed glitch in npconmode
+
+* Added vignette("entropy_np",package="np") to startup message
+
+* In np.distribution.bw.R default for do.full.integral changed to FALSE
+
+* Fixed the CDF objective function when averaging over the training data
+
+* Fixed crash error with npcdistbw and adaptive bandwidths
 
 Changes from Version 0.60-1 to 0.60-2 [27-Jun-2014]
 

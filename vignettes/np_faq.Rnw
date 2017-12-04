@@ -1,4 +1,4 @@
-%% $Id: np_faq.tex,v 1.97 2016/07/14 13:19:29 jracine Exp jracine $
+%% $Id: np_faq.tex,v 1.98 2017/04/29 16:30:01 jracine Exp jracine $
 %\VignetteIndexEntry{Frequently Asked Questions (np)}
 %\VignetteDepends{np}
 %\VignetteKeywords{nonparametric, kernel, categorical}
@@ -59,7 +59,7 @@ to others, kindly email me the relevant information and I will
 incorporate it into this FAQ.
 
 This FAQ refers to the most recent version, which as of this writing
-is 0.60-3. Kindly update your version should you not be using the most
+is 0.60-4. Kindly update your version should you not be using the most
 current (from within R, \texttt{update.packages()} ought to do it,
 though also see \ref{update} below.). See the appendix in this file
 for cumulative changes between this and previous versions of the
@@ -575,31 +575,6 @@ plot(n.seq.aug,time.fcst/3600,type="b",
      "hours"))
 \end{verbatim}
   \end{singlespacing}
-
-\subsection{I estimated a parametric model using the
-  \texttt{lm()} function. How can I compare the cross-validation score
-  from the \texttt{npreg()} approach with that for the parametric
-  model?}
-
-This can be readily achieved for the parametric model as follows:
-\begin{verbatim}
-data(wage1)
-model.lm <- lm(lwage ~ married + female + nonwhite + educ +
-                       exper + tenure, data = wage1)
-cv.lm <-mean(residuals(model.lm)^2/(1-hatvalues(model.lm))^2)                                      
-cv.lm
-\end{verbatim}
-You can then compare \verb+cv.lm+ with the cross-validation score for
-the \verb+npreg+ object as follows: if your model is named \verb+foo+
-(i.e.\ you ran something like \verb^foo <- npreg(y~x1+x2)^) then
-\verb+summary(foo$bws)+ will give you a summary of the model's
-bandwidth object (the value of the objective function is the
-cross-validation score), while \verb+foo$bws$fval+ will give you the
-function value, i.e.\ the value of the cross-validation function, {\em
-  provided} that the model was estimated via least-squares
-cross-validation (default, \verb+bwmethod="cv.ls"+). If the
-cross-validation score is lower for one model, that indicates that the
-model possessing the lowest score is to be preferred.
 
 \subsection{Where can I get some examples of R code for the np
   package in addition to the examples in the help files?}
@@ -1830,14 +1805,68 @@ cbind(t.uniquecombs[1],t.npreg[1])
 
 \appendix
 
-\section*{Changes from Version 0.60-2 to 0.60-3 [29-Apr-201]}
+\section*{Changes from Version 0.60-3 to 0.60-4 [03-Dec-2017]}
 
 \begin{itemize}
 
-\item fixed the `cannot find function \texttt{is()}' glitch that just surfaced with R 3.4.0
+\item Default \texttt{plot.errors.style} changed to \texttt{"band"}
 
-\item fixed glitch in \texttt{npconmode()} when randomizing if all probabilities
+\item Using \texttt{wrapLines(strwrap(...))} for summary output for
+  model specification test to automatically wrap long formula lines
+
+\item \texttt{plot()} calls \texttt{npplot()} and \texttt{npplot()}
+  behaves better when most passable parameters are fed (\texttt{col
+    =}, \texttt{lty =}, \texttt{xlab =}, etc.) but there may still be
+  room for improvement
+
+\item Added option \texttt{plot.par.mfrow=TRUE/FALSE} to
+  \texttt{npplot()} so that the automated setting of
+  \texttt{par(mfrow=c(,))} in plot is disabled and the user can do
+  this manually if desired
+
+\item Option \texttt{plot.par.mfrow=TRUE/FALSE} can be overridden by
+  setting \texttt{options(plot.par.mfrow=TRUE/FALSE)}
+
+\end{itemize}
+
+\section*{Changes from Version 0.60-2 to 0.60-3 [29-Apr-2017]}
+
+\begin{itemize}
+
+\item Fixed the `cannot find function \texttt{is()}' glitch that just surfaced with R 3.4.0
+
+\item Fixed glitch in \texttt{npconmode()} when randomizing if all probabilities
   are equal
+
+\item Migrated some code from crs (which I wrote) to avoid \texttt{crs:::}
+
+\item Fixed	outstanding glitch in \texttt{npscoef()} with \texttt{tydat}
+
+\item Option \texttt{leave.one.out} not properly implemented in \texttt{npscoef()}, corrected
+
+\item Using pmin/pmax in NZD (parallel min/max more efficient with vectors)
+
+\item Improved screen i/o when \texttt{smooth.residuals=TRUE/FALSE}
+
+\item Corrected glitch in \texttt{npregiv()} where multivariate z would halt with error
+
+\item \texttt{npregiv()} with \texttt{method="Landweber-Fridman"} no longer passes back lists
+
+\item Fixed glitch in \texttt{Kmat.lp} with p=0 and derivatives
+
+\item Tikhonov regularization in \texttt{npregiv()} now supports evaluation data
+
+\item Updated \texttt{npregiv()} (was sorely lacking, did not support eval etc.)
+
+\item Use of \texttt{.onLoad} suggested (by Bernd Bischl)
+
+\item Added \texttt{vignette("entropy\_np",package="np")} to startup message
+
+\item In \texttt{np.distribution.bw.R} default for \texttt{do.full.integral} changed to FALSE
+
+\item Fixed the CDF objective function when averaging over the training data
+
+\item Fixed crash error with \texttt{npcdistbw()} and adaptive bandwidths
 
 \end{itemize}
 
