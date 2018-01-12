@@ -1,5 +1,5 @@
-97713d1f84f47287908f7fe8d1f53614 *CHANGELOG
-9b468618d8dabcf89843bbb4d59de02b *DESCRIPTION
+2e2e8a6a42d5648bc773933e2ab3e0ee *CHANGELOG
+42f88602ca45f778c81d23c31310aed5 *DESCRIPTION
 3ebe2f6d8c5cd7a2a5e2332b85b8594a *NAMESPACE
 e0b715813869a0f45e222863721d6383 *R/b.star.R
 03b52d18b59fa36e108a305b5799ad20 *R/bandwidth.R
@@ -49,9 +49,9 @@ a7053693a3cf0ba2d399b7ddd3bda465 *R/np.smoothcoef.R
 9b9f909503883260a54bd5042d9196c4 *R/np.symtest.R
 f49f01d26e05aaa2c67e9ec1cb7a6352 *R/np.unitest.R
 c97fe461b05e4176771e0222b9def184 *R/npregiv.R
-d558df805045ba19d6574451440c8a11 *R/npregivderiv.R
-a1dc5423aa5b8545743b9dc4ab183a90 *R/npuniden.boundary.R
-7525d653bb10418f7e25ea567f521e25 *R/npuniden.reflect.R
+368d9844f238f2d81e157afedcbaf515 *R/npregivderiv.R
+a22513fdd1879efcc7a0521133b60943 *R/npuniden.boundary.R
+38da8ff270f419e905ba8978d23c1aa9 *R/npuniden.reflect.R
 4b40784e64e9a222c6ad4e8325b38701 *R/plbandwidth.R
 523432d5dc7eeb4595a53549bb43923f *R/plregression.R
 8a6c2dc129eefa3b28e7828a8a79dd03 *R/qregression.R
@@ -65,8 +65,8 @@ a1dc5423aa5b8545743b9dc4ab183a90 *R/npuniden.boundary.R
 5510d1ba7b0c85f9d763fe6a2cec27a1 *R/smoothcoefficient.R
 067c61c6f97e33bdfddcd73944647a39 *R/symtest.R
 2e9502d45ba2bd09f44655f219058616 *R/unitest.R
-461a6f3149c8a730b194458338e5f5ad *R/util.R
-7d02e12fd7adc29fe2c2831c00adfcfd *R/zzz.R
+999f2dfed1cb9054b11045f0205e89d9 *R/util.R
+6a03b6ae0bbdfaf0fb50d8a1b725ceb7 *R/zzz.R
 ee1eebb67e9afafc44bb7841d412dcc3 *README.md
 97ace12fba3985a0210eabd0c0ef7056 *build/vignette.rds
 430e97b1c0eb9accf370997c058d9fa6 *cleanup
@@ -84,12 +84,12 @@ db76c60075997a5c88e8583e70ed274c *inst/CITATION
 371ac3437cacde0134516d8db3cb1b74 *inst/COPYRIGHTS
 f3c7b188cec00a46ba8f6e6db0ac797d *inst/doc/entropy_np.R
 b67ea10c654a441e16cf2867e8c2d76f *inst/doc/entropy_np.Rnw
-f673dae6a6897f2fcf0cd55b9e9d3ff7 *inst/doc/entropy_np.pdf
+83c1abb58e632c540d20c7e9ed21922b *inst/doc/entropy_np.pdf
 e1656877ac7b0d52dbbdbc7cb44f5dee *inst/doc/np.R
 04b92fdca5840ff9cd9efc0498e3f7a4 *inst/doc/np.Rnw
-9ee7cd91912adcfe29887aa474bb17c3 *inst/doc/np.pdf
-b80f597113af0a5db09d3f7cea74f06a *inst/doc/np_faq.Rnw
-9b571c590aa391944a18635f9b138c76 *inst/doc/np_faq.pdf
+a7e5a4af2a23c5dacaab757c6a29b74f *inst/doc/np.pdf
+1d752b17c00a0612992cf23bdb574154 *inst/doc/np_faq.Rnw
+8862ce0a129e89ac4939ef0f7e2065ee *inst/doc/np_faq.pdf
 b56a4ae3710e6ca3559d561c11b1b89e *inst/kernels.max
 6dc34fd3b11eafeed28a33be0c84e275 *man/b.star.Rd
 7f263d5770001bd2d7d9d0a52a559365 *man/data-Engel95.Rd
@@ -133,8 +133,8 @@ a9c016ac86ed36852c360b76afa36057 *man/np.singleindex.bw.Rd
 92733e27479be495f9fd8e5c0127058d *man/np.unitest.Rd
 933fdc1f9c8f8be7648f6d52af6956b2 *man/npseed.Rd
 38bedbd6d543f8168338b4dfcdcbd684 *man/nptgauss.Rd
-79cf6137ef45cafbb2d7c3edba3f124c *man/npuniden.boundary.Rd
-055af89a047fca2d9b8f838c5443ff46 *man/npuniden.reflect.Rd
+2c9acc286a1aa9b0f4bc9b2be7bb38bf *man/npuniden.boundary.Rd
+a9729b4eb2a1aef03d54f83c2ec3fd49 *man/npuniden.reflect.Rd
 6a87876893f96789a536cdbc1cfadda9 *man/se.Rd
 3b4c2c7fac258d22319d508092844bc9 *man/uocquantile.Rd
 51fcf3bebf204c85abad85e9c226f539 *src/Makevars.win
@@ -165,5 +165,5 @@ b67ea10c654a441e16cf2867e8c2d76f *vignettes/entropy_np.Rnw
 86546679856047afedfcfda79ec96d85 *vignettes/entropy_np.bib
 04b92fdca5840ff9cd9efc0498e3f7a4 *vignettes/np.Rnw
 9a2df63ffd95b051d5d1f7b77dd5f0f8 *vignettes/np.bib
-b80f597113af0a5db09d3f7cea74f06a *vignettes/np_faq.Rnw
+1d752b17c00a0612992cf23bdb574154 *vignettes/np_faq.Rnw
 e6050d339afab18310efe5c78d8a4188 *vignettes/np_faq.bib
