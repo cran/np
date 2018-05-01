@@ -1,7 +1,7 @@
 Package: np
-Version: 0.60-6
-Date: 2018-01-12
-Imports: boot, cubature, methods, quantreg, stats
+Version: 0.60-7
+Date: 2018-05-01
+Imports: boot, cubature, methods, quadprog, quantreg, stats
 Suggests: MASS
 Title: Nonparametric Kernel Smoothing Methods for Mixed Data Types
 Authors@R: c(person(given = "Jeffrey S.", family = "Racine", role = c("aut","cre"), email = "racinej@mcmaster.ca"),
@@ -13,7 +13,7 @@ URL: https://github.com/JeffreyRacine/R-Package-np
 BugReports: https://github.com/JeffreyRacine/R-Package-np/issues
 Repository: CRAN
 NeedsCompilation: yes
-Packaged: 2018-01-12 21:35:24 UTC; jracine
+Packaged: 2018-05-01 13:44:39 UTC; jracine
 Author: Jeffrey S. Racine [aut, cre],
   Tristen Hayfield [aut]
-Date/Publication: 2018-01-13 00:06:54 UTC
+Date/Publication: 2018-05-01 14:59:19 UTC

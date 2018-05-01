@@ -17,6 +17,7 @@
 
 \usage{
 npuniden.reflect(X = NULL,
+                 Y = NULL,
                  h = NULL,
                  a = 0,
                  b = 1,
@@ -24,7 +25,10 @@ npuniden.reflect(X = NULL,
 }
 \arguments{
   \item{X}{
-a numeric vector of data
+a required numeric vector of training data lying in \eqn{[a,b]}
+}
+  \item{Y}{
+an optional numeric vector of evaluation data lying in \eqn{[a,b]}
 }
   \item{h}{
 an optional bandwidth (>0)
@@ -132,7 +136,7 @@ data(cps71)
 attach(cps71)
 model <- npuniden.reflect(age,a=21,b=65)
 par(mfrow=c(1,1))
-hist(age,prob=T,main="",ylim=c(0,max(model$f)))
+hist(age,prob=TRUE,main="",ylim=c(0,max(model$f)))
 lines(age,model$f)
 lines(density(age,bw=model$h),col=2)
 legend("topright",c("Data-Reflection","Unadjusted"),lty=c(1,1),col=1:2,bty="n")

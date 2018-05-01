@@ -21,21 +21,26 @@
 
 \usage{
 npuniden.boundary(X = NULL,
+                  Y = NULL,
                   h = NULL,
                   a = 0,
                   b = 1,
-                  kertype=c("gaussian1","gaussian2",
+                  bwmethod = c("cv.ls","cv.ml"),
+                  cv = c("grid-hybrid","numeric"),
+                  grid = NULL,
+                  kertype = c("gaussian1","gaussian2",
                             "beta1","beta2",
                             "fb","fbl","fbu",
                             "rigaussian","gamma"),
-                  cv = c("grid-hybrid","numeric"),
-                  bwmethod=c("cv.ls","cv.ml"),
-                  grid = NULL,
-                  nmulti = 5)
+                  nmulti = 5,
+                  proper = FALSE)
 }
 \arguments{
   \item{X}{
-a numeric vector of data
+a required numeric vector of training data lying in \eqn{[a,b]}
+}
+  \item{Y}{
+an optional numeric vector of evaluation data lying in \eqn{[a,b]}
 }
   \item{h}{
 an optional bandwidth (>0)
@@ -46,22 +51,26 @@ an optional lower bound (defaults to 0)
   \item{b}{
 an optional upper bound (defaults to 1)
 }
-  \item{kertype}{
-an optional kernel specification (defaults to "gaussian1")
+  \item{bwmethod}{
+whether to conduct bandwidth search via least squares cross-validation
+(\code{"cv.ls"}) or likelihood cross-validation (\code{"cv.ml"})
 }
   \item{cv}{
 an optional argument for search (default is likely more reliable in the
 presence of local maxima)
 }
-  \item{bwmethod}{
-whether to conduct bandwidth search via least squares cross-validation
-(\code{"cv.ls"}) or likelihood cross-validation (\code{"cv.ml"})
-}
   \item{grid}{
 an optional grid used for the initial grid search when \code{cv="grid-hybrid"}
 }
+  \item{kertype}{
+an optional kernel specification (defaults to "gaussian1")
+}
   \item{nmulti}{
 number of multi-starts used when \code{cv="numeric"} (defaults to 5)
+}
+  \item{proper}{
+an optional logical value indicating whether to enforce proper density
+and distribution function estimates over the range \eqn{[a,b]}
 }
 }
 \details{
@@ -72,7 +81,7 @@ number of multi-starts used when \code{cv="numeric"} (defaults to 5)
   }
 
   \code{npuniden.boundary} implements a variety of methods for
-  estimating a univariate density functions defined over a continuous
+  estimating a univariate density function defined over a continuous
   random variable in the presence of bounds via the use of so-called
   boundary or edge kernel functions.
 
@@ -126,6 +135,15 @@ number of multi-starts used when \code{cv="numeric"} (defaults to 5)
   avoid being victimized by the particular boundary kernel
   chosen. Artifacts can unfortunately be introduced by the choice of the
   support interval for the boundary kernel.}
+
+  Note that since some kernel functions can assume negative values, this
+  can lead to improper density estimates. The estimated distribution
+  function is obtained via numerical integration of the estimated
+  density function and may itself not be proper even when evaluated on
+  the full range of the data \eqn{[a,b]}. Setting the option
+  \code{proper=TRUE} will render the density and distribution estimates
+  proper over the full range of the data, though this may not in
+  general be a mean square error optimal strategy.
 
   Finally, note that this function is pretty bare-bones relative to
   other functions in this package. For one, at this time there is no
@@ -203,7 +221,7 @@ model.b1 <- npuniden.boundary(X,kertype="beta1")
 model.b2 <- npuniden.boundary(X,kertype="beta2")
 model.fb <- npuniden.boundary(X,kertype="fb")
 model.unadjusted <- npuniden.boundary(X,a=-Inf,b=Inf)
-ylim <- c(0,max(c(dgp,model.g1$f,model.g2$f)))
+ylim <- c(0,max(c(dgp,model.g1$f,model.g2$f,model.b1$f,model.b2$f,model.fb$f)))
 plot(X,dgp,ylab="Density",ylim=ylim,type="l")
 lines(X,model.g1$f,lty=2,col=2)
 lines(X,model.g2$f,lty=3,col=3)
@@ -247,7 +265,7 @@ data(cps71)
 attach(cps71)
 model <- npuniden.boundary(age,a=21,b=65)
 par(mfrow=c(1,1))
-hist(age,prob=T,main="")
+hist(age,prob=TRUE,main="")
 lines(age,model$f)
 lines(density(age,bw=model$h),col=2)
 legend("topright",c("Boundary Kernel","Unadjusted"),lty=c(1,1),col=1:2,bty="n")
