@@ -1,5 +1,5 @@
-1afbf3a54ef0d7a620bc0270631fef7a *CHANGELOG
-acebcf8d92e1aca6a276a3aace6c8036 *DESCRIPTION
+34eb06524050708b0a0b3143e633a5f2 *CHANGELOG
+d689fed162d4f5d2504a973846c77d97 *DESCRIPTION
 ba8378a2064570e883da3fb43e9c2fe3 *NAMESPACE
 e0b715813869a0f45e222863721d6383 *R/b.star.R
 03b52d18b59fa36e108a305b5799ad20 *R/bandwidth.R
@@ -20,9 +20,9 @@ d4e4a09c2697eb0a3df02236d9a65607 *R/distribution.R
 d595fc120a360f3eb72213776f63c987 *R/kernelsum.R
 f9722075fc7df17c2a1af2c68b52245d *R/np.cmstest.R
 2689e29a1db4de9fae1a7daed7aa042d *R/np.condensity.R
-27e0aea08465e53c5317fd4f260da806 *R/np.condensity.bw.R
+2454710f71e888aeedb2e5ca601d11a3 *R/np.condensity.bw.R
 05b9bcdf3e751fd8c6210dbacd1f2230 *R/np.condistribution.R
-ada706223f38da1dda980ad4da5566be *R/np.condistribution.bw.R
+ccc590bc2f9b1ba6e065d7826146f214 *R/np.condistribution.bw.R
 e9dc5109c9fb397eaedb32de22e3088d *R/np.conmode.R
 50d43f1cccc75d6586c3d9da2fa98623 *R/np.copula.R
 90b5927e59e65c966b0c6a809fdeb04b *R/np.deneqtest.R
@@ -67,7 +67,7 @@ baa87d9d566102057dcc87dbe529b591 *R/sdeptest.R
 a530bd9567afdca16961e655f60409ce *R/symtest.R
 d5ff361ad9b3a1d8a4aba28305e91d38 *R/unitest.R
 c799b3ad394d69db0661bb43dd08a972 *R/util.R
-7c0193d433ca36dad95d119b92621806 *R/zzz.R
+79a149b47134072645c85e4ddb627069 *R/zzz.R
 ee1eebb67e9afafc44bb7841d412dcc3 *README.md
 787fc2bac8acca49b35b9739e5493818 *build/vignette.rds
 430e97b1c0eb9accf370997c058d9fa6 *cleanup
@@ -85,12 +85,12 @@ db76c60075997a5c88e8583e70ed274c *inst/CITATION
 371ac3437cacde0134516d8db3cb1b74 *inst/COPYRIGHTS
 f3c7b188cec00a46ba8f6e6db0ac797d *inst/doc/entropy_np.R
 b67ea10c654a441e16cf2867e8c2d76f *inst/doc/entropy_np.Rnw
-d179e494a2ba362e9d78ba5450794ba3 *inst/doc/entropy_np.pdf
+5783a78edcad0d3a2acb597d309f6d68 *inst/doc/entropy_np.pdf
 e1656877ac7b0d52dbbdbc7cb44f5dee *inst/doc/np.R
 04b92fdca5840ff9cd9efc0498e3f7a4 *inst/doc/np.Rnw
-bb69d5ad4b279421c4ef64d8904658a3 *inst/doc/np.pdf
-33852d9244bc50e15b6fa5132d98ae36 *inst/doc/np_faq.Rnw
-2bae3d0bb7fb65069d17eb3f2f7b2d3b *inst/doc/np_faq.pdf
+dfed26c0d910609790f21466a88dc5e9 *inst/doc/np.pdf
+b6db3a93c92a8ec440059b78717d4acb *inst/doc/np_faq.Rnw
+b21d9b9a03f68033f7f60ae9c1bb5eee *inst/doc/np_faq.pdf
 b56a4ae3710e6ca3559d561c11b1b89e *inst/kernels.max
 6dc34fd3b11eafeed28a33be0c84e275 *man/b.star.Rd
 7f263d5770001bd2d7d9d0a52a559365 *man/data-Engel95.Rd
@@ -167,5 +167,5 @@ b67ea10c654a441e16cf2867e8c2d76f *vignettes/entropy_np.Rnw
 86546679856047afedfcfda79ec96d85 *vignettes/entropy_np.bib
 04b92fdca5840ff9cd9efc0498e3f7a4 *vignettes/np.Rnw
 9a2df63ffd95b051d5d1f7b77dd5f0f8 *vignettes/np.bib
-33852d9244bc50e15b6fa5132d98ae36 *vignettes/np_faq.Rnw
+b6db3a93c92a8ec440059b78717d4acb *vignettes/np_faq.Rnw
 e6050d339afab18310efe5c78d8a4188 *vignettes/np_faq.bib
