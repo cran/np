@@ -9,7 +9,7 @@ options(prompt = "R> ", np.messages = FALSE, digits = 3)
 
 
 ###################################################
-### code chunk number 2: entropy_np.Rnw:180-195
+### code chunk number 2: entropy_np.Rnw:179-194
 ###################################################
 set.seed(1234)
 n <- 250
@@ -29,7 +29,7 @@ npdeneqtest(sample.A,sample.B,boot.num=99)
 
 
 ###################################################
-### code chunk number 3: entropy_np.Rnw:227-255
+### code chunk number 3: entropy_np.Rnw:226-254
 ###################################################
 set.seed(1234)
 n <- 1000
@@ -62,7 +62,7 @@ npunitest(x,y,boot.num=99)
 
 
 ###################################################
-### code chunk number 4: entropy_np.Rnw:313-326
+### code chunk number 4: entropy_np.Rnw:312-325
 ###################################################
 set.seed(1234)
      
@@ -80,7 +80,7 @@ npsymtest(y,boot.num=99)
 
 
 ###################################################
-### code chunk number 5: entropy_np.Rnw:366-375
+### code chunk number 5: entropy_np.Rnw:365-374
 ###################################################
 set.seed(123)
 ## Test/measure lack of fit between y and its fitted value from a
@@ -94,7 +94,7 @@ npdeptest(y,y.fit,boot.num=99,method="summation")
 
 
 ###################################################
-### code chunk number 6: entropy_np.Rnw:409-424
+### code chunk number 6: entropy_np.Rnw:408-423
 ###################################################
 set.seed(123)
 ## A function to create a time series
@@ -114,7 +114,7 @@ npsdeptest(yt,lag.num=2,boot.num=99,method="summation")
 
 
 ###################################################
-### code chunk number 7: entropy_np.Rnw:448-478
+### code chunk number 7: entropy_np.Rnw:447-477
 ###################################################
 Srho <- function(x,y,...) {
   ## First write a function to compute the integrand (this is fed to
