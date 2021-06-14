@@ -1,5 +1,4 @@
 ### R code from vignette source 'entropy_np.Rnw'
-### Encoding: UTF-8
 
 ###################################################
 ### code chunk number 1: entropy_np.Rnw:70-72

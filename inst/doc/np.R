@@ -1,5 +1,4 @@
 ### R code from vignette source 'np.Rnw'
-### Encoding: UTF-8
 
 ###################################################
 ### code chunk number 1: np.Rnw:90-91
