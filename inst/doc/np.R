@@ -3,7 +3,7 @@
 ###################################################
 ### code chunk number 1: np.Rnw:90-91
 ###################################################
-options(prompt = "R> ", np.messages = FALSE, digits = 3)
+options(prompt = "R> ", np.messages = FALSE, digits = 3, warn = -1)
 
 
 ###################################################
