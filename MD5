@@ -1,5 +1,5 @@
-c5882887f5e14590bb0e78191a163518 *CHANGELOG
-4a994d6ca58faeddc2cd52744fff438a *DESCRIPTION
+fc00270bb0150ed4ef44c1447edbd5a0 *CHANGELOG
+1fa5d62eb7010aa2c90ea6d253001794 *DESCRIPTION
 ba8378a2064570e883da3fb43e9c2fe3 *NAMESPACE
 e0b715813869a0f45e222863721d6383 *R/b.star.R
 03b52d18b59fa36e108a305b5799ad20 *R/bandwidth.R
@@ -67,7 +67,7 @@ baa87d9d566102057dcc87dbe529b591 *R/sdeptest.R
 a530bd9567afdca16961e655f60409ce *R/symtest.R
 d5ff361ad9b3a1d8a4aba28305e91d38 *R/unitest.R
 c799b3ad394d69db0661bb43dd08a972 *R/util.R
-14c5b8a6eea082ba12c10fbea356b78a *R/zzz.R
+1973782b77b4bc8a182180df6526e643 *R/zzz.R
 1c62f724debe3484fc6b7b67f21a97df *README.md
 c4373c12786cb10cb14f43dd4ad7c3ee *build/vignette.rds
 430e97b1c0eb9accf370997c058d9fa6 *cleanup
@@ -85,12 +85,12 @@ cf0ae8afbdf93bcc96420f66199eaa23 *demo/npregiv.R
 371ac3437cacde0134516d8db3cb1b74 *inst/COPYRIGHTS
 43a0c8b5ea64eb89273a38532b8462d2 *inst/doc/entropy_np.R
 ea1c1a0fd1d405109c3e5a950e0f230c *inst/doc/entropy_np.Rnw
-4795d0228e665f0f85fb005cb600ac0a *inst/doc/entropy_np.pdf
+2aff4d9f58d26c53bff0db400868c9c7 *inst/doc/entropy_np.pdf
 43d793ed177b6195fa6bfebccf61d549 *inst/doc/np.R
 59bf69599bee889bb900ad9c3aa9f828 *inst/doc/np.Rnw
-fb2d776c65e084d1c1257d8028489d3e *inst/doc/np.pdf
-6c7246d8de81d0228ce5d79e05353782 *inst/doc/np_faq.Rnw
-13809d1b887469bebfec202fa735d2bc *inst/doc/np_faq.pdf
+dbebc5162b5c2bd0286a2ab005675031 *inst/doc/np.pdf
+423fd9847d75f4492e79bf09d0174bb2 *inst/doc/np_faq.Rnw
+a11b1922ab7ed14b6baa12d94c561152 *inst/doc/np_faq.pdf
 b56a4ae3710e6ca3559d561c11b1b89e *inst/kernels.max
 6dc34fd3b11eafeed28a33be0c84e275 *man/b.star.Rd
 7f263d5770001bd2d7d9d0a52a559365 *man/data-Engel95.Rd
@@ -148,7 +148,7 @@ ad9a750d2266e54703ea73d2579d941d *src/gsl_bspline.c
 bb3ee1c6d7d7c703c191fc5dc7639822 *src/hash.c
 af26669951e2ddb1a8aa6530531ef378 *src/hash.h
 f7db165e67c3ddb6cdc363bf3510d8b6 *src/headers.h
-b22b72a0b4161118dfc5a8fe2e787c58 *src/jksum.c
+c6de0de953543df333c74f7051ad05b3 *src/jksum.c
 99b6e1eebedd388fbbf53107d3044c14 *src/kernel.c
 ad87e9c830232746a29816092538c853 *src/kernelb.c
 85f0c79ae5976c11df154a36b0a5bb14 *src/kernelcv.c
@@ -167,5 +167,5 @@ ea1c1a0fd1d405109c3e5a950e0f230c *vignettes/entropy_np.Rnw
 5ada056dd1f9a3a9f1ae082de5074fa3 *vignettes/entropy_np.bib
 59bf69599bee889bb900ad9c3aa9f828 *vignettes/np.Rnw
 a4f0a130a6a86806952dcbd1ee86c095 *vignettes/np.bib
-6c7246d8de81d0228ce5d79e05353782 *vignettes/np_faq.Rnw
+423fd9847d75f4492e79bf09d0174bb2 *vignettes/np_faq.Rnw
 e6050d339afab18310efe5c78d8a4188 *vignettes/np_faq.bib
