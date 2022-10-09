@@ -1,3 +1,10 @@
+Changes from Version 0.60-14 to 0.60-15 [09-Oct-2022]
+
+* Explicit acknowledgment in DESCRIPTION of code gsl_bspline.c/.h
+  adapted from the GNU GSL library with further details appended to
+  gsl_bspline.c/.h (thanks to Professor Brian Ripley for noting this
+  oversight).
+
 Changes from Version 0.60-13 to 0.60-14 [22-Aug-2022]
 
 * Added logspline and ks to DESCRIPTION to address NOTE on some system
