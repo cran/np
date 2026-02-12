@@ -53,20 +53,20 @@ npindex.formula <-
           if (!y.eval){
             tt <- delete.response(tt)
 
-            orig.class <- sapply(eval(attr(tt, "variables"), newdata, environment(tt)),class)
+            orig.ts <- sapply(eval(attr(tt, "variables"), newdata, environment(tt)), inherits, "ts")
             
             ## delete.response clobbers predvars, which is used for timeseries objects
             ## so we need to reconstruct it
 
-            if(all(orig.class == "ts")){
+            if(all(orig.ts)){
               args <- (as.list(attr(tt, "variables"))[-1])
               attr(tt, "predvars") <- as.call(c(quote(as.data.frame),as.call(c(quote(ts.intersect), args))))
-            }else if(any(orig.class == "ts")){
+            }else if(any(orig.ts)){
               arguments <- (as.list(attr(tt, "variables"))[-1])
-              arguments.normal <- arguments[which(orig.class != "ts")]
-              arguments.timeseries <- arguments[which(orig.class == "ts")]
+              arguments.normal <- arguments[which(!orig.ts)]
+              arguments.timeseries <- arguments[which(orig.ts)]
 
-              ix <- sort(c(which(orig.class == "ts"),which(orig.class != "ts")),index.return = TRUE)$ix
+              ix <- sort(c(which(orig.ts),which(!orig.ts)),index.return = TRUE)$ix
               attr(tt, "predvars") <- bquote(.(as.call(c(quote(cbind),as.call(c(quote(as.data.frame),as.call(c(quote(ts.intersect), arguments.timeseries)))),arguments.normal,check.rows = TRUE)))[,.(ix)])
             }else{
               attr(tt, "predvars") <- attr(tt, "variables")
@@ -426,6 +426,8 @@ npindex.sibandwidth <-
       ## Need to trap case where k-1=1..., sapply will return a
       ## vector, need a 1 x n matrix
 
+      ## Need to trap case where k-1=1..., sapply will return a
+      ## vector, need a 1 x n matrix
       if(is.vector(xmex)) {
         dg.db.xmex <- matrix(index.tgrad[,1]*xmex,nrow=1,ncol=length(xmex))
       } else {

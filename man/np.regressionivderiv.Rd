@@ -23,14 +23,15 @@ npregivderiv(y,
              zeval = NULL,
              weval = NULL,
              xeval = NULL,
-             random.seed = 42,
-             iterate.max = 1000,
-             iterate.break = TRUE,
              constant = 0.5,
+             iterate.break = TRUE,
+             iterate.max = 1000,
+             nmulti = NULL,
+             random.seed = 42,
+             smooth.residuals = TRUE,
              start.from = c("Eyz","EEywz"),
              starting.values = NULL,
              stop.on.increase = TRUE,
-             smooth.residuals = TRUE,
              ...)
 }
 \arguments{
@@ -71,15 +72,9 @@ npregivderiv(y,
     evaluation takes place on the data provided by \code{x}.
   }
 
-  \item{random.seed}{
-    an integer used to seed R's random number generator. This ensures
-    replicability of the numerical search. Defaults to 42.
-  }
-
-  \item{iterate.max}{
-    an integer indicating the maximum number of iterations permitted
-    before termination occurs for Landweber-Fridman iteration.
-  }
+\item{constant}{
+  the constant to use for Landweber-Fridman iteration.
+}
 
   \item{iterate.break}{
     a logical value indicating whether to compute all objects up to
@@ -88,9 +83,28 @@ npregivderiv(y,
     \code{iterate.max})
   }
 
-\item{constant}{
-  the constant to use for Landweber-Fridman iteration.
-}
+  \item{iterate.max}{
+    an integer indicating the maximum number of iterations permitted
+    before termination occurs for Landweber-Fridman iteration.
+  }
+
+  \item{nmulti}{
+    integer number of times to restart the process of finding extrema of
+    the cross-validation function from different (random) initial
+    points.
+  }
+
+  \item{random.seed}{
+    an integer used to seed R's random number generator. This ensures
+    replicability of the numerical search. Defaults to 42.
+  }
+
+\item{smooth.residuals}{
+  a logical value (defaults to \code{TRUE}) indicating whether to
+  optimize bandwidths for the regression of \eqn{y-\varphi(z)}{y-phi(z)}
+  on \eqn{w} or for the regression of \eqn{\varphi(z)}{phi(z)} on
+  \eqn{w} during Landweber-Fridman iteration.
+ }
 
 \item{start.from}{ a character string indicating whether to start from
   \eqn{E(Y|z)} (default, \code{"Eyz"}) or from \eqn{E(E(Y|z)|z)} (this can
@@ -102,22 +116,15 @@ npregivderiv(y,
   Landweber-Fridman) or instead begin from \eqn{E(y|z)} (defaults to
   \code{NULL}, see details below)
 }
-\item{stop.on.increase}{
-  a logical value (defaults to \code{TRUE}) indicating whether to halt
-  iteration if the stopping criterion (see below) increases over the
-  course of one iteration (i.e. it may be above the iteration tolerance
-  but increased).
-}
-\item{smooth.residuals}{
-  a logical value (defaults to \code{TRUE}) indicating whether to
-  optimize bandwidths for the regression of \eqn{y-\varphi(z)}{y-phi(z)}
-  on \eqn{w} or for the regression of \eqn{\varphi(z)}{phi(z)} on
-  \eqn{w} during Landweber-Fridman iteration.
- }
-\item{...}{ 
-  additional arguments supplied to \code{\link{npreg}} and \code{\link{npksum}}.
-}
-
+  \item{stop.on.increase}{
+    a logical value (defaults to \code{TRUE}) indicating whether to halt
+    iteration if the stopping criterion (see below) increases over the
+    course of one iteration (i.e. it may be above the iteration tolerance
+    but increased).
+  }
+  \item{...}{ 
+    additional arguments supplied to \code{\link{npreg}} and \code{\link{npksum}}.
+  }
 }
 
 \details{
@@ -137,10 +144,24 @@ npregivderiv(y,
   
   Landweber-Fridman iteration uses an optimal stopping rule based upon
   \eqn{||E(y|w)-E(\varphi_k(z,x)|w)||^2 }{||E(y|w)-E(phi(z,x)|w)||^2
-  }. However, if insufficient training is conducted the estimates can be
-  overly noisy. To best guard against this eventuality set \code{nmulti}
-  to a larger number than the default \code{nmulti=1} for
-  \code{\link{npreg}}.
+  }. However, if local rather than global optima are encountered the
+  resulting estimates can be overly noisy. To best guard against this
+  eventuality set \code{nmulti} to a larger number than the default
+  \code{nmulti=5} for the first iteration.
+
+  Note that for subsequent Landweber-Fridman iterations, a \dQuote{warm
+  start} strategy is employed. The optimal bandwidths from the previous
+  iteration are used as starting values for the current iteration. The
+  user-supplied \code{nmulti} is respected for all iterations. For
+  iterations after the first successful one, these optimal bandwidths
+  serve as the first of the multiple initial points (a warm start),
+  while any remaining restarts are cold starts. If \code{nmulti} is not
+  explicitly supplied by the user, it defaults to 5 for the first
+  iteration and to 1 for all subsequent iterations. This strategy
+  provides a balance between computational efficiency and robustness,
+  allowing the numerical optimizer to refine the structural bandwidths
+  as the residuals evolve incrementally while still guarding against
+  local optima.
 
   Iteration will terminate when either the change in the value of
   \eqn{||(E(y|w)-E(\varphi_k(z,x)|w))/E(y|w)||^2
@@ -151,6 +172,10 @@ npregivderiv(y,
   starts rising.  }
 
 \value{
+
+  \code{npregivderiv} returns a \code{npregivderiv} object.  The
+    generic functions \code{\link{print}}, \code{\link{summary}}, and
+    \code{\link{plot}} support objects of this type.
 
   \code{npregivderiv} returns a list with components \code{phi.prime},
   \code{phi}, \code{num.iterations}, \code{norm.stop} and

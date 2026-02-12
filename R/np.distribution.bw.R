@@ -10,26 +10,26 @@ npudistbw <- function(...){
 
 npudistbw.formula <-
   function(formula, data, subset, na.action, call, gdata = NULL, ...){
-    orig.class <- if (missing(data))
-      sapply(eval(attr(terms(formula), "variables"), environment(formula)),class)
-    else sapply(eval(attr(terms(formula), "variables"), data, environment(formula)),class)
+    orig.ts <- if (missing(data))
+      sapply(eval(attr(terms(formula), "variables"), environment(formula)), inherits, "ts")
+    else sapply(eval(attr(terms(formula), "variables"), data, environment(formula)), inherits, "ts")
 
     mf <- match.call(expand.dots = FALSE)
     m <- match(c("formula", "data", "subset", "na.action"),
                names(mf), nomatch = 0)
     mf <- mf[c(1,m)]
 
-    if(all(orig.class == "ts")){
+    if(all(orig.ts)){
       args <- (as.list(attr(terms(formula), "variables"))[-1])
       formula <- terms(formula)
       attr(formula, "predvars") <- as.call(c(quote(as.data.frame),as.call(c(quote(ts.intersect), args))))
       mf[["formula"]] <- formula
-    }else if(any(orig.class == "ts")){
+    }else if(any(orig.ts)){
       arguments <- (as.list(attr(terms(formula), "variables"))[-1])
-      arguments.normal <- arguments[which(orig.class != "ts")]
-      arguments.timeseries <- arguments[which(orig.class == "ts")]
+      arguments.normal <- arguments[which(!orig.ts)]
+      arguments.timeseries <- arguments[which(orig.ts)]
 
-      ix <- sort(c(which(orig.class == "ts"),which(orig.class != "ts")),index.return = TRUE)$ix
+      ix <- sort(c(which(orig.ts),which(!orig.ts)),index.return = TRUE)$ix
       formula <- terms(formula)
       attr(formula, "predvars") <- bquote(.(as.call(c(quote(cbind),as.call(c(quote(as.data.frame),as.call(c(quote(ts.intersect), arguments.timeseries)))),arguments.normal,check.rows = TRUE)))[,.(ix)])
       mf[["formula"]] <- formula
@@ -103,7 +103,11 @@ npudistbw.dbandwidth <-
            lbd.dir = 0.1, hbd.dir = 1, dfac.dir = 0.25*(3.0-sqrt(5)), initd.dir = 1.0, 
            lbc.init = 0.1, hbc.init = 2.0, cfac.init = 0.5, 
            lbd.init = 0.1, hbd.init = 0.9, dfac.init = 0.375, 
-           scale.init.categorical.sample=FALSE, memfac = 500.0, ...){
+           scale.init.categorical.sample=FALSE, memfac = 500.0,
+           transform.bounds = FALSE,
+           invalid.penalty = c("baseline","dbmax"),
+           penalty.multiplier = 10,
+           ...){
 
     dat = toFrame(dat)
 
@@ -119,11 +123,9 @@ npudistbw.dbandwidth <-
            "'dat'"))
 
     ccon = unlist(lapply(as.data.frame(dat[,bws$icon]),class))
-    if ((any(bws$icon) && !all((ccon == class(integer(0))) | (ccon == class(numeric(0))))) ||
-        (any(bws$iord) && !all(unlist(lapply(as.data.frame(dat[,bws$iord]),class)) ==
-                               class(ordered(0)))) ||
-        (any(bws$iuno) && !all(unlist(lapply(as.data.frame(dat[,bws$iuno]),class)) ==
-                               class(factor(0)))))
+    if ((any(bws$icon) && !all((ccon == "integer") | (ccon == "numeric"))) ||
+        (any(bws$iord) && !all(sapply(as.data.frame(dat[,bws$iord]),inherits, "ordered"))) ||
+        (any(bws$iuno) && !all(sapply(as.data.frame(dat[,bws$iuno]),inherits, "factor"))))
       stop(paste("supplied bandwidths do not match", "'dat'", "in type"))
 
     if(any(bws$iuno))
@@ -189,6 +191,9 @@ npudistbw.dbandwidth <-
       }
     }
 
+    invalid.penalty <- match.arg(invalid.penalty)
+    penalty_mode <- ifelse(invalid.penalty == "baseline", 1L, 0L)
+
     if (bandwidth.compute){
       myopti = list(num_obs_train = dim(dat)[1],
         num_obs_eval = nog,
@@ -221,7 +226,8 @@ npudistbw.dbandwidth <-
         ncon = dim(dcon)[2],
         int_do_tree = ifelse(options('np.tree'), DO_TREE_YES, DO_TREE_NO),
         scale.init.categorical.sample = scale.init.categorical.sample,
-        dfc.dir = dfc.dir)
+        dfc.dir = dfc.dir,
+        transform.bounds = transform.bounds)
       
       myoptd = list(ftol=ftol, tol=tol, small=small,
         lbc.dir = lbc.dir, cfac.dir = cfac.dir, initc.dir = initc.dir, 
@@ -238,8 +244,11 @@ npudistbw.dbandwidth <-
              as.integer(myopti), as.double(myoptd), 
              bw = c(bws$bw[bws$icon],bws$bw[bws$iuno],bws$bw[bws$iord]),
              fval = double(2), fval.history = double(max(1,nmulti)),
+             eval.history = double(max(1,nmulti)), invalid.history = double(max(1,nmulti)),
              timing = double(1),
-             PACKAGE="np" )[c("bw","fval","fval.history","timing")])[1]
+             penalty.mode = as.integer(penalty_mode),
+             penalty.multiplier = as.double(penalty.multiplier),
+             PACKAGE="np" )[c("bw","fval","fval.history","eval.history","invalid.history","timing")])[1]
       } else {
         nbw = double(ncol)
         gbw = bws$ncon
@@ -260,6 +269,8 @@ npudistbw.dbandwidth <-
       tbw$fval = myout$fval[1]
       tbw$ifval = myout$fval[2]
       tbw$fval.history <- myout$fval.history
+      tbw$eval.history <- myout$eval.history
+      tbw$invalid.history <- myout$invalid.history
       tbw$timing <- myout$timing
       tbw$total.time <- total.time
     }
@@ -304,6 +315,8 @@ npudistbw.dbandwidth <-
                       fval = tbw$fval,
                       ifval = tbw$ifval,
                       fval.history = tbw$fval.history,
+                      eval.history = tbw$eval.history,
+                      invalid.history = tbw$invalid.history,
                       nobs = tbw$nobs,
                       xdati = tbw$xdati,
                       xnames = tbw$xnames,
@@ -330,6 +343,7 @@ npudistbw.default <-
            lbc.init, hbc.init, cfac.init, 
            lbd.init, hbd.init, dfac.init, 
            scale.init.categorical.sample, memfac,
+           transform.bounds, invalid.penalty, penalty.multiplier,
            ## dummy arguments for later passing into bandwidth()
            bwmethod, bwscaling, bwtype,
            ckertype, ckerorder, okertype,
@@ -372,7 +386,10 @@ npudistbw.default <-
                "lbd.dir", "hbd.dir", "dfac.dir", "initd.dir", 
                "lbc.init", "hbc.init", "cfac.init", 
                "lbd.init", "hbd.init", "dfac.init", 
-               "scale.init.categorical.sample", "memfac")
+               "scale.init.categorical.sample", "memfac",
+               "transform.bounds",
+               "invalid.penalty",
+               "penalty.multiplier")
     m <- match(margs, mc.names, nomatch = 0)
     any.m <- any(m != 0)
 
@@ -387,4 +404,3 @@ npudistbw.default <-
 
     return(tbw)
   }
-

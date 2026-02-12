@@ -80,11 +80,9 @@ npudens.bandwidth <-
     stop("length of bandwidth vector does not match number of columns of 'tdat'")
 
   ccon = unlist(lapply(as.data.frame(tdat[,bws$icon]),class))
-  if ((any(bws$icon) && !all((ccon == class(integer(0))) | (ccon == class(numeric(0))))) ||
-      (any(bws$iord) && !all(unlist(lapply(as.data.frame(tdat[,bws$iord]),class)) ==
-                             class(ordered(0)))) ||
-      (any(bws$iuno) && !all(unlist(lapply(as.data.frame(tdat[,bws$iuno]),class)) ==
-                             class(factor(0)))))
+  if ((any(bws$icon) && !all((ccon == "integer") | (ccon == "numeric"))) ||
+      (any(bws$iord) && !all(sapply(as.data.frame(tdat[,bws$iord]),inherits, "ordered"))) ||
+      (any(bws$iuno) && !all(sapply(as.data.frame(tdat[,bws$iuno]),inherits, "factor"))))
     stop("supplied bandwidths do not match 'tdat' in type")
 
   tdat <- na.omit(tdat)
@@ -175,6 +173,13 @@ npudens.bandwidth <-
        log_likelihood = double(1),
        PACKAGE="np" )[c("dens","derr", "log_likelihood")]
 
+  ## For purely categorical density with zero bandwidths, the variance of
+  ## the sample proportion is p(1-p)/n. The C routine returns p/n; fix here.
+  if (bws$ncon == 0 && bws$nord == 0 && bws$nuno > 0 && all(bws$bw[bws$iuno] == 0)) {
+    p <- pmin(pmax(myout$dens, 0), 1)
+    myout$derr <- sqrt(p * (1 - p) / tnrow)
+  }
+
   ev <- npdensity(bws=bws, eval=teval, dens = myout$dens,
                   derr = myout$derr, ll = myout$log_likelihood,
                   ntrain = tnrow, trainiseval = no.e,
@@ -226,4 +231,3 @@ npudens.default <- function(bws, tdat, ...){
                       ifelse(tdat.named, ",tdat = tdat",",tdat")),
                ",...)")))
 }
-

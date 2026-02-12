@@ -11,9 +11,9 @@ npcdensbw <-
 
 npcdensbw.formula <-
   function(formula, data, subset, na.action, call, ...){
-    orig.class <- if (missing(data))
-      sapply(eval(attr(terms(formula), "variables"), environment(formula)),class)
-    else sapply(eval(attr(terms(formula), "variables"), data, environment(formula)),class)
+    orig.ts <- if (missing(data))
+      sapply(eval(attr(terms(formula), "variables"), environment(formula)), inherits, "ts")
+    else sapply(eval(attr(terms(formula), "variables"), data, environment(formula)), inherits, "ts")
 
     mf <- match.call(expand.dots = FALSE)
     m <- match(c("formula", "data", "subset", "na.action"),
@@ -23,7 +23,7 @@ npcdensbw.formula <-
     if(!missing(call) && is.call(call)){
       ## rummage about in the call for the original formula
       for(i in 1:length(call)){
-        if(tryCatch(class(eval(call[[i]])) == "formula",
+        if(tryCatch(inherits(eval(call[[i]]), "formula"),
                     error = function(e) FALSE))
           break;
       }
@@ -48,15 +48,15 @@ npcdensbw.formula <-
                                         varsPlus[[2]]),
                                   env = environment(formula))
     mf[["formula"]] <- terms(mf[["formula"]])
-    if(all(orig.class == "ts")){
+    if(all(orig.ts)){
       args <- (as.list(attr(mf[["formula"]], "variables"))[-1])
       attr(mf[["formula"]], "predvars") <- as.call(c(quote(as.data.frame),as.call(c(quote(ts.intersect), args))))
-    }else if(any(orig.class == "ts")){
+    }else if(any(orig.ts)){
       arguments <- (as.list(attr(mf[["formula"]], "variables"))[-1])
-      arguments.normal <- arguments[which(orig.class != "ts")]
-      arguments.timeseries <- arguments[which(orig.class == "ts")]
+      arguments.normal <- arguments[which(!orig.ts)]
+      arguments.timeseries <- arguments[which(orig.ts)]
 
-      ix <- sort(c(which(orig.class == "ts"),which(orig.class != "ts")),index.return = TRUE)$ix
+      ix <- sort(c(which(orig.ts),which(!orig.ts)),index.return = TRUE)$ix
       attr(mf[["formula"]], "predvars") <- bquote(.(as.call(c(quote(cbind),as.call(c(quote(as.data.frame),as.call(c(quote(ts.intersect), arguments.timeseries)))),arguments.normal,check.rows = TRUE)))[,.(ix)])
     }
 
@@ -90,6 +90,9 @@ npcdensbw.conbandwidth <-
            lbc.init = 0.1, hbc.init = 2.0, cfac.init = 0.5, 
            lbd.init = 0.1, hbd.init = 0.9, dfac.init = 0.375, 
            scale.init.categorical.sample=FALSE,
+           transform.bounds = FALSE,
+           invalid.penalty = c("baseline","dbmax"),
+           penalty.multiplier = 10,
            ...){
 
     ydat = toFrame(ydat)
@@ -109,19 +112,15 @@ npcdensbw.conbandwidth <-
       stop(paste("number of rows of", "'ydat'", "does not match", "'xdat'"))
 
     yccon = unlist(lapply(as.data.frame(ydat[,bws$iycon]),class))
-    if ((any(bws$iycon) && !all((yccon == class(integer(0))) | (yccon == class(numeric(0))))) ||
-        (any(bws$iyord) && !all(unlist(lapply(as.data.frame(ydat[,bws$iyord]),class)) ==
-                               class(ordered(0)))) ||
-        (any(bws$iyuno) && !all(unlist(lapply(as.data.frame(ydat[,bws$iyuno]),class)) ==
-                               class(factor(0)))))
+    if ((any(bws$iycon) && !all((yccon == "integer") | (yccon == "numeric"))) ||
+        (any(bws$iyord) && !all(sapply(as.data.frame(ydat[,bws$iyord]),inherits, "ordered"))) ||
+        (any(bws$iyuno) && !all(sapply(as.data.frame(ydat[,bws$iyuno]),inherits, "factor"))))
       stop(paste("supplied bandwidths do not match", "'ydat'", "in type"))
 
     xccon = unlist(lapply(as.data.frame(xdat[,bws$ixcon]),class))
-    if ((any(bws$ixcon) && !all((xccon == class(integer(0))) | (xccon == class(numeric(0))))) ||
-        (any(bws$ixord) && !all(unlist(lapply(as.data.frame(xdat[,bws$ixord]),class)) ==
-                               class(ordered(0)))) ||
-        (any(bws$ixuno) && !all(unlist(lapply(as.data.frame(xdat[,bws$ixuno]),class)) ==
-                               class(factor(0)))))
+    if ((any(bws$ixcon) && !all((xccon == "integer") | (xccon == "numeric"))) ||
+        (any(bws$ixord) && !all(sapply(as.data.frame(xdat[,bws$ixord]),inherits, "ordered"))) ||
+        (any(bws$ixuno) && !all(sapply(as.data.frame(xdat[,bws$ixuno]),inherits, "factor"))))
       stop(paste("supplied bandwidths do not match", "'xdat'", "in type"))
 
     ## catch and destroy NA's
@@ -161,6 +160,9 @@ npcdensbw.conbandwidth <-
     mysd <- EssDee(data.frame(xcon,ycon))
     nconfac <- nrow^(-1.0/(2.0*bws$cxkerorder+bws$ncon))
     ncatfac <- nrow^(-2.0/(2.0*bws$cxkerorder+bws$ncon))
+
+    invalid.penalty <- match.arg(invalid.penalty)
+    penalty_mode <- ifelse(invalid.penalty == "baseline", 1L, 0L)
 
     if (bandwidth.compute){
       myopti = list(num_obs_train = nrow,
@@ -211,7 +213,8 @@ npcdensbw.conbandwidth <-
         old.cdens = FALSE,
         int_do_tree = ifelse(options('np.tree'), DO_TREE_YES, DO_TREE_NO),
         scale.init.categorical.sample = scale.init.categorical.sample,
-        dfc.dir = dfc.dir)
+        dfc.dir = dfc.dir,
+        transform.bounds = transform.bounds)
       
       myoptd = list(ftol=ftol, tol=tol, small=small, memfac = memfac,
         lbc.dir = lbc.dir, cfac.dir = cfac.dir, initc.dir = initc.dir, 
@@ -231,8 +234,11 @@ npcdensbw.conbandwidth <-
                bws$ybw[bws$iyuno],bws$ybw[bws$iyord],
                bws$xbw[bws$ixuno],bws$xbw[bws$ixord]),
              fval = double(2), fval.history = double(max(1,nmulti)),
+             eval.history = double(max(1,nmulti)), invalid.history = double(max(1,nmulti)),
              timing = double(1),
-             PACKAGE="np" )[c("bw","fval","fval.history","timing")])[1]
+             penalty.mode = as.integer(penalty_mode),
+             penalty.multiplier = as.double(penalty.multiplier),
+             PACKAGE="np" )[c("bw","fval","fval.history","eval.history","invalid.history","timing")])[1]
       } else {
         nbw = double(yncol+xncol)
         gbw = bws$yncon+bws$xncon
@@ -270,6 +276,8 @@ npcdensbw.conbandwidth <-
       tbw$fval = myout$fval[1]
       tbw$ifval = myout$fval[2]
       tbw$fval.history <- myout$fval.history
+      tbw$eval.history <- myout$eval.history
+      tbw$invalid.history <- myout$invalid.history
       tbw$timing <- myout$timing
       tbw$total.time <- total.time
     }
@@ -331,6 +339,8 @@ npcdensbw.conbandwidth <-
                         fval = tbw$fval,
                         ifval = tbw$ifval,
                         fval.history = tbw$fval.history,
+                        eval.history = tbw$eval.history,
+                        invalid.history = tbw$invalid.history,
                         nobs = tbw$nobs,
                         xdati = tbw$xdati,
                         ydati = tbw$ydati,      
@@ -386,6 +396,9 @@ npcdensbw.default <-
            lbc.init, hbc.init, cfac.init, 
            lbd.init, hbd.init, dfac.init, 
            scale.init.categorical.sample,
+           transform.bounds,
+           invalid.penalty,
+           penalty.multiplier,
            ## dummy arguments for conbandwidth() function call
            bwmethod, bwscaling, bwtype,
            cxkertype, cxkerorder,
@@ -432,7 +445,10 @@ npcdensbw.default <-
                "lbd.dir", "hbd.dir", "dfac.dir", "initd.dir", 
                "lbc.init", "hbc.init", "cfac.init", 
                "lbd.init", "hbd.init", "dfac.init", 
-               "scale.init.categorical.sample")
+               "scale.init.categorical.sample",
+               "transform.bounds",
+               "invalid.penalty",
+               "penalty.multiplier")
     m <- match(margs, mc.names, nomatch = 0)
     any.m <- any(m != 0)
 
@@ -447,4 +463,3 @@ npcdensbw.default <-
 
     return(tbw)
   }
-

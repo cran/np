@@ -149,7 +149,7 @@ nptgauss <- function(b){
   a1 <- -(a2*erf(b/sqrt(2)) + c0)/(2*b)
 
   int.kernels[CKER_TGAUSS + 1] <- k
-
+  
   invisible(.C("np_set_tgauss2",as.double(c(b, alpha, c0, a0, a1, a2, k, k2, k22, km)), PACKAGE = "np"))
 
 }
@@ -317,7 +317,11 @@ validateBandwidthTF <- function(bws){
 }
 
 
-explodeFormula <- function(formula){
+explodeFormula <- function(formula, data=NULL){
+  if(any(grepl("\\.",deparse(formula)))) {
+      if(is.null(data)) stop("'.' in formula and no 'data' argument")
+      formula <- terms(formula, data=data)
+  }
   res <- strsplit(strsplit(paste(deparse(formula), collapse=""),
                            " *[~] *")[[1]], " *[+] *")
   stopifnot(all(sapply(res,length) > 0))
@@ -326,7 +330,9 @@ explodeFormula <- function(formula){
 }
 
 
-explodePipe <- function(formula){
+explodePipe <- function(formula, env = parent.frame()){
+  if (!inherits(formula, "formula"))
+    formula <- eval(formula, env)
   tf <- as.character(formula)  
   tf <- tf[length(tf)]
 
@@ -337,12 +343,13 @@ explodePipe <- function(formula){
 }
 
 "%~%" <- function(a,b) {
-  all(class(a) == class(b)) && (length(a) == length(b)) &&
+  identical(class(a), class(b)) && (length(a) == length(b)) &&
   all(unlist(lapply(a,coarseclass)) == unlist(lapply(b,coarseclass)))
 }
 
 coarseclass <- function(a) {
-  ifelse(class(a) == "integer", "numeric", class(a))
+  if (inherits(a, "integer")) return("numeric")
+  return(class(a)[1])
 }
 
 toFrame <- function(frame) {
@@ -476,8 +483,8 @@ toMatrix <- function(data) {
 ## could fail without the response too, but then the calling routine is about
 ## to die a noisy death anyhow ...
 succeedWithResponse <- function(tt, frame){
-  !any(class(try(eval(expr = attr(tt, "variables"),
-                      envir = frame, enclos = NULL), silent = TRUE)) == "try-error")
+  !inherits(try(eval(expr = attr(tt, "variables"),
+                     envir = frame, enclos = NULL), silent = TRUE), "try-error")
 }
 
 ## determine whether a bandwidth

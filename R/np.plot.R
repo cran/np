@@ -786,18 +786,20 @@ uocquantile <- function(x, prob) {
   if(any(prob < 0 | prob > 1)) stop("'prob' outside [0,1]")
   if(any(is.na(x) | is.nan(x))) stop("missing values and NaN's not allowed")
   if (is.ordered(x)){
+    x <- droplevels(x)
     tq = unclass(table(x))
     tq = tq / sum(tq)
     tq[length(tq)] <- 1.0
-    bscape <- sort(unique(x))
+    bscape <- levels(x)
     tq <- sapply(1:length(tq), function(y){ sum(tq[1:y]) })
     j <- sapply(prob, function(p){ which(tq >= p)[1] })
     bscape[j]
   } else if (is.factor(x)) {
     ## just returns mode
+    x <- droplevels(x)
     tq = unclass(table(x))
     j = which(tq == max(tq))[1]
-    sort(unique(x))[j]
+    levels(x)[j]
   } else {
     quantile(x, probs = prob)
   }
@@ -882,6 +884,9 @@ npplot.rbandwidth <-
            plot.par.mfrow = TRUE,
            ...,
            random.seed){
+
+    oldpar <- par(no.readonly = TRUE)
+    on.exit(par(oldpar), add = TRUE)
 
     if(!is.null(options('plot.par.mfrow')$plot.par.mfrow))
         plot.par.mfrow <- options('plot.par.mfrow')$plot.par.mfrow
@@ -1143,7 +1148,7 @@ npplot.rbandwidth <-
 
       maxneval = max(c(sapply(xdat,nlevels),neval))
 
-      exdat = as.data.frame(matrix(data = 0, nrow = maxneval, ncol = bws$ndim))
+      exdat = xdat[rep(1, maxneval), , drop = FALSE]
 
       for (i in 1:bws$ndim)
         exdat[,i] = ev[1,i]
@@ -1220,7 +1225,8 @@ npplot.rbandwidth <-
         xi.factor = is.factor(xdat[,i])
 
         if (xi.factor){
-          ei = bws$xdati$all.ulev[[i]]
+          ei = levels(xdat[,i])
+          ei = factor(ei, levels = ei)
           xi.neval = length(ei)
         } else {
           xi.neval = neval
@@ -1423,6 +1429,9 @@ npplot.scbandwidth <-
            plot.par.mfrow = TRUE,
            ...,
            random.seed){
+
+    oldpar <- par(no.readonly = TRUE)
+    on.exit(par(oldpar), add = TRUE)
 
     if(!is.null(options('plot.par.mfrow')$plot.par.mfrow))
         plot.par.mfrow <- options('plot.par.mfrow')$plot.par.mfrow      
@@ -1734,7 +1743,7 @@ npplot.scbandwidth <-
       for (i in 1:bws$xndim)
         x.ev[1,i] = uocquantile(xdat[,i], prob=xq[i])
 
-      exdat = as.data.frame(matrix(data = 0, nrow = maxneval, ncol = bws$xndim))
+      exdat = xdat[rep(1, maxneval), , drop = FALSE]
 
       for (i in 1:bws$xndim)
         exdat[,i] = x.ev[1,i]
@@ -1745,7 +1754,7 @@ npplot.scbandwidth <-
         for (i in 1:bws$zndim)
           z.ev[1,i] = uocquantile(zdat[,i], prob=zq[i])
 
-        ezdat = as.data.frame(matrix(data = 0, nrow = maxneval, ncol = bws$zndim))
+        ezdat = zdat[rep(1, maxneval), , drop = FALSE]
 
         for (i in 1:bws$zndim)
           ezdat[,i] = z.ev[1,i]
@@ -1845,7 +1854,8 @@ npplot.scbandwidth <-
         xi.factor = all.isFactor[plot.index]
         
         if (xi.factor){
-          ei = bws$xdati$all.ulev[[i]]
+          ei = levels(xdat[,i])
+          ei = factor(ei, levels = ei)
           xi.neval = length(ei)
         } else {
           xi.neval = neval
@@ -1950,7 +1960,8 @@ npplot.scbandwidth <-
           xi.factor = all.isFactor[plot.index]
           
           if (xi.factor){
-            ei = bws$zdati$all.ulev[[i]]
+            ei = levels(zdat[,i])
+          ei = factor(ei, levels = ei)
             xi.neval = length(ei)
           } else {
             xi.neval = neval
@@ -2165,6 +2176,9 @@ npplot.plbandwidth <-
            ...,
            random.seed){
 
+    oldpar <- par(no.readonly = TRUE)
+    on.exit(par(oldpar), add = TRUE)
+
     if(!is.null(options('plot.par.mfrow')$plot.par.mfrow))
         plot.par.mfrow <- options('plot.par.mfrow')$plot.par.mfrow
       
@@ -2181,28 +2195,18 @@ npplot.plbandwidth <-
                names(bws$call), nomatch = 0)
 
       tmf.xf <- tmf.x <- tmf <- bws$call[c(1,m)]
-      tmf.x[[1]] <- as.name("model.matrix")
       tmf.xf[[1]] <- tmf[[1]] <- as.name("model.frame")
       tmf[["formula"]] <- tt
       umf <- tmf <- eval(tmf, envir = environment(tt))
 
       bronze <- lapply(bws$chromoly, paste, collapse = " + ")
 
-      tmf.x[["object"]] <- as.formula(paste(" ~ ", bronze[[2]]),
-                                      env = environment(formula))
-      tmf.x <- eval(tmf.x,parent.frame())
-
       tmf.xf[["formula"]] <- as.formula(paste(" ~ ", bronze[[2]]),
                                       env = environment(formula))
       tmf.xf <- eval(tmf.xf,parent.frame())
       
       ydat <- model.response(tmf)
-      xdat <- as.data.frame(tmf.x[,-1, drop = FALSE])
-      
-      cc <- attr(tmf.x,'assign')[-1]
-    
-      for(i in 1:length(cc))
-        xdat[,i] <- cast(xdat[,i], tmf.xf[,cc[i]], same.levels = FALSE)
+      xdat <- tmf.xf
 
       zdat <- tmf[, bws$chromoly[[3]], drop = FALSE]
     } else {
@@ -2465,8 +2469,9 @@ npplot.plbandwidth <-
 
       maxneval = max(c(sapply(xdat,nlevels), sapply(zdat,nlevels), neval))
 
-      exdat = as.data.frame(matrix(data = 0, nrow = maxneval, ncol = bws$xndim))
-      ezdat = as.data.frame(matrix(data = 0, nrow = maxneval, ncol = bws$zndim))
+      ## Preserve original data types (e.g., factors) for evaluation data
+      exdat = xdat[rep(1, maxneval), , drop = FALSE]
+      ezdat = zdat[rep(1, maxneval), , drop = FALSE]
 
       for (i in 1:bws$xndim)
         exdat[,i] = x.ev[1,i]
@@ -2561,7 +2566,8 @@ npplot.plbandwidth <-
         xi.factor = all.isFactor[plot.index]
         
         if (xi.factor){
-          ei = bws$xdati$all.ulev[[i]]
+          ei = levels(xdat[,i])
+          ei = factor(ei, levels = ei)
           xi.neval = length(ei)
         } else {
           xi.neval = neval
@@ -2669,7 +2675,8 @@ npplot.plbandwidth <-
         xi.factor = all.isFactor[plot.index]
         
         if (xi.factor){
-          ei = bws$zdati$all.ulev[[i]]
+          ei = levels(zdat[,i])
+          ei = factor(ei, levels = ei)
           xi.neval = length(ei)
         } else {
           xi.neval = neval
@@ -2876,6 +2883,9 @@ npplot.bandwidth <-
            plot.par.mfrow = TRUE,
            ...,
            random.seed){
+
+    oldpar <- par(no.readonly = TRUE)
+    on.exit(par(oldpar), add = TRUE)
 
     if(!is.null(options('plot.par.mfrow')$plot.par.mfrow))
         plot.par.mfrow <- options('plot.par.mfrow')$plot.par.mfrow
@@ -3130,7 +3140,7 @@ npplot.bandwidth <-
 
       maxneval = max(c(sapply(xdat,nlevels),neval))
 
-      exdat = as.data.frame(matrix(data = 0, nrow = maxneval, ncol = bws$ndim))
+      exdat = xdat[rep(1, maxneval), , drop = FALSE]
 
       for (i in 1:bws$ndim)
         exdat[,i] = ev[1,i]
@@ -3221,7 +3231,8 @@ npplot.bandwidth <-
         xi.factor = is.factor(xdat[,i])
 
         if (xi.factor){
-          ei = bws$xdati$all.ulev[[i]]
+          ei = levels(xdat[,i])
+          ei = factor(ei, levels = ei)
           xi.neval = length(ei)
         } else {
           xi.neval = neval
@@ -3391,6 +3402,9 @@ npplot.dbandwidth <-
            plot.par.mfrow = TRUE,
            ...,
            random.seed){
+
+    oldpar <- par(no.readonly = TRUE)
+    on.exit(par(oldpar), add = TRUE)
 
     if(!is.null(options('plot.par.mfrow')$plot.par.mfrow))
         plot.par.mfrow <- options('plot.par.mfrow')$plot.par.mfrow      
@@ -3637,7 +3651,7 @@ npplot.dbandwidth <-
 
       maxneval = max(c(sapply(xdat,nlevels),neval))
 
-      exdat = as.data.frame(matrix(data = 0, nrow = maxneval, ncol = bws$ndim))
+      exdat = xdat[rep(1, maxneval), , drop = FALSE]
 
       for (i in 1:bws$ndim)
         exdat[,i] = ev[1,i]
@@ -3721,7 +3735,8 @@ npplot.dbandwidth <-
         xi.factor = is.factor(xdat[,i])
 
         if (xi.factor){
-          ei = bws$xdati$all.ulev[[i]]
+          ei = levels(xdat[,i])
+          ei = factor(ei, levels = ei)
           xi.neval = length(ei)
         } else {
           xi.neval = neval
@@ -3896,6 +3911,9 @@ npplot.conbandwidth <-
            plot.par.mfrow = TRUE,
            ...,
            random.seed){
+
+    oldpar <- par(no.readonly = TRUE)
+    on.exit(par(oldpar), add = TRUE)
 
     if(!is.null(options('plot.par.mfrow')$plot.par.mfrow))
         plot.par.mfrow <- options('plot.par.mfrow')$plot.par.mfrow      
@@ -4230,7 +4248,7 @@ npplot.conbandwidth <-
 
       maxneval = max(c(sapply(xdat,nlevels), sapply(ydat,nlevels), neval))
 
-      exdat = as.data.frame(matrix(data = 0, nrow = maxneval, ncol = bws$xndim))
+      exdat = xdat[rep(1, maxneval), , drop = FALSE]
       eydat = as.data.frame(matrix(data = 0, nrow = maxneval, ncol = bws$yndim))
 
       for (i in 1:bws$xndim)
@@ -4328,7 +4346,8 @@ npplot.conbandwidth <-
         xi.factor = all.isFactor[plot.index]
         
         if (xi.factor){
-          ei = bws$xdati$all.ulev[[i]]
+          ei = levels(xdat[,i])
+          ei = factor(ei, levels = ei)
           xi.neval = length(ei)
         } else {
           xi.neval = neval
@@ -4679,6 +4698,9 @@ npplot.condbandwidth <-
            ...,
            random.seed){
 
+    oldpar <- par(no.readonly = TRUE)
+    on.exit(par(oldpar), add = TRUE)
+
     if(!is.null(options('plot.par.mfrow')$plot.par.mfrow))
         plot.par.mfrow <- options('plot.par.mfrow')$plot.par.mfrow
       
@@ -5009,7 +5031,7 @@ npplot.condbandwidth <-
 
       maxneval = max(c(sapply(xdat,nlevels), sapply(ydat,nlevels), neval))
 
-      exdat = as.data.frame(matrix(data = 0, nrow = maxneval, ncol = bws$xndim))
+      exdat = xdat[rep(1, maxneval), , drop = FALSE]
       eydat = as.data.frame(matrix(data = 0, nrow = maxneval, ncol = bws$yndim))
 
       for (i in 1:bws$xndim)
@@ -5107,7 +5129,8 @@ npplot.condbandwidth <-
         xi.factor = all.isFactor[plot.index]
         
         if (xi.factor){
-          ei = bws$xdati$all.ulev[[i]]
+          ei = levels(xdat[,i])
+          ei = factor(ei, levels = ei)
           xi.neval = length(ei)
         } else {
           xi.neval = neval
@@ -5441,6 +5464,9 @@ npplot.sibandwidth <-
            plot.par.mfrow = TRUE,
            ...,
            random.seed){
+
+    oldpar <- par(no.readonly = TRUE)
+    on.exit(par(oldpar), add = TRUE)
 
     miss.xy = c(missing(xdat),missing(ydat))
     
