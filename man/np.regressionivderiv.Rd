@@ -35,46 +35,62 @@ npregivderiv(y,
              ...)
 }
 \arguments{
-  \item{y}{
-    a one (1) dimensional numeric or integer vector of dependent data, each
-    element \eqn{i} corresponding to each observation (row) \eqn{i} of
-    \code{z}.
-  }
+\subsection{Data, Bandwidth Inputs And Formula Interface}{
+These arguments identify the response, endogenous variables, instruments, exogenous covariates, and evaluation data.
+}
 
-  \item{z}{
-    a \eqn{p}-variate data frame of endogenous regressors. The data
-    types may be continuous, discrete (unordered and ordered factors),
-    or some combination thereof.
-  }
   \item{w}{
     a \eqn{q}-variate data frame of instruments. The data types may be
     continuous, discrete (unordered and ordered factors), or some
     combination thereof.
   }
-  \item{x}{
-    an \eqn{r}-variate data frame of exogenous regressors. The data
-    types may be continuous, discrete (unordered and ordered factors),
-    or some combination thereof.
-  }
-  \item{zeval}{
-    a \eqn{p}-variate data frame of endogenous regressors on which the
-    regression will be estimated (evaluation data). By default, evaluation
-    takes place on the data provided by \code{z}.
-  }
+
   \item{weval}{
     a \eqn{q}-variate data frame of instruments on which the regression
     will be estimated (evaluation data). By default, evaluation
     takes place on the data provided by \code{w}.
   }
+
+  \item{x}{
+    an \eqn{r}-variate data frame of exogenous regressors. The data
+    types may be continuous, discrete (unordered and ordered factors),
+    or some combination thereof.
+  }
+
   \item{xeval}{
     an \eqn{r}-variate data frame of exogenous regressors on which the
     regression will be estimated (evaluation data). By default,
     evaluation takes place on the data provided by \code{x}.
   }
 
+
+  \item{y}{
+    a one (1) dimensional numeric or integer vector of dependent data, each
+    element \eqn{i} corresponding to each observation (row) \eqn{i} of
+    \code{z}.
+  }
+
+
+  \item{z}{
+    a \eqn{p}-variate data frame of endogenous regressors. The data
+    types may be continuous, discrete (unordered and ordered factors),
+    or some combination thereof.
+  }
+
+  \item{zeval}{
+    a \eqn{p}-variate data frame of endogenous regressors on which the
+    regression will be estimated (evaluation data). By default, evaluation
+    takes place on the data provided by \code{z}.
+  }
+
+\subsection{Iteration Controls}{
+These arguments control derivative iteration and reproducibility settings.
+}
+
 \item{constant}{
   the constant to use for Landweber-Fridman iteration.
 }
+
 
   \item{iterate.break}{
     a logical value indicating whether to compute all objects up to
@@ -83,10 +99,12 @@ npregivderiv(y,
     \code{iterate.max})
   }
 
+
   \item{iterate.max}{
     an integer indicating the maximum number of iterations permitted
     before termination occurs for Landweber-Fridman iteration.
   }
+
 
   \item{nmulti}{
     integer number of times to restart the process of finding extrema of
@@ -94,10 +112,16 @@ npregivderiv(y,
     points.
   }
 
+
   \item{random.seed}{
     an integer used to seed R's random number generator. This ensures
     replicability of the numerical search. Defaults to 42.
   }
+
+
+\subsection{Residual Smoothing And Starting Values}{
+These arguments control residual smoothing and the initial derivative path.
+}
 
 \item{smooth.residuals}{
   a logical value (defaults to \code{TRUE}) indicating whether to
@@ -106,28 +130,39 @@ npregivderiv(y,
   \eqn{w} during Landweber-Fridman iteration.
  }
 
+
 \item{start.from}{ a character string indicating whether to start from
   \eqn{E(Y|z)} (default, \code{"Eyz"}) or from \eqn{E(E(Y|z)|z)} (this can
   be overridden by providing \code{starting.values} below)
 }  
+
 \item{starting.values}{ a value indicating whether to commence
   Landweber-Fridman assuming
   \eqn{\varphi'_{-1}=starting.values}{phi'[-1]=starting.values} (proper
   Landweber-Fridman) or instead begin from \eqn{E(y|z)} (defaults to
   \code{NULL}, see details below)
 }
+
   \item{stop.on.increase}{
     a logical value (defaults to \code{TRUE}) indicating whether to halt
     iteration if the stopping criterion (see below) increases over the
     course of one iteration (i.e. it may be above the iteration tolerance
     but increased).
   }
+
+
+\subsection{Additional Arguments}{
+Further arguments are passed to \code{\link{npreg}} and \code{\link{npksum}}.
+}
+
   \item{...}{ 
     additional arguments supplied to \code{\link{npreg}} and \code{\link{npksum}}.
   }
-}
 
+}
 \details{
+  Documentation guide: see \code{\link{np.kernels}} for kernels, \code{\link{np.options}} for global options, and \code{\link{plot}} for plotting options.
+
 
   Note that Landweber-Fridman iteration presumes that
   \eqn{\varphi_{-1}=0}{phi[-1]=0}, and so for derivative estimation we
@@ -147,7 +182,8 @@ npregivderiv(y,
   }. However, if local rather than global optima are encountered the
   resulting estimates can be overly noisy. To best guard against this
   eventuality set \code{nmulti} to a larger number than the default
-  \code{nmulti=5} for the first iteration.
+  \code{nmulti=min(2,p)} for the first iteration, where \code{p} is
+  the dimension of the current smoothing problem.
 
   Note that for subsequent Landweber-Fridman iterations, a \dQuote{warm
   start} strategy is employed. The optimal bandwidths from the previous
@@ -156,7 +192,7 @@ npregivderiv(y,
   iterations after the first successful one, these optimal bandwidths
   serve as the first of the multiple initial points (a warm start),
   while any remaining restarts are cold starts. If \code{nmulti} is not
-  explicitly supplied by the user, it defaults to 5 for the first
+  explicitly supplied by the user, it defaults to \code{min(2,p)} for the first
   iteration and to 1 for all subsequent iterations. This strategy
   provides a balance between computational efficiency and robustness,
   allowing the numerical optimizer to refine the structural bandwidths
@@ -231,6 +267,7 @@ npregivderiv(y,
 }
 
 \seealso{
+  \code{\link{np.kernels}}, \code{\link{np.options}}, \code{\link{plot}}
 \code{\link{npregiv},\link{npreg}}
 }
 \examples{

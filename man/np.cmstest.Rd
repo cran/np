@@ -1,4 +1,4 @@
-% $Id: np.cmstest.Rd,v 1.58 2006/11/03 21:17:20 tristen Exp $
+%
 \name{npcmstest}
 \alias{npcmstest}
 \title{ Kernel Consistent Model Specification Test with Mixed Data Types }
@@ -6,6 +6,11 @@
   \code{npcmstest} implements a consistent test for correct
   specification of parametric regression models (linear or nonlinear) as
   described in Hsiao, Li, and Racine (2007).
+}
+\details{
+  Documentation guide: see \code{\link{np.kernels}} for kernels,
+  \code{\link{np.options}} for global options, and
+  \code{\link{plot}} for plotting options.
 }
 \usage{
 npcmstest(formula,
@@ -24,11 +29,9 @@ npcmstest(formula,
 }
 
 \arguments{
-    \item{formula}{
-    a symbolic description of variables on which the test is
-    to be performed. The details of constructing a formula are
-    described below.
-  }
+\subsection{Data, Bandwidth Inputs And Formula Interface}{
+These arguments identify the model formula/data interface and explicit data inputs.
+}
 
   \item{data}{
     an optional data frame, list or environment (or object
@@ -38,35 +41,45 @@ npcmstest(formula,
     function is called.
   }
 
-  \item{subset}{
-    an optional vector specifying a subset of observations to be used. 
+  \item{formula}{
+    a symbolic description of the model to be tested. If \code{xdat}
+    and \code{ydat} are omitted, the data are extracted from this
+    formula and \code{data}.
   }
+
 
   \item{model}{
     a model object obtained from a call to \code{\link{lm}} (or
-    \code{\link{glm}}). Important: the 
+    \code{\link{glm}}). Important: the
     call to either \code{\link{glm}} or \code{\link{lm}} must have the arguments
-    \code{x=TRUE} and 
+    \code{x=TRUE} and
     \code{y=TRUE} or \code{npcmstest} will not work. Also, the test is
     based on residual bootstrapping hence the outcome must be continuous
     (which rules out Logit, Probit, and Count models).
   }
 
+
+  \item{subset}{
+    an optional vector specifying a subset of observations to be used.
+  }
+
+
   \item{xdat}{
     a \eqn{p}-variate data frame of explanatory data (training data) used to
     calculate the regression estimators.
   }
+
+
   \item{ydat}{
     a one (1) dimensional numeric or integer vector of dependent data, each
     element \eqn{i} corresponding to each observation (row) \eqn{i} of
-    \code{xdat}. 
+    \code{xdat}.
   }
-  \item{distribution}{
-    a character string used to specify the method of estimating the
-    distribution of the statistic to be calculated. \code{bootstrap}
-    will conduct bootstrapping. \code{asymptotic} will use the normal
-    distribution. Defaults to \code{bootstrap}.
-  }
+
+
+\subsection{Bootstrap And Test Controls}{
+These arguments control the test statistic, bootstrap procedure, and reproducibility settings.
+}
 
   \item{boot.method}{
     a character string used to specify the bootstrap method.
@@ -76,10 +89,26 @@ npcmstest(formula,
     \code{iid}.
   }
 
+
   \item{boot.num}{
     an integer value specifying the number of bootstrap replications to
     use. Defaults to \code{399}.
   }
+
+
+  \item{density.weighted}{
+    a logical value specifying whether the statistic should be
+    weighted by the density of \code{xdat}. Defaults to \code{TRUE}.
+  }
+
+
+  \item{distribution}{
+    a character string used to specify the method of estimating the
+    distribution of the statistic to be calculated. \code{bootstrap}
+    will conduct bootstrapping. \code{asymptotic} will use the normal
+    distribution. Defaults to \code{bootstrap}.
+  }
+
 
   \item{pivot}{
     a logical value specifying whether the statistic should be
@@ -87,17 +116,17 @@ npcmstest(formula,
     distribution. Defaults to \code{TRUE}.
   }
 
-  \item{density.weighted}{
-    a logical value specifying whether the statistic should be
-    weighted by the density of \code{xdat}. Defaults to \code{TRUE}.
-  }
 
   \item{random.seed}{
     an integer used to seed R's random number generator. This is to
     ensure replicability. Defaults to 42.
   }
 
-  
+
+\subsection{Additional Arguments}{
+Further arguments are passed to the bandwidth-selection routines used by the test.
+}
+
   \item{\dots}{
     additional arguments supplied to control bandwidth selection on the
     residuals. One can specify the bandwidth type,
@@ -108,8 +137,8 @@ npcmstest(formula,
     a \code{bandwidth} object, and you do not desire the default behaviours.
   }
 
-}
 
+}
 \value{
   \code{npcmstest} returns an object of type \code{cmstest} with the
   following components, components will contain information
@@ -119,7 +148,7 @@ npcmstest(formula,
   \item{In}{ the statistic \code{In} }
   \item{Omega.hat}{ as described in Hsiao, C. and Q. Li and J.S. Racine. }
   \item{q.*}{ the various quantiles of the statistic \code{Jn} (or
-    \code{In} if 
+    \code{In} if
     \code{pivot=FALSE})  are in
     components \code{q.90},
     \code{q.95}, \code{q.99} (one-sided 1\%, 5\%, 10\% critical values) }
@@ -128,7 +157,7 @@ npcmstest(formula,
     replications of \code{Jn} }
   \item{In.bootstrap}{ if \code{pivot=FALSE} contains the bootstrap
     replications of \code{In} }
-  
+
   \code{\link{summary}} supports object of type \code{cmstest}.
 }
 \references{
@@ -167,12 +196,17 @@ npcmstest(formula,
   \code{\link{lm}} and uses features specific to objects of type
   \code{\link{lm}} hence if you attempt to pass objects of a different
   type the function cannot be expected to work.
-  
+
   If you are using data of mixed types, then it is advisable to use the
   \code{\link{data.frame}} function to construct your input data and not
   \code{\link{cbind}}, since \code{\link{cbind}} will typically not work as
   intended on mixed data types and will coerce the data to the same
   type.
+}
+
+\seealso{
+  \code{\link{np.kernels}}, \code{\link{np.options}},
+  \code{\link{plot}}, \code{\link{npregbw}}.
 }
 
 \examples{
@@ -187,23 +221,19 @@ attach(cps71)
 
 model <- lm(logwage~age+I(age^2), x=TRUE, y=TRUE)
 
-plot(age, logwage)
+if (interactive()) plot(age, logwage)
 lines(age, fitted(model))
 
 # Note - this may take a few minutes depending on the speed of your
 # computer...
 
-npcmstest(model = model, xdat = age, ydat = logwage)
-
-# Sleep for 5 seconds so that we can examine the output...
-
-Sys.sleep(5)
+npcmstest(model = model, xdat = age, ydat = logwage, boot.num=9, nmulti = 1)
 
 # Next try Murphy & Welch's (1990) suggested quintic specification.
 
 model <- lm(logwage~age+I(age^2)+I(age^3)+I(age^4)+I(age^5), x=TRUE, y=TRUE)
 
-plot(age, logwage)
+if (interactive()) plot(age, logwage)
 lines(age, fitted(model))
 
 X <- data.frame(age)
@@ -211,14 +241,10 @@ X <- data.frame(age)
 # Note - this may take a few minutes depending on the speed of your
 # computer...
 
-npcmstest(model = model, xdat = age, ydat = logwage)
-
-# Sleep for 5 seconds so that we can examine the output...
-
-Sys.sleep(5)
+npcmstest(model = model, xdat = age, ydat = logwage, boot.num=9, nmulti = 1)
 
 # Note - you can pass in multiple arguments to this function. For
-# instance, to use local linear rather than local constant regression, 
+# instance, to use local linear rather than local constant regression,
 # you would use npcmstest(model, X, regtype="ll"), while you could also
 # change the kernel type (default is second order Gaussian), numerical
 # search tolerance, or feed in your own vector of bandwidths and so
@@ -244,13 +270,13 @@ model <- lm(growth ~ oecd +
             inv +
             humancap +
             I(humancap^2) +
-            I(humancap^3) - 1, 
-            x=TRUE, 
+            I(humancap^3) - 1,
+            x=TRUE,
             y=TRUE)
 
 X <- data.frame(factor(oecd), factor(year), initgdp, popgro, inv, humancap)
 
-npcmstest(model = model, xdat = X, ydat = growth)
+npcmstest(model = model, xdat = X, ydat = growth, boot.num=9, nmulti = 1)
 
 detach(oecdpanel)
 } % enddontrun

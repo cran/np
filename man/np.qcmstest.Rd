@@ -8,6 +8,11 @@ with Mixed Data Types }
   nonlinear) as described in Racine (2006) which extends the work of
   Zheng (1998).
 }
+\details{
+  Documentation guide: see \code{\link{np.kernels}} for kernels,
+  \code{\link{np.options}} for global options, and
+  \code{\link{plot}} for plotting options.
+}
 \usage{
 npqcmstest(formula,
            data = NULL,
@@ -27,11 +32,9 @@ npqcmstest(formula,
 }
 
 \arguments{
-    \item{formula}{
-    a symbolic description of variables on which the test is
-    to be performed. The details of constructing a formula are
-    described below.
-  }
+\subsection{Data, Bandwidth Inputs And Formula Interface}{
+These arguments identify the model formula/data interface and explicit data inputs.
+}
 
   \item{data}{
     an optional data frame, list or environment (or object
@@ -41,9 +44,12 @@ npqcmstest(formula,
     function is called.
   }
 
-  \item{subset}{
-    an optional vector specifying a subset of observations to be used. 
+  \item{formula}{
+    a symbolic description of the quantile regression model to be
+    tested. If \code{xdat} and \code{ydat} are omitted, the data are
+    extracted from this formula and \code{data}.
   }
+
 
   \item{model}{
     a model object obtained from a call to \code{\link[quantreg]{rq}}. Important: the
@@ -51,34 +57,28 @@ npqcmstest(formula,
     \code{npqcmstest} will not work.
   }
 
+
+  \item{subset}{
+    an optional vector specifying a subset of observations to be used.
+  }
+
+
   \item{xdat}{
     a \eqn{p}-variate data frame of explanatory data (training data) used to
     calculate the quantile regression estimators.
   }
 
+
   \item{ydat}{
     a one (1) dimensional numeric or integer vector of dependent data, each
     element \eqn{i} corresponding to each observation (row) \eqn{i} of
-    \code{xdat}. 
+    \code{xdat}.
   }
 
-  \item{tau}{
-    a numeric value specifying the \eqn{\tau}{tau}th quantile is desired
-  }
 
-  \item{distribution}{
-    a character string used to specify the method of estimating the
-    distribution of the statistic to be calculated. \code{bootstrap}
-    will conduct bootstrapping. \code{asymptotic} will use the normal
-    distribution. Defaults to \code{bootstrap}.
-  }
-
-  \item{bwydat}{
-    a character string used to specify the left hand side variable used
-    in bandwidth selection. \code{"varepsilon"} uses
-    \eqn{1-\tau,-\tau}{1-tau,-tau} for \code{ydat} while \code{"y"} will
-    use \eqn{y}. Defaults to \code{"y"}.
-  }
+\subsection{Bootstrap And Test Controls}{
+These arguments control the quantile level, test statistic, bootstrap procedure, and reproducibility settings.
+}
 
   \item{boot.method}{
     a character string used to specify the bootstrap method.
@@ -88,10 +88,34 @@ npqcmstest(formula,
     \code{iid}.
   }
 
+
   \item{boot.num}{
     an integer value specifying the number of bootstrap replications to
     use. Defaults to \code{399}.
   }
+
+
+  \item{bwydat}{
+    a character string used to specify the left hand side variable used
+    in bandwidth selection. \code{"varepsilon"} uses
+    \eqn{1-\tau,-\tau}{1-tau,-tau} for \code{ydat} while \code{"y"} will
+    use \eqn{y}. Defaults to \code{"y"}.
+  }
+
+
+  \item{density.weighted}{
+    a logical value specifying whether the statistic should be
+    weighted by the density of \code{xdat}. Defaults to \code{TRUE}.
+  }
+
+
+  \item{distribution}{
+    a character string used to specify the method of estimating the
+    distribution of the statistic to be calculated. \code{bootstrap}
+    will conduct bootstrapping. \code{asymptotic} will use the normal
+    distribution. Defaults to \code{bootstrap}.
+  }
+
 
   \item{pivot}{
     a logical value specifying whether the statistic should be
@@ -99,15 +123,21 @@ npqcmstest(formula,
     distribution. Defaults to \code{TRUE}.
   }
 
-  \item{density.weighted}{
-    a logical value specifying whether the statistic should be
-    weighted by the density of \code{xdat}. Defaults to \code{TRUE}.
-  }
 
   \item{random.seed}{
     an integer used to seed R's random number generator. This is to
     ensure replicability. Defaults to 42.
   }
+
+
+  \item{tau}{
+    a numeric value specifying the \eqn{\tau}{tau}th quantile is desired
+  }
+
+
+\subsection{Additional Arguments}{
+Further arguments are passed to the bandwidth-selection routines used by the test.
+}
 
   \item{\dots}{
     additional arguments supplied to control bandwidth selection on the
@@ -118,8 +148,8 @@ npqcmstest(formula,
     This is necessary if you specify \code{bws} as a \eqn{p}-vector and not
     a \code{bandwidth} object, and you do not desire the default behaviours.
   }
-}
 
+}
 \value{
   \code{npqcmstest} returns an object of type \code{cmstest} with the
   following components. Components will contain information
@@ -129,7 +159,7 @@ npqcmstest(formula,
   \item{In}{ the statistic \code{In} }
   \item{Omega.hat}{ as described in Racine, J.S. (2006). }
   \item{q.*}{ the various quantiles of the statistic \code{Jn} (or
-    \code{In} if 
+    \code{In} if
     \code{pivot=FALSE})  are in
     components \code{q.90},
     \code{q.95}, \code{q.99} (one-sided 1\%, 5\%, 10\% critical values) }
@@ -138,7 +168,7 @@ npqcmstest(formula,
     replications of \code{Jn} }
   \item{In.bootstrap}{ if \code{pivot=FALSE} contains the bootstrap
     replications of \code{In} }
-  
+
   \code{\link{summary}} supports object of type \code{cmstest}.
 }
 \references{
@@ -182,6 +212,11 @@ npqcmstest(formula,
   type.
 }
 
+\seealso{
+  \code{\link{np.kernels}}, \code{\link{np.options}},
+  \code{\link{plot}}, \code{\link{npregbw}}.
+}
+
 \examples{
 \dontrun{
 # EXAMPLE 1: For this example, we conduct a consistent quantile regression
@@ -197,7 +232,7 @@ attach(cps71)
 
 model <- rq(logwage~age+I(age^2), tau=0.5, model=TRUE)
 
-plot(age, logwage)
+if (interactive()) plot(age, logwage)
 lines(age, fitted(model))
 
 X <- data.frame(age)
@@ -209,13 +244,13 @@ npqcmstest(model = model, xdat = X, ydat = logwage, tau=0.5)
 
 # Sleep for 5 seconds so that we can examine the output...
 
-Sys.sleep(5)
+if (interactive()) Sys.sleep(5)
 
 # Next try Murphy & Welch's (1990) suggested quintic specification.
 
 model <- rq(logwage~age+I(age^2)+I(age^3)+I(age^4)+I(age^5), model=TRUE)
 
-plot(age, logwage)
+if (interactive()) plot(age, logwage)
 lines(age, fitted(model))
 
 X <- data.frame(age)

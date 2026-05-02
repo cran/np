@@ -24,26 +24,43 @@ npuniden.reflect(X = NULL,
                  ...)
 }
 \arguments{
-  \item{X}{
-a required numeric vector of training data lying in \eqn{[a,b]}
+\subsection{Data, Bandwidth Inputs And Formula Interface}{
+These arguments identify evaluation points, observations, support bounds, and optional bandwidths.
 }
-  \item{Y}{
-an optional numeric vector of evaluation data lying in \eqn{[a,b]}
-}
-  \item{h}{
-an optional bandwidth (>0)
-}
+
   \item{a}{
 an optional lower bound (defaults to 0)
 }
+
   \item{b}{
 an optional upper bound (defaults to 1)
 }
+
+
+  \item{h}{
+an optional bandwidth (>0)
+}
+
+  \item{X}{
+a required numeric vector of training data lying in \eqn{[a,b]}
+}
+
+  \item{Y}{
+an optional numeric vector of evaluation data lying in \eqn{[a,b]}
+}
+
+\subsection{Additional Arguments}{
+Further arguments are passed to \code{\link{npudensbw}} and \code{\link{npudens}}.
+}
+
  \item{...}{
 optional arguments passed to \code{npudensbw} and \code{npudens}
 }
+
 }
 \details{
+  Documentation guide: see \code{\link{np.kernels}} for kernels, \code{\link{np.options}} for global options, and \code{\link{plot}} for plotting options.
+
   Typical usages are (see below for a complete list of options and also
   the examples at the end of this help file)
   \preformatted{
@@ -89,6 +106,7 @@ optional arguments passed to \code{npudensbw} and \code{npudens}
 Jeffrey S. Racine \email{racinej@mcmaster.ca}
 }
 \seealso{
+  \code{\link{np.kernels}}, \code{\link{np.options}}, \code{\link{plot}}
 The \pkg{Ake}, \pkg{bde}, and \pkg{Conake} packages and the function \code{\link{npuniden.boundary}}.
 }
 \examples{
@@ -102,7 +120,7 @@ dgp <- dbeta(X,5,1)
 model <- npuniden.reflect(X)
 model.unadjusted <- npuniden.boundary(X,a=-Inf,b=Inf)
 ylim <- c(0,max(c(dgp,model$f,model.unadjusted$f)))
-plot(X,model$f,ylab="Density",ylim=ylim,type="l")
+if (interactive()) plot(X,model$f,ylab="Density",ylim=ylim,type="l")
 lines(X,model.unadjusted$f,lty=2,col=2)
 lines(X,dgp,lty=3,col=3)
 rug(X)
@@ -114,16 +132,17 @@ set.seed(42)
 X <- sort(rbeta(100,5,3))
 model <- npuniden.reflect(X)
 oldpar <- par(no.readonly = TRUE)
+on.exit(par(oldpar), add = TRUE)
 par(mfrow=c(1,2))
 ylim=range(c(model$f,model$f+1.96*model$sd.f,model$f-1.96*model$sd.f,dbeta(X,5,3)))
-plot(X,model$f,ylim=ylim,ylab="Density",type="l",)
+if (interactive()) plot(X,model$f,ylim=ylim,ylab="Density",type="l",)
 lines(X,model$f+1.96*model$sd.f,lty=2)
 lines(X,model$f-1.96*model$sd.f,lty=2)
 lines(X,dbeta(X,5,3),col=2)
 rug(X)
 legend("topleft",c("Density","DGP"),lty=c(1,1),col=1:2,bty="n")
 
-plot(X,model$F,ylab="Distribution",type="l")
+if (interactive()) plot(X,model$F,ylab="Distribution",type="l")
 lines(X,model$F+1.96*model$sd.F,lty=2)
 lines(X,model$F-1.96*model$sd.F,lty=2)
 lines(X,pbeta(X,5,3),col=2)
@@ -142,7 +161,6 @@ lines(age,model$f)
 lines(density(age,bw=model$h),col=2)
 legend("topright",c("Data-Reflection","Unadjusted"),lty=c(1,1),col=1:2,bty="n")
 detach(cps71)
-par(oldpar)
 } % enddontrun
 }
 \keyword{ nonparametric }

@@ -1,8 +1,7 @@
-% $Id: np.sigtest.Rd,v 1.31 2006/10/24 20:43:29 tristen Exp $
+%
 
 \name{npsigtest}
 \alias{npsigtest}
-\alias{npsigtest.call}
 \alias{npsigtest.default}
 \alias{npsigtest.formula}
 \alias{npsigtest.rbandwidth}
@@ -17,15 +16,19 @@
   and Racine (1997).
 }
 \usage{
-npsigtest(bws, \dots)
+npsigtest(bws, 
+          \dots)
 
-\method{npsigtest}{formula}(bws, data = NULL, \dots)
-
-\method{npsigtest}{call}(bws, \dots)
+\method{npsigtest}{formula}(bws, 
+          data = NULL, 
+          \dots)
 
 \method{npsigtest}{npregression}(bws, \dots)
 
-\method{npsigtest}{default}(bws, xdat, ydat, \dots)
+\method{npsigtest}{default}(bws, 
+          xdat, 
+          ydat, 
+          \dots)
 
 \method{npsigtest}{rbandwidth}(bws,
           xdat = stop("data xdat missing"),
@@ -35,13 +38,17 @@ npsigtest(bws, \dots)
           boot.type = c("I","II"),
           pivot=TRUE,
           joint=FALSE,
-          index = seq(1,ncol(xdat)),
+          index = seq_len(ncol(xdat)),
           random.seed = 42,
           \dots)
 
 }
 
 \arguments{
+\subsection{Data, Bandwidth Inputs And Formula Interface}{
+These arguments identify the bandwidth object, formula/data interface, and explicit data inputs.
+}
+
   \item{bws}{
     a bandwidth specification. This can be set as a \code{rbandwidth}
     object returned from a previous invocation, or as a vector of
@@ -54,6 +61,7 @@ npsigtest(bws, \dots)
     methods, and so on.
   }
 
+
   \item{data}{
     an optional data frame, list or environment (or object coercible to
     a data frame by \code{\link{as.data.frame}}) containing the
@@ -62,16 +70,23 @@ npsigtest(bws, \dots)
     which \code{\link{npregbw}} was called.
   }
 
+
   \item{xdat}{
     a \eqn{p}-variate data frame of explanatory data (training data)
     used to calculate the regression estimators.
   }
+
 
   \item{ydat}{
     a one (1) dimensional numeric or integer vector of dependent data,
     each element \eqn{i} corresponding to each observation (row) \eqn{i}
     of \code{xdat}.
   }
+
+
+\subsection{Bootstrap And Test Controls}{
+These arguments control bootstrap execution, tested effects, and reproducibility settings.
+}
 
   \item{boot.method}{
     a character string used to specify the bootstrap method for
@@ -83,10 +98,12 @@ npsigtest(bws, \dots)
     Rademacher variables. Defaults to \code{iid}.
   }
 
+
   \item{boot.num}{
     an integer value specifying the number of bootstrap replications to
     use. Defaults to \code{399}.
   }
+
 
   \item{boot.type}{
     a character string specifying whether to use a \sQuote{Bootstrap I} or
@@ -97,12 +114,14 @@ npsigtest(bws, \dots)
     remaining variables. Defaults to \code{boot.type="I"}.
   }
 
-  \item{pivot}{
-    a logical value which specifies whether to bootstrap a pivotal
-    statistic or not (pivoting is achieved by dividing gradient
-    estimates by their asymptotic standard errors). Defaults to
-    \code{TRUE}.
+
+  \item{index}{
+    a vector of indices for the columns of \code{xdat} for which the
+    test of significance is to be conducted. Defaults to
+    (1,2,\dots,\eqn{p}) where \eqn{p} is the number of columns in
+    \code{xdat}.
   }
+
 
   \item{joint}{
     a logical value which specifies whether to conduct a joint test or
@@ -114,25 +133,35 @@ npsigtest(bws, \dots)
     \code{npreg}/\code{npregbw}. Defaults to \code{FALSE}.
   }
 
-  \item{index}{
-    a vector of indices for the columns of \code{xdat} for which the
-    test of significance is to be conducted. Defaults to
-    (1,2,\dots,\eqn{p}) where \eqn{p} is the number of columns in
-    \code{xdat}.
+
+  \item{pivot}{
+    a logical value which specifies whether to bootstrap a pivotal
+    statistic or not (pivoting is achieved by dividing gradient
+    estimates by their asymptotic standard errors). Defaults to
+    \code{TRUE}.
   }
+
 
   \item{random.seed}{
     an integer used to seed R's random number generator. This is to
     ensure replicability. Defaults to 42.
   }
 
+
+\subsection{Additional Arguments}{
+Further arguments are passed to the bandwidth-selection routines used by the test.
+}
+
   \item{\dots}{
     additional arguments supplied to specify the bandwidth type,
     kernel types, selection methods, and so on, detailed below.
   }
 
+
 }
 \details{
+  Documentation guide: see \code{\link{np.kernels}} for kernels, \code{\link{np.options}} for global options, and \code{\link{plot}} for plotting options.
+
 
   \code{npsigtest} implements a variety of methods for computing the
   null distribution of the test statistic and allows the user to
@@ -157,8 +186,8 @@ npsigtest(bws, \dots)
   also that \code{boot.method="pairwise"} is not recommended for the
   multivariate local linear estimator due to substantial size
   distortions that may arise in certain cases.
-  
-}  
+
+}
 
 \value{
   \code{npsigtest} returns an object of type

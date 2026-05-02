@@ -1,8 +1,54 @@
 #include <math.h>
+#include <stdint.h>
+#include <stdlib.h>
 
 #include <R.h>
 #include "headers.h"
 #include "tree.h"
+
+static size_t np_tree_size_mul_or_die(size_t a, size_t b, const char *what)
+{
+  if ((a != 0) && (b > (SIZE_MAX / a)))
+    error("%s: allocation size overflow", what);
+  return a * b;
+}
+
+static size_t np_tree_size_mul3_or_die(size_t a, size_t b, size_t c, const char *what)
+{
+  return np_tree_size_mul_or_die(np_tree_size_mul_or_die(a, b, what), c, what);
+}
+
+static void *np_tree_malloc_bytes_or_die(size_t nbytes, const char *what)
+{
+  void *ptr;
+
+  if (nbytes == 0)
+    return NULL;
+
+  ptr = malloc(nbytes);
+  if (ptr == NULL)
+    error("%s: memory allocation failed", what);
+
+  return ptr;
+}
+
+static void *np_tree_malloc_array_or_die(size_t count, size_t elem_size, const char *what)
+{
+  return np_tree_malloc_bytes_or_die(np_tree_size_mul_or_die(count, elem_size, what), what);
+}
+
+static void *np_tree_malloc_array3_or_die(size_t a, size_t b, size_t c, const char *what)
+{
+  return np_tree_malloc_bytes_or_die(np_tree_size_mul3_or_die(a, b, c, what), what);
+}
+
+static int *realloc_int_or_die(int *ptr, size_t n)
+{
+  int *tmp = (int *)realloc(ptr, np_tree_size_mul_or_die(n, sizeof(int), "realloc_int_or_die"));
+  if (tmp == NULL)
+    error("realloc_int_or_die: memory allocation failed");
+  return tmp;
+}
 
 /*
   inputs
@@ -30,19 +76,17 @@ void build_kdtree(double ** p, int nump, int ndim, int nbucket, int * ip, KDT **
   
   int numnode = MIN(2*MAX(nump,nbucket) - (nbucket-1)*nf - 1, maxnode);
 
-  *kdt = (KDT *)malloc(sizeof(KDT));
-  if(!(*kdt != NULL))
-    error("!(*kdt != NULL)");
+  *kdt = (KDT *)np_tree_malloc_array_or_die(1, sizeof(KDT), "build_kdtree");
 
   kdx = *kdt;
 
-  kdx->kdn = (KDN *)malloc(numnode*sizeof(KDN));
-  if(!(kdx->kdn != NULL))
-    error("!(kdx->kdn != NULL)");
+  kdx->kdn = (KDN *)np_tree_malloc_array_or_die((size_t)numnode, sizeof(KDN), "build_kdtree kdn");
 
-  kdx->bb = (double *)malloc(numnode*2*ndim*sizeof(double));
-  if(!(kdx->bb != NULL))
-    error("!(kdx->bb != NULL)");
+  kdx->bb = (double *)np_tree_malloc_array3_or_die(
+    (size_t)numnode,
+    np_tree_size_mul_or_die(2u, (size_t)ndim, "build_kdtree bb"),
+    sizeof(double),
+    "build_kdtree bb");
 
   for(int i = 0; i < numnode; i++){
     kdx->kdn[i].bb = kdx->bb+2*i*ndim;
@@ -192,10 +236,7 @@ void boxSearch(KDT * kdt, int node, double * bb, NL * nl){
   if(res == KD_MISS) return;
 
   if(nl->n == nl->nalloc){
-    nl->node = (int *)realloc(nl->node, MAX(10, 2*nl->nalloc)*sizeof(int));
-    if(!(nl->node != NULL))
-      error("!(nl->node != NULL)");
-    
+    nl->node = realloc_int_or_die(nl->node, (size_t) MAX(10, 2*nl->nalloc));
     nl->nalloc = MAX(10, 2*nl->nalloc);
   }
 
@@ -344,10 +385,7 @@ void boxSearchNLPartialIdx(KDT * restrict kdt, NL * restrict search, double * re
 
 void check_grow_nl(NL * restrict nl){
   if(nl->n == nl->nalloc){
-    nl->node = (int *)realloc(nl->node, MAX(10, 2*nl->nalloc)*sizeof(int));
-    if(!(nl->node != NULL))
-      error("!(nl->node != NULL)");
-    
+    nl->node = realloc_int_or_die(nl->node, (size_t) MAX(10, 2*nl->nalloc));
     nl->nalloc = MAX(10, 2*nl->nalloc);
   }
 }
@@ -376,7 +414,7 @@ void clean_xl(XL * restrict xl){
 
 void mirror_nl(NL * restrict nla, NL * restrict nlb){
   if(nla->n > nlb->nalloc){
-    nlb->node = (int *)realloc(nlb->node, (1+nla->n)*sizeof(int));
+    nlb->node = realloc_int_or_die(nlb->node, (size_t) (1+nla->n));
     nlb->nalloc = nla->n + 1;
   }
 
@@ -388,8 +426,8 @@ void mirror_nl(NL * restrict nla, NL * restrict nlb){
 
 void mirror_xl(XL * restrict xla, XL * restrict xlb){
   if(xla->n > xlb->nalloc){
-    xlb->istart = (int *)realloc(xlb->istart, (1+xla->n)*sizeof(int));
-    xlb->nlev = (int *)realloc(xlb->nlev, (1+xla->n)*sizeof(int));
+    xlb->istart = realloc_int_or_die(xlb->istart, (size_t) (1+xla->n));
+    xlb->nlev = realloc_int_or_die(xlb->nlev, (size_t) (1+xla->n));
     xlb->nalloc = xla->n + 1;
   }
 
@@ -403,8 +441,8 @@ void mirror_xl(XL * restrict xla, XL * restrict xlb){
 
 void merge_end_xl(XL * restrict xl, KDN * restrict kdn){
   if(xl->n == xl->nalloc){
-    xl->istart = (int *)realloc(xl->istart, MAX(10,2*xl->nalloc)*sizeof(int));
-    xl->nlev = (int *)realloc(xl->nlev, MAX(10,2*xl->nalloc)*sizeof(int));
+    xl->istart = realloc_int_or_die(xl->istart, (size_t) MAX(10,2*xl->nalloc));
+    xl->nlev = realloc_int_or_die(xl->nlev, (size_t) MAX(10,2*xl->nalloc));
 
     xl->nalloc = MAX(10, 2*xl->nalloc);
   }
@@ -419,8 +457,8 @@ void merge_end_xl(XL * restrict xl, KDN * restrict kdn){
 
 void merge_end_xl_idx(XL * restrict xl, KDN * restrict kdn, int * restrict idx){
   if(xl->n == xl->nalloc){
-    xl->istart = (int *)realloc(xl->istart, MAX(10,2*xl->nalloc)*sizeof(int));
-    xl->nlev = (int *)realloc(xl->nlev, MAX(10,2*xl->nalloc)*sizeof(int));
+    xl->istart = realloc_int_or_die(xl->istart, (size_t) MAX(10,2*xl->nalloc));
+    xl->nlev = realloc_int_or_die(xl->nlev, (size_t) MAX(10,2*xl->nalloc));
 
     xl->nalloc = MAX(10, 2*xl->nalloc);
   }

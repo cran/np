@@ -1,7 +1,6 @@
-% $Id: np.condensity.Rd,v 1.67 2006/11/03 21:19:03 tristen Exp $
+%
 \name{npcdens}
 \alias{npcdens}
-\alias{npcdens.call}
 \alias{npcdens.conbandwidth}
 \alias{npcdens.default}
 \alias{npcdens.formula}
@@ -14,7 +13,7 @@
   \code{conbandwidth} object or a bandwidth vector, bandwidth type, and
   kernel type) using the method of Hall, Racine, and Li (2004).
   The data may be continuous, discrete (unordered and ordered
-  factors), or some combination thereof. 
+  factors), or some combination thereof.
 }
 
 \usage{
@@ -22,7 +21,6 @@ npcdens(bws, \dots)
 
 \method{npcdens}{formula}(bws, data = NULL, newdata = NULL, \dots)
 
-\method{npcdens}{call}(bws, \dots)
 
 \method{npcdens}{conbandwidth}(bws,
         txdat = stop("invoked without training data 'txdat'"),
@@ -30,13 +28,20 @@ npcdens(bws, \dots)
         exdat,
         eydat,
         gradients = FALSE,
+        proper = FALSE,
+        proper.method = c("project"),
+        proper.control = list(),
         \dots)
 
-\method{npcdens}{default}(bws, txdat, tydat, \dots)
+\method{npcdens}{default}(bws, txdat, tydat, nomad = FALSE, \dots)
 
 }
 
 \arguments{
+\subsection{Data, Bandwidth Inputs And Formula Interface}{
+These arguments identify the bandwidth specification, formula/data interface, and training data.
+}
+
   \item{bws}{
     a bandwidth specification. This can be set as a \code{conbandwidth}
     object returned from a previous invocation of
@@ -50,35 +55,13 @@ npcdens(bws, \dots)
     data, and so on.
   }
 
-  \item{gradients}{
-    a logical value specifying whether to return estimates of the
-    gradients at the evaluation points. Defaults to \code{FALSE}.
-  }
 
-  \item{\dots}{
-    additional arguments supplied to specify the bandwidth type,
-    kernel types, and so on.  This is necessary if you
-    specify bws as a \eqn{p+q}-vector and not a \code{conbandwidth}
-    object, and you do not desire the default behaviours. To do this,
-    you may specify any of \code{bwmethod}, \code{bwscaling},
-    \code{bwtype}, \code{cxkertype}, \code{cxkerorder},
-    \code{cykertype}, \code{cykerorder}, \code{uxkertype},
-    \code{uykertype}, \code{oxkertype}, \code{oykertype}, as described
-    in \code{\link{npcdensbw}}. 
-
-  }
-  
   \item{data}{
     an optional data frame, list or environment (or object
     coercible to a data frame by \code{\link{as.data.frame}}) containing the variables
     in the model. If not found in data, the variables are taken from
     \code{environment(bws)}, typically the environment from which
    \code{\link{npcdensbw}} was called.
-  }
-
-  \item{newdata}{
-    An optional data frame in which to look for evaluation data. If
-    omitted, the training data are used.  
   }
 
 
@@ -88,11 +71,38 @@ npcdens(bws, \dots)
     compute the bandwidth object.
   }
 
+
   \item{tydat}{
     a \eqn{q}-variate data frame of sample realizations of dependent
     data (training data). Defaults to the training data used to
     compute the bandwidth object.
   }
+
+
+\subsection{Bandwidth Search Shortcut}{
+This argument passes the recommended automatic local-polynomial NOMAD preset to \code{\link{npcdensbw}} when bandwidths are computed inside \code{npcdens}.
+}
+
+  \item{nomad}{
+    logical shortcut passed through to \code{\link{npcdensbw}} when
+    bandwidths are computed inside \code{npcdens}. When \code{TRUE},
+    the bandwidth route fills any missing values among \code{regtype},
+    \code{search.engine}, \code{degree.select},
+    \code{bernstein.basis}, \code{degree.min}, \code{degree.max},
+    \code{degree.verify}, and \code{bwtype} with the recommended
+    automatic LP NOMAD preset documented in \code{\link{npcdensbw}}.
+    Additional NOMAD tuning arguments such as \code{nomad.nmulti} may
+    also be supplied through \code{\dots}; \code{nmulti} remains the
+    outer restart count while \code{nomad.nmulti} controls inner
+    \code{crs::snomadr()} multistarts within each outer restart.
+    After fitting, inspect \code{fit$bws$nomad.shortcut} on the
+    returned object \code{fit} to see the normalized shortcut metadata.
+  }
+
+
+\subsection{Evaluation Data And Returned Quantities}{
+These arguments control where the fitted conditional density is evaluated and which estimates are returned.
+}
 
   \item{exdat}{
     a \eqn{p}-variate data frame of explanatory data on which
@@ -100,14 +110,94 @@ npcdens(bws, \dots)
     evaluation takes place on the data provided by \code{txdat}.
   }
 
+
   \item{eydat}{
     a \eqn{q}-variate data frame of dependent data on which conditional
     densities will be evaluated. By default,
     evaluation takes place on the data provided by \code{tydat}.
   }
 
+
+  \item{gradients}{
+    a logical value specifying whether to return estimates of the
+    gradients at the evaluation points. Defaults to \code{FALSE}.
+  }
+
+
+  \item{newdata}{
+    An optional data frame in which to look for evaluation data. If
+    omitted, the training data are used.
+  }
+
+
+
+\subsection{Fit Properization Controls}{
+These arguments control optional post-estimation properization of the fitted conditional density.
+}
+
+  \item{proper}{
+    a logical value specifying whether to apply post-estimation
+    properization to the conditional density estimate. Defaults to
+    \code{FALSE}.
+  }
+
+
+  \item{proper.control}{
+    a list of controls for properization. Supported entries are
+    \code{tol}, \code{grid.check}, \code{store.raw}, and
+    \code{fail.on.unsupported}.
+  }
+
+
+
+  \item{proper.method}{
+    a character string specifying the properization method. Currently
+    \code{"project"} is supported.
+  }
+
+
+\subsection{Additional Arguments}{
+Further arguments are passed to \code{\link{npcdensbw}} when bandwidths are computed internally, or used to interpret a numeric \code{bws} vector.
+}
+
+  \item{\dots}{
+    additional arguments supplied to \code{\link{npcdensbw}} when
+    \code{npcdens} computes bandwidths internally, or arguments needed
+    to interpret a numeric \code{bws} vector. This is where bandwidth
+    selection controls such as \code{bwmethod}, \code{bwtype},
+    kernel/support controls such as \code{cxkertype},
+    \code{cykertype}, \code{cxkerbound}, and \code{cykerbound},
+    search controls such as \code{nmulti},
+    \code{scale.factor.search.lower}, and \code{nomad.nmulti}, and
+    local-polynomial controls such as \code{regtype}, \code{degree},
+    \code{basis}, and \code{bernstein.basis} are supplied. See
+    \code{\link{npcdensbw}} for the complete bandwidth-selection
+    argument surface.
+
+  }
+
 }
 \details{
+  Documentation guide: see \code{\link{npcdensbw}} for bandwidth selection and search controls, \code{\link{np.kernels}} for kernels, \code{\link{np.options}} for global options, and \code{\link{plot}}, \code{\link{plot.np}} for plotting options.
+
+  When \code{bws} is omitted, the formula and default methods call
+  \code{\link{npcdensbw}} first and pass bandwidth-selection arguments
+  from \code{\dots} to that call. When \code{bws} is already a
+  \code{conbandwidth} object, \code{npcdens} estimates with the stored
+  bandwidth metadata in that object.
+
+  Argument groups for bandwidth selection are documented on
+  \code{\link{npcdensbw}}. The most common workflow is to choose data
+  and bandwidth inputs first, then bandwidth criterion and
+  representation, then kernel/support controls, numerical search
+  controls, bounded \code{cv.ls} quadrature controls if relevant, and
+  finally local-polynomial/NOMAD controls for polynomial-adaptive fits.
+
+  For S3 plotting help, use \code{methods("plot")} and query
+  class-specific help topics such as \code{?plot.npregression} and
+  \code{?plot.rbandwidth}. You can inspect implementations with
+  \code{getS3method("plot","npregression")}.
+
   \code{npcdens} implements a variety of methods for estimating
   multivariate conditional distributions (\eqn{p+q}-variate) defined
   over a set of possibly continuous and/or discrete (unordered, ordered)
@@ -136,6 +226,12 @@ npcdens(bws, \dots)
   kernel. Unordered discrete data types use a variation on Aitchison and
   Aitken's (1976) kernel, while ordered data types use a variation of the
   Wang and van Ryzin (1981) kernel.
+
+  For practitioners who want the recommended automatic LP NOMAD route
+  without spelling out all LP tuning arguments,
+  \code{npcdens(..., nomad=TRUE)} and \code{npcdensbw(..., nomad=TRUE)}
+  expand missing settings to the same documented preset. Explicit
+  incompatible settings fail fast rather than being silently rewritten.
 
 }
 \value{
@@ -179,7 +275,7 @@ npcdens(bws, \dots)
   and Practice,} Princeton University Press.
 
   Pagan, A. and A. Ullah (1999), \emph{Nonparametric Econometrics,} Cambridge
-  University Press. 
+  University Press.
 
   Scott, D.W. (1992), \emph{Multivariate Density Estimation. Theory,
   Practice and Visualization,} New York: Wiley.
@@ -193,7 +289,7 @@ npcdens(bws, \dots)
 }
 \author{
   Tristen Hayfield \email{tristen.hayfield@gmail.com}, Jeffrey S. Racine
-  \email{racinej@mcmaster.ca}    
+  \email{racinej@mcmaster.ca}
 }
 
 \section{Usage Issues}{
@@ -205,6 +301,7 @@ npcdens(bws, \dots)
 }
 
 \seealso{
+  \code{\link{np.kernels}}, \code{\link{np.options}}, \code{\link{plot}}, \code{\link{plot.np}}
   \code{\link{npudens}}
 }
 \examples{
@@ -216,12 +313,13 @@ npcdens(bws, \dots)
 # depending on the speed of your computer.
 
 data("Italy")
+Italy <- Italy[seq_len(min(300, nrow(Italy))), ]
 attach(Italy)
 
 # First, compute the bandwidths... note that this may take a minute or
-# two depending on the speed of your computer. 
+# two depending on the speed of your computer.
 
-bw <- npcdensbw(formula=gdp~ordered(year))
+bw <- npcdensbw(formula=gdp~ordered(year), nmulti=1)
 
 # Next, compute the condensity object...
 
@@ -236,7 +334,7 @@ summary(fhat)
 # interrupt on *NIX systems, <esc> will interrupt on MS Windows
 # systems).
 
-plot(bw)
+if (interactive()) plot(bw)
 
 detach(Italy)
 
@@ -247,10 +345,11 @@ detach(Italy)
 # depending on the speed of your computer.
 
 data("Italy")
+Italy <- Italy[seq_len(min(300, nrow(Italy))), ]
 attach(Italy)
 
 # First, compute the bandwidths... note that this may take a minute or
-# two depending on the speed of your computer. 
+# two depending on the speed of your computer.
 
 # Note - we cast `X' and `y' as data frames so that plot() can
 # automatically grab names (this looks like overkill, but in
@@ -260,7 +359,7 @@ attach(Italy)
 X <- data.frame(year=ordered(year))
 y <- data.frame(gdp)
 
-bw <- npcdensbw(xdat=X, ydat=y)
+bw <- npcdensbw(xdat=X, ydat=y, nmulti=1)
 
 # Next, compute the condensity object...
 
@@ -274,7 +373,7 @@ summary(fhat)
 # Call the plot() function to visualize the results (<ctrl>-C will
 # interrupt on *NIX systems, <esc> will interrupt on MS Windows systems).
 
-plot(bw)
+if (interactive()) plot(bw)
 
 detach(Italy)
 
@@ -289,14 +388,14 @@ attach(faithful)
 # Note - this may take a few minutes depending on the speed of your
 # computer...
 
-bw <- npcdensbw(formula=eruptions~waiting)
+bw <- npcdensbw(formula=eruptions~waiting, nmulti=1)
 
 summary(bw)
 
 # Plot the density function (<ctrl>-C will interrupt on *NIX systems,
 # <esc> will interrupt on MS Windows systems).
 
-plot(bw)
+if (interactive()) plot(bw)
 
 detach(faithful)
 
@@ -319,14 +418,14 @@ attach(faithful)
 X <- data.frame(waiting)
 y <- data.frame(eruptions)
 
-bw <- npcdensbw(xdat=X, ydat=y)
+bw <- npcdensbw(xdat=X, ydat=y, nmulti=1)
 
 summary(bw)
 
-# Plot the density function (<ctrl>-C will interrupt on *NIX systems, 
+# Plot the density function (<ctrl>-C will interrupt on *NIX systems,
 # <esc> will interrupt on MS Windows systems)
 
-plot(bw)
+if (interactive()) plot(bw)
 
 detach(faithful)
 
@@ -336,7 +435,7 @@ detach(faithful)
 
 set.seed(123)
 
-n <- 1000
+n <- 300
 
 # x1 is chi-squared having 3 df truncated at 6 standardized by
 # subtracting 2.348 and dividing by 1.511
@@ -356,13 +455,13 @@ y <- ifelse(x1 + x2 + rnorm(n) > 0, 1, 0)
 # Generate data-driven bandwidths (likelihood cross-validation). Note -
 # this may take a few minutes depending on the speed of your computer...
 
-bw <- npcdensbw(formula=factor(y)~x1+x2)
+bw <- npcdensbw(formula=factor(y)~x1+x2, nmulti=1)
 
 # Next, create the evaluation data in order to generate a perspective
 # plot
 
-x1.seq <- seq(min(x1), max(x1), length=50)
-x2.seq <- seq(min(x2), max(x2), length=50)
+x1.seq <- seq(min(x1), max(x1), length=30)
+x2.seq <- seq(min(x2), max(x2), length=30)
 X.eval <- expand.grid(x1=x1.seq,x2=x2.seq)
 
 data.eval <- data.frame(y=factor(rep(1, nrow(X.eval))),x1=X.eval[,1],x2=X.eval[,2])
@@ -374,21 +473,21 @@ fit <- fitted(npcdens(bws=bw,newdata=data.eval))
 
 # Finally, coerce the data into a matrix for plotting with persp()
 
-fit.mat <- matrix(fit, 50, 50)
+fit.mat <- matrix(fit, 30, 30)
 
 # Generate a perspective plot similar to Figure 2 b of Klein and Spady
 # (1993)
 
-persp(x1.seq, 
-      x2.seq, 
-      fit.mat, 
-      col="white", 
-      ticktype="detailed", 
-      expand=0.5, 
-      axes=FALSE, 
-      box=FALSE, 
-      main="Estimated Nonparametric Probability Perspective", 
-      theta=310, 
+persp(x1.seq,
+      x2.seq,
+      fit.mat,
+      col="white",
+      ticktype="detailed",
+      expand=0.5,
+      axes=FALSE,
+      box=FALSE,
+      main="Estimated Nonparametric Probability Perspective",
+      theta=310,
       phi=25)
 
 # EXAMPLE 3 (INTERFACE=DATA FRAME): Replicate the DGP of Klein & Spady
@@ -397,7 +496,7 @@ persp(x1.seq,
 
 set.seed(123)
 
-n <- 1000
+n <- 300
 
 # x1 is chi-squared having 3 df truncated at 6 standardized by
 # subtracting 2.348 and dividing by 1.511
@@ -421,41 +520,142 @@ X <- cbind(x1, x2)
 # Generate data-driven bandwidths (likelihood cross-validation). Note -
 # this may take a few minutes depending on the speed of your computer...
 
-bw <- npcdensbw(xdat=X, ydat=factor(y))
+bw <- npcdensbw(xdat=X, ydat=factor(y), nmulti=1)
 
 # Next, create the evaluation data in order to generate a perspective
 # plot
 
-x1.seq <- seq(min(x1), max(x1), length=50)
-x2.seq <- seq(min(x2), max(x2), length=50)
+x1.seq <- seq(min(x1), max(x1), length=30)
+x2.seq <- seq(min(x2), max(x2), length=30)
 X.eval <- expand.grid(x1=x1.seq,x2=x2.seq)
 
 # Now evaluate the conditional probability for y=1 and for the
 # evaluation Xs
 
-fit <- fitted(npcdens(exdat=X.eval, 
-               eydat=factor(rep(1, nrow(X.eval))), 
+fit <- fitted(npcdens(exdat=X.eval,
+               eydat=factor(rep(1, nrow(X.eval))),
                bws=bw))
 
 # Finally, coerce the data into a matrix for plotting with persp()
 
-fit.mat <- matrix(fit, 50, 50)
+fit.mat <- matrix(fit, 30, 30)
 
 # Generate a perspective plot similar to Figure 2 b of Klein and Spady
 # (1993)
 
-persp(x1.seq, 
-      x2.seq, 
-      fit.mat, 
-      col="white", 
-      ticktype="detailed", 
-      expand=0.5, 
-      axes=FALSE, 
-      box=FALSE, 
-      main="Estimated Nonparametric Probability Perspective", 
-      theta=310, 
+persp(x1.seq,
+      x2.seq,
+      fit.mat,
+      col="white",
+      ticktype="detailed",
+      expand=0.5,
+      axes=FALSE,
+      box=FALSE,
+      main="Estimated Nonparametric Probability Perspective",
+      theta=310,
       phi=25)
+
+# EXAMPLE 4: Variations on local polynomial conditional density
+# estimation with proper = TRUE.
+
+data("Italy")
+
+Italy2 <- within(Italy, {
+  year <- as.numeric(as.character(year))
+})
+
+# Plot only: make the plotted surface proper on the plot evaluation grid.
+
+fhat <- npcdens(gdp ~ year, data = Italy2,
+                regtype = "lp", degree = 3, nmulti = 1)
+
+plot(fhat, proper = TRUE)
+
+# Fit an object whose fitted values are themselves proper.
+
+ctrl_fit <- list(
+  mode = "slice",
+  apply = "fitted",
+  slice.grid.size = 101L,
+  slice.extend.factor = 0.1
+)
+
+fhat_fit <- npcdens(
+  gdp ~ year,
+  data = Italy2,
+  regtype = "lp",
+  degree = 3,
+  nmulti = 1,
+  proper = TRUE,
+  proper.control = ctrl_fit
+)
+
+fit_proper <- fitted(fhat_fit)
+fit_raw <- fhat_fit$condens.raw
+
+# Display the repaired and raw fitted values for cases where the raw
+# fitted density is negative.
+
+head(cbind(fit_proper, fit_raw)[which(fit_raw < 0), ])
+
+# Predict on a common explicit y-grid for several years, and render
+# those predictions proper.
+
+g.grid <- seq(min(Italy2$gdp), max(Italy2$gdp), length.out = 200)
+
+nd_grid <- expand.grid(
+  gdp = g.grid,
+  year = c(1955, 1975, 1995)
+)
+
+pred_grid <- predict(fhat, newdata = nd_grid, proper = TRUE)
+
+# Predict on paired rows with different gdp grids by year, and still
+# make the predictions proper via slice mode.
+
+g1 <- seq(quantile(Italy2$gdp, 0.10),
+          quantile(Italy2$gdp, 0.60), length.out = 60)
+g2 <- seq(quantile(Italy2$gdp, 0.30),
+          quantile(Italy2$gdp, 0.90), length.out = 35)
+
+nd_slice <- rbind(
+  data.frame(gdp = g1, year = rep(1960, length(g1))),
+  data.frame(gdp = g2, year = rep(1985, length(g2)))
+)
+
+pred_slice <- predict(
+  fhat,
+  newdata = nd_slice,
+  proper = TRUE,
+  proper.control = list(mode = "slice")
+)
+
+# One object that carries properization for fitted values and for later
+# predict() calls.
+
+ctrl_both <- list(
+  mode = "slice",
+  apply = "both",
+  slice.grid.size = 101L,
+  slice.extend.factor = 0.1
+)
+
+fhat_both <- npcdens(
+  gdp ~ year,
+  data = Italy2,
+  regtype = "lp",
+  degree = 3,
+  nmulti = 1,
+  proper = TRUE,
+  proper.control = ctrl_both
+)
+
+fit_both <- fitted(fhat_both)
+pred_both <- predict(
+  fhat_both,
+  newdata = nd_slice,
+  proper.control = ctrl_both
+)
 } % enddontrun
 }
 \keyword{nonparametric}
-

@@ -1,4 +1,4 @@
-% $Id: np.kernelsum.Rd,v 1.64 2006/11/03 21:17:20 tristen Exp $
+% 
 \name{npksum}
 \alias{npksum}
 \alias{npksum.default}
@@ -14,20 +14,25 @@
 \usage{
 npksum(\dots)
 
-\method{npksum}{formula}(formula, data, newdata, subset, na.action, \dots)
+\method{npksum}{formula}(formula, 
+       data, 
+       newdata, 
+       subset, 
+       na.action, 
+       \dots)
 
 \method{npksum}{default}(bws,
        txdat = stop("training data 'txdat' missing"),
        tydat = NULL,
        exdat = NULL,
        weights = NULL,
-       leave.one.out = FALSE,
-       kernel.pow = 1.0,
        bandwidth.divide = FALSE,
+       compute.ocg = FALSE,
+       compute.score = FALSE,
+       kernel.pow = 1.0,
+       leave.one.out = FALSE,
        operator = names(ALL_OPERATORS),
        permutation.operator = names(PERMUTATION_OPERATORS),
-       compute.score = FALSE,
-       compute.ocg = FALSE,
        return.kernel.weights = FALSE,
        \dots)
 
@@ -36,22 +41,26 @@ npksum(\dots)
        tydat,
        exdat,
        weights,
-       leave.one.out,
-       kernel.pow,
        bandwidth.divide,
+       compute.ocg,
+       compute.score,
+       kernel.pow,
+       leave.one.out,
        operator,
        permutation.operator,
-       compute.score,
-       compute.ocg,
        return.kernel.weights,
        \dots)
 }
 
 \arguments{
-  \item{formula}{
-    a symbolic description of variables on which the sum is
-    to be performed. The details of constructing a formula are
-    described below.
+\subsection{Data, Bandwidth Inputs And Formula Interface}{
+Core inputs defining the symbolic interface, training data, optional weighted
+response, and evaluation points for the generalized product kernel sum.
+}
+
+  \item{bws}{
+    a bandwidth specification. This can be set as any suitable bandwidth
+    object returned from a bandwidth-generating function, or a numeric vector.
   }
 
   \item{data}{
@@ -62,28 +71,33 @@ npksum(\dots)
     function is called.
   }
 
-  \item{newdata}{
-    An optional data frame in which to look for evaluation data. If
-    omitted, \code{data} is used.
+  \item{exdat}{
+    a \eqn{p}-variate data frame of sum evaluation points (if omitted,
+    defaults to the training data itself).
   }
 
-  \item{subset}{
-    an optional vector specifying a subset of observations to be used. 
+  \item{formula}{
+    a symbolic description of variables on which the sum is
+    to be performed. The details of constructing a formula are
+    described below.
   }
 
   \item{na.action}{
     a function which indicates what should happen when the data contain
    \code{NA}s. The default is set by the \code{\link{na.action}} setting of options, and is
     \code{\link{na.fail}} if that is unset. The (recommended) default is
-    \code{\link{na.omit}}.  
+    \code{\link{na.omit}}.
   }
 
-  \item{\dots}{
-    additional arguments supplied to specify the parameters to the
-    \code{default} S3 method, which is called during estimation. 
+  \item{newdata}{
+    an optional data frame in which to look for evaluation data. If
+    omitted, \code{data} is used.
   }
 
-
+  \item{subset}{
+    an optional vector specifying a subset of observations to be used.
+  }
+  
   \item{txdat}{
     a \eqn{p}-variate data frame of sample realizations (training data) used to
     compute the sum.
@@ -94,25 +108,35 @@ npksum(\dots)
     is applied to the \eqn{i}th element. Defaults to  \code{1}.
   }
   
-  \item{exdat}{
-    a \eqn{p}-variate data frame of sum evaluation points (if omitted,
-    defaults to the training data itself).
-  }
-  
-  \item{bws}{
-    a bandwidth specification. This can be set as any suitable bandwidth
-    object returned from a bandwidth-generating function, or a numeric vector.
-  }
-  
   \item{weights}{
     a \eqn{n} by \eqn{q}  matrix of weights which can optionally be
     applied to \code{tydat} in the sum. See details.
   }
   
-  \item{leave.one.out}{
-    a logical value to specify whether or not to compute the leave one
-    out sums. Will not work if \code{exdat} is specified. Defaults to
-    \code{FALSE}.
+\subsection{Kernel-Sum Operators And Output}{
+Controls for bandwidth normalization, kernel powers, leave-one-out
+evaluation, operator variants, and returned kernel weights.
+}
+
+  \item{bandwidth.divide}{
+    a logical specifying whether or not to divide continuous kernel
+    weights by their bandwidths. Use this with nearest-neighbor
+    methods. Defaults to \code{FALSE}.
+  }
+
+  \item{compute.ocg}{
+    a logical specifying whether or not to return a separate result for
+    each unordered and ordered dimension, where the product kernel term
+    for that dimension is evaluated at an appropriate reference
+    category. This is used primarily in \code{np} to compute ordered and
+    unordered categorical gradients. See details.
+  }
+
+  \item{compute.score}{
+    a logical specifying whether or not to return the score
+    (the \sQuote{grad h} terms) for each dimension in addition to the kernel
+    sum. Cannot be \code{TRUE} if a permutation operator other than
+    \code{"none"} is selected. 
   }
 
   \item{kernel.pow}{
@@ -120,10 +144,10 @@ npksum(\dots)
     in the sum. Defaults to \code{1}.
   }
 
-  \item{bandwidth.divide}{
-    a logical specifying whether or not to divide continuous kernel
-    weights by their bandwidths. Use this with nearest-neighbor
-    methods. Defaults to \code{FALSE}.
+  \item{leave.one.out}{
+    a logical value to specify whether or not to compute the leave one
+    out sums. Will not work if \code{exdat} is specified. Defaults to
+    \code{FALSE}.
   }
 
   \item{operator}{
@@ -143,29 +167,25 @@ npksum(\dots)
     appropriate. This is useful for computing gradients, for example.
   }
 
-  \item{compute.score}{
-    a logical specifying whether or not to return the score
-    (the \sQuote{grad h} terms) for each dimension in addition to the kernel
-    sum. Cannot be \code{TRUE} if a permutation operator other than
-    \code{"none"} is selected. 
-  }
-
-  \item{compute.ocg}{
-    a logical specifying whether or not to return a separate result for
-    each unordered and ordered dimension, where the product kernel term
-    for that dimension is evaluated at an appropriate reference
-    category. This is used primarily in \code{np} to compute ordered and
-    unordered categorical gradients. See details.
-  }
-
   \item{return.kernel.weights}{
     a logical specifying whether or not to return the matrix of
     generalized product kernel weights. Defaults to \code{FALSE}. See
     details.
-    }
+  }
 
+
+\subsection{Additional Arguments}{
+Further arguments passed to the default kernel-sum method.
+}
+
+  \item{\dots}{
+    additional arguments supplied to specify the parameters to the
+    \code{default} S3 method, which is called during estimation. 
+  }
 }
 \details{
+  Documentation guide: see \code{\link{np.kernels}} for kernels, \code{\link{np.options}} for global options, and \code{\link{plot}} for plotting options.
+
   \code{npksum}
   exists so that you can create your own kernel objects with
   or without a variable to be weighted (default \eqn{Y=1}). With the options
@@ -363,7 +383,7 @@ den <- fitted(npudens(tdat=x, edat=x.eval, bws=bw$bw))
 # Plot the true DGP, the npksum()/(nh) estimate and (identical)
 # npudens() estimate
 
-plot(x.eval, dnorm(x.eval), xlab="X", ylab="Density", type="l")
+if (interactive()) plot(x.eval, dnorm(x.eval), xlab="X", ylab="Density", type="l")
 points(x.eval, den.ksum, col="blue")
 points(x.eval, den, col="red", cex=0.2)
 legend(1, .4, 
@@ -374,7 +394,7 @@ legend(1, .4,
 
 # Sleep for 5 seconds so that we can examine the output...
 
-Sys.sleep(5)
+if (interactive()) Sys.sleep(5)
 
 # EXAMPLE 2: For this example, we first obtain residuals from a
 # parametric regression model, then compute a vector of leave-one-out
@@ -408,7 +428,7 @@ detach(cps71)
 
 # Sleep for 5 seconds so that we can examine the output...
 
-Sys.sleep(5)
+if (interactive()) Sys.sleep(5)
 
 # Note that weighted leave-one-out sums of squared residuals are used to
 # construct consistent model specification tests. In fact, the
@@ -431,12 +451,12 @@ bw <- npregbw(xdat=age, ydat=logwage)
 fit.lc <- npksum(txdat=age, tydat=logwage, bws=bw$bw)$ksum/
           npksum(txdat=age, bws=bw$bw)$ksum
 
-plot(age, logwage, xlab="Age", ylab="log(wage)")
+if (interactive()) plot(age, logwage, xlab="Age", ylab="log(wage)")
 lines(age, fit.lc)
 
 # Sleep for 5 seconds so that we can examine the output...
 
-Sys.sleep(5)
+if (interactive()) Sys.sleep(5)
 
 # If you wished to compute the kernel sum for a set of evaluation points, 
 # you first generate the set of points then feed this to npksum, 
@@ -543,7 +563,7 @@ bw$fval
 
 # Sleep for 5 seconds so that we can examine the output...
 
-Sys.sleep(5)
+if (interactive()) Sys.sleep(5)
 
 # EXAMPLE 5: For this example, we use npksum() to plot the kernel
 # function itself. Our `training data' is the singleton, 0, and our

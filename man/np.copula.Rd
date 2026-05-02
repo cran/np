@@ -16,6 +16,10 @@ npcopula(bws,
 }
 
 \arguments{
+\subsection{Data, Bandwidth Inputs And Formula Interface}{
+These arguments identify the bandwidth specification and source data.
+}
+
   \item{bws}{
     an unconditional joint distribution (\code{npudistbw}) or joint
     density (\code{npudensbw}) bandwidth object (if \code{bws} is
@@ -23,27 +27,36 @@ npcopula(bws,
     while if \code{bws} is delivered via \code{npudensbw} the copula
     density is estimated)
   }
+
   \item{data}{
     a data frame containing variables used to construct \code{bws}
   }
+
+
+\subsection{Copula Evaluation Grid}{
+These arguments control the marginal probability grid and numerical inversion used for copula evaluation.
+}
+
+  \item{er.quasi.inv}{
+    number passed to \code{\link{extendrange}} when \code{u} is provided
+    specifying the fraction by which the data range should be extended when
+    constructing the grid used to compute the quasi-inverse (see details)
+  }
+
+  \item{n.quasi.inv}{
+    number of grid points generated when \code{u} is provided in order to
+    compute the quasi-inverse of each marginal distribution (see
+    details)
+  }
+
   \item{u}{
     an optional matrix of real numbers lying in [0,1], each column of
     which corresponds to the vector of uth quantile values desired for
     each variable in the copula (otherwise the u values returned are
     those corresponding to the sample realizations)
   }
-  \item{n.quasi.inv}{
-    number of grid points generated when \code{u} is provided in order to
-    compute the quasi-inverse of each marginal distribution (see
-    details)
-  }
-  \item{er.quasi.inv}{
-    number passed to \code{\link{extendrange}} when \code{u} is provided
-    specifying the fraction by which the data range should be extended when
-    constructing the grid used to compute the quasi-inverse (see details)
-  }
-}
 
+}
 \value{
 
   \code{npcopula} returns an object of type \code{\link{data.frame}}
@@ -77,6 +90,8 @@ npcopula(bws,
 }
 
 \details{
+  Documentation guide: see \code{\link{np.kernels}} for kernels, \code{\link{np.options}} for global options, and \code{\link{plot}} for plotting options.
+
 
   \code{npcopula} computes the nonparametric copula or copula density
   using inversion (Nelsen (2006), page 51). For the inversion approach,
@@ -127,6 +142,7 @@ npcopula(bws,
 }
 
 \seealso{
+  \code{\link{np.kernels}}, \code{\link{np.options}}, \code{\link{plot}}
   \link{npudensbw},\link{npudens},\link{npudist}
 }
 
@@ -140,8 +156,8 @@ set.seed(42)
 
 ## Simulate correlated Gaussian data (rho(x,y)=0.99)
 
-n <- 1000
-n.eval <- 100
+n <- 300
+n.eval <- 30
 rho <- 0.99
 mu <- c(0,0)
 Sigma <- matrix(c(1,rho,rho,1),2,2)
@@ -205,8 +221,8 @@ set.seed(42)
 
 ## Simulate correlated Gaussian data (rho(x,y)=0.99)
 
-n <- 1000
-n.eval <- 100
+n <- 300
+n.eval <- 30
 rho <- 0.99
 mu <- c(0,0)
 Sigma <- matrix(c(1,rho,rho,1),2,2)

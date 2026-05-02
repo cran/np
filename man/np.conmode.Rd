@@ -1,7 +1,6 @@
-% $Id: np.conmode.Rd,v 1.38 2006/11/03 21:19:03 tristen Exp $
+%
 \name{npconmode}
 \alias{npconmode}
-\alias{npconmode.call}
 \alias{npconmode.default}
 \alias{npconmode.formula}
 \alias{npconmode.conbandwidth}
@@ -14,15 +13,25 @@
   Automatically computes various in sample and out of sample measures of
   accuracy.
 }
+\details{
+  Documentation guide: see \code{\link{np.kernels}} for kernels,
+  \code{\link{np.options}} for global options, and
+  \code{\link{plot}} for plotting options.
+}
 
 \usage{
-npconmode(bws, \dots)
+npconmode(bws, 
+          \dots)
 
-\method{npconmode}{formula}(bws, data = NULL, newdata = NULL, \dots)
+\method{npconmode}{formula}(bws, 
+          data = NULL,
+          newdata = NULL, 
+          \dots)
 
-\method{npconmode}{call}(bws, \dots)
-
-\method{npconmode}{default}(bws, txdat, tydat, \dots)
+\method{npconmode}{default}(bws, 
+          txdat, 
+          tydat, 
+          \dots)
 
 \method{npconmode}{conbandwidth}(bws,
           txdat = stop("invoked without training data 'txdat'"),
@@ -34,17 +43,16 @@ npconmode(bws, \dots)
 }
 
 \arguments{
+\subsection{Data, Bandwidth Inputs And Formula Interface}{
+These arguments identify the bandwidth specification, formula/data interface, and training data.
+}
+
   \item{bws}{
     a bandwidth specification. This can be set as a \code{conbandwidth}
     object returned from an invocation of \code{\link{npcdensbw}}
   }
 
-  \item{\dots}{
-    additional arguments supplied to specify the bandwidth type,
-    kernel types, and so on, detailed below.
-    This is necessary if you specify bws as a \eqn{p+q}-vector and not
-    a \code{conbandwidth} object, and you do not desire the default behaviours.
-  }
+
 
   \item{data}{
     an optional data frame, list or environment (or object
@@ -54,11 +62,6 @@ npconmode(bws, \dots)
     \code{\link{npcdensbw}} was called.
   }
 
-  \item{newdata}{
-    An optional data frame in which to look for evaluation data. If
-    omitted, the training data are used.  
-  }
-  
 
   \item{txdat}{
     a \eqn{p}-variate data frame of explanatory data (conditioning data) used to
@@ -66,17 +69,24 @@ npconmode(bws, \dots)
     compute the bandwidth object.
   }
 
+
   \item{tydat}{
     a one (1) dimensional vector of unordered or ordered factors,
     containing the dependent data. Defaults to the training data used to
     compute the bandwidth object.
   }
 
+
+\subsection{Evaluation Data}{
+These arguments control where the conditional mode is evaluated.
+}
+
   \item{exdat}{
     a \eqn{p}-variate data frame of points on which the regression will be
     estimated (evaluation data). By default,
     evaluation takes place on the data provided by \code{txdat}.
   }
+
 
   \item{eydat}{
     a one (1) dimensional numeric or integer vector of the true values
@@ -86,8 +96,25 @@ npconmode(bws, \dots)
 
 
 
+  \item{newdata}{
+    An optional data frame in which to look for evaluation data. If
+    omitted, the training data are used.
+  }
+
+
+
+\subsection{Additional Arguments}{
+Further arguments are passed to the bandwidth-selection counterpart when bandwidths are computed internally.
 }
 
+  \item{\dots}{
+    additional arguments supplied to specify the bandwidth type,
+    kernel types, and so on, detailed below.
+    This is necessary if you specify bws as a \eqn{p+q}-vector and not
+    a \code{conbandwidth} object, and you do not desire the default behaviours.
+  }
+
+}
 \value{
   \code{npconmode} returns a \code{conmode} object with the following
   components:
@@ -97,6 +124,8 @@ npconmode(bws, \dots)
     point}
   \item{condens}{ a vector of numeric type containing the modal density
     estimates at each evaluation point}
+  \item{conderr}{ a vector of numeric type containing asymptotic
+    standard errors for the modal density estimates at each evaluation point}
   \item{xeval}{ a data frame of evaluation points }
   \item{yeval}{ a vector of type \code{factor} (or \code{ordered
       factor}) containing the actual outcomes, or \code{NA} if not
@@ -131,7 +160,7 @@ npconmode(bws, \dots)
   McFadden, D. and C. Puig and D. Kerschner (1977), \dQuote{Determinants
     of the long-run demand for electricity,} Proceedings of the
   American Statistical Association (Business and Economics Section),
-  109-117. 
+  109-117.
 
   Pagan, A. and A. Ullah (1999), \emph{Nonparametric Econometrics,}
   Cambridge University Press.
@@ -156,6 +185,11 @@ npconmode(bws, \dots)
   \code{\link{cbind}}, since \code{\link{cbind}} will typically not work as
   intended on mixed data types and will coerce the data to the same
   type.
+}
+
+\seealso{
+  \code{\link{np.kernels}}, \code{\link{np.options}},
+  \code{\link{plot}}, \code{\link{npcdensbw}}.
 }
 
 \examples{
@@ -189,7 +223,7 @@ model.logit <- glm(low~factor(smoke)+
                    factor(ui)+
                    ordered(ftv)+
                    age+
-                   lwt, 
+                   lwt,
                    family=binomial(link=logit))
 
 # Generate the confusion matrix and correct classification ratio
@@ -198,7 +232,7 @@ cm <- table(low, ifelse(fitted(model.logit)>0.5, 1, 0))
 ccr <- sum(diag(cm))/sum(cm)
 
 # Now do the same with a nonparametric model.  Note - this may take a
-# few minutes depending on the speed of your computer... 
+# few minutes depending on the speed of your computer...
 
 bw <- npcdensbw(formula=factor(low)~factor(smoke)+
                 factor(race)+
@@ -251,7 +285,7 @@ model.logit <- glm(low~factor(smoke)+
                    factor(ui)+
                    ordered(ftv)+
                    age+
-                   lwt, 
+                   lwt,
                    family=binomial(link=logit))
 
 # Generate the confusion matrix and correct classification ratio
@@ -261,18 +295,18 @@ ccr <- sum(diag(cm))/sum(cm)
 
 # Now do the same with a nonparametric model...
 
-X <- data.frame(factor(smoke), 
-                factor(race), 
-                factor(ht), 
-                factor(ui), 
-                ordered(ftv), 
-                age, 
+X <- data.frame(factor(smoke),
+                factor(race),
+                factor(ht),
+                factor(ui),
+                ordered(ftv),
+                age,
                 lwt)
 
 y <- factor(low)
 
 # Note - this may take a few minutes depending on the speed of your
-# computer... 
+# computer...
 
 bw <- npcdensbw(xdat=X, ydat=y)
 
@@ -292,4 +326,3 @@ detach(birthwt)
 } % enddontrun
 }
 \keyword{ nonparametric }% at least one, from doc/KEYWORDS
-

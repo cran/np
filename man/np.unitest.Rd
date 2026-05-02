@@ -19,9 +19,19 @@ npunitest(data.x = NULL,
 }
 
 \arguments{
+\subsection{Data, Bandwidth Inputs And Formula Interface}{
+These arguments identify the two samples, statistic variant, and any supplied bandwidths.
+}
+
+  \item{bw.x, bw.y}{
+    numeric (scalar) bandwidths. Defaults to plug-in (see details below).
+  }
+
+
   \item{data.x, data.y}{
     common support univariate vectors containing the variables.
   }
+
 
   \item{method}{
     a character string used to specify whether to compute
@@ -32,24 +42,33 @@ npunitest(data.x = NULL,
     \code{data.y} lack common support and/or are sparse.
   }
 
-  \item{bootstrap}{
-    a logical value which specifies whether to conduct the bootstrap
-    test or not. If set to \code{FALSE}, only the statistic will be
-    computed. Defaults to \code{TRUE}.
-  }
+
+\subsection{Bootstrap Controls}{
+These arguments control bootstrap execution and reproducibility settings.
+}
+
   \item{boot.num}{
     an integer value specifying the number of bootstrap
     replications to use. Defaults to \code{399}.
   }
 
-  \item{bw.x, bw.y}{
-    numeric (scalar) bandwidths. Defaults to plug-in (see details below).
+
+  \item{bootstrap}{
+    a logical value which specifies whether to conduct the bootstrap
+    test or not. If set to \code{FALSE}, only the statistic will be
+    computed. Defaults to \code{TRUE}.
   }
+
 
   \item{random.seed}{
     an integer used to seed R's random number generator. This is to
     ensure replicability. Defaults to 42.
   }
+
+
+\subsection{Additional Arguments}{
+Further arguments are passed to the bandwidth-selection routines used by the test.
+}
 
   \item{\dots}{ additional arguments supplied to specify the bandwidth
     type, kernel types, and so on.  This is used since we specify bw as
@@ -59,8 +78,8 @@ npunitest(data.x = NULL,
     \code{ckertype}, \code{ckerorder}, \code{ukertype},
     \code{okertype}.}
 
-}
 
+}
 \value{
   \code{npunitest} returns an object of type \code{unitest} with the
   following components
@@ -90,6 +109,8 @@ npunitest(data.x = NULL,
 }
 
 \details{
+  Documentation guide: see \code{\link{np.kernels}} for kernels, \code{\link{np.options}} for global options, and \code{\link{plot}} for plotting options.
+
 
   \code{npunitest} computes the nonparametric metric entropy (normalized
    Hellinger of Granger, Maasoumi and Racine (2004)) for testing
@@ -126,6 +147,7 @@ npunitest(data.x = NULL,
 }
 
 \seealso{
+  \code{\link{np.kernels}}, \code{\link{np.options}}, \code{\link{plot}}
   \code{\link{npdeneqtest},\link{npdeptest},\link{npsdeptest},\link{npsymtest}}
 }
 
@@ -141,13 +163,13 @@ y <- rnorm(n)
 
 npunitest(x,y,bootstrap=FALSE)
 
-Sys.sleep(5)
+if (interactive()) Sys.sleep(5)
 
 ## Conduct the test for this data
 
 npunitest(x,y,boot.num=99)
 
-Sys.sleep(5)
+if (interactive()) Sys.sleep(5)
 
 ## Conduct the test for data drawn from different distributions having
 ## the same mean and variance
@@ -161,7 +183,7 @@ sd(y)
 
 npunitest(x,y,boot.num=99)
 
-Sys.sleep(5)
+if (interactive()) Sys.sleep(5)
 
 ## Two sample t-test for equality of means
 t.test(x,y)
@@ -176,10 +198,10 @@ fx <- density(x)
 fy <- density(y)
 xlim <- c(min(fx$x,fy$x),max(fx$x,fy$x))
 ylim <- c(min(fx$y,fy$y),max(fx$y,fy$y))
-plot(fx,xlim=xlim,ylim=ylim,xlab="Data",main="f(x), f(y)")
+if (interactive()) plot(fx,xlim=xlim,ylim=ylim,xlab="Data",main="f(x), f(y)")
 lines(fy$x,fy$y,col="red")
 
-Sys.sleep(5)
+if (interactive()) Sys.sleep(5)
 
 ## Test for equality of log(wage) distributions
 
@@ -190,7 +212,7 @@ lwage.female <- lwage[female=="Female"]
 
 npunitest(lwage.male,lwage.female,boot.num=99)
 
-Sys.sleep(5)
+if (interactive()) Sys.sleep(5)
 
 ## Plot the nonparametric density estimates on the same axes
 
@@ -207,7 +229,7 @@ legend(-1,1.2,c("Male","Female"),lty=c(1,2),col=c("black","red"))
 
 detach(wage1)
 
-Sys.sleep(5)
+if (interactive()) Sys.sleep(5)
 
 ## Conduct the test for data drawn from different discrete probability
 ## distributions

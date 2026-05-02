@@ -9,10 +9,11 @@
 	kernel methods that seamlessly handle a mix of continuous, unordered,
 	and ordered factor data types (unordered and ordered factors are often
 	referred to as \sQuote{nominal} and \sQuote{ordinal} categorical
-	variables respectively). A vignette containing many of the examples
-	found in the help files accompanying the \pkg{np} package that is
-	intended to serve as a gentle introduction to this package can be
-	accessed via \code{vignette("np", package="np")}.
+	variables respectively). A getting-started vignette containing a
+	short introduction to the \pkg{np} package can be accessed via
+	\code{vignette("np_getting_started", package = "np")}. An installed
+	vignette for the entropy-based test family can be accessed via
+	\code{vignette("np_entropy_tests", package = "np")}.
 
   For a listing of all routines in the \pkg{np} package type:
   \sQuote{library(help="np")}.  
@@ -26,25 +27,23 @@
   bandwidth objects to other functions, and those functions can grab the
   specifics from the bandwidth object thereby removing potential
   inconsistencies and unnecessary repetition. Furthermore, many
-  functions such as \code{\link{plot}} (which automatically calls
-  \code{npplot}) can work with the bandwidth object directly without
+  functions such as \code{\link{plot}} (via class-specific S3 methods)
+  can work with the bandwidth object directly without
   having to do the subsequent companion function evaluation.
 
-  As of \code{np} version 0.20-0, we allow the user to combine these
-  steps. When using \code{np} versions 0.20-0 and higher, if the first
-  step (bandwidth selection) is not performed explicitly then the second
-  step will automatically call the omitted first step bandwidth selector
-  using defaults unless otherwise specified, and the bandwidth object
-  could then be retrieved retroactively if so desired via
-  \code{objectname$bws}. Furthermore, options for bandwidth selection
-  will be passed directly to the bandwidth selector function. Note that
-  the combined approach would not be a wise choice for certain
-  applications such as when bootstrapping (as it would involve
-  unnecessary computation since the bandwidths would properly be those
-  for the original sample and not the bootstrap resamples) or when
-  conducting quantile regression (as it would involve unnecessary
-  computation when different quantiles are computed from the same
-  conditional cumulative distribution estimate).
+  The user may also combine these steps. If the first step (bandwidth
+  selection) is not performed explicitly then the second step will
+  automatically call the omitted first-step bandwidth selector using
+  defaults unless otherwise specified, and the bandwidth object can be
+  retrieved retroactively if so desired via \code{objectname$bws}.
+  Furthermore, options for bandwidth selection will be passed directly
+  to the bandwidth selector function. Note that the combined approach
+  would not be a wise choice for certain applications such as when
+  bootstrapping (as it would involve unnecessary computation since the
+  bandwidths would properly be those for the original sample and not the
+  bootstrap resamples) or when conducting quantile regression (as it
+  would involve unnecessary computation when different quantiles are
+  computed from the same conditional cumulative distribution estimate).
   
   There are two ways in which you can interact with functions in
   \code{np}, either i) using data frames, or ii) using a formula
@@ -106,11 +105,10 @@
 	implemented, while the user can specify their own bandwidths should
 	they so choose (either a raw bandwidth or scaling factor).
 
-	A flexible plotting utility, \code{\link{npplot}} (which is
-	automatically invoked by \code{\link{plot}}) , facilitates graphing of
-	multivariate objects. An example for creating postscript graphs using
-	the \code{\link{npplot}} utility and pulling this into a LaTeX
-	document is provided.
+	A flexible plotting utility, via class-specific S3
+	\code{\link{plot}} methods, facilitates graphing of multivariate
+	objects. An example for creating postscript graphs and pulling this
+	into a LaTeX document is provided.
 
 	The function \code{\link{npksum}} allows users to create or implement
 	their own kernel estimators or tests should they so desire.
@@ -118,17 +116,19 @@
 	The underlying functions are written in C for computational
 	efficiency. Despite this, due to their nature, data-driven bandwidth
 	selection methods involving multivariate numerical search can be
-	time-consuming, particularly for large datasets. A version of this
-	package using the \code{Rmpi} wrapper is under development that allows
-	one to deploy this software in a clustered computing environment to
-	facilitate computation involving large datasets.
+	time-consuming, particularly for large datasets. For MPI-oriented
+	workflows on larger jobs, see the companion package \pkg{npRmpi},
+	which extends the same mixed-data kernel methodology to clustered
+	computing environments.
 
   To cite the \code{np} package, type \code{citation("np")} from within
   \code{R} for details.
 
 }
 
-\details{ The kernel methods in \code{np} employ the so-called
+\details{
+  Documentation guide: see \code{\link{np.kernels}} for kernels, \code{\link{np.options}} for global options, and \code{\link{plot}} for plotting options.
+ The kernel methods in \code{np} employ the so-called
 	\sQuote{generalized product kernels} found in Hall, Racine,
 	and Li (2004), Li, Lin, and Racine (2013), Li, Ouyang, and
 	Racine (2013), Li and Racine (2003), Li and Racine (2004), Li
@@ -237,6 +237,14 @@
       \eqn{1}.
     }
 
+    \item{Racine, Li, and Yan (\eqn{x} is a (discrete) ordered factor)}{
+      \eqn{l(x_i,x,\lambda)=\lambda^{|x_i-x|}/\sum_{z \in D}\lambda^{|x_i-z|}}{l(x[i],x,lambda)=lambda^|x[i]-x|/sum_{z in D}lambda^|x[i]-z|},
+      where \eqn{D} is the ordered support.
+
+      Note that \eqn{\lambda}{lambda} must lie between \eqn{0} and
+      \eqn{1}.
+    }
+
   }
 
   So, if you had two variables, \eqn{x_{i1}}{x1[i]} and
@@ -262,6 +270,11 @@
   For particulars on any given method, kindly see the references listed
   for the method in question.
 
+}
+
+\seealso{
+  \code{\link{np.kernels}}, \code{\link{np.options}}, \code{\link{plot}}
+  \code{\link{np.options}}
 }
 
 \author{
@@ -317,6 +330,10 @@
   Racine, J.S. and Q. Li (2004), \dQuote{Nonparametric estimation of
 	regression functions with both categorical and continuous data,}
 	Journal of Econometrics, 119, 99-130.
+
+  Racine, J.S., Q. Li, and K.X. Yan (2020), \dQuote{Kernel Smoothed
+  Probability Mass Functions for Ordered Datatypes,} Journal of
+  Nonparametric Statistics, 32(3), 563-586.
   
   Pagan, A. and A. Ullah (1999), \emph{Nonparametric Econometrics,}
   Cambridge University Press.

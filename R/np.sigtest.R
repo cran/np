@@ -37,7 +37,8 @@ npsigtest.formula <-
     tmf <- bws$call[c(1,m)]
     tmf[[1]] <- as.name("model.frame")
     tmf[["formula"]] <- tt
-    umf <- tmf <- eval(tmf, envir = environment(tt))
+    mf.args <- as.list(tmf)[-1L]
+    umf <- tmf <- do.call(stats::model.frame, mf.args, envir = environment(tt))
 
     ydat <- model.response(tmf)
     xdat <- tmf[, attr(attr(tmf, "terms"),"term.labels"), drop = FALSE]
@@ -52,8 +53,8 @@ npsigtest.formula <-
 
 npsigtest.call <-
   function(bws, ...) {
-    ev <- npsigtest(xdat = eval(bws$call[["xdat"]], environment(bws$call)),
-                    ydat = eval(bws$call[["ydat"]], environment(bws$call)),
+    ev <- npsigtest(xdat = .np_eval_bws_call_arg(bws, "xdat"),
+                    ydat = .np_eval_bws_call_arg(bws, "ydat"),
                     bws = bws, ...)
     ev$call <- match.call(expand.dots = FALSE)
     environment(ev$call) <- parent.frame()
@@ -68,6 +69,27 @@ npsigtest.npregression <-
     return(ev)
   }
 
+.np_npsig_bootstrap_bw_reselect <- function(xdat,
+                                            ydat,
+                                            bws.seed,
+                                            extra.args = list(),
+                                            bootstrap.iter,
+                                            bw.fun = npregbw) {
+  bw.args <- if (length(extra.args)) extra.args else list()
+  bw.args[c("xdat", "ydat", "bws")] <- NULL
+
+  user.nmulti <- !is.null(names(bw.args)) &&
+    "nmulti" %in% names(bw.args) &&
+    !is.null(bw.args$nmulti)
+
+  if (!user.nmulti && bootstrap.iter > 1L)
+    bw.args$nmulti <- 1L
+
+  .np_progress_with_legacy_suppressed(
+    do.call(bw.fun, c(list(xdat = xdat, ydat = ydat, bws = bws.seed), bw.args))
+  )
+}
+
 npsigtest.rbandwidth <- function(bws,
                                  xdat = stop("data xdat missing"),
                                  ydat = stop("data ydat missing"),
@@ -76,7 +98,7 @@ npsigtest.rbandwidth <- function(bws,
                                  boot.type = c("I","II"),
                                  pivot = TRUE,
                                  joint = FALSE,
-                                 index = seq(1,ncol(xdat)),
+                                 index = seq_len(ncol(xdat)),
                                  random.seed = 42,
                                  ...) {
 
@@ -85,7 +107,7 @@ npsigtest.rbandwidth <- function(bws,
   if(boot.num < 9) stop("number of bootstrap replications must be >= 9")
 
   ## catch and destroy NA's
-  goodrows <- 1:dim(xdat)[1]
+  goodrows <- seq_len(nrow(xdat))
   rows.omit <- attr(na.omit(data.frame(xdat,ydat)), "na.action")
   goodrows[rows.omit] <- 0
 
@@ -100,14 +122,9 @@ npsigtest.rbandwidth <- function(bws,
 
   ## Save seed prior to setting
 
-  if(exists(".Random.seed", .GlobalEnv)) {
-    save.seed <- get(".Random.seed", .GlobalEnv)
-    exists.seed = TRUE
-  } else {
-    exists.seed = FALSE
-  }
+  seed.state <- .np_seed_enter(random.seed)
+  extra.args <- list(...)
 
-  set.seed(random.seed)
 
   boot.type <- match.arg(boot.type)
   boot.method <- match.arg(boot.method)
@@ -121,8 +138,9 @@ npsigtest.rbandwidth <- function(bws,
 
   ## Test for valid entries in index
 
-  if(any(index < 1 | index > NCOL(xdat))) stop(paste("invalid index provided: index entries must lie between 1 and ",NCOL(xdat),sep=""))
-  if(length(unique(index))<length(unique)) stop("index contains repeated values (must be unique)")
+  if(anyNA(index)) stop("index must not contain missing values")
+  if(any(index < 1 | index > NCOL(xdat), na.rm = TRUE)) stop(paste("invalid index provided: index entries must lie between 1 and ",NCOL(xdat),sep=""))
+  if(length(unique(index)) < length(index)) stop("index contains repeated values (must be unique)")
 
   if(!joint) {
 
@@ -137,11 +155,16 @@ npsigtest.rbandwidth <- function(bws,
   b <- 1.6180339887499   # (1+sqrt(5))/2
   P.a <-0.72360679774998 # (1+sqrt(5))/(2*sqrt(5))
 
+  draw.wild.mult <- function(n.obs, a, b, p.a) {
+    u <- stats::runif(n.obs)
+    mult <- rep.int(b, n.obs)
+    mult[u <= p.a] <- a
+    mult
+  }
+
   ## A vector for storing the resampled statistics
 
   In.vec <- numeric(boot.num)
-
-  console <- newLineConsole()
 
   if(joint==TRUE) {
 
@@ -222,27 +245,16 @@ npsigtest.rbandwidth <- function(bws,
       
     }
     
-    for(i.star in 1:boot.num) {
-      
-      if(boot.type=="I") {
-        msg <- paste("Bootstrap replication ",
-                     i.star,
-                     "/",
-                     boot.num,
-                     sep="")
-      } else {
-        msg <- paste("Bootstrap rep. ",
-                     i.star,
-                     "/",
-                     boot.num,
-                     sep="")
-      }
+    if(boot.type=="II")
+      bws.boot.prev <- bws.original
 
-      console <- printPush(msg = msg, console)
+    .np_progress_note("Testing joint significance")
+    progress <- .np_progress_begin("Bootstrap replications", total = boot.num, surface = "bootstrap")
 
+    for (i.star in seq_len(boot.num)) {
       if(boot.method == "iid") {
 
-        ydat.star <- mhat.xi + sample(ei, replace=TRUE)
+        ydat.star <- mhat.xi + ei[sample.int(num.obs, replace = TRUE)]
 
       } else if(boot.method == "wild") {
 
@@ -251,7 +263,7 @@ npsigtest.rbandwidth <- function(bws,
         ## holding the variable tested at its median, and add to that
         ## a wild bootstrap draw from the original disturbance vector
 
-        ydat.star <- mhat.xi + ei*ifelse(rbinom(num.obs, 1, P.a) == 1, a, b)
+        ydat.star <- mhat.xi + ei * draw.wild.mult(num.obs, a, b, P.a)
 
       } else if(boot.method == "wild-rademacher") {
 
@@ -260,14 +272,14 @@ npsigtest.rbandwidth <- function(bws,
         ## holding the variable tested at its median, and add to that
         ## a wild bootstrap draw from the original disturbance vector
 
-        ydat.star <- mhat.xi + ei*ifelse(rbinom(num.obs, 1, P.a) == 1, -1, 1)
+        ydat.star <- mhat.xi + ei * draw.wild.mult(num.obs, -1, 1, P.a)
 
       } else if(boot.method =="pairwise") {
 
         ## Leave variable being tested untouched, resample remaining
         ## pairs of y,X thereby breaking any systematic relationship
         ## between variable being tested in y
-        boot.index <- sample(1:num.obs,replace=TRUE)
+        boot.index <- sample.int(num.obs, replace = TRUE)
         ydat.star <- ydat[boot.index]
         xdat.star <- xdat[boot.index,]
         for(i in index) xdat.star[,i] <- xdat[,i]
@@ -276,27 +288,33 @@ npsigtest.rbandwidth <- function(bws,
 
       if(boot.type=="II") {
 
-        ## For Bootstrap II method, starting values are taken from
-        ## bandwidths passed in (bws.original). We then conduct
-        ## cross-validation for the bootstrap sample and use only the
-        ## new bw for variable i along with the original bandwidths
-        ## for the remaining variables
+        ## Bootstrap II reuses the previous bootstrap optimum as a
+        ## hot start and drops to nmulti=1 after the first
+        ## re-selection unless the user explicitly supplied nmulti.
 
         if(boot.method == "pairwise") {
 
-          bws.boot <- npregbw(xdat = xdat.star,
-                              ydat = ydat.star,
-                              bws = bws.original,
-                              ...)
+          bws.boot <- .np_npsig_bootstrap_bw_reselect(
+            xdat = xdat.star,
+            ydat = ydat.star,
+            bws.seed = bws.boot.prev,
+            extra.args = extra.args,
+            bootstrap.iter = i.star
+          )
 
         } else {
 
-          bws.boot <- npregbw(xdat = xdat,
-                              ydat = ydat.star,
-                              bws = bws.original,
-                              ...)
+          bws.boot <- .np_npsig_bootstrap_bw_reselect(
+            xdat = xdat,
+            ydat = ydat.star,
+            bws.seed = bws.boot.prev,
+            extra.args = extra.args,
+            bootstrap.iter = i.star
+          )
 
         }
+
+        bws.boot.prev <- bws.boot
 
         ## Copy the new cross-validated bandwidth for variable i into
         ## bw.original and use this below.
@@ -332,13 +350,14 @@ npsigtest.rbandwidth <- function(bws,
         npreg.boot$gerr[is.nan(npreg.boot$gerr)] <- .Machine$double.xmax
         mean((npreg.boot$grad[,index]/NZD(npreg.boot$gerr[,index]))^2)
       }
-
-      console <- printPop(console)
+      progress <- .np_progress_step(progress, done = i.star)
     }
+
+    progress <- .np_progress_end(progress)
 
     ## Compute the P-value
 
-    P <- mean(ifelse(In.vec>In,1,0))
+    P <- mean(In.vec > In)
 
     In.mat[,1] = In.vec
 
@@ -429,37 +448,16 @@ npsigtest.rbandwidth <- function(bws,
         
       }
       
-      for(i.star in 1:boot.num) {
-        
-        if(boot.type=="I") {
-          msg <- paste("Bootstrap replication ",
-                       i.star,
-                       "/",
-                       boot.num,
-                       " for variable ",
-                       i,
-                       " of (",
-                       paste(index,collapse=","),
-                       ")... ",
-                       sep="")
-        } else {
-          msg <- paste("Bootstrap rep. ",
-                       i.star,
-                       "/",
-                       boot.num,
-                       " for variable ",
-                       i,
-                       " of (",
-                       paste(index,collapse=","),
-                       ")... ",
-                       sep="")
-        }
-        
-        console <- printPush(msg = msg, console)
-        
+      if(boot.type=="II")
+        bws.boot.prev <- bws.original
+
+      .np_progress_note(sprintf("Testing variable %s of (%s)", i, paste(index, collapse = ",")))
+      progress <- .np_progress_begin("Bootstrap replications", total = boot.num, surface = "bootstrap")
+
+      for (i.star in seq_len(boot.num)) {
         if(boot.method == "iid") {
           
-          ydat.star <- mhat.xi + sample(ei, replace=TRUE)
+          ydat.star <- mhat.xi + ei[sample.int(num.obs, replace = TRUE)]
           
         } else if(boot.method == "wild") {
           
@@ -468,7 +466,7 @@ npsigtest.rbandwidth <- function(bws,
           ## holding the variable tested at its median, and add to that
           ## a wild bootstrap draw from the original disturbance vector
           
-          ydat.star <- mhat.xi + ei*ifelse(rbinom(num.obs, 1, P.a) == 1, a, b)
+          ydat.star <- mhat.xi + ei * draw.wild.mult(num.obs, a, b, P.a)
           
         } else if(boot.method == "wild-rademacher") {
           
@@ -477,14 +475,14 @@ npsigtest.rbandwidth <- function(bws,
           ## holding the variable tested at its median, and add to that
           ## a wild bootstrap draw from the original disturbance vector
           
-          ydat.star <- mhat.xi + ei*ifelse(rbinom(num.obs, 1, P.a) == 1, -1, 1)
+          ydat.star <- mhat.xi + ei * draw.wild.mult(num.obs, -1, 1, P.a)
           
         } else if(boot.method =="pairwise") {
           
           ## Leave variable being tested untouched, resample remaining
           ## pairs of y,X thereby breaking any systematic relationship
           ## between variable being tested in y
-          boot.index <- sample(1:num.obs,replace=TRUE)
+          boot.index <- sample.int(num.obs, replace = TRUE)
           ydat.star <- ydat[boot.index]
           xdat.star <- xdat
           xdat.star[,-i] <- xdat[boot.index,-i]
@@ -493,27 +491,33 @@ npsigtest.rbandwidth <- function(bws,
         
         if(boot.type=="II") {
           
-          ## For Bootstrap II method, starting values are taken from
-          ## bandwidths passed in (bws.original). We then conduct
-          ## cross-validation for the bootstrap sample and use only the
-          ## new bw for variable i along with the original bandwidths
-          ## for the remaining variables
+          ## Bootstrap II reuses the previous bootstrap optimum as a
+          ## hot start and drops to nmulti=1 after the first
+          ## re-selection unless the user explicitly supplied nmulti.
           
           if(boot.method == "pairwise") {
             
-            bws.boot <- npregbw(xdat = xdat.star,
-                                ydat = ydat.star,
-                                bws = bws.original,
-                                ...)
+            bws.boot <- .np_npsig_bootstrap_bw_reselect(
+              xdat = xdat.star,
+              ydat = ydat.star,
+              bws.seed = bws.boot.prev,
+              extra.args = extra.args,
+              bootstrap.iter = i.star
+            )
             
           } else {
             
-            bws.boot <- npregbw(xdat = xdat,
-                                ydat = ydat.star,
-                                bws = bws.original,
-                                ...)
+            bws.boot <- .np_npsig_bootstrap_bw_reselect(
+              xdat = xdat,
+              ydat = ydat.star,
+              bws.seed = bws.boot.prev,
+              extra.args = extra.args,
+              bootstrap.iter = i.star
+            )
             
           }
+
+          bws.boot.prev <- bws.boot
           
           ## Copy the new cross-validated bandwidth for variable i into
           ## bw.original and use this below.
@@ -549,14 +553,15 @@ npsigtest.rbandwidth <- function(bws,
           npreg.boot$gerr[is.nan(npreg.boot$gerr)] <- .Machine$double.xmax
           mean((npreg.boot$grad[,i]/NZD(npreg.boot$gerr[,i]))^2)
         }
-        
-        console <- printPop(console)
+        progress <- .np_progress_step(progress, done = i.star)
 
       }
+
+      progress <- .np_progress_end(progress)
       
       ## Compute the P-value
       
-      P[ii] <- mean(ifelse(In.vec>In[ii],1,0))
+      P[ii] <- mean(In.vec > In[ii])
       
       In.mat[,ii] = In.vec
       
@@ -564,16 +569,12 @@ npsigtest.rbandwidth <- function(bws,
     
   } ## End invididual test
 
-  console <- printPush(msg ="                                                                                ", console)
-  console <- printPop(console)
-  console <- printClear(console)
-  
   ## Return a list containing the statistic and its P-value
   ## bootstrapped In.vec for each variable...
 
   ## Restore seed
 
-  if(exists.seed) assign(".Random.seed", save.seed, .GlobalEnv)
+  .np_seed_exit(seed.state)
 
   sigtest(In=In,
           In.mat,
@@ -617,22 +618,18 @@ npsigtest.default <- function(bws, xdat, ydat, ...){
     sc.bw$bandwidth.compute <- FALSE
   }
 
-  tbw <- eval.parent(sc.bw)
+  tbw <- .np_eval_bw_call(sc.bw, caller_env = parent.frame())
   
-  ## convention: drop 'bws' and up to two unnamed arguments (including bws)
-  if(no.bws){
-    tx.str <- ",xdat = xdat"
-    ty.str <- ",ydat = ydat"
-  } else {
-    tx.str <- ifelse(xdat.named, ",xdat = xdat","")
-    ty.str <- ifelse(ydat.named, ",ydat = ydat","")
-    if((!bws.named) && (!xdat.named)){
-      ty.str <- ifelse(ydat.named, ",ydat = ydat",
-                       ifelse(no.ydat,"",",ydat"))
-    }
-  }
+  call.args <- list(bws = tbw)
+  if(!no.xdat)
+    call.args$xdat <- xdat
+  if(!no.ydat)
+    call.args$ydat <- ydat
 
-  ev <- eval(parse(text=paste("npsigtest(bws = tbw", tx.str, ty.str, ",...)")))
+  dots <- list(...)
+  dots[c("bws", "bandwidth.compute", "formula", "data", "xdat", "ydat")] <- NULL
+
+  ev <- do.call(npsigtest, c(call.args, dots))
 
   ev$call <- match.call(expand.dots = FALSE)
   environment(ev$call) <- parent.frame()

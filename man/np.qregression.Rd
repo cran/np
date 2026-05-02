@@ -1,7 +1,6 @@
-% $ID$
+%
 \name{npqreg}
 \alias{npqreg}
-\alias{npqreg.call}
 \alias{npqreg.condbandwidth}
 \alias{npqreg.default}
 \alias{npqreg.formula}
@@ -22,7 +21,6 @@ npqreg(bws, \dots)
 
 \method{npqreg}{formula}(bws, data = NULL, newdata = NULL, \dots)
 
-\method{npqreg}{call}(bws, \dots)
 
 \method{npqreg}{condbandwidth}(bws,
        txdat = stop("training data 'txdat' missing"),
@@ -30,18 +28,9 @@ npqreg(bws, \dots)
        exdat,
        tau = 0.5,
        gradients = FALSE,
-       ftol = 1.490116e-07,
        tol = 1.490116e-04,
        small = 1.490116e-05,
        itmax = 10000,
-       lbc.dir = 0.5,
-       dfc.dir = 3,
-       cfac.dir = 2.5*(3.0-sqrt(5)),
-       initc.dir = 1.0,
-       lbd.dir = 0.1,
-       hbd.dir = 1,
-       dfac.dir = 0.25*(3.0-sqrt(5)),
-       initd.dir = 1.0,
        \dots)
 
 \method{npqreg}{default}(bws, txdat, tydat, \dots)
@@ -49,6 +38,10 @@ npqreg(bws, \dots)
 }
 
 \arguments{
+\subsection{Data, Bandwidth Inputs And Formula Interface}{
+These arguments identify the bandwidth specification, formula/data interface, and training data.
+}
+
   \item{bws}{
     a bandwidth specification. This can be set as a \code{condbandwidth}
     object returned from an invocation of \code{\link{npcdistbw}}, or
@@ -58,21 +51,6 @@ npqreg(bws, \dots)
     necessary to specify the bandwidth type, kernel types, and so on.
   }
 
-  \item{tau}{
-    a numeric value specifying the \eqn{\tau}{tau}th quantile is
-    desired. Defaults to \code{0.5}.
-  }
-
-  \item{\dots}{
-    additional arguments supplied to specify the regression type,
-    bandwidth type, kernel types, training data, and so on.
-    To do this,
-    you may specify any of \code{bwmethod}, \code{bwscaling},
-    \code{bwtype}, \code{cxkertype}, \code{cxkerorder},
-    \code{cykertype}, \code{cykerorder}, \code{uxkertype},
-    \code{uykertype}, \code{oxkertype}, \code{oykertype}, as described
-    in \code{\link{npcdistbw}}. 
-  }
 
   \item{data}{
     an optional data frame, list or environment (or object
@@ -82,16 +60,13 @@ npqreg(bws, \dots)
     \code{\link{npcdistbw}} was called.
   }
 
-  \item{newdata}{
-    An optional data frame in which to look for evaluation data. If
-    omitted, the training data are used.  
-  }
 
   \item{txdat}{
     a \eqn{p}-variate data frame of explanatory data (training data) used to
     calculate the regression estimators. Defaults to the training data used to
     compute the bandwidth object.
   }
+
 
   \item{tydat}{
     a one (1) dimensional numeric or integer vector of dependent data, each
@@ -100,11 +75,17 @@ npqreg(bws, \dots)
     compute the bandwidth object.
   }
 
+
+\subsection{Evaluation Data And Returned Quantities}{
+These arguments control where the quantile regression is evaluated and which fitted quantities are returned.
+}
+
   \item{exdat}{
     a \eqn{p}-variate data frame of points on which the regression will be
     estimated (evaluation data). By default,
     evaluation takes place on the data provided by \code{txdat}.
   }
+
 
   \item{gradients}{
     [currently not supported] a logical value indicating that you want
@@ -112,65 +93,71 @@ npqreg(bws, \dots)
     object. Defaults to \code{FALSE}.
   }
 
-  \item{itmax}{
-    integer number of iterations before failure in the numerical
-    optimization routine. Defaults to \code{10000}.
+
+  \item{newdata}{
+    An optional data frame in which to look for evaluation data. If
+    omitted, the training data are used.
   }
 
-  \item{ftol}{
-    fractional tolerance on the value of the cross-validation function
-    evaluated at located minima (of order the machine precision or
-    perhaps slightly larger so as not to be diddled by
-    roundoff). Defaults to \code{1.490116e-07}
-    (1.0e+01*sqrt(.Machine$double.eps)).
+
+  \item{tau}{
+    a numeric value specifying the \eqn{\tau}{tau}th quantile is
+    desired. Defaults to \code{0.5}.
   }
 
-  \item{tol}{
-    tolerance on the position of located minima of the cross-validation
-    function (tol should generally be no smaller than the square root of
-    your machine's floating point precision). Defaults to \code{
-      1.490116e-04 (1.0e+04*sqrt(.Machine$double.eps))}.
-  }
 
-  \item{small}{
-    a small number used to bracket a minimum (it is hopeless to ask for
-    a bracketing interval of width less than sqrt(epsilon) times its
-    central value, a fractional width of only about 10-04 (single
-    precision) or 3x10-8 (double precision)). Defaults to \code{small
-      = 1.490116e-05 (1.0e+03*sqrt(.Machine$double.eps))}.
-  }
 
-  \item{lbc.dir,dfc.dir,cfac.dir,initc.dir}{ lower bound, chi-square
-    degrees of freedom, stretch factor, and initial non-random values
-    for direction set search for Powell's algorithm for \code{numeric}
-    variables. See Details}
-
-  \item{lbd.dir,hbd.dir,dfac.dir,initd.dir}{ lower bound, upper bound,
-    stretch factor, and initial non-random values for direction set
-    search for Powell's algorithm for categorical variables. See
-    Details}
-
+\subsection{Quantile Solver Controls}{
+These arguments control the one-dimensional numerical quantile extraction step.
 }
 
-\details{
+  \item{itmax}{
+    integer maximum number of iterations allowed in the one-dimensional
+    quantile refinement. Defaults to \code{10000}.
+  }
 
-  The optimizer invoked for search is Powell's conjugate direction
-  method which requires the setting of (non-random) initial values and
-  search directions for bandwidths, and, when restarting, random values
-  for successive invocations. Bandwidths for \code{numeric} variables
-  are scaled by robust measures of spread, the sample size, and the
-  number of \code{numeric} variables where appropriate. Two sets of
-  parameters for bandwidths for \code{numeric} can be modified, those
-  for initial values for the parameters themselves, and those for the
-  directions taken (Powell's algorithm does not involve explicit
-  computation of the function's gradient). The default values are set by
-  considering search performance for a variety of difficult test cases
-  and simulated cases. We highly recommend restarting search a large
-  number of times to avoid the presence of local minima (achieved by
-  modifying \code{nmulti}). Further refinement for difficult cases can
-  be achieved by modifying these sets of parameters. However, these
-  parameters are intended more for the authors of the package to enable
-  \sQuote{tuning} for various methods rather than for the user themselves.
+
+  \item{small}{
+    minimum interval width used by the one-dimensional quantile
+    refinement. Defaults to \code{1.490116e-05}
+    (approximately \code{1000*sqrt(.Machine$double.eps)}).
+  }
+
+
+  \item{tol}{
+    tolerance on the one-dimensional quantile location refinement.
+    Defaults to \code{1.490116e-04}
+    (approximately \code{10000*sqrt(.Machine$double.eps)}).
+  }
+
+
+\subsection{Additional Arguments}{
+Further arguments are passed to the regression estimator or bandwidth interpretation path as needed.
+}
+
+  \item{\dots}{
+    additional arguments supplied to specify the regression type,
+    bandwidth type, kernel types, training data, and so on.
+    To do this,
+    you may specify any of \code{bwmethod}, \code{bwscaling},
+    \code{bwtype}, \code{cxkertype}, \code{cxkerorder},
+    \code{cykertype}, \code{cykerorder}, \code{uxkertype},
+    \code{uykertype}, \code{oxkertype}, \code{oykertype}, as described
+    in \code{\link{npcdistbw}}.
+  }
+}
+\details{
+  Documentation guide: see \code{\link{np.kernels}} for kernels, \code{\link{np.options}} for global options, and \code{\link{plot}} for plotting options.
+
+
+  Given a conditional distribution bandwidth object, \code{npqreg}
+  estimates the conditional distribution at candidate response values
+  and extracts the requested conditional quantile by a one-dimensional
+  numerical refinement over the observed support of the dependent
+  variable. The refinement minimizes the squared residual between the
+  estimated conditional distribution and the requested probability
+  \code{tau}. The arguments \code{tol}, \code{small}, and \code{itmax}
+  control this one-dimensional refinement.
 
 }
 
@@ -190,11 +177,13 @@ npqreg(bws, \dots)
   \item{eval}{ evaluation points }
   \item{quantile}{ estimation of the quantile regression function
     (conditional quantile) at the  evaluation points }
-  \item{quanterr}{ standard errors of the quantile regression estimates } 
+  \item{quanterr}{ asymptotic standard errors of the quantile
+    regression estimates, based on the estimated conditional density at
+    the fitted quantile }
   \item{quantgrad}{ gradients at each evaluation point }
   \item{tau}{ the \eqn{\tau}{tau}th quantile computed }
 
-  
+
 }
 
 \references{
@@ -219,7 +208,7 @@ npqreg(bws, \dots)
   conditional CDF and quantile functions with mixed categorical and
   continuous data,} Journal of Business and Economic Statistics, 26,
   423-434.
-  
+
   Li, Q. and J. Lin and J.S. Racine (2013), \dQuote{Optimal Bandwidth
   Selection for Nonparametric Conditional Distribution and Quantile
   Functions}, Journal of Business and Economic Statistics, 31, 57-65.
@@ -240,7 +229,8 @@ npqreg(bws, \dots)
   type.
 }
 
-\seealso{ \pkg{quantreg} }
+\seealso{
+  \code{\link{np.kernels}}, \code{\link{np.options}}, \code{\link{plot}} \pkg{quantreg} }
 
 \examples{
 \dontrun{
@@ -265,16 +255,16 @@ model.q0.75 <- npqreg(bws=bw, tau=0.75)
 
 # Plot the resulting quantiles manually...
 
-plot(ordered(year), gdp, 
-     main="CDF Quantile Estimates for the Italian Income Panel", 
-     xlab="Year", 
+plot(ordered(year), gdp,
+     main="CDF Quantile Estimates for the Italian Income Panel",
+     xlab="Year",
      ylab="GDP Quantiles")
 
 lines(ordered(year), model.q0.25$quantile, col="red", lty=2)
 lines(ordered(year), model.q0.50$quantile, col="blue", lty=3)
 lines(ordered(year), model.q0.75$quantile, col="red", lty=2)
 
-legend(ordered(1951), 32, c("tau = 0.25", "tau = 0.50", "tau = 0.75"), 
+legend(ordered(1951), 32, c("tau = 0.25", "tau = 0.50", "tau = 0.75"),
        lty=c(2, 3, 2), col=c("red", "blue", "red"))
 
 detach(Italy)
@@ -302,16 +292,16 @@ model.q0.75 <- npqreg(bws=bw, tau=0.75)
 
 # Plot the resulting quantiles manually...
 
-plot(ordered(year), gdp, 
-     main="CDF Quantile Estimates for the Italian Income Panel", 
-     xlab="Year", 
+plot(ordered(year), gdp,
+     main="CDF Quantile Estimates for the Italian Income Panel",
+     xlab="Year",
      ylab="GDP Quantiles")
 
 lines(ordered(year), model.q0.25$quantile, col="red", lty=2)
 lines(ordered(year), model.q0.50$quantile, col="blue", lty=3)
 lines(ordered(year), model.q0.75$quantile, col="red", lty=2)
 
-legend(ordered(1951), 32, c("tau = 0.25", "tau = 0.50", "tau = 0.75"), 
+legend(ordered(1951), 32, c("tau = 0.25", "tau = 0.50", "tau = 0.75"),
        lty=c(2, 3, 2), col=c("red", "blue", "red"))
 
 detach(Italy)

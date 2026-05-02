@@ -13,7 +13,7 @@ gradients(x, \dots)
 
 \method{gradients}{condistribution}(x, errors = FALSE, \dots)
 
-\method{gradients}{npregression}(x, errors = FALSE, \dots)
+\method{gradients}{npregression}(x, errors = FALSE, gradient.order = NULL, \dots)
 
 \method{gradients}{qregression}(x, errors = FALSE, \dots)
 
@@ -21,11 +21,32 @@ gradients(x, \dots)
 }
 
 \arguments{
+\subsection{Object And Output Controls}{
+Object to interrogate and whether gradient standard errors are requested.
+}
+
   \item{x}{an object for which the extraction of gradients is
     meaningful.}
-  \item{\dots}{other arguments.}
   \item{errors}{ a logical value specifying whether or not standard
     errors of gradients are desired. Defaults to \code{FALSE}.}
+
+\subsection{Derivative Order Controls}{
+Optional local-polynomial derivative order controls.
+}
+
+  \item{gradient.order}{
+    for \code{npregression} objects fitted with \code{regtype="lp"},
+    optional derivative order request (scalar or one entry per
+    continuous predictor). Orders exceeding the fitted polynomial degree
+    (or greater than one, pending future C-level support) are returned
+    as \code{NA}.
+  }
+
+\subsection{Additional Arguments}{
+Further method-specific arguments.
+}
+
+  \item{\dots}{other arguments.}
 }
 \value{
   Gradients extracted from the model object \code{x}.

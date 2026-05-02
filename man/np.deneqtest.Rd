@@ -1,4 +1,4 @@
-% $Id: np.cmstest.Rd,v 1.58 2006/11/03 21:17:20 tristen Exp $
+%
 \name{npdeneqtest}
 \alias{npdeneqtest}
 \title{ Kernel Consistent Density Equality Test with Mixed Data Types }
@@ -18,25 +18,41 @@ npdeneqtest(x = NULL,
 }
 
 \arguments{
+\subsection{Data, Bandwidth Inputs And Formula Interface}{
+These arguments identify the two samples and any supplied bandwidths.
+}
+
+  \item{bw.x,bw.y}{
+    optional bandwidth objects for \code{x,y}
+  }
+
+
   \item{x,y}{
     data frames for the two samples for which one wishes to
     test equality of densities. The variables in each data
     frame must be the same (i.e. have identical names).
   }
-  
-  \item{bw.x,bw.y}{
-    optional bandwidth objects for \code{x,y}
-  }
-  
+
+
+\subsection{Bootstrap Controls}{
+These arguments control bootstrap replication and reproducibility settings.
+}
+
   \item{boot.num}{
     an integer value specifying the number of bootstrap
     replications to use. Defaults to \code{399}.
   }
-  
+
+
   \item{random.seed}{
     an integer used to seed R's random number generator. This is to
     ensure replicability. Defaults to 42.
   }
+
+
+\subsection{Additional Arguments}{
+Further arguments are passed to the bandwidth-selection routines used by the test.
+}
 
   \item{\dots}{ additional arguments supplied to specify the bandwidth
     type, kernel types, and so on.  This is used if you do not pass in
@@ -44,13 +60,13 @@ npdeneqtest(x = NULL,
     do this, you may specify any of \code{bwscaling}, \code{bwtype},
     \code{ckertype}, \code{ckerorder}, \code{ukertype},
     \code{okertype}.}
-  
-}
 
+
+}
 \value{
   \code{npdeneqtest} returns an object of type \code{deneqtest} with the
   following components
-  
+
   \item{Tn}{ the (standardized) statistic \code{Tn} }
   \item{In}{ the (unstandardized) statistic \code{In} }
   \item{Tn.bootstrap}{ contains the bootstrap replications of \code{Tn} }
@@ -58,7 +74,7 @@ npdeneqtest(x = NULL,
   \item{Tn.P}{ the P-value of the \code{Tn} statistic }
   \item{In.P}{ the P-value of the \code{In} statistic }
   \item{boot.num}{ number of bootstrap replications }
-    
+
   \code{\link{summary}} supports object of type \code{deneqtest}.
 }
 \references{
@@ -72,16 +88,18 @@ npdeneqtest(x = NULL,
 }
 
 \details{
-  
+  Documentation guide: see \code{\link{np.kernels}} for kernels, \code{\link{np.options}} for global options, and \code{\link{plot}} for plotting options.
+
+
   \code{npdeneqtest} computes the integrated squared density difference
   between the estimated densities/probabilities of two samples having
   identical variables/datatypes. See Li, Maasoumi, and Racine (2009) for
   details.
- 
+
 }
 
 \section{Usage Issues}{
-  
+
   If you are using data of mixed types, then it is advisable to use the
   \code{\link{data.frame}} function to construct your input data and not
   \code{\link{cbind}}, since \code{\link{cbind}} will typically not work as
@@ -93,6 +111,7 @@ npdeneqtest(x = NULL,
 }
 
 \seealso{
+  \code{\link{np.kernels}}, \code{\link{np.options}}, \code{\link{plot}}
   \code{\link{npdeptest},\link{npsdeptest},\link{npsymtest},\link{npunitest}}
 }
 
@@ -109,7 +128,7 @@ sample.B <- data.frame(x=rnorm(n))
 
 npdeneqtest(sample.A,sample.B,boot.num=99)
 
-Sys.sleep(5)
+if (interactive()) Sys.sleep(5)
 
 ## Distributions are unequal
 
@@ -125,7 +144,7 @@ sample.B <- data.frame(a=rnorm(n),b=factor(rbinom(n,2,.5)))
 
 npdeneqtest(sample.A,sample.B,boot.num=99)
 
-Sys.sleep(5)
+if (interactive()) Sys.sleep(5)
 
 ## Mixed datatypes, distributions are unequal
 

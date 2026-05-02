@@ -1,8 +1,8 @@
-require(np)
-
 ## Example - compute nonparametric instrumental regression using
 ## Landweber-Fridman iteration of Fredholm integral equations of the
 ## first kind.
+
+suppressPackageStartupMessages(library(np))
 
 ## We consider an equation with an endogenous regressor (`z') and an
 ## instrument (`w'). Let y = phi(z) + u where phi(z) is the function of

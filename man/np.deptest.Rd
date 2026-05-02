@@ -1,12 +1,12 @@
-% $Id: np.cmstest.Rd,v 1.58 2006/11/03 21:17:20 tristen Exp $
+%
 \name{npdeptest}
 \alias{npdeptest}
 \title{ Kernel Consistent Pairwise Nonlinear Dependence Test for Univariate Processes }
 \description{
-  
+
   \code{npdeptest} implements the consistent metric entropy test of
   pairwise independence as described in Maasoumi and Racine (2002).
-  
+
 }
 \usage{
 
@@ -20,14 +20,18 @@ npdeptest(data.x = NULL,
 }
 
 \arguments{
+\subsection{Data, Bandwidth Inputs And Formula Interface}{
+These arguments identify the paired samples being tested.
+}
+
   \item{data.x, data.y}{
-    
+
     two univariate vectors containing two variables that are of type
     \code{\link{numeric}}.
-    
+
   }
-  
-  \item{method}{
+
+\item{method}{
 
     a character string used to specify whether to compute the integral
     version or the summation version of the statistic. Can be set as
@@ -35,29 +39,35 @@ npdeptest(data.x = NULL,
     details). Defaults to \code{integration}.
 
   }
-  
-  \item{bootstrap}{
-    a logical value which specifies whether to conduct
-    the bootstrap test or not. If set to \code{FALSE}, only the
-    statistic will be computed. Defaults to \code{TRUE}.    
-  }
-  
+
+
+\subsection{Bootstrap Controls}{
+These arguments control bootstrap execution and reproducibility settings.
+}
+
   \item{boot.num}{
     an integer value specifying the number of bootstrap
     replications to use. Defaults to \code{399}.
   }
-  
+
+
+  \item{bootstrap}{
+    a logical value which specifies whether to conduct
+    the bootstrap test or not. If set to \code{FALSE}, only the
+    statistic will be computed. Defaults to \code{TRUE}.
+  }
+
+
   \item{random.seed}{
     an integer used to seed R's random number generator. This is to
     ensure replicability. Defaults to 42.
   }
 
 }
-            
 \value{
   \code{npdeptest} returns an object of type \code{deptest} with the
   following components
-  
+
   \item{Srho}{ the statistic \code{Srho} }
   \item{Srho.bootstrap.vec}{ contains the bootstrap replications of
     \code{Srho} }
@@ -68,18 +78,18 @@ npdeptest(data.x = NULL,
   \item{bw.data.x}{ the numeric bandwidth for \code{data.x} marginal
     density}
   \item{bw.data.y}{ the numeric bandwidth for
-    \code{data.y} marginal density}  
+    \code{data.y} marginal density}
   \item{bw.joint}{ the numeric matrix of bandwidths for \code{data}
-  and lagged \code{data} joint density  at lag \code{num.lag}}      
+  and lagged \code{data} joint density  at lag \code{num.lag}}
 
 \code{\link{summary}} supports object of type \code{deptest}.
 }
 \references{
-  
+
   Granger, C.W. and E. Maasoumi and J.S. Racine (2004), \dQuote{A
   dependence metric for possibly nonlinear processes}, Journal of Time
   Series Analysis, 25, 649-669.
-  
+
   Maasoumi, E. and J.S. Racine (2002), \dQuote{Entropy and
     Predictability of Stock Market Returns,} Journal of Econometrics,
     107, 2, pp 291-312.
@@ -91,6 +101,8 @@ npdeptest(data.x = NULL,
 }
 
 \details{
+  Documentation guide: see \code{\link{np.kernels}} for kernels, \code{\link{np.options}} for global options, and \code{\link{plot}} for plotting options.
+
 
   \code{npsdeptest} computes the nonparametric metric entropy
    (normalized Hellinger of Granger, Maasoumi and Racine (2004)) for
@@ -115,21 +127,22 @@ npdeptest(data.x = NULL,
   integration version involves differences). Warning messages are
   produced should this occur (\sQuote{integration recommended}) and should be
   heeded.
- 
+
 }
 
 \section{Usage Issues}{
-  
+
   The \code{integration} version of the statistic uses multidimensional
   numerical methods from the \pkg{cubature} package. See
   \pkg{adaptIntegrate} for details. The \code{integration}
   version of the statistic will be substantially slower than the
   \code{summation} version, however, it will likely be both more
   accurate and powerful.
-  
+
 }
 
 \seealso{
+  \code{\link{np.kernels}}, \code{\link{np.options}}, \code{\link{plot}}
   \code{\link{npdeneqtest},\link{npsdeptest},\link{npsymtest},\link{npunitest}}
 }
 
@@ -148,7 +161,7 @@ y.fit <- fitted(model)
 
 npdeptest(y,y.fit,boot.num=99,method="summation")
 
-Sys.sleep(5)
+if (interactive()) Sys.sleep(5)
 
 ## Test/measure lack of fit between y and its fitted value from a
 ## regression model when x is irrelevant using the `summation' version.
@@ -173,7 +186,7 @@ y.fit <- fitted(model)
 
 npdeptest(y,y.fit,boot.num=99)
 
-Sys.sleep(5)
+if (interactive()) Sys.sleep(5)
 
 ## Test/measure lack of fit between y and its fitted value from a
 ## regression model when x is irrelevant using the `integration'

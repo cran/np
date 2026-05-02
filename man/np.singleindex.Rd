@@ -1,7 +1,6 @@
-% $ID$
+%
 \name{npindex}
 \alias{npindex}
-\alias{npindex.call}
 \alias{npindex.default}
 \alias{npindex.formula}
 \alias{npindex.sibandwidth}
@@ -28,12 +27,11 @@ npindex(bws, \dots)
         y.eval = FALSE,
         \dots)
 
-\method{npindex}{call}(bws,
-        \dots)
 
 \method{npindex}{default}(bws,
         txdat,
         tydat,
+        nomad = FALSE,
         \dots) 
 
 \method{npindex}{sibandwidth}(bws,
@@ -41,14 +39,17 @@ npindex(bws, \dots)
         tydat = stop("training data 'tydat' missing"),
         exdat,
         eydat,
+        boot.num = 399,
+        errors = FALSE,
         gradients = FALSE,
         residuals = FALSE,
-        errors = FALSE,
-        boot.num = 399,
         \dots)
 }
 
 \arguments{
+\subsection{Data, Bandwidth Inputs And Formula Interface}{
+These arguments identify the bandwidth specification, formula/data interface, and training data.
+}
 
   \item{bws}{
     a bandwidth specification. This can be set as a
@@ -57,39 +58,9 @@ npindex(bws, \dots)
     as a vector of parameters (beta) with each element \eqn{i}
     corresponding to the coefficient for column \eqn{i} in \code{txdat}
     where the first element is normalized to 1, and a scalar bandwidth
-    (h). 
+    (h).
   }
 
-  \item{gradients}{
-    a logical value indicating that you want gradients and the
-    asymptotic covariance matrix for beta computed and returned in the
-    resulting \code{singleindex} object. Defaults to \code{FALSE}.
-  }
-
-  \item{residuals}{
-    a logical value indicating that you want residuals computed and
-    returned in the resulting \code{singleindex} object. Defaults to
-    \code{FALSE}.
-  }
-
-  \item{errors}{
-    a logical value indicating that you want (bootstrapped)
-    standard errors for the conditional mean, gradients (when
-    \code{gradients=TRUE} is set), and average gradients (when
-    \code{gradients=TRUE} is set), computed and returned in the
-    resulting \code{singleindex} object. Defaults to \code{FALSE}.
-  }
-
-  \item{boot.num}{
-    an integer specifying the number of bootstrap replications to use
-    when performing standard error calculations. Defaults to
-    \code{399}. 
-  }
-
-  \item{\dots}{
-    additional arguments supplied to specify the parameters to the
-    \code{sibandwidth} S3 method, which is called during estimation. 
-  }
 
   \item{data}{
     an optional data frame, list or environment (or object
@@ -99,22 +70,13 @@ npindex(bws, \dots)
     \code{\link{npindexbw}} was called.
   }
 
-  \item{newdata}{
-    An optional data frame in which to look for evaluation data. If
-    omitted, the training data are used.  
-  }
-
-  \item{y.eval}{
-    If \code{newdata} contains dependent data and \code{y.eval = TRUE},
-    \code{\link{np}} will compute goodness of fit statistics on these
-    data and return them. Defaults to \code{FALSE}.
-  }
 
   \item{txdat}{
     a \eqn{p}-variate data frame of explanatory data (training data) used to
     calculate the regression estimators. Defaults to the training data used to
     compute the bandwidth object.
   }
+
 
   \item{tydat}{
     a one (1) dimensional numeric or integer vector of dependent data, each
@@ -123,24 +85,119 @@ npindex(bws, \dots)
     compute the bandwidth object.
   }
 
+
+\subsection{Bandwidth Search Shortcut}{
+This argument passes the recommended automatic local-polynomial NOMAD preset to \code{\link{npindexbw}} when bandwidths are computed inside \code{npindex}.
+}
+
+  \item{nomad}{
+    logical shortcut passed through to \code{\link{npindexbw}} when
+    bandwidths are computed inside \code{npindex}. When \code{TRUE},
+    the single-index bandwidth route fills any missing values among
+    \code{regtype}, \code{search.engine}, \code{degree.select},
+    \code{bernstein.basis}, \code{degree.min}, \code{degree.max},
+    \code{degree.verify}, and \code{bwtype} with the recommended
+    automatic LP NOMAD preset documented in \code{\link{npindexbw}}.
+    Additional NOMAD tuning arguments such as \code{nomad.nmulti} may
+    also be supplied through \code{\dots}; \code{nmulti} remains the
+    outer restart count while \code{nomad.nmulti} controls inner
+    \code{crs::snomadr()} multistarts within each outer restart.
+    After fitting, inspect \code{fit$bws$nomad.shortcut} on the
+    returned object \code{fit} to see the normalized shortcut metadata.
+  }
+
+
+\subsection{Evaluation Data And Returned Quantities}{
+These arguments control where the single-index fit is evaluated and which evaluation quantities are returned.
+}
+
   \item{exdat}{
     a \eqn{p}-variate data frame of points on which the regression will be
     estimated (evaluation data). By default,
     evaluation takes place on the data provided by \code{txdat}.
   }
 
+
   \item{eydat}{
     a one (1) dimensional numeric or integer vector of the true values
     of the dependent variable. Optional, and used only to calculate the
-    true errors. 
+    true errors.
   }
-  
+
+
+  \item{newdata}{
+    An optional data frame in which to look for evaluation data. If
+    omitted, the training data are used.
+  }
+
+
+  \item{y.eval}{
+    If \code{newdata} contains dependent data and \code{y.eval = TRUE},
+    \code{\link{np}} will compute goodness of fit statistics on these
+    data and return them. Defaults to \code{FALSE}.
+  }
+
+
+\subsection{Fitted Quantities And Inference}{
+These arguments control residuals, gradients, and bootstrap standard errors.
 }
 
+  \item{boot.num}{
+    an integer specifying the number of bootstrap replications to use
+    when performing standard error calculations. Defaults to
+    \code{399}.
+  }
+
+
+  \item{errors}{
+    a logical value indicating that you want (bootstrapped)
+    standard errors for the conditional mean, gradients (when
+    \code{gradients=TRUE} is set), and average gradients (when
+    \code{gradients=TRUE} is set), computed and returned in the
+    resulting \code{singleindex} object. Defaults to \code{FALSE}.
+  }
+
+
+  \item{gradients}{
+    a logical value indicating that you want gradients and the
+    asymptotic covariance matrix for beta computed and returned in the
+    resulting \code{singleindex} object. Defaults to \code{FALSE}.
+  }
+
+
+  \item{residuals}{
+    a logical value indicating that you want residuals computed and
+    returned in the resulting \code{singleindex} object. Defaults to
+    \code{FALSE}.
+  }
+
+
+\subsection{Additional Arguments}{
+Further arguments are passed to the bandwidth-selection counterpart when bandwidths are not supplied.
+}
+
+  \item{\dots}{
+    additional arguments supplied to specify the parameters to the
+    \code{sibandwidth} S3 method, which is called during estimation.
+  }
+}
 \details{
+  Documentation guide: see \code{\link{np.kernels}} for kernels, \code{\link{np.options}} for global options, and \code{\link{plot}}, \code{\link{plot.np}} for plotting options.
+
+  For S3 plotting help, use \code{methods("plot")} and query
+  class-specific help topics such as \code{?plot.npregression} and
+  \code{?plot.rbandwidth}. You can inspect implementations with
+  \code{getS3method("plot","npregression")}.
+
 
   A matrix of gradients along with average derivatives are computed and
   returned if \code{gradients=TRUE} is used.
+
+  For practitioners who want the recommended automatic LP NOMAD route
+  without spelling out all LP tuning arguments,
+  \code{npindex(..., nomad=TRUE)} and \code{npindexbw(..., nomad=TRUE)}
+  expand missing settings to the same documented preset. Explicit
+  incompatible settings fail fast rather than being silently rewritten.
 
 }
 
@@ -159,10 +216,10 @@ npindex(bws, \dots)
 
   \item{eval}{ evaluation points }
   \item{mean}{ estimates of the regression function (conditional mean) at the
-  evaluation points } 
+  evaluation points }
   \item{beta}{ the model coefficients }
   \item{betavcov}{ the asymptotic covariance matrix for the model coefficients}
-  \item{merr}{ standard errors of the regression function estimates } 
+  \item{merr}{ standard errors of the regression function estimates }
   \item{grad}{ estimates of the gradients at each evaluation point }
   \item{gerr}{ standard errors of the gradient estimates }
   \item{mean.grad}{ mean (average) gradient over the evaluation points}
@@ -210,13 +267,13 @@ npindex(bws, \dots)
   McFadden, D. and C. Puig and D. Kerschner (1977), \dQuote{Determinants
     of the long-run demand for electricity,} Proceedings of the
   American Statistical Association (Business and Economics Section),
-  109-117. 
+  109-117.
 
   Wang, M.C. and J. van Ryzin (1981), \dQuote{A class of smooth
     estimators for discrete distributions,} Biometrika, 68, 301-309.
 }
 
-    
+
 
 \author{
   Tristen Hayfield  \email{tristen.hayfield@gmail.com}, Jeffrey S. Racine \email{racinej@mcmaster.ca}
@@ -230,6 +287,11 @@ npindex(bws, \dots)
   type.
 
   \code{\link{vcov}} requires that \code{gradients=TRUE} be set.
+}
+
+\seealso{
+  \code{\link{np.kernels}}, \code{\link{np.options}},
+  \code{\link{plot}}, \code{\link{plot.np}}, \code{\link{npindexbw}}
 }
 
 \examples{
@@ -264,13 +326,13 @@ summary(model)
 
 # Sleep for 5 seconds so that we can examine the output...
 
-Sys.sleep(5)
+if (interactive()) Sys.sleep(5)
 
 # Or you can visualize the input with plot.
 
-plot(bw)
+if (interactive()) plot(bw)
 
-Sys.sleep(5)
+if (interactive()) Sys.sleep(5)
 
 # EXAMPLE 1 (INTERFACE=DATA FRAME): Generate a simple linear model then
 # estimate it using a semiparametric single index specification and
@@ -304,13 +366,13 @@ summary(model)
 
 # Sleep for 5 seconds so that we can examine the output...
 
-Sys.sleep(5)
+if (interactive()) Sys.sleep(5)
 
 # Or you can visualize the input with plot.
 
-plot(bw)
+if (interactive()) plot(bw)
 
-Sys.sleep(5)
+if (interactive()) Sys.sleep(5)
 
 # EXAMPLE 2 (INTERFACE=FORMULA): Generate a simple binary outcome linear
 # model then estimate it using a semiparametric single index
@@ -344,7 +406,7 @@ summary(model)
 
 # Sleep for 5 seconds so that we can examine the output...
 
-Sys.sleep(5)
+if (interactive()) Sys.sleep(5)
 
 # EXAMPLE 2 (INTERFACE=DATA FRAME): Generate a simple binary outcome
 # linear model then estimate it using a semiparametric single index
@@ -380,7 +442,7 @@ summary(model)
 
 # Sleep for 5 seconds so that we can examine the output...
 
-Sys.sleep(5)
+if (interactive()) Sys.sleep(5)
 
 # EXAMPLE 3 (INTERFACE=FORMULA): Replicate the DGP of Klein & Spady
 # (1993) (see their description on page 405, pay careful attention to
@@ -423,8 +485,8 @@ X.eval <- expand.grid(x1=x1.seq, x2=x2.seq)
 
 # Now evaluate the single index model on the evaluation data
 
-fit <- fitted(npindex(exdat=X.eval, 
-               eydat=rep(1, nrow(X.eval)), 
+fit <- fitted(npindex(exdat=X.eval,
+               eydat=rep(1, nrow(X.eval)),
                bws=bw))
 
 # Finally, coerce the fitted model into a matrix suitable for 3D
@@ -435,16 +497,16 @@ fit.mat <- matrix(fit, 50, 50)
 # Generate a perspective plot similar to Figure 2 b of Klein and Spady
 # (1993)
 
-persp(x1.seq, 
-      x2.seq, 
-      fit.mat, 
-      col="white", 
-      ticktype="detailed", 
-      expand=0.5, 
-      axes=FALSE, 
-      box=FALSE, 
-      main="Estimated Semiparametric Probability Perspective", 
-      theta=310, 
+persp(x1.seq,
+      x2.seq,
+      fit.mat,
+      col="white",
+      ticktype="detailed",
+      expand=0.5,
+      axes=FALSE,
+      box=FALSE,
+      main="Estimated Semiparametric Probability Perspective",
+      theta=310,
       phi=25)
 
 # EXAMPLE 3 (INTERFACE=DATA FRAME): Replicate the DGP of Klein & Spady
@@ -492,8 +554,8 @@ X.eval <- expand.grid(x1=x1.seq, x2=x2.seq)
 
 # Now evaluate the single index model on the evaluation data
 
-fit <- fitted(npindex(exdat=X.eval, 
-               eydat=rep(1, nrow(X.eval)), 
+fit <- fitted(npindex(exdat=X.eval,
+               eydat=rep(1, nrow(X.eval)),
                bws=bw))
 
 # Finally, coerce the fitted model into a matrix suitable for 3D
@@ -504,16 +566,16 @@ fit.mat <- matrix(fit, 50, 50)
 # Generate a perspective plot similar to Figure 2 b of Klein and Spady
 # (1993)
 
-persp(x1.seq, 
-      x2.seq, 
-      fit.mat, 
-      col="white", 
-      ticktype="detailed", 
-      expand=0.5, 
-      axes=FALSE, 
-      box=FALSE, 
-      main="Estimated Semiparametric Probability Perspective", 
-      theta=310, 
+persp(x1.seq,
+      x2.seq,
+      fit.mat,
+      col="white",
+      ticktype="detailed",
+      expand=0.5,
+      axes=FALSE,
+      box=FALSE,
+      main="Estimated Semiparametric Probability Perspective",
+      theta=310,
       phi=25)
 } % enddontrun
 }

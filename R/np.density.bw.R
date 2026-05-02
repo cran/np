@@ -1,18 +1,22 @@
 npudensbw <- function(...){
-  args = list(...)
-  if (is(args[[1]],"formula"))
-    UseMethod("npudensbw",args[[1]])
-  else if (!is.null(args$formula))
-    UseMethod("npudensbw",args$formula)
-  else
-    UseMethod("npudensbw",args[[which(names(args)=="bws")[1]]])
+  mc <- match.call(expand.dots = FALSE)
+  npRejectRenamedScaleFactorSearchArgs(names(mc$...), where = "npudensbw")
+  target <- .np_bw_dispatch_target(dots = mc$...,
+                                   data_arg_names = "dat",
+                                   eval_env = parent.frame())
+  UseMethod("npudensbw", target)
 }
 
 npudensbw.formula <-
   function(formula, data, subset, na.action, call, ...){
+    formula.terms <- terms(formula)
     orig.ts <- if (missing(data))
-      sapply(eval(attr(terms(formula), "variables"), environment(formula)), inherits, "ts")
-    else sapply(eval(attr(terms(formula), "variables"), data, environment(formula)), inherits, "ts")
+      .np_terms_ts_mask(terms_obj = formula.terms,
+                        data = environment(formula),
+                        eval_env = environment(formula))
+    else .np_terms_ts_mask(terms_obj = formula.terms,
+                           data = data,
+                           eval_env = environment(formula))
    
     mf <- match.call(expand.dots = FALSE)
     m <- match(c("formula", "data", "subset", "na.action"),
@@ -20,30 +24,31 @@ npudensbw.formula <-
     mf <- mf[c(1,m)]
 
     if(all(orig.ts)){
-      args <- (as.list(attr(terms(formula), "variables"))[-1])
-      formula <- terms(formula)
+      args <- (as.list(attr(formula.terms, "variables"))[-1])
+      formula <- formula.terms
       attr(formula, "predvars") <- as.call(c(quote(as.data.frame),as.call(c(quote(ts.intersect), args))))
       mf[["formula"]] <- formula
     }else if(any(orig.ts)){
-      arguments <- (as.list(attr(terms(formula), "variables"))[-1])
+      arguments <- (as.list(attr(formula.terms, "variables"))[-1])
       arguments.normal <- arguments[which(!orig.ts)]
       arguments.timeseries <- arguments[which(orig.ts)]
 
       ix <- sort(c(which(orig.ts),which(!orig.ts)),index.return = TRUE)$ix
-      formula <- terms(formula)
+      formula <- formula.terms
       attr(formula, "predvars") <- bquote(.(as.call(c(quote(cbind),as.call(c(quote(as.data.frame),as.call(c(quote(ts.intersect), arguments.timeseries)))),arguments.normal,check.rows = TRUE)))[,.(ix)])
       mf[["formula"]] <- formula
     }
     
     mf[[1]] <- as.name("model.frame")
-    mf <- eval(mf, envir = parent.frame())
+    mf.args <- as.list(mf[-1L])
+    mf <- do.call(stats::model.frame, mf.args, envir = parent.frame())
 
     if (attr(attr(mf, "terms"), "response") != 0)
       stop("invalid density formula")
     
     dat <- mf[, attr(attr(mf, "terms"),"term.labels"), drop = FALSE]
     
-    tbw <- npudensbw(dat = dat, ...)
+    tbw <- do.call(npudensbw, c(list(dat = dat), list(...)))
     tbw$call <- match.call(expand.dots = FALSE)
     environment(tbw$call) <- parent.frame()
     tbw$formula <- formula
@@ -79,34 +84,101 @@ npudensbw.NULL <-
     tbw
   }
 
+.npudensbw_assert_bounded_cvls_supported <- function(bws,
+                                                     where = "npudensbw()") {
+  method <- if (!is.null(bws$method) && length(bws$method)) {
+    as.character(bws$method[1L])
+  } else {
+    "cv.ml"
+  }
+
+  if (!identical(method, "cv.ls"))
+    return(invisible(TRUE))
+
+  ckerlb <- if (is.null(bws$ckerlb)) numeric(0L) else bws$ckerlb[bws$icon]
+  ckerub <- if (is.null(bws$ckerub)) numeric(0L) else bws$ckerub[bws$icon]
+  bounded.x <- length(ckerlb) > 0L && any(is.finite(ckerlb) | is.finite(ckerub))
+
+  if (!bounded.x)
+    return(invisible(TRUE))
+
+  if (bws$ncon < 1L || bws$ncon > 2L) {
+    stop(
+      sprintf(
+        "%s bounded npudens cv.ls currently supports up to two continuous variables with optional ordered/unordered discrete components",
+        where
+      ),
+      call. = FALSE
+    )
+  }
+
+  invisible(TRUE)
+}
+
 npudensbw.bandwidth <- 
   function(dat = stop("invoked without input data 'dat'"),
-           bws, bandwidth.compute = TRUE, nmulti, remin = TRUE, itmax = 10000, 
-           ftol = 1.490116e-07, tol = 1.490116e-04, small = 1.490116e-05,
-           lbc.dir = 0.5, dfc.dir = 3, cfac.dir = 2.5*(3.0-sqrt(5)), initc.dir = 1.0,
-           lbd.dir = 0.1, hbd.dir = 1, dfac.dir = 0.25*(3.0-sqrt(5)), initd.dir = 1.0,
-           lbc.init = 0.1, hbc.init = 2.0, cfac.init = 0.5,
-           lbd.init = 0.1, hbd.init = 0.9, dfac.init = 0.375,
-           scale.init.categorical.sample=FALSE,
-           transform.bounds = FALSE,
+           bws,
+           bandwidth.compute = TRUE,
+           cfac.dir = 2.5*(3.0-sqrt(5)),
+           scale.factor.init = 0.5,
+           dfac.dir = 0.25*(3.0-sqrt(5)),
+           dfac.init = 0.375,
+           dfc.dir = 3,
+           ftol = 1.490116e-07,
+           scale.factor.init.upper = 2.0,
+           hbd.dir = 1,
+           hbd.init = 0.9,
+           initc.dir = 1.0,
+           initd.dir = 1.0,
            invalid.penalty = c("baseline","dbmax"),
+           itmax = 10000,
+           lbc.dir = 0.5,
+           scale.factor.init.lower = 0.1,
+           lbd.dir = 0.1,
+           lbd.init = 0.1,
+           nmulti,
            penalty.multiplier = 10,
+           remin = TRUE,
+           scale.init.categorical.sample = FALSE,
+           scale.factor.search.lower = NULL,
+           small = 1.490116e-05,
+           tol = 1.490116e-04,
+           transform.bounds = FALSE,
            ...){
 
+    elapsed.start <- proc.time()[3]
+
     dat = toFrame(dat)
+    bandwidth.compute <- npValidateScalarLogical(bandwidth.compute, "bandwidth.compute")
+    remin <- npValidateScalarLogical(remin, "remin")
+    scale.init.categorical.sample <-
+      npValidateScalarLogical(scale.init.categorical.sample, "scale.init.categorical.sample")
+    transform.bounds <- npValidateScalarLogical(transform.bounds, "transform.bounds")
+    itmax <- npValidatePositiveInteger(itmax, "itmax")
+    ftol <- npValidatePositiveFiniteNumeric(ftol, "ftol")
+    tol <- npValidatePositiveFiniteNumeric(tol, "tol")
+    small <- npValidatePositiveFiniteNumeric(small, "small")
+    penalty.multiplier <- npValidatePositiveFiniteNumeric(penalty.multiplier, "penalty.multiplier")
+    scale.factor.search.lower <- npResolveScaleFactorLowerBound(
+      if (is.null(scale.factor.search.lower)) npGetScaleFactorSearchLower(bws) else scale.factor.search.lower
+    )
 
     if (missing(nmulti)){
-      nmulti <- min(5,dim(dat)[2])
+      nmulti <- npDefaultNmulti(dim(dat)[2])
     }
+    nmulti <- npValidateNmulti(nmulti)
+    .np_progress_bandwidth_set_total(nmulti)
 
     if (length(bws$bw) != dim(dat)[2])
       stop(paste("length of bandwidth vector does not match number of columns of",
            "'dat'"))
 
-    ccon = unlist(lapply(as.data.frame(dat[,bws$icon]),class))
-    if ((any(bws$icon) && !all((ccon == "integer") | (ccon == "numeric"))) ||
-        (any(bws$iord) && !all(sapply(as.data.frame(dat[,bws$iord]),inherits, "ordered"))) ||
-        (any(bws$iuno) && !all(sapply(as.data.frame(dat[,bws$iuno]),inherits, "factor"))))
+    if ((any(bws$icon) &&
+         !all(vapply(as.data.frame(dat[, bws$icon]), inherits, logical(1), c("integer", "numeric")))) ||
+        (any(bws$iord) &&
+         !all(vapply(as.data.frame(dat[, bws$iord]), inherits, logical(1), "ordered"))) ||
+        (any(bws$iuno) &&
+         !all(vapply(as.data.frame(dat[, bws$iuno]), inherits, logical(1), "factor"))))
       stop(paste("supplied bandwidths do not match", "'dat'", "in type"))
 
     dat <- na.omit(dat)
@@ -131,20 +203,27 @@ npudensbw.bandwidth <-
     ncatfac <- nrow^(-2.0/(2.0*bws$ckerorder+bws$ncon))                     
 
     invalid.penalty <- match.arg(invalid.penalty)
-    penalty_mode <- ifelse(invalid.penalty == "baseline", 1L, 0L)
+    penalty_mode <- (if (invalid.penalty == "baseline") 1L else 0L)
 
     if (bandwidth.compute){
+      cont.start <- npContinuousSearchStartControls(
+        scale.factor.init.lower,
+        scale.factor.init.upper,
+        scale.factor.init,
+        scale.factor.search.lower,
+        where = "npudensbw"
+      )
       myopti = list(num_obs_train = dim(dat)[1], 
-        iMultistart = ifelse(nmulti==0,IMULTI_FALSE,IMULTI_TRUE),
+        iMultistart = IMULTI_TRUE,
         iNum_Multistart = nmulti,
-        int_use_starting_values = ifelse(all(bws$bw==0),USE_START_NO, USE_START_YES),
-        int_LARGE_SF = ifelse(bws$scaling, SF_NORMAL, SF_ARB),
+        int_use_starting_values = (if (all(bws$bw==0)) USE_START_NO else USE_START_YES),
+        int_LARGE_SF = (if (bws$scaling) SF_NORMAL else SF_ARB),
         BANDWIDTH_den_extern = switch(bws$type,
           fixed = BW_FIXED,
           generalized_nn = BW_GEN_NN,
           adaptive_nn = BW_ADAP_NN),
-        itmax=itmax, int_RESTART_FROM_MIN=ifelse(remin,RE_MIN_TRUE,RE_MIN_FALSE), 
-        int_MINIMIZE_IO=ifelse(options('np.messages'), IO_MIN_FALSE, IO_MIN_TRUE), 
+        itmax=itmax, int_RESTART_FROM_MIN=(if (remin) RE_MIN_TRUE else RE_MIN_FALSE), 
+        int_MINIMIZE_IO=if (isTRUE(getOption("np.messages"))) IO_MIN_FALSE else IO_MIN_TRUE, 
         bwmethod = switch(bws$method,
           cv.ml = BWM_CVML,
           cv.ls = BWM_CVLS),
@@ -158,12 +237,13 @@ npudensbw.bandwidth <-
           liracine = UKER_LR),
         okerneval = switch(bws$okertype,
           wangvanryzin = OKER_WANG,
-          liracine = OKER_NLR),
+          liracine = OKER_NLR,
+        "racineliyan" = OKER_RLY),
         nuno = dim(duno)[2],
         nord = dim(dord)[2],
         ncon = dim(dcon)[2],
         old.dens = FALSE,
-        int_do_tree = ifelse(options('np.tree'), DO_TREE_YES, DO_TREE_NO),
+        int_do_tree = if (isTRUE(getOption("np.tree"))) DO_TREE_YES else DO_TREE_NO,
         scale.init.categorical.sample = scale.init.categorical.sample,
         dfc.dir = dfc.dir,
         transform.bounds = transform.bounds)
@@ -172,41 +252,50 @@ npudensbw.bandwidth <-
       myoptd = list(ftol=ftol, tol=tol, small=small,
         lbc.dir = lbc.dir, cfac.dir = cfac.dir, initc.dir = initc.dir, 
         lbd.dir = lbd.dir, hbd.dir = hbd.dir, dfac.dir = dfac.dir, initd.dir = initd.dir, 
-        lbc.init = lbc.init, hbc.init = hbc.init, cfac.init = cfac.init, 
+        lbc.init = cont.start$scale.factor.init.lower, hbc.init = cont.start$scale.factor.init.upper, cfac.init = cont.start$scale.factor.init, 
         lbd.init = lbd.init, hbd.init = hbd.init, dfac.init = dfac.init, 
-        nconfac = nconfac, ncatfac = ncatfac)
+        nconfac = nconfac, ncatfac = ncatfac, memfac = 0,
+        scale.factor.lower.bound = scale.factor.search.lower)
+      cker.bounds.c <- npKernelBoundsMarshal(bws$ckerlb[bws$icon], bws$ckerub[bws$icon])
+
+      .npudensbw_assert_bounded_cvls_supported(tbw, where = "npudensbw()")
 
       if (bws$method != "normal-reference"){
-        total.time <-
-          system.time(myout <- 
-                      .C("np_density_bw", as.double(duno), as.double(dord), as.double(dcon),
-                         as.double(mysd),
-                         as.integer(myopti), as.double(myoptd), 
-                         bw = c(bws$bw[bws$icon],bws$bw[bws$iuno],bws$bw[bws$iord]),
-                         fval = double(2), fval.history = double(max(1,nmulti)),
-                         eval.history = double(max(1,nmulti)), invalid.history = double(max(1,nmulti)),
-                         timing = double(1),
-                         penalty.mode = as.integer(penalty_mode),
-                         penalty.multiplier = as.double(penalty.multiplier),
-                         PACKAGE="np" )[c("bw","fval","fval.history","eval.history","invalid.history","timing")])[1]
+        myout <-
+          .Call("C_np_density_bw",
+                as.double(duno), as.double(dord), as.double(dcon),
+                as.double(mysd),
+                as.integer(myopti), as.double(myoptd),
+                as.double(c(bws$bw[bws$icon], bws$bw[bws$iuno], bws$bw[bws$iord])),
+                as.integer(nmulti),
+                as.integer(penalty_mode),
+                as.double(penalty.multiplier),
+                as.double(cker.bounds.c$lb),
+                as.double(cker.bounds.c$ub),
+                PACKAGE="np")
+        total.time <- proc.time()[3] - elapsed.start
       } else {
         nbw = double(ncol)
         if (bws$ncon > 0){
-          nbw[1:bws$ncon] = 1.059224
+          con_idx <- seq_len(bws$ncon)
+          nbw[con_idx] = 1.059224
           if(!bws$scaling)
-            nbw[1:bws$ncon]=nbw[1:bws$ncon]*mysd*nconfac
+            nbw[con_idx] = nbw[con_idx] * mysd * nconfac
         }
         myout= list( bw = nbw, fval = c(NA,NA) )
         total.time <- NA
       }
 
       rorder = numeric(ncol)
-      rorder[c((1:ncol)[bws$icon], (1:ncol)[bws$iuno], (1:ncol)[bws$iord])]=1:ncol
+      ord_idx <- seq_len(ncol)
+      rorder[c(ord_idx[bws$icon], ord_idx[bws$iuno], ord_idx[bws$iord])] <- ord_idx
 
       tbw$bw <- myout$bw[rorder]
 
       tbw$fval = myout$fval[1]
       tbw$ifval = myout$fval[2]
+      tbw$num.feval <- sum(myout$eval.history[is.finite(myout$eval.history)])
+      tbw$num.feval.fast <- myout$fast.history[1]
       tbw$fval.history <- myout$fval.history
       tbw$eval.history <- myout$eval.history
       tbw$invalid.history <- myout$invalid.history
@@ -249,10 +338,15 @@ npudensbw.bandwidth <-
                      bwtype = tbw$type,
                      ckertype = tbw$ckertype,
                      ckerorder = tbw$ckerorder,
+                     ckerbound = tbw$ckerbound,
+                     ckerlb = tbw$ckerlb,
+                     ckerub = tbw$ckerub,
                      ukertype = tbw$ukertype,
                      okertype = tbw$okertype,
                      fval = tbw$fval,
                      ifval = tbw$ifval,
+                     num.feval = tbw$num.feval,
+                     num.feval.fast = tbw$num.feval.fast,
                      fval.history = tbw$fval.history,
                      eval.history = tbw$eval.history,
                      invalid.history = tbw$invalid.history,
@@ -268,26 +362,51 @@ npudensbw.bandwidth <-
                      bandwidth.compute = bandwidth.compute,
                      timing = tbw$timing,
                      total.time = tbw$total.time)
+    tbw <- npSetScaleFactorSearchLower(tbw, scale.factor.search.lower)
     
     tbw
   }
 
 npudensbw.default <-
   function(dat = stop("invoked without input data 'dat'"),
-           bws, bandwidth.compute = TRUE,
-           ## dummy arguments for later passing into npudensbw.bandwidth
-           nmulti, remin, itmax, ftol, tol, small,
-           lbc.dir, dfc.dir, cfac.dir,initc.dir, 
-           lbd.dir, hbd.dir, dfac.dir, initd.dir, 
-           lbc.init, hbc.init, cfac.init, 
-           lbd.init, hbd.init, dfac.init, 
-           scale.init.categorical.sample,
-           transform.bounds,
+           bws,
+           bandwidth.compute = TRUE,
+           bwmethod,
+           bwscaling,
+           bwtype,
+           cfac.dir,
+           scale.factor.init,
+           ckerbound,
+           ckerlb,
+           ckerorder,
+           ckertype,
+           ckerub,
+           dfac.dir,
+           dfac.init,
+           dfc.dir,
+           ftol,
+           scale.factor.init.upper,
+           hbd.dir,
+           hbd.init,
+           initc.dir,
+           initd.dir,
            invalid.penalty,
+           itmax,
+           lbc.dir,
+           scale.factor.init.lower,
+           lbd.dir,
+           lbd.init,
+           nmulti,
+           okertype,
            penalty.multiplier,
-           ## dummy arguments for later passing into bandwidth()
-           bwmethod, bwscaling, bwtype,
-           ckertype, ckerorder, ukertype, okertype,
+           remin,
+           scale.init.categorical.sample,
+           scale.factor.search.lower = NULL,
+           small,
+           tol,
+           transform.bounds,
+           ukertype,
+           ## dummy arguments for later passing into npudensbw.bandwidth
            ...){
 
     t.names <- NULL
@@ -304,18 +423,24 @@ npudensbw.default <-
 
     mc.names <- names(match.call(expand.dots = FALSE))
     margs <- c("bwmethod", "bwscaling", "bwtype", "ckertype", "ckerorder",
-               "ukertype", "okertype")
+               "ckerbound", "ckerlb", "ckerub", "ukertype", "okertype")
 
 
     m <- match(margs, mc.names, nomatch = 0)
     any.m <- any(m != 0)
 
-    tbw <- eval(parse(text=paste("bandwidth(bws",
-                        ifelse(any.m, ",",""),
-                        paste(mc.names[m], ifelse(any.m,"=",""), mc.names[m], collapse=", "),
-                        ", nobs = dim(dat)[1], xdati = untangle(dat),",
-                        "xnames = names(dat),",
-                        "bandwidth.compute = bandwidth.compute)")))
+    bw.args <- list(
+      bw = bws,
+      nobs = dim(dat)[1],
+      xdati = untangle(dat),
+      xnames = names(dat),
+      bandwidth.compute = bandwidth.compute
+    )
+    if (any.m) {
+      nms <- mc.names[m]
+      bw.args[nms] <- mget(nms, envir = environment(), inherits = FALSE)
+    }
+    tbw <- do.call(bandwidth, bw.args)
 
 
     ## next grab dummies for actual bandwidth selection and perform call
@@ -325,18 +450,24 @@ npudensbw.default <-
                "small",
                "lbc.dir","dfc.dir","cfac.dir", "initc.dir", 
                "lbd.dir", "hbd.dir", "dfac.dir", "initd.dir", 
-               "lbc.init", "hbc.init", "cfac.init", 
+               "scale.factor.init.lower", "scale.factor.init.upper", "scale.factor.init", 
                "lbd.init", "hbd.init", "dfac.init", 
                "scale.init.categorical.sample",
+               "scale.factor.search.lower",
                "invalid.penalty",
                "penalty.multiplier")
     m <- match(margs, mc.names, nomatch = 0)
     any.m <- any(m != 0)
 
-    tbw <- eval(parse(text=paste("npudensbw.bandwidth(dat=dat, bws=tbw",
-                        ifelse(any.m, ",",""),
-                        paste(mc.names[m], ifelse(any.m,"=",""), mc.names[m], collapse=", "),
-                        ")")))
+    bwsel.args <- list(dat = dat, bws = tbw)
+    if (any.m) {
+      nms <- mc.names[m]
+      bwsel.args[nms] <- mget(nms, envir = environment(), inherits = FALSE)
+    }
+    tbw <- .np_progress_select_bandwidth_enhanced(
+      "Selecting density bandwidth",
+      do.call(npudensbw.bandwidth, bwsel.args)
+    )
 
     mc <- match.call(expand.dots = FALSE)
     environment(mc) <- parent.frame()

@@ -119,10 +119,6 @@ extern int cdfontrain_extern;
 // timing
 extern double timing_extern;
 
-#ifdef RCSID
-static char rcsid[] = "$Id: kernelcv.c,v 1.9 2006/11/02 16:56:49 tristen Exp $";
-#endif
-
 #define RBWM_CVAIC 0
 #define RBWM_CVLS 1
 
@@ -719,6 +715,7 @@ double np_cv_func_con_density_categorical_ls_npksum(double *vector_scale_factor)
   }
   /* Compute the cross-validation function */
     start = clock();
+
     if(np_kernel_estimate_con_density_categorical_leave_one_out_ls_cv(KERNEL_den_extern,
                                                                       KERNEL_den_unordered_extern,
                                                                       KERNEL_den_ordered_extern,

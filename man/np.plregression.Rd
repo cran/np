@@ -1,7 +1,7 @@
-% $ID$
+%
 \name{npplreg}
 \alias{npplreg}
-\alias{npplreg.call}
+\alias{npplreg.default}
 \alias{npplreg.formula}
 \alias{npplreg.plbandwidth}
 
@@ -18,12 +18,21 @@
 }
 
 \usage{
-npplreg(bws, \dots)
+npplreg(bws, 
+        \dots)
 
-\method{npplreg}{formula}(bws, data = NULL, newdata = NULL, y.eval =
-FALSE, \dots)
+\method{npplreg}{formula}(bws, 
+       data = NULL, 
+       newdata = NULL, 
+       y.eval = FALSE, 
+       \dots)
 
-\method{npplreg}{call}(bws, \dots)
+\method{npplreg}{default}(bws,
+        txdat,
+        tydat,
+        tzdat,
+        nomad = FALSE,
+        \dots)
 
 \method{npplreg}{plbandwidth}(bws,
         txdat = stop("training data txdat missing"),
@@ -36,6 +45,9 @@ FALSE, \dots)
         \dots)
 }
 \arguments{
+\subsection{Data, Bandwidth Inputs And Formula Interface}{
+These arguments identify the bandwidth specification, formula/data interface, and partially linear training data.
+}
 
   \item{bws}{
   a bandwidth specification. This can be set as a \code{plbandwidth}
@@ -50,14 +62,7 @@ FALSE, \dots)
 
   }
 
-  \item{\dots}{
-    additional arguments supplied to specify the regression type,
-    bandwidth type, kernel types, selection methods, and so on. To do
-    this, you may specify any of \code{regtype}, 
-    \code{bwmethod}, \code{bwscaling}, \code{bwtype}, \code{ckertype},
-    \code{ckerorder}, \code{ukertype}, \code{okertype}, as described in
-    \code{\link{npregbw}}.
-  }
+
 
   \item{data}{
     an optional data frame, list or environment (or object
@@ -67,24 +72,15 @@ FALSE, \dots)
    \code{\link{npplregbw}} was called.
   }
 
-  \item{newdata}{
-    An optional data frame in which to look for evaluation data. If
-    omitted, the training data are used.  
-  }
-
-  \item{y.eval}{
-    If \code{newdata} contains dependent data and \code{y.eval = TRUE},
-    \code{\link{np}} will compute goodness of fit statistics on these
-    data and return them. Defaults to \code{FALSE}.
-  }
 
   \item{txdat}{
   a \eqn{p}-variate data frame of explanatory data (training data),
   corresponding to \eqn{X} in the model equation, whose linear
   relationship with the dependent data \eqn{Y} is posited. Defaults to
-  the training data used to 
+  the training data used to
     compute the bandwidth object.
   }
+
 
   \item{tydat}{
   a one (1) dimensional numeric or integer vector of dependent data, each
@@ -93,19 +89,47 @@ FALSE, \dots)
     compute the bandwidth object.
   }
 
+
   \item{tzdat}{
   a \eqn{q}-variate data frame of explanatory data (training data),
   corresponding to \eqn{Z} in the model equation, whose relationship
   to the dependent variable is unspecified (nonparametric). Defaults to
-  the training data used to 
+  the training data used to
     compute the bandwidth object.
   }
+
+
+\subsection{Bandwidth Search Shortcut}{
+This argument passes the recommended automatic local-polynomial NOMAD preset to \code{\link{npplregbw}} when bandwidths are computed inside \code{npplreg}.
+}
+
+  \item{nomad}{
+    logical shortcut passed through to \code{\link{npplregbw}} when
+    bandwidths are computed inside \code{npplreg}. When \code{TRUE},
+    the partially linear bandwidth route fills any missing values among
+    \code{regtype}, \code{search.engine}, \code{degree.select},
+    \code{bernstein.basis}, \code{degree.min}, \code{degree.max},
+    \code{degree.verify}, and \code{bwtype} with the recommended
+    automatic LP NOMAD preset documented in \code{\link{npplregbw}}.
+    Additional NOMAD tuning arguments such as \code{nomad.nmulti} may
+    also be supplied through \code{\dots}; \code{nmulti} remains the
+    outer restart count while \code{nomad.nmulti} controls inner
+    \code{crs::snomadr()} multistarts within each outer restart.
+    After fitting, inspect \code{fit$bws$nomad.shortcut} on the
+    returned object \code{fit} to see the normalized shortcut metadata.
+  }
+
+
+\subsection{Evaluation Data And Returned Quantities}{
+These arguments control where the partially linear regression is evaluated and which fitted quantities are returned.
+}
 
   \item{exdat}{
   a \eqn{p}-variate data frame of points on which the regression will be
   estimated (evaluation data).  By default,
     evaluation takes place on the data provided by \code{txdat}.
   }
+
 
   \item{eydat}{
   a one (1) dimensional numeric or integer vector of the true values
@@ -114,11 +138,19 @@ FALSE, \dots)
     evaluation takes place on the data provided by \code{tydat}.
   }
 
+
   \item{ezdat}{
     a \eqn{q}-variate data frame of points on which the regression will
     be estimated (evaluation data).  By default,
     evaluation takes place on the data provided by \code{tzdat}.
   }
+
+
+  \item{newdata}{
+    An optional data frame in which to look for evaluation data. If
+    omitted, the training data are used.
+  }
+
 
   \item{residuals}{
     a logical value indicating that you want residuals computed and
@@ -126,9 +158,61 @@ FALSE, \dots)
     \code{FALSE}.
   }
 
+
+  \item{y.eval}{
+    If \code{newdata} contains dependent data and \code{y.eval = TRUE},
+    \code{\link{np}} will compute goodness of fit statistics on these
+    data and return them. Defaults to \code{FALSE}.
+  }
+
+
+\subsection{Additional Arguments}{
+Further arguments are passed to \code{\link{npplregbw}} and its component \code{\link{npregbw}} searches when bandwidths are computed internally.
 }
 
+  \item{\dots}{
+    additional arguments supplied to \code{\link{npplregbw}} when
+    \code{npplreg} computes bandwidths internally, or arguments needed
+    to interpret a numeric or matrix \code{bws} specification. This is
+    where bandwidth selection controls such as \code{bwmethod},
+    \code{bwtype}, and \code{bwscaling}, kernel/support controls such
+    as \code{ckertype}, \code{ckerorder}, and \code{ckerbound},
+    categorical kernel controls such as \code{ukertype} and
+    \code{okertype}, search controls such as \code{nmulti} and
+    \code{scale.factor.search.lower}, and local-polynomial/NOMAD
+    controls such as \code{regtype}, \code{degree},
+    \code{bernstein.basis}, \code{degree.select}, and
+    \code{nomad.nmulti} are supplied. See \code{\link{npplregbw}} and
+    \code{\link{npregbw}} for the complete bandwidth-selection
+    argument surface.
+  }
+}
 \details{
+  Documentation guide: see \code{\link{npplregbw}} for partially linear
+  bandwidth selection, \code{\link{npregbw}} for the component
+  nonparametric regression search controls, \code{\link{np.kernels}}
+  for kernels, \code{\link{np.options}} for global options, and
+  \code{\link{plot}}, \code{\link{plot.np}} for plotting options.
+
+  When \code{bws} is omitted, the formula and default methods call
+  \code{\link{npplregbw}} first and pass bandwidth-selection arguments
+  from \code{\dots} to that call. When \code{bws} is already a
+  \code{plbandwidth} object, \code{npplreg} estimates with the stored
+  bandwidth metadata in that object.
+
+  Argument groups for bandwidth selection are documented on
+  \code{\link{npplregbw}} and, for the component nonparametric
+  regressions, \code{\link{npregbw}}. The most common workflow is to
+  choose the linear \code{X} variables and nonparametric \code{Z}
+  variables first, then bandwidth/search controls for the
+  \code{Z}-side nonparametric regressions, and finally
+  local-polynomial/NOMAD controls when using polynomial-adaptive fits.
+
+  For S3 plotting help, use \code{methods("plot")} and query
+  class-specific help topics such as \code{?plot.npregression} and
+  \code{?plot.rbandwidth}. You can inspect implementations with
+  \code{getS3method("plot","npregression")}.
+
  \code{npplreg} uses a combination of OLS and nonparametric
  regression to estimate the parameter \eqn{\beta}{B} in the model
  \eqn{Y = X\beta + \Theta (Z) + \epsilon}{Y = XB + theta(Z) + epsilon}.
@@ -162,6 +246,12 @@ FALSE, \dots)
  kernel. Unordered discrete data types use a variation on Aitchison and
  Aitken's (1976) kernel, while ordered data types use a variation of the
  Wang and van Ryzin (1981) kernel.
+
+ For practitioners who want the recommended automatic LP NOMAD route
+ without spelling out all LP tuning arguments,
+ \code{npplreg(..., nomad=TRUE)} and \code{npplregbw(..., nomad=TRUE)}
+ expand missing settings to the same documented preset. Explicit
+ incompatible settings fail fast rather than being silently rewritten.
 }
 
 \value{
@@ -175,16 +265,18 @@ FALSE, \dots)
   the returned object. Furthermore, the functions \code{summary}
   and \code{plot} support objects of this type. The returned object
   has the following components:
-  
+
   \item{evalx}{ evaluation points }
   \item{evalz}{ evaluation points }
   \item{mean}{ estimation of the regression, or conditional mean, at the
-    evaluation points } 
+    evaluation points }
   \item{xcoef}{ coefficient(s) corresponding to the components
     \eqn{\beta_i}{B[i]} in the model }
   \item{xcoeferr}{ standard errors of the coefficients }
   \item{xcoefvcov}{ covariance matrix of the coefficients }
-  \item{bw}{ the bandwidths, stored as a \code{plbandwidth} object }
+  \item{bws}{ the canonical bandwidth object, stored as a
+    \code{plbandwidth} object }
+  \item{bw}{ backward-compatible alias for \code{bws} }
   \item{resid}{ if \code{residuals = TRUE}, in-sample or out-of-sample
     residuals where appropriate (or possible) }
   \item{R2}{ coefficient of determination (Doksum and Samarov (1995))}
@@ -194,7 +286,7 @@ FALSE, \dots)
   \item{CORR}{ absolute value of Pearson's correlation coefficient }
   \item{SIGN}{ fraction of observations where fitted and observed values
     agree in sign }
-  
+
 }
 
 \references{
@@ -215,17 +307,17 @@ FALSE, \dots)
 
  Li, Q. and J.S. Racine (2004), \dQuote{Cross-validated local linear
    nonparametric regression,} Statistica Sinica, 14, 485-512.
- 
+
  Pagan, A. and A. Ullah (1999), \emph{Nonparametric Econometrics,}
  Cambridge University Press.
- 
+
  Racine, J.S. and Q. Li (2004), \dQuote{Nonparametric estimation of regression
  functions with both categorical and continuous data,} Journal of
  Econometrics, 119, 99-130.
 
  Robinson, P.M. (1988), \dQuote{Root-n-consistent semiparametric regression,}
- Econometrica, 56, 931-954. 
- 
+ Econometrica, 56, 931-954.
+
  Wang, M.C. and J. van Ryzin (1981), \dQuote{A class of smooth estimators
  for discrete distributions,}  Biometrika, 68, 301-309.
 
@@ -244,6 +336,7 @@ FALSE, \dots)
 }
 
 \seealso{
+  \code{\link{np.kernels}}, \code{\link{np.options}}, \code{\link{plot}}, \code{\link{plot.np}}
   \code{\link{npregbw}}, \code{\link{npreg}} }
 \examples{
 \dontrun{
@@ -278,7 +371,7 @@ summary(pl)
 
 # Sleep for 5 seconds so that we can examine the output...
 
-Sys.sleep(5)
+if (interactive()) Sys.sleep(5)
 
 # Retrieve the coefficient estimates and their standard errors...
 
@@ -299,12 +392,12 @@ sqrt(diag(vcov(ols)))[2:3]
 
 # Sleep for 5 seconds so that we can examine the output...
 
-Sys.sleep(5)
+if (interactive()) Sys.sleep(5)
 
 # Plot the regression surfaces via plot() (i.e., plot the `partial
 # regression surface plots').
 
-plot(bw)
+if (interactive()) plot(bw)
 
 # Note - to plot regression surfaces with variability bounds constructed
 # from bootstrapped standard errors, use the following (note that this
@@ -315,7 +408,7 @@ plot(bw)
 # of course do this in general)
 
 plot(bw,
-     plot.errors.boot.num=25, 
+     plot.errors.boot.num=25,
      plot.errors.method="bootstrap")
 
 
@@ -353,7 +446,7 @@ summary(pl)
 
 # Sleep for 5 seconds so that we can examine the output...
 
-Sys.sleep(5)
+if (interactive()) Sys.sleep(5)
 
 # Retrieve the coefficient estimates and their standard errors...
 
@@ -374,12 +467,12 @@ sqrt(diag(vcov(ols)))[2:3]
 
 # Sleep for 5 seconds so that we can examine the output...
 
-Sys.sleep(5)
+if (interactive()) Sys.sleep(5)
 
 # Plot the regression surfaces via plot() (i.e., plot the `partial
 # regression surface plots').
 
-plot(bw)
+if (interactive()) plot(bw)
 
 # Note - to plot regression surfaces with variability bounds constructed
 # from bootstrapped standard errors, use the following (note that this
@@ -390,7 +483,7 @@ plot(bw)
 # of course do this in general)
 
 plot(bw,
-     plot.errors.boot.num=25, 
+     plot.errors.boot.num=25,
      plot.errors.method="bootstrap")
 } % enddontrun
 }

@@ -1,7 +1,6 @@
 \name{npudist}
 \alias{npudist}
 \alias{npudist.dbandwidth}
-\alias{npudist.call}
 \alias{npudist.default}
 \alias{npudist.formula}
 
@@ -25,12 +24,15 @@ npudist(bws, \dots)
         edat,
         \dots)
 
-\method{npudist}{call}(bws, \dots)
 
 \method{npudist}{default}(bws, tdat, \dots)
 }
 
 \arguments{
+\subsection{Data, Bandwidth Inputs And Formula Interface}{
+These arguments identify the bandwidth specification, formula/data interface, and training data.
+}
+
   \item{bws}{
     a \code{dbandwidth} specification. This can be set as a \code{dbandwidth}
     object returned from an invocation of \code{\link{npudistbw}}, or as a
@@ -41,25 +43,7 @@ npudist(bws, \dots)
     and so on.
   }
 
-  \item{\dots}{
-    additional arguments supplied to specify the training data, the
-    bandwidth type, kernel types, and so on.  This is necessary if you
-    specify bws as a \eqn{p}-vector and not a \code{dbandwidth} object,
-    and you do not desire the default behaviours. To do this, you may
-    specify any of \code{bwscaling}, \code{bwtype}, \code{ckertype},
-    \code{ckerorder}, \code{okertype}, as described in
-    \code{\link{npudistbw}}.
-  }
 
-  \item{tdat}{
-    a \eqn{p}-variate data frame of sample realizations (training data)
-    used to estimate the cumulative distribution. Defaults to the training data used to
-    compute the bandwidth object.
-  }
-  \item{edat}{
-    a \eqn{p}-variate data frame of cumulative distribution evaluation points. By default,
-    evaluation takes place on the data provided by \code{tdat}.
-  }
 
   \item{data}{
     an optional data frame, list or environment (or object
@@ -69,30 +53,88 @@ npudist(bws, \dots)
     \code{\link{npudistbw}} was called.
   }
 
-  \item{newdata}{
-    An optional data frame in which to look for evaluation data. If
-    omitted, the training data are used.  
+
+  \item{tdat}{
+    a \eqn{p}-variate data frame of sample realizations (training data)
+    used to estimate the cumulative distribution. Defaults to the training data used to
+    compute the bandwidth object.
   }
-  
+
+
+\subsection{Evaluation Data}{
+These arguments control where the fitted cumulative distribution is evaluated.
 }
 
+  \item{edat}{
+    a \eqn{p}-variate data frame of cumulative distribution evaluation points. By default,
+    evaluation takes place on the data provided by \code{tdat}.
+  }
+
+
+  \item{newdata}{
+    An optional data frame in which to look for evaluation data. If
+    omitted, the training data are used.
+  }
+
+
+\subsection{Additional Arguments}{
+Further arguments are passed to \code{\link{npudistbw}} when bandwidths are computed internally, or used to interpret a numeric \code{bws} vector.
+}
+
+  \item{\dots}{
+    additional arguments supplied to \code{\link{npudistbw}} when
+    \code{npudist} computes bandwidths internally, or arguments needed
+    to interpret a numeric \code{bws} vector. This is where bandwidth
+    selection controls such as \code{bwmethod}, \code{bwtype},
+    \code{bwscaling}, kernel/support controls such as \code{ckertype},
+    \code{ckerorder}, and \code{ckerbound}, categorical kernel controls
+    such as \code{okertype}, and search controls such as
+    \code{nmulti}, \code{ngrid}, and
+    \code{scale.factor.search.lower} are supplied. See
+    \code{\link{npudistbw}} for the complete bandwidth-selection
+    argument surface.
+  }
+}
 \details{
+  Documentation guide: see \code{\link{npudistbw}} for bandwidth
+  selection and search controls, \code{\link{np.kernels}} for kernels,
+  \code{\link{np.options}} for global options, and \code{\link{plot}},
+  \code{\link{plot.np}} for plotting options.
+
+  When \code{bws} is omitted, the formula and default methods call
+  \code{\link{npudistbw}} first and pass bandwidth-selection arguments
+  from \code{\dots} to that call. When \code{bws} is already a
+  \code{dbandwidth} object, \code{npudist} estimates with the stored
+  bandwidth metadata in that object.
+
+  Argument groups for bandwidth selection are documented on
+  \code{\link{npudistbw}}. The most common workflow is to choose data
+  and bandwidth inputs first, then bandwidth criterion and
+  representation, then kernel/support controls, distribution-specific
+  integral/grid controls, and numerical search controls if defaults
+  need to be changed.
+
+  For S3 plotting help, use \code{methods("plot")} and query
+  class-specific help topics such as \code{?plot.npregression} and
+  \code{?plot.rbandwidth}. You can inspect implementations with
+  \code{getS3method("plot","npregression")}.
+
 
   Typical usages are (see below for a complete list of options and also
   the examples at the end of this help file)
   \preformatted{
     Usage 1: first compute the bandwidth object via npudistbw and then
     compute the cumulative distribution:
-    
+
     bw <- npudistbw(~y)
     Fhat <- npudist(bw)
-    
+
     Usage 2: alternatively, compute the bandwidth object indirectly:
-    
+
     Fhat <- npudist(~y)
-    
+
     Usage 3: modify the default kernel and order:
-    
+
     Fhat <- npudist(~y, ckertype="epanechnikov", ckerorder=4)
 
     Usage 4: use the data frame interface rather than the formula
@@ -131,7 +173,7 @@ npudist(bws, \dots)
 
 }
 \value{
-  
+
   \code{\link{npudist}} returns a \code{npdistribution} object. The
   generic accessor functions \code{\link{fitted}} and \code{\link{se}}
   extract estimated values and asymptotic standard errors on estimates,
@@ -143,7 +185,7 @@ npudist(bws, \dots)
   \item{eval}{ the evaluation points. }
   \item{dist}{ estimate of the cumulative distribution at the evaluation points }
   \item{derr}{ standard errors of the cumulative distribution estimates }
-  
+
 }
 \references{
   Aitchison, J. and C.G.G. Aitken (1976), \dQuote{ Multivariate binary
@@ -166,7 +208,7 @@ npudist(bws, \dots)
     data,} Journal of Nonparametric Statistics, 18, 69-100.
 
   Pagan, A. and A. Ullah (1999), \emph{Nonparametric Econometrics,} Cambridge
-  University Press. 
+  University Press.
 
   Scott, D.W. (1992), \emph{Multivariate Density Estimation. Theory,
   Practice and Visualization,} New York: Wiley.
@@ -190,7 +232,8 @@ npudist(bws, \dots)
   type.
 }
 
-\seealso{ \code{\link{npudistbw}} , \code{\link{density}} }
+\seealso{
+  \code{\link{np.kernels}}, \code{\link{np.options}}, \code{\link{plot}}, \code{\link{plot.np}} \code{\link{npudistbw}} , \code{\link{density}} }
 
 \examples{
 \dontrun{
@@ -245,25 +288,25 @@ persp(as.integer(levels(year.seq)), gdp.seq, F, col="lightblue",
 
 # Sleep for 5 seconds so that we can examine the output...
 
-Sys.sleep(5)
+if (interactive()) Sys.sleep(5)
 
-contour(as.integer(levels(year.seq)), 
-        gdp.seq, 
-        F, 
-        xlab="Year", 
-        ylab="GDP", 
-        main = "Cumulative Distribution Contour Plot", 
+contour(as.integer(levels(year.seq)),
+        gdp.seq,
+        F,
+        xlab="Year",
+        ylab="GDP",
+        main = "Cumulative Distribution Contour Plot",
         col=topo.colors(100))
 
 # Sleep for 5 seconds so that we can examine the output...
 
-Sys.sleep(5)
+if (interactive()) Sys.sleep(5)
 
 # Alternatively, you could use the plot() command (<ctrl>-C will
 # interrupt on *NIX systems, <esc> will interrupt on MS Windows
 # systems).
 
-plot(bw)
+if (interactive()) plot(bw)
 
 detach(Italy)
 
@@ -321,25 +364,25 @@ persp(as.integer(levels(year.seq)), gdp.seq, F, col="lightblue",
 
 # Sleep for 5 seconds so that we can examine the output...
 
-Sys.sleep(5)
+if (interactive()) Sys.sleep(5)
 
 contour(as.integer(levels(year.seq)),
-        gdp.seq, 
-        F, 
-        xlab="Year", 
-        ylab="GDP", 
-        main = "Cumulative Distribution Contour Plot", 
+        gdp.seq,
+        F,
+        xlab="Year",
+        ylab="GDP",
+        main = "Cumulative Distribution Contour Plot",
         col=topo.colors(100))
 
 # Sleep for 5 seconds so that we can examine the output...
 
-Sys.sleep(5)
+if (interactive()) Sys.sleep(5)
 
 # Alternatively, you could use the plot() command (<ctrl>-C will
 # interrupt on *NIX systems, <esc> will interrupt on MS Windows
 # systems).
 
-plot(bw)
+if (interactive()) plot(bw)
 
 detach(Italy)
 
@@ -362,7 +405,7 @@ summary(bw)
 # we use xtrim = -0.2 to extend the plot outside the support of the data
 # (i.e., extend the tails of the estimate to meet the horizontal axis).
 
-plot(bw, xtrim=-0.2)
+if (interactive()) plot(bw, xtrim=-0.2)
 
 detach(faithful)
 
@@ -385,10 +428,9 @@ summary(bw)
 # we use xtrim = -0.2 to extend the plot outside the support of the data
 # (i.e., extend the tails of the estimate to meet the horizontal axis).
 
-plot(bw, xtrim=-0.2)
+if (interactive()) plot(bw, xtrim=-0.2)
 
 detach(faithful)
 } % enddontrun
 }
 \keyword{ nonparametric }% at least one, from doc/KEYWORDS
-

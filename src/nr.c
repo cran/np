@@ -5,10 +5,6 @@
 #include <R.h>
 #include "headers.h"
 
-#ifdef RCSID
-static char rcsid[] = "$Id: nr.c,v 1.10 2006/11/02 16:56:49 tristen Exp $";
-#endif
-
 extern int int_VERBOSE;
 
 /* The following routines (sort, powell, nrerror, vector, free_vector,
@@ -232,14 +228,15 @@ double *vector(int nl,int nh)
 {
     double *v;
 
-    v=(double *)malloc((unsigned) (nh+1)*sizeof(double));
+    v = (double *)malloc((size_t)(nh + 1) * sizeof(*v));
     if (!v) nrerror("allocation failure in vector()");
     return(v);
 }
 
 void free_vector(double *v, int nl)
 {
-    free((char*) v);
+    (void)nl;
+    free(v);
 }
 
 int ncom=0;                                       /* defining declarations */

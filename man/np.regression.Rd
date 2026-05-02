@@ -1,7 +1,6 @@
-% $ID$
+%
 \name{npreg}
 \alias{npreg}
-\alias{npreg.call}
 \alias{npreg.default}
 \alias{npreg.formula}
 \alias{npreg.rbandwidth}
@@ -21,24 +20,34 @@
 \usage{
 npreg(bws, \dots)
 
-\method{npreg}{formula}(bws, data = NULL, newdata = NULL, y.eval =
-FALSE, \dots)
+\method{npreg}{formula}(bws, 
+      data = NULL, 
+      newdata = NULL, 
+      y.eval = FALSE, 
+      \dots)
 
-\method{npreg}{call}(bws, \dots)
-
-\method{npreg}{default}(bws, txdat, tydat, \dots)
+\method{npreg}{default}(bws, 
+      txdat, 
+      tydat, 
+      nomad = FALSE, 
+      \dots)
 
 \method{npreg}{rbandwidth}(bws,
       txdat = stop("training data 'txdat' missing"),
       tydat = stop("training data 'tydat' missing"),
       exdat,
       eydat,
+      gradient.order = 1L,
       gradients = FALSE,
       residuals = FALSE,
       \dots)
 }
 
 \arguments{
+\subsection{Data, Bandwidth Inputs And Formula Interface}{
+These arguments identify the bandwidth specification, formula/data interface, and training data.
+}
+
   \item{bws}{
     a bandwidth specification. This can be set as a \code{rbandwidth}
     object returned from an invocation of \code{\link{npregbw}}, or
@@ -47,11 +56,7 @@ FALSE, \dots)
     a vector, then additional arguments will need to be supplied as
     necessary to specify the bandwidth type, kernel types, and so on.
   }
-  \item{\dots}{
-    additional arguments supplied to specify the regression type,
-    bandwidth type, kernel types, training data, and so on, detailed
-    below. 
-  }
+
 
   \item{data}{
     an optional data frame, list or environment (or object
@@ -61,22 +66,13 @@ FALSE, \dots)
     \code{\link{npregbw}} was called.
   }
 
-  \item{newdata}{
-    An optional data frame in which to look for evaluation data. If
-    omitted, the training data are used.  
-  }
 
-  \item{y.eval}{
-    If \code{newdata} contains dependent data and \code{y.eval = TRUE},
-    \code{\link{np}} will compute goodness of fit statistics on these
-    data and return them. Defaults to \code{FALSE}.
-  }
-  
   \item{txdat}{
     a \eqn{p}-variate data frame of explanatory data (training data) used to
     calculate the regression estimators. Defaults to the training data used to
     compute the bandwidth object.
   }
+
 
   \item{tydat}{
     a one (1) dimensional numeric or integer vector of dependent data, each
@@ -85,48 +81,146 @@ FALSE, \dots)
     compute the bandwidth object.
   }
 
+
+\subsection{Bandwidth Search Shortcut}{
+This argument passes the recommended automatic local-polynomial NOMAD preset to \code{\link{npregbw}} when bandwidths are computed inside \code{npreg}.
+}
+
+  \item{nomad}{
+    logical shortcut passed through to \code{\link{npregbw}} when
+    bandwidths are computed inside \code{npreg}. When \code{TRUE}, the
+    regression bandwidth route fills any missing values among
+    \code{regtype}, \code{search.engine}, \code{degree.select},
+    \code{bernstein.basis}, \code{degree.min}, \code{degree.max},
+    \code{degree.verify}, and \code{bwtype} with the recommended
+    automatic LP NOMAD preset documented in \code{\link{npregbw}}.
+    Additional NOMAD tuning arguments such as \code{nomad.nmulti} may
+    also be supplied through \code{\dots}; \code{nmulti} remains the
+    outer restart count while \code{nomad.nmulti} controls inner
+    \code{crs::snomadr()} multistarts within each outer restart.
+    After fitting, inspect \code{fit$bws$nomad.shortcut} on the
+    returned object \code{fit} to see the normalized shortcut metadata.
+  }
+
+
+\subsection{Evaluation Data And Returned Quantities}{
+These arguments control where the regression is evaluated and which fitted quantities are returned.
+}
+
   \item{exdat}{
     a \eqn{p}-variate data frame of points on which the regression will be
     estimated (evaluation data). By default,
     evaluation takes place on the data provided by \code{txdat}.
   }
 
+
   \item{eydat}{
     a one (1) dimensional numeric or integer vector of the true values
     of the dependent variable. Optional, and used only to calculate the
-    true errors. 
+    true errors.
   }
+
+
+  \item{gradient.order}{
+    for \code{regtype="lp"} with \code{gradients=TRUE}, a positive
+    integer (or integer vector with one entry per continuous predictor)
+    specifying derivative order(s). Defaults to \code{1L}. Orders
+    exceeding \code{degree} for a variable are returned as
+    \code{NA}; orders greater than one are currently reserved for
+    future extension and return \code{NA}.
+  }
+
 
   \item{gradients}{
     a logical value indicating that you want gradients computed and
     returned in the resulting \code{npregression} object. Defaults to
-    \code{FALSE}.
+    \code{FALSE}. For \code{regtype="lp"}, derivative components that
+    are not defined (requested order exceeds the variable-specific
+    polynomial degree) are returned as \code{NA}. Higher-order GLP
+    derivatives (order \eqn{>1}) are reserved for future C-level
+    extraction and currently return \code{NA}.
   }
+
+
+  \item{newdata}{
+    An optional data frame in which to look for evaluation data. If
+    omitted, the training data are used.
+  }
+
 
   \item{residuals}{
     a logical value indicating that you want residuals computed and
     returned in the resulting \code{npregression} object. Defaults to
     \code{FALSE}.
   }
+
+
+  \item{y.eval}{
+    If \code{newdata} contains dependent data and \code{y.eval = TRUE},
+    \code{\link{np}} will compute goodness of fit statistics on these
+    data and return them. Defaults to \code{FALSE}.
+  }
+
+
+\subsection{Additional Arguments}{
+Further arguments are passed to \code{\link{npregbw}} when bandwidths are computed internally, or used to interpret a numeric \code{bws} vector.
 }
 
+  \item{\dots}{
+    additional arguments supplied to \code{\link{npregbw}} when
+    \code{npreg} computes bandwidths internally, or arguments needed to
+    interpret a numeric \code{bws} vector. This is where bandwidth
+    selection controls such as \code{bwmethod}, \code{bwtype},
+    \code{bwscaling}, kernel/support controls such as \code{ckertype},
+    \code{ckerorder}, and \code{ckerbound}, categorical kernel controls
+    such as \code{ukertype} and \code{okertype}, search controls such
+    as \code{nmulti} and \code{scale.factor.search.lower}, and
+    local-polynomial/NOMAD controls such as \code{regtype},
+    \code{degree}, \code{basis}, \code{bernstein.basis},
+    \code{degree.select}, and \code{nomad.nmulti} are supplied. See
+    \code{\link{npregbw}} for the complete bandwidth-selection argument
+    surface.
+  }
+}
 \details{
+  Documentation guide: see \code{\link{npregbw}} for bandwidth
+  selection and search controls, \code{\link{np.kernels}} for kernels,
+  \code{\link{np.options}} for global options, and \code{\link{plot}},
+  \code{\link{plot.np}} for plotting options.
+
+  When \code{bws} is omitted, the formula and default methods call
+  \code{\link{npregbw}} first and pass bandwidth-selection arguments
+  from \code{\dots} to that call. When \code{bws} is already an
+  \code{rbandwidth} object, \code{npreg} estimates with the stored
+  bandwidth metadata in that object.
+
+  Argument groups for bandwidth selection are documented on
+  \code{\link{npregbw}}. The most common workflow is to choose data and
+  bandwidth inputs first, then bandwidth criterion and representation,
+  then kernel/support controls, and finally local-polynomial/NOMAD
+  controls when using polynomial-adaptive fits.
+
+  For S3 plotting help, use \code{methods("plot")} and query
+  class-specific help topics such as \code{?plot.npregression} and
+  \code{?plot.rbandwidth}. You can inspect implementations with
+  \code{getS3method("plot","npregression")}.
+
 
   Typical usages are (see below for a complete list of options and also
   the examples at the end of this help file)
   \preformatted{
     Usage 1: first compute the bandwidth object via npregbw and then
     compute the conditional mean:
-    
+
     bw <- npregbw(y~x)
     ghat <- npreg(bw)
-    
+
     Usage 2: alternatively, compute the bandwidth object indirectly:
-    
+
     ghat <- npreg(y~x)
-    
+
     Usage 3: modify the default kernel and order:
-    
+
     ghat <- npreg(y~x, ckertype="epanechnikov", ckerorder=4)
 
     Usage 4: use the data frame interface rather than the formula
@@ -136,7 +230,7 @@ FALSE, \dots)
   }
 
 
-  
+
   \code{npreg} implements a variety of methods for regression on
   multivariate (\eqn{p}-variate) data, the types of which are possibly
   continuous and/or discrete (unordered, ordered). The approach is
@@ -166,6 +260,47 @@ FALSE, \dots)
   Aitken's (1976) kernel, while ordered data types use a variation of the
   Wang and van Ryzin (1981) kernel.
 
+  When bandwidths are obtained with \code{regtype="lp"}, C-level
+  \code{npreg} supports heterogeneous continuous polynomial degrees via
+  \code{degree}. The \code{basis} selector currently supports
+  \code{basis="glp"}, \code{"additive"}, and \code{"tensor"}.
+  For continuous predictors with degree vector
+  \eqn{d}{d}, additive basis size is
+  \eqn{1+\sum_j d_j}{1+sum(d[j])}, tensor basis size is
+  \eqn{\prod_j (d_j+1)}{prod(d[j]+1)}, and GLP uses admissible
+  multi-indices \eqn{\alpha}{alpha} with
+  \eqn{\alpha_j \le d_j}{alpha[j] <= d[j]} and
+  \eqn{0<\sum_j \alpha_j \le \max_j d_j}{0<sum(alpha)<=max(d)} plus
+  an intercept. The optional flag \code{bernstein.basis}
+  controls basis construction: \code{FALSE} (default) uses raw
+  local-polynomial powers, while \code{TRUE} uses a Bernstein/B-spline basis. The
+  homogeneous degree-0 and degree-1 cases remain
+  equivalent to \code{lc} and \code{ll}, respectively. Current GLP
+  derivative output is first-order for continuous predictors; higher
+  order and cross-partial extraction are reserved for future extension.
+  In mixed-data GLP settings, derivative entries for unordered/ordered
+  predictors are returned as \code{NA}.
+  When \code{npregbw(..., regtype="lp")} is used with
+  \code{degree.select="manual"}, the degree vector remains fixed user
+  input. When \code{degree.select != "manual"}, \code{npregbw} can
+  jointly select polynomial degree and bandwidth using either the
+  cached cell-search backend or the direct
+  \code{search.engine="nomad"}/\code{"nomad+powell"} route described in
+  \code{\link{npregbw}}; the latter follows Hall and Racine (2015). For
+  practitioners who want that recommended route without spelling out all
+  LP tuning arguments, \code{npreg(..., nomad=TRUE)} and
+  \code{npregbw(..., nomad=TRUE)} expand missing settings to the same
+  documented automatic-LP NOMAD preset. Explicit incompatible settings
+  fail fast rather than being silently rewritten. The direct NOMAD
+  backend is provided by the suggested package \code{crs}, so install
+  \code{crs} before using \code{search.engine="nomad"},
+  \code{"nomad+powell"}, or \code{nomad=TRUE}. For
+  \code{bernstein.basis=TRUE}, evaluation points for continuous predictors
+  must lie within training support; use \code{bernstein.basis=FALSE} for
+  extrapolation. For \code{regtype="ll"} and \code{regtype="lp"}, the
+  training continuous design is checked for rank deficiency and extreme
+  condition number before estimation proceeds.
+
   The use of compactly supported kernels or the occurrence of small
   bandwidths can lead to numerical problems for the local linear
   estimator when computing the locally weighted least squares
@@ -192,8 +327,8 @@ FALSE, \dots)
 
   \item{eval}{ evaluation points }
   \item{mean}{ estimates of the regression function (conditional mean) at the
-  evaluation points } 
-  \item{merr}{ standard errors of the regression function estimates } 
+  evaluation points }
+  \item{merr}{ standard errors of the regression function estimates }
   \item{grad}{ estimates of the gradients at each evaluation point }
   \item{gerr}{ standard errors of the gradient estimates }
   \item{resid}{ if \code{residuals = TRUE}, in-sample or out-of-sample
@@ -205,7 +340,7 @@ FALSE, \dots)
   \item{CORR}{ absolute value of Pearson's correlation coefficient }
   \item{SIGN}{ fraction of observations where fitted and observed values
   agree in sign }
-  
+
 }
 
 \references{
@@ -217,13 +352,19 @@ FALSE, \dots)
   shrinkage of local linear curve estimators,} Statistics and Computing,
   7, 11-17.
 
+  Fan, J. and I. Gijbels (1996), \emph{Local Polynomial Modelling and
+  Its Applications,} Chapman and Hall.
+
   Doksum, K. and A. Samarov (1995), \dQuote{Nonparametric estimation of
   global functionals and a measure of the explanatory power of
-  covariates in regression,} The Annals of Statistics, 23 1443-1473.  
+  covariates in regression,} The Annals of Statistics, 23 1443-1473.
 
   Hall, P. and Q. Li and J.S. Racine (2007), \dQuote{Nonparametric
   estimation of regression functions in the presence of irrelevant
   regressors,} The Review of Economics and Statistics, 89, 784-789.
+
+  Hall, P. and J.S. Racine (2015), \dQuote{Infinite Order Cross-Validated
+  Local Polynomial Regression,} Journal of Econometrics, 185, 510-525.
 
   Li, Q. and J.S. Racine (2007), \emph{Nonparametric Econometrics: Theory
   and Practice,} Princeton University Press.
@@ -233,11 +374,11 @@ FALSE, \dots)
 
   Pagan, A. and A. Ullah (1999), \emph{Nonparametric Econometrics,}
   Cambridge University Press.
-  
+
   Racine, J.S. and Q. Li (2004), \dQuote{Nonparametric estimation of
     regression functions with both categorical and continuous data,}
   Journal of Econometrics, 119, 99-130.
-  
+
   Wang, M.C. and J. van Ryzin (1981), \dQuote{A class of smooth
     estimators for discrete distributions,} Biometrika, 68, 301-309.
 
@@ -256,6 +397,7 @@ FALSE, \dots)
 }
 
 \seealso{
+  \code{\link{np.kernels}}, \code{\link{np.options}}, \code{\link{plot}}, \code{\link{plot.np}}
   \code{\link{loess}}
 }
 \examples{
@@ -287,14 +429,14 @@ summary(model)
 # all computations are completed (if you use
 # plot.errors.method="asymptotic" the figure will instantly appear).
 
-plot(bw, plot.errors.method="bootstrap")
+if (interactive()) plot(bw, plot.errors.method="bootstrap")
 points(ordered(year), gdp, cex=.2, col="red")
 
 detach(Italy)
 
 # Sleep for 5 seconds so that we can examine the output...
 
-Sys.sleep(5)
+if (interactive()) Sys.sleep(5)
 
 # EXAMPLE 1 (INTERFACE=DATA FRAME): For this example, we compute a
 # bivariate nonparametric regression estimate for Giovanni Baiocchi's
@@ -323,70 +465,64 @@ summary(model)
 # all computations are completed (if you use
 # plot.errors.method="asymptotic" the figure will instantly appear).
 
-plot(bw, plot.errors.method="bootstrap")
+if (interactive()) plot(bw, plot.errors.method="bootstrap")
 points(ordered(year), gdp, cex=.2, col="red")
 
 detach(Italy)
 
 # Sleep for 5 seconds so that we can examine the output...
 
-Sys.sleep(5)
+if (interactive()) Sys.sleep(5)
 
 # EXAMPLE 2 (INTERFACE=FORMULA): For this example, we compute a local
 # linear fit using the AIC_c bandwidth selection criterion. We then plot
 # the estimator and its gradient using asymptotic standard errors.
 
-data("cps71")
-attach(cps71)
+data("cps71", package = "np")
 
-bw <- npregbw(logwage~age, regtype="ll", bwmethod="cv.aic")
+bw <- npregbw(logwage~age, regtype="ll", bwmethod="cv.aic", data = cps71)
 
 # Next, plot the regression function...
 
-plot(bw, plot.errors.method="asymptotic")
-points(age, logwage, cex=.2, col="red")
+if (interactive()) plot(bw, plot.errors.method="asymptotic")
+with(cps71, points(age, logwage, cex=.2, col="red"))
 
 # Sleep for 5 seconds so that we can examine the output...
 
-Sys.sleep(5)
+if (interactive()) Sys.sleep(5)
 
 # Next, plot the derivative...
 
-plot(bw, plot.errors.method="asymptotic", gradient=TRUE)
-
-detach(cps71)
+if (interactive()) plot(bw, plot.errors.method="asymptotic", gradient=TRUE)
 
 # Sleep for 5 seconds so that we can examine the output...
 
-Sys.sleep(5)
+if (interactive()) Sys.sleep(5)
 
 # EXAMPLE 2 (INTERFACE=DATA FRAME): For this example, we compute a local
 # linear fit using the AIC_c bandwidth selection criterion. We then plot
 # the estimator and its gradient using asymptotic standard errors.
 
-data("cps71")
-attach(cps71)
+data("cps71", package = "np")
 
-bw <- npregbw(xdat=age, ydat=logwage, regtype="ll", bwmethod="cv.aic")
+bw <- npregbw(xdat=cps71$age, ydat=cps71$logwage, regtype="ll", bwmethod="cv.aic")
 
 # Next, plot the regression function...
 
-plot(bw, plot.errors.method="asymptotic")
-points(age, logwage, cex=.2, col="red")
+if (interactive()) plot(bw, plot.errors.method="asymptotic")
+with(cps71, points(age, logwage, cex=.2, col="red"))
 
 # Sleep for 5 seconds so that we can examine the output...
 
-Sys.sleep(5)
+if (interactive()) Sys.sleep(5)
 
 # Next, plot the derivative...
 
-plot(bw, plot.errors.method="asymptotic", gradient=TRUE)
-
-detach(cps71)
+if (interactive()) plot(bw, plot.errors.method="asymptotic", gradient=TRUE)
 
 # Sleep for 5 seconds so that we can examine the output...
 
-Sys.sleep(5)
+if (interactive()) Sys.sleep(5)
 
 # EXAMPLE 3 (INTERFACE=FORMULA): For this example, we replicate the
 # nonparametric regression in Maasoumi, Racine, and Stengos
@@ -405,7 +541,7 @@ bw <- npregbw(formula=growth~
               inv+
               humancap)
 
-plot(bw, plot.errors.method="asymptotic")
+if (interactive()) plot(bw, plot.errors.method="asymptotic")
 
 detach(oecdpanel)
 
@@ -423,7 +559,7 @@ X <- data.frame(factor(oecd), factor(year), initgdp, popgro, inv, humancap)
 
 bw <- npregbw(xdat=X, ydat=y)
 
-plot(bw, plot.errors.method="asymptotic")
+if (interactive()) plot(bw, plot.errors.method="asymptotic")
 
 detach(oecdpanel)
 
@@ -453,14 +589,14 @@ detach(oecdpanel)
 library("datasets")
 attach(ToothGrowth)
 
-# Note - in this example, there are six cells. 
+# Note - in this example, there are six cells.
 
 bw <- npregbw(formula=len~factor(supp)+ordered(dose))
 
 # Now plot the partial regression surfaces with bootstrapped
 # nonparametric confidence bounds
 
-plot(bw, plot.errors.method="bootstrap", plot.errors.type="quantile")
+if (interactive()) plot(bw, plot.errors.method="bootstrap", plot.errors.type="simultaneous")
 
 detach(ToothGrowth)
 
@@ -489,7 +625,7 @@ detach(ToothGrowth)
 library("datasets")
 attach(ToothGrowth)
 
-# Note - in this example, there are six cells. 
+# Note - in this example, there are six cells.
 
 y <- len
 X <- data.frame(supp=factor(supp), dose=ordered(dose))
@@ -499,7 +635,7 @@ bw <- npregbw(X, y)
 # Now plot the partial regression surfaces with bootstrapped
 # nonparametric confidence bounds
 
-plot(bw, plot.errors.method="bootstrap", plot.errors.type="quantile")
+if (interactive()) plot(bw, plot.errors.method="bootstrap", plot.errors.type="simultaneous")
 
 detach(ToothGrowth)
 
@@ -515,7 +651,7 @@ dgp.func <- function(x, z, sx=0.3, sz=0.4)
                  0.8*exp(-(x-0.7)^2/sx^2-(z-0.8)^2/sz^2))
   }
 
-# Generate 500 observations, compute the true DGP (i.e., no noise), 
+# Generate 500 observations, compute the true DGP (i.e., no noise),
 # then a noisy sample
 
 n <- 500
@@ -563,7 +699,7 @@ dgp.func <- function(x, z, sx=0.3, sz=0.4)
                  0.8*exp(-(x-0.7)^2/sx^2-(z-0.8)^2/sz^2))
   }
 
-# Generate 500 observations, compute the true DGP (i.e., no noise), 
+# Generate 500 observations, compute the true DGP (i.e., no noise),
 # then a noisy sample
 
 n <- 500
@@ -602,4 +738,3 @@ persp(xs, zs, fit.mat, xlab="x1", ylab="x2", zlab="y",
 } % enddontrun
 }
 \keyword{nonparametric}
-

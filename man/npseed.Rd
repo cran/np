@@ -7,7 +7,11 @@ npseed(seed)
 }
 
 \arguments{
-  \item{seed}{an integer seed for the random number generator.}
+\subsection{Seed Input}{
+Seed value used to reset the package C backend random number generator.
+}
+
+  \item{seed}{a single finite numeric value that is representable as a non-negative integer after applying \code{abs()}.}
 }
 \value{
   None.
@@ -18,6 +22,8 @@ npseed(seed)
 }
 
 \details{
+  Documentation guide: see \code{\link{np.kernels}} for kernels, \code{\link{np.options}} for global options, and \code{\link{plot}} for plotting options.
+
   \code{npseed} provides an interface for setting the random seed (and
   resetting the random number generator) used
   by \code{\link{np}}. The random number generator is used during the
@@ -32,9 +38,14 @@ npseed(seed)
   \code{\link{npcmstest}} (via \code{\link{npregbw}}),
   \code{\link{npqcmstest}} (via \code{\link{npregbw}}),
   \code{\link{npsigtest}} (via \code{\link{npregbw}}).
+
+  Invalid inputs such as missing values, non-finite values, non-scalars,
+  and values that cannot be represented as integers are rejected with an
+  explicit error.
 }
 
 \seealso{
+  \code{\link{np.kernels}}, \code{\link{np.options}}, \code{\link{plot}}
   \code{\link{set.seed}}
 }
 
