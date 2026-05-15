@@ -20,15 +20,54 @@ npqreg <-
     }
   }
 
-.npqreg.fit.control.names <- c("data", "newdata", "tau", "gradients", "tol", "small", "itmax")
+.npqreg.fit.control.names <- c("data", "newdata", "exdat", "tau", "gradients", "tol", "small", "itmax")
 .npqreg.removed.solver.controls <- c("ftol",
                                      "lbc.dir", "dfc.dir", "cfac.dir", "initc.dir",
                                      "lbd.dir", "hbd.dir", "dfac.dir", "initd.dir")
 
+.npqreg_validate_tau <- function(tau) {
+  if (!is.numeric(tau) || !length(tau) || anyNA(tau) ||
+      any(!is.finite(tau)) || any(tau <= 0) || any(tau >= 1))
+    stop("'tau' must contain numeric values in (0,1)")
+  as.double(tau)
+}
+
+.npqreg_tau_labels <- function(tau) {
+  paste0("tau=", format(tau, trim = TRUE, scientific = FALSE))
+}
+
+.npqreg_napredict_eval <- function(omit, x) {
+  if (!length(omit))
+    return(x)
+  if (length(dim(x)) <= 2L)
+    return(napredict(omit, x))
+  d <- dim(x)
+  dn <- dimnames(x)
+  if (!is.null(dn))
+    dn[[1L]] <- NULL
+  out <- array(NA_real_,
+               dim = c(d[1L] + length(omit), d[-1L]),
+               dimnames = dn)
+  keep <- seq_len(dim(out)[1L])[-as.integer(omit)]
+  out[keep, , ] <- x
+  out
+}
+
+.npqreg_validate_newdata_terms <- function(newdata, xnames) {
+  nd <- toFrame(newdata)
+  missing.names <- setdiff(xnames, names(nd))
+  if (length(missing.names))
+    stop(sprintf(
+      "newdata must contain columns: %s",
+      paste(shQuote(xnames), collapse = ", ")
+    ), call. = FALSE)
+  invisible(TRUE)
+}
+
 .npqreg_fit_dots <- function(dots, allow.bandwidth.controls = FALSE) {
   dot.names <- names(dots)
   if (is.null(dot.names))
-    return(dots)
+    dot.names <- rep("", length(dots))
 
   stale <- intersect(dot.names[nzchar(dot.names)], .npqreg.removed.solver.controls)
   if (length(stale) && !allow.bandwidth.controls) {
@@ -39,8 +78,196 @@ npqreg <-
     ))
   }
 
+  if (!allow.bandwidth.controls) {
+    bad <- dot.names == "" | !(dot.names %in% .npqreg.fit.control.names)
+    if (any(bad))
+      .np_reject_unused_dots(dots[bad], "npqreg")
+  }
+
   keep <- (!nzchar(dot.names)) | (dot.names %in% .npqreg.fit.control.names)
   dots[keep]
+}
+
+.npqreg_strip_fit_controls_from_bw_call <- function(call) {
+  for (nm in c("tau", "gradients", "tol", "small", "itmax", "newdata", "exdat")) {
+    if (nm %in% names(call))
+      call[[nm]] <- NULL
+  }
+  call
+}
+
+.npqreg_quantile_delta_from_conditional <- function(bws,
+                                                    xdat,
+                                                    ydat,
+                                                    exdat,
+                                                    quantile,
+                                                    gradients = FALSE) {
+  xdat <- toFrame(xdat)
+  ydat <- toFrame(ydat)
+  exdat <- toFrame(exdat)
+  quantile <- as.double(quantile)
+  gradients <- npValidateScalarLogical(gradients, "gradients")
+
+  if (length(quantile) != nrow(exdat))
+    stop("quantile delta helper requires one quantile per evaluation row")
+  if (ncol(ydat) != 1L)
+    stop("quantile delta helper requires a single response")
+
+  eydat <- stats::setNames(data.frame(quantile), names(ydat)[1L])
+  cdf.obj <- .np_conditional_eval_selected(
+    bws = bws,
+    xdat = xdat,
+    ydat = ydat,
+    exdat = exdat,
+    eydat = eydat,
+    cdf = TRUE,
+    gradients = gradients
+  )
+  dens.obj <- .np_conditional_eval_selected(
+    bws = bws,
+    xdat = xdat,
+    ydat = ydat,
+    exdat = exdat,
+    eydat = eydat,
+    cdf = FALSE,
+    gradients = FALSE
+  )
+
+  dens <- as.double(dens.obj$condens)
+  quanterr <- as.double(cdf.obj$conderr) / NZD(dens)
+  quanterr[!is.finite(quanterr) | quanterr < 0.0] <- NA_real_
+
+  if (!gradients) {
+    return(list(
+      quanterr = quanterr,
+      quantgrad = NA,
+      quantgerr = NA,
+      cdf = cdf.obj,
+      dens = dens.obj
+    ))
+  }
+
+  dens.mat <- matrix(NZD(dens),
+                     nrow = nrow(cdf.obj$congrad),
+                     ncol = ncol(cdf.obj$congrad))
+  grad <- -cdf.obj$congrad / dens.mat
+  grad[!is.finite(grad)] <- NA_real_
+
+  gerr <- cdf.obj$congerr / dens.mat
+  gerr[!is.finite(gerr) | gerr < 0.0] <- NA_real_
+
+  list(
+    quanterr = quanterr,
+    quantgrad = grad,
+    quantgerr = gerr,
+    cdf = cdf.obj,
+    dens = dens.obj
+  )
+}
+
+.npqreg_selected_cdf_values <- function(bws,
+                                        xdat,
+                                        ydat,
+                                        exdat,
+                                        ycand) {
+  ydat <- toFrame(ydat)
+  yname <- names(ydat)[1L]
+  eydat <- stats::setNames(data.frame(as.double(ycand)), yname)
+  as.double(.np_conditional_eval_selected(
+    bws = bws,
+    xdat = xdat,
+    ydat = ydat,
+    exdat = exdat,
+    eydat = eydat,
+    cdf = TRUE,
+    gradients = FALSE
+  )$condist)
+}
+
+.npqreg_assert_selected_cdf_metadata <- function(bws) {
+  reg.engine <- if (is.null(bws$regtype.engine)) {
+    if (is.null(bws$regtype)) "lc" else as.character(bws$regtype)
+  } else {
+    as.character(bws$regtype.engine)
+  }
+  if (!identical(reg.engine, "lp"))
+    return(invisible(TRUE))
+
+  if (is.null(bws$degree.engine) && is.null(bws$degree))
+    stop("selected LP conditional distribution metadata missing from bandwidth object: degree")
+  invisible(TRUE)
+}
+
+.npqreg_invert_selected_cdf <- function(bws,
+                                        xdat,
+                                        ydat,
+                                        exdat,
+                                        tau,
+                                        tol,
+                                        small,
+                                        itmax) {
+  .npqreg_assert_selected_cdf_metadata(bws)
+
+  xdat <- toFrame(xdat)
+  ydat <- toFrame(ydat)
+  exdat <- toFrame(exdat)
+  y <- as.double(ydat[[1L]])
+  y <- y[is.finite(y)]
+  if (!length(y))
+    stop("npqreg selected-CDF inversion requires finite response support")
+
+  n.eval <- nrow(exdat)
+  y.min <- min(y)
+  y.max <- max(y)
+  if (!is.finite(y.min) || !is.finite(y.max))
+    stop("npqreg selected-CDF inversion found non-finite response support")
+  if (identical(y.min, y.max))
+    return(rep.int(y.min, n.eval))
+
+  lo <- rep.int(y.min, n.eval)
+  hi <- rep.int(y.max, n.eval)
+
+  flo <- .npqreg_selected_cdf_values(bws, xdat, ydat, exdat, lo)
+  fhi <- .npqreg_selected_cdf_values(bws, xdat, ydat, exdat, hi)
+  if (any(!is.finite(flo)) || any(!is.finite(fhi)))
+    stop("npqreg selected-CDF inversion encountered non-finite bracket values")
+
+  done.low <- flo >= tau
+  done.high <- fhi < tau
+  active <- !(done.low | done.high)
+
+  maxiter <- min(as.integer(itmax), 1000L)
+  iter <- 0L
+  while (any(active) && iter < maxiter) {
+    iter <- iter + 1L
+    mid <- (lo[active] + hi[active]) / 2.0
+    fmid <- .npqreg_selected_cdf_values(
+      bws = bws,
+      xdat = xdat,
+      ydat = ydat,
+      exdat = exdat[active, , drop = FALSE],
+      ycand = mid
+    )
+    if (any(!is.finite(fmid)))
+      stop("npqreg selected-CDF inversion encountered non-finite refinement values")
+
+    active.idx <- which(active)
+    upper <- fmid >= tau
+    hi[active.idx[upper]] <- mid[upper]
+    lo[active.idx[!upper]] <- mid[!upper]
+
+    width <- hi[active.idx] - lo[active.idx]
+    scale <- pmax(abs(hi[active.idx]), abs(lo[active.idx]), 1.0)
+    active[active.idx] <- width > (tol * scale + small)
+  }
+
+  if (any(active))
+    stop("npqreg selected-CDF inversion failed to converge within 'itmax'")
+
+  out <- hi
+  out[done.low] <- y.min
+  out[done.high] <- y.max
+  out
 }
 
 npqreg.formula <-
@@ -60,6 +287,7 @@ npqreg.formula <-
 
     has.eval <- !is.null(newdata)
     if (has.eval) {
+      .npqreg_validate_newdata_terms(newdata, bws$variableNames[["terms"]])
       tt <- drop.terms(tt, match(bws$variableNames$response, attr(tt, 'term.labels')))
       umf.args <- list(formula = tt, data = newdata)
       umf <- do.call(stats::model.frame, umf.args, envir = parent.frame())
@@ -77,11 +305,12 @@ npqreg.formula <-
     tbw$rows.omit <- as.vector(tbw$omit)
     tbw$nobs.omit <- length(tbw$rows.omit)
 
-    tbw$quantile <- napredict(tbw$omit, tbw$quantile)
-    tbw$quanterr <- napredict(tbw$omit, tbw$quanterr)
+    tbw$quantile <- .npqreg_napredict_eval(tbw$omit, tbw$quantile)
+    tbw$quanterr <- .npqreg_napredict_eval(tbw$omit, tbw$quanterr)
 
     if(tbw$gradients){
-        tbw$quantgrad <- napredict(tbw$omit, tbw$quantgrad)
+        tbw$quantgrad <- .npqreg_napredict_eval(tbw$omit, tbw$quantgrad)
+        tbw$quantgerr <- .npqreg_napredict_eval(tbw$omit, tbw$quantgerr)
     }
 
     return(tbw)
@@ -133,8 +362,9 @@ npqreg.condbandwidth <-
     txdat = toFrame(txdat)
     tydat = toFrame(tydat)
 
-    if (!is.numeric(tau) || length(tau) != 1 || is.na(tau) || tau <= 0 || tau >= 1)
-      stop("'tau' must be a single numeric value in (0,1)")
+    tau <- .npqreg_validate_tau(tau)
+    ntau <- length(tau)
+    tau.labels <- .npqreg_tau_labels(tau)
 
     if (dim(tydat)[2] != 1)
       stop("'tydat' has more than one column")
@@ -146,9 +376,6 @@ npqreg.condbandwidth <-
         stop("'txdat' and 'exdat' are not similar data frames!")
     }
 
-    if(gradients)
-      stop("gradients not currently supported for this object")
-    
     if (length(bws$xbw) != length(txdat))
       stop("length of bandwidth vector does not match number of columns of 'txdat'")
 
@@ -210,161 +437,60 @@ npqreg.condbandwidth <-
     if (!no.ex)
       exdat.df <- exdat
 
-    ## at this stage, data to be sent to the c routines must be converted to
-    ## numeric type.
-    
-    tydat = toMatrix(tydat)
-
-    txdat = toMatrix(txdat)
-
-    txuno = txdat[, bws$ixuno, drop = FALSE]
-    txcon = txdat[, bws$ixcon, drop = FALSE]
-    txord = txdat[, bws$ixord, drop = FALSE]
-
-    if (!no.ex){
-      exdat = toMatrix(exdat)
-
-      exuno = exdat[, bws$ixuno, drop = FALSE]
-      excon = exdat[, bws$ixcon, drop = FALSE]
-      exord = exdat[, bws$ixord, drop = FALSE]
-    } else {
-      exuno = data.frame()
-      excon = data.frame()
-      exord = data.frame()
+    fit_one_tau <- function(tau_i) {
+      yq <- .npqreg_invert_selected_cdf(
+        bws = bws,
+        xdat = txdat.df,
+        ydat = tydat.df,
+        exdat = txeval,
+        tau = tau_i,
+        tol = tol,
+        small = small,
+        itmax = itmax
+      )
+      qdelta <- .npqreg_quantile_delta_from_conditional(
+        bws = bws,
+        xdat = txdat.df,
+        ydat = tydat.df,
+        exdat = txeval,
+        quantile = yq,
+        gradients = gradients
+      )
+      list(
+        yq = yq,
+        yqerr = qdelta$quanterr,
+        yqgrad = if (gradients) qdelta$quantgrad else NA,
+        yqgerr = if (gradients) qdelta$quantgerr else NA
+      )
     }
 
-    myopti = list(
-      num_obs_train = tnrow,
-      num_obs_eval = enrow,
-      int_LARGE_SF = (if (bws$scaling) SF_NORMAL else SF_ARB),
-      BANDWIDTH_den_extern = switch(bws$type,
-        fixed = BW_FIXED,
-        generalized_nn = BW_GEN_NN,
-        adaptive_nn = BW_ADAP_NN),
-      int_MINIMIZE_IO=if (isTRUE(getOption("np.messages"))) IO_MIN_FALSE else IO_MIN_TRUE,
-      xkerneval = switch(bws$cxkertype,
-        gaussian = CKER_GAUSS + bws$cxkerorder/2 - 1,
-        epanechnikov = CKER_EPAN + bws$cxkerorder/2 - 1,
-        uniform = CKER_UNI,
-        "truncated gaussian" = CKER_TGAUSS),
-      ykerneval = switch(bws$cykertype,
-        gaussian = CKER_GAUSS + bws$cykerorder/2 - 1,
-        epanechnikov = CKER_EPAN + bws$cykerorder/2 - 1,
-        uniform = CKER_UNI,
-        "truncated gaussian" = CKER_TGAUSS),
-      uxkerneval = switch(bws$uxkertype,
-        aitchisonaitken = UKER_AIT,
-        liracine = UKER_LR),
-      uykerneval = switch(bws$uykertype,
-        aitchisonaitken = UKER_AIT,
-        liracine = UKER_LR),
-      oxkerneval = switch(bws$oxkertype,
-        wangvanryzin = OKER_WANG,
-        liracine = OKER_LR,
-        "racineliyan" = OKER_RLY),
-      oykerneval = switch(bws$oykertype,
-        wangvanryzin = OKER_WANG,
-        liracine = OKER_NLR,
-        "racineliyan" = OKER_RLY),
-      num_yuno = bws$ynuno,
-      num_yord = bws$ynord,
-      num_ycon = bws$yncon,
-      num_xuno = bws$xnuno,
-      num_xord = bws$xnord,
-      num_xcon = bws$xncon,
-      no.ex = no.ex,
-      gradients = gradients,
-      itmax = itmax,
-      xmcv.numRow = attr(bws$xmcv, "num.row"),
-      nmulti = itmax,
-      qreg.unused = 0L)
+    tau.out <- lapply(tau, fit_one_tau)
 
-    myoptd = c(
-      qreg.unused = 0.0,
-      tol = tol,
-      small = small,
-      rep(0.0, 7L))
-    
-    myout <-
-      .Call("C_np_quantile_conditional",
-            as.double(tydat),
-            as.double(txuno), as.double(txord), as.double(txcon),
-            as.double(exuno), as.double(exord), as.double(excon),
-            as.double(tau),
-            as.double(c(bws$xbw[bws$ixcon], bws$ybw[bws$iycon],
-                        bws$ybw[bws$iyuno], bws$ybw[bws$iyord],
-                        bws$xbw[bws$ixuno], bws$xbw[bws$ixord])),
-            as.double(bws$xmcv), as.double(attr(bws$xmcv, "pad.num")),
-            as.double(bws$nconfac), as.double(bws$ncatfac), as.double(bws$sdev),
-            as.integer(myopti),
-            as.double(myoptd),
-            as.integer(enrow),
-            as.integer(bws$xndim),
-            as.logical(gradients),
-            PACKAGE="np")[c("yq", "yqerr", "yqgrad")]
-
-    if (all(!is.finite(myout$yqerr) | myout$yqerr <= 0.0)) {
-      dens.bw <- tryCatch(
-        conbandwidth(
-          xbw = bws$xbw,
-          ybw = bws$ybw,
-          bwmethod = "manual",
-          bwscaling = bws$scaling,
-          bwtype = bws$type,
-          cxkertype = bws$cxkertype,
-          cxkerorder = bws$cxkerorder,
-          cxkerbound = bws$cxkerbound,
-          cxkerlb = bws$cxkerlb,
-          cxkerub = bws$cxkerub,
-          uxkertype = bws$uxkertype,
-          oxkertype = bws$oxkertype,
-          cykertype = bws$cykertype,
-          cykerorder = bws$cykerorder,
-          cykerbound = bws$cykerbound,
-          cykerlb = bws$cykerlb,
-          cykerub = bws$cykerub,
-          uykertype = bws$uykertype,
-          oykertype = bws$oykertype,
-          nobs = nrow(txdat.df),
-          xdati = bws$xdati,
-          ydati = bws$ydati,
-          xnames = bws$xnames,
-          ynames = bws$ynames,
-          sfactor = bws$sfactor,
-          bandwidth = bws$bw,
-          bandwidth.compute = FALSE
-        ),
-        error = function(e) NULL
+    if (ntau == 1L) {
+      myout <- tau.out[[1L]]
+    } else {
+      myout <- list(
+        yq = do.call(cbind, lapply(tau.out, `[[`, "yq")),
+        yqerr = do.call(cbind, lapply(tau.out, `[[`, "yqerr")),
+        yqgrad = NA,
+        yqgerr = NA
       )
-      dens.obj <- tryCatch(
-        npcdens(
-          txdat = txdat.df,
-          tydat = tydat.df,
-          exdat = if (no.ex) txdat.df else exdat.df,
-          eydat = data.frame(y = as.double(myout$yq)),
-          bws = dens.bw
-        ),
-        error = function(e) NULL
-      )
-      if (!is.null(dens.obj)) {
-        dens.q <- as.double(dens.obj$condens)
-        qvar <- tau * (1.0 - tau) / (tnrow * NZD(dens.q)^2)
-        myout$yqerr <- sqrt(pmax(qvar, 0.0))
-        myout$yqerr[!is.finite(myout$yqerr)] <- NA_real_
+      colnames(myout$yq) <- tau.labels
+      colnames(myout$yqerr) <- tau.labels
+      if (gradients) {
+        p <- ncol(tau.out[[1L]]$yqgrad)
+        grad.names <- colnames(tau.out[[1L]]$yqgrad)
+        myout$yqgrad <- array(NA_real_,
+                              dim = c(enrow, p, ntau),
+                              dimnames = list(NULL, grad.names, tau.labels))
+        myout$yqgerr <- array(NA_real_,
+                              dim = c(enrow, p, ntau),
+                              dimnames = list(NULL, grad.names, tau.labels))
+        for (j in seq_len(ntau)) {
+          myout$yqgrad[, , j] <- tau.out[[j]]$yqgrad
+          myout$yqgerr[, , j] <- tau.out[[j]]$yqgerr
+        }
       }
-    }
-
-    ##need to untangle yqgrad
-
-    if(gradients){
-      myout$yqgrad = matrix(data=myout$yqgrad, nrow = enrow, ncol = bws$xndim, byrow = FALSE) 
-      rorder = numeric(bws$xndim)
-      xidx <- seq_len(bws$xndim)
-      rorder[c(xidx[bws$ixcon], xidx[bws$ixuno], xidx[bws$ixord])] <- xidx
-      myout$yqgrad = myout$yqgrad[, rorder, drop = FALSE]
-
-    } else {
-      myout$yqgrad = NA
     }
 
 
@@ -378,6 +504,7 @@ npqreg.condbandwidth <-
                 quantile = myout$yq,
                 quanterr = myout$yqerr,
                 quantgrad = myout$yqgrad,
+                quantgerr = myout$yqgerr,
                 ntrain = tnrow,
                 trainiseval = no.ex,
                 gradients = gradients,
@@ -386,7 +513,8 @@ npqreg.condbandwidth <-
   }
 
 
-npqreg.default <- function(bws, txdat, tydat, ...){
+npqreg.default <- function(bws, txdat, tydat, nomad = FALSE, ...){
+  nomad <- npValidateScalarLogical(nomad, "nomad")
   sc <- sys.call()
   sc.names <- names(sc)
 
@@ -409,10 +537,18 @@ npqreg.default <- function(bws, txdat, tydat, ...){
     sc$formula <- bws
     sc.bw <- sc
     sc.bw[[1]] <- quote(npcdistbw)
+    sc.bw <- .npqreg_strip_fit_controls_from_bw_call(sc.bw)
+    bws.named <- FALSE
+  } else if (bws.formula) {
+    sc.bw <- sc
+    sc.bw$`bws` <- NULL
+    sc.bw[[1]] <- quote(npcdistbw)
+    sc.bw <- .npqreg_strip_fit_controls_from_bw_call(sc.bw)
     bws.named <- FALSE
   } else {
     sc.bw <- sc
     sc.bw[[1]] <- quote(npcdistbw)
+    sc.bw <- .npqreg_strip_fit_controls_from_bw_call(sc.bw)
   }
 
   ## if bws was passed in explicitly, do not compute bandwidths
@@ -435,12 +571,21 @@ npqreg.default <- function(bws, txdat, tydat, ...){
   if(any(m.txy > 0)) {
     names(sc.bw)[m.txy] <- nstxy[m.txy > 0]
   }
-    
+
+  use.outer.bandwidth.progress <- !.np_bw_call_uses_nomad_degree_search(
+    sc.bw,
+    caller_env = parent.frame()
+  )
+
   tbw <- if (!has.explicit.bws) {
-    .np_progress_select_bandwidth(
-      "Selecting conditional distribution bandwidth",
+    if (use.outer.bandwidth.progress) {
+      .np_progress_select_bandwidth_enhanced(
+        "Selecting conditional distribution bandwidth",
+        .np_eval_bw_call(sc.bw, caller_env = parent.frame())
+      )
+    } else {
       .np_eval_bw_call(sc.bw, caller_env = parent.frame())
-    )
+    }
   } else {
     .np_eval_bw_call(sc.bw, caller_env = parent.frame())
   }

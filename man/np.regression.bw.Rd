@@ -71,7 +71,8 @@ npregbw(\dots)
         okertype,
         penalty.multiplier = 10,
         regtype,
-        remin,
+        nomad.remin = FALSE,
+        powell.remin,
         scale.init.categorical.sample,
         scale.factor.search.lower = NULL,
         small,
@@ -103,7 +104,7 @@ npregbw(\dots)
         lbd.init = 0.1,
         nmulti,
         penalty.multiplier = 10,
-        remin = TRUE,
+        powell.remin = TRUE,
         scale.init.categorical.sample = FALSE,
         scale.factor.search.lower = NULL,
         small = 1.490116e-05,
@@ -452,6 +453,8 @@ These arguments control the local-polynomial estimator, basis, and fixed degree 
     relevant only when \code{regtype="lp"}. When
     \code{degree.select="manual"}, this must be supplied explicitly.
     Entries must be non-negative integers in \code{[0,12]}.
+    With no continuous predictors, \code{regtype="lp"} is only
+    admissible when \code{degree=0}, the local-constant equivalent.
     Bandwidth optimization treats this vector as fixed input and
     optimizes only bandwidths.
   }
@@ -463,7 +466,10 @@ These arguments control the local-polynomial estimator, basis, and fixed degree 
     estimator. \code{lp} specifies a local polynomial
     estimator with polynomial degree(s) given by \code{degree} for
     continuous predictors, or selected automatically when
-    \code{degree.select != "manual"}. Defaults to \code{lc}.
+    \code{degree.select != "manual"}. \code{ll} and positive-degree
+    \code{lp} require at least one continuous predictor; for
+    categorical-only predictors use \code{lc} or \code{lp} with
+    \code{degree=0}. Defaults to \code{lc}.
   }
 
 \subsection{NOMAD Search Controls}{
@@ -484,7 +490,8 @@ These arguments control the optional NOMAD direct-search route for local-polynom
     immediately; in particular, \code{nomad=TRUE} currently requires
     \code{regtype="lp"}, \code{bwtype="fixed"}, automatic degree
     search, \code{bernstein.basis=TRUE}, no explicit \code{degree},
-    and \code{search.engine \%in\% c("nomad", "nomad+powell")}.
+    at least one continuous predictor, and
+    \code{search.engine \%in\% c("nomad", "nomad+powell")}.
     This shortcut does not change the meaning of \code{nmulti} or
     \code{nomad.nmulti}: \code{nmulti} remains the outer restart count,
     while \code{nomad.nmulti} controls inner
@@ -505,6 +512,15 @@ These arguments control the optional NOMAD direct-search route for local-polynom
     \code{nmulti} controls outer restarts, while \code{nomad.nmulti}
     controls inner NOMAD multistarts within each outer restart.
   }
+
+  \item{nomad.remin}{
+    logical flag controlling the optional second NOMAD hot start. When
+    \code{TRUE}, NOMAD is restarted once from the best full candidate found,
+    including both bandwidth and degree coordinates. Defaults to \code{FALSE};
+    current simulation evidence favors the one-pass NOMAD default for routine
+    use, while leaving this switch available for sensitivity checks.
+  }
+
 
   \item{search.engine}{
     character string controlling the automatic local-polynomial search
@@ -554,10 +570,13 @@ These controls set optimizer tolerances, restart behavior, invalid-candidate pen
     baseline penalty when \code{invalid.penalty="baseline"}.
     Defaults to \code{10}.}
 
-  \item{remin}{
-    a logical value which when set as \code{TRUE} the search routine
-    restarts from located minima for a minor gain in accuracy. Defaults
-    to \code{TRUE}.
+  \item{powell.remin}{
+    logical flag controlling Powell restart-from-minimum behavior. For
+    ordinary fixed-degree Powell-style search, \code{TRUE} restarts the
+    local search from the located minimum. For \code{search.engine="nomad+powell"},
+    this controls only the final Powell bandwidth-polish step. The default
+    is \code{TRUE} for ordinary Powell routes and \code{FALSE} for the
+    Powell polish after NOMAD unless explicitly supplied.
   }
 
   \item{small}{
@@ -621,8 +640,8 @@ or standard-deviation factors.
   not affected by \code{scale.factor.search.lower}.
 
   Documentation guide: see \code{\link{np.kernels}} for kernels,
-  \code{\link{np.options}} for global options, and \code{\link{plot}}
-  for plotting options.
+  \code{\link{np.options}} for global options, and
+  \code{\link{plot}}, \code{\link{plot.np}} for plotting options.
 
   The bandwidth-selection argument surface is easiest to read by
   decision group: data and existing bandwidth inputs;
@@ -635,10 +654,8 @@ or standard-deviation factors.
   object can pass these same bandwidth-selection controls through that
   function's \code{\dots}.
 
-  For S3 plotting help, use \code{methods("plot")} and query
-  class-specific help topics such as \code{?plot.npregression} and
-  \code{?plot.rbandwidth}. You can inspect implementations with
-  \code{getS3method("plot","npregression")}.
+  For S3 plotting help, see \code{\link{plot.np}}. You can list
+  available plot methods with \code{methods("plot")}.
 
   \code{npregbw} implements a variety of methods for choosing
   bandwidths for multivariate (\eqn{p}-variate) regression data defined
@@ -800,6 +817,19 @@ or standard-deviation factors.
   objects of this class.
 }
 
+\section{Book And Method Pointers}{
+  \code{npregbw} selects bandwidths and, when requested, local-polynomial
+  degree/search metadata for estimating the conditional mean
+  \eqn{m(x)=E[Y\mid X=x]}. For the estimator target and local-polynomial
+  interpretation, see \code{\link{npreg}}.
+
+  For book-length derivations, see Li and Racine (2007), Chapter 2
+  \emph{Regression}, especially Sections 2.2, 2.4, and 2.5, and Chapter 4
+  \emph{Kernel Estimation with Mixed Data}, especially Sections 4.2 and
+  4.4. The later workflow treatment is Racine (2019), Chapter 6
+  \emph{Conditional Mean Function Estimation}.
+}
+
 \references{
   Aitchison, J. and C.G.G. Aitken (1976), \dQuote{Multivariate binary
     discrimination by the kernel method,} Biometrika, 63, 413-420.
@@ -875,7 +905,7 @@ or standard-deviation factors.
 }
 
 \seealso{
-  \code{\link{np.kernels}}, \code{\link{np.options}}, \code{\link{plot}}
+  \code{\link{np.kernels}}, \code{\link{np.options}}, \code{\link{plot}}, \code{\link{plot.np}}
   \code{\link{npreg}}
 }
 \examples{
@@ -885,7 +915,7 @@ or standard-deviation factors.
 # Italian income panel (see Italy for details)
 
 data("Italy")
-attach(Italy)
+with(Italy, {
 
 # Compute the least-squares cross-validated bandwidths for the local
 # constant estimator (default)
@@ -922,14 +952,14 @@ summary(bw)
 # multiple illustrations of how to change the kernel function, kernel
 # order, bandwidth type and so forth.
 
-detach(Italy)
+})
 
 # EXAMPLE 1 (INTERFACE=DATA FRAME): For this example, we compute a
 # Bivariate nonparametric regression estimate for Giovanni Baiocchi's
 # Italian income panel (see Italy for details)
 
 data("Italy")
-attach(Italy)
+with(Italy, {
 
 # Compute the least-squares cross-validated bandwidths for the local
 # constant estimator (default)
@@ -966,7 +996,7 @@ summary(bw)
 # multiple illustrations of how to change the kernel function, kernel
 # order, bandwidth type and so forth.
 
-detach(Italy)
+})
 } % enddontrun
 }
 \keyword{nonparametric}

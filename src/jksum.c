@@ -5190,7 +5190,11 @@ const NP_GateOverrideCtx * const gate_override_ctx){
       ps_okernel = KERNEL_ordered_reg;
     }
 
-    tprod_mp = (double *)malloc(((BANDWIDTH_reg==BW_ADAP_NN)?num_obs_eval:num_obs_train)*p_nvar*sizeof(double));
+    {
+      const size_t tprod_rows = (size_t)((BANDWIDTH_reg==BW_ADAP_NN)?num_obs_eval:num_obs_train);
+      const size_t tprod_count = np_jksum_size_mul_or_die(tprod_rows, (size_t)p_nvar, "tprod_mp");
+      tprod_mp = (double *)malloc(np_jksum_size_mul_or_die(tprod_count, sizeof(double), "tprod_mp"));
+    }
     if(tprod_mp == NULL){
       status = KWSNP_ERR_BADINVOC;
       goto cleanup;
@@ -7415,7 +7419,7 @@ static int np_reg_cv_core_cache_prepare(const int KERNEL_reg,
        np_reg_cv_core_cache.kernel_u == NULL ||
        np_reg_cv_core_cache.kernel_o == NULL ||
        np_reg_cv_core_cache.lambda == NULL ||
-       np_reg_cv_core_cache.matrix_bandwidth == NULL){
+       (num_reg_continuous > 0 && np_reg_cv_core_cache.matrix_bandwidth == NULL)){
       np_reg_cv_core_cache_clear();
       return 0;
     }
@@ -19835,6 +19839,7 @@ int np_conditional_density_cvls_lp_stream(double *vector_scale_factor,
   const int num_obs = num_obs_train_extern;
   const int block_size = MIN(np_conditional_lp_cvls_block_size(), MAX(1, num_obs));
   double **xblock = NULL, **xblock_full = NULL, **yblock = NULL, **yconvblock = NULL;
+  double *quad_cross = NULL;
   int i0, j0, ii, jj;
   int status = 1;
 
@@ -19870,11 +19875,13 @@ int np_conditional_density_cvls_lp_stream(double *vector_scale_factor,
      (int_TREE_Y == NP_TREE_TRUE))
     return np_conditional_density_cvls_lp_row_stream(vector_scale_factor, cv);
 
-  xblock = alloc_matd(num_obs, block_size);
-  xblock_full = alloc_matd(num_obs, block_size);
-  yblock = alloc_matd(num_obs, block_size);
-  yconvblock = alloc_matd(num_obs, block_size);
-  if((xblock == NULL) || (xblock_full == NULL) || (yblock == NULL) || (yconvblock == NULL))
+  xblock = alloc_tmatd(num_obs, block_size);
+  xblock_full = alloc_tmatd(num_obs, block_size);
+  yblock = alloc_tmatd(num_obs, block_size);
+  yconvblock = alloc_tmatd(num_obs, block_size);
+  quad_cross = alloc_vecd(block_size*block_size);
+  if((xblock == NULL) || (xblock_full == NULL) || (yblock == NULL) ||
+     (yconvblock == NULL) || (quad_cross == NULL))
     goto cleanup_cvls_lp_block;
 
   *cv = 0.0;
@@ -19899,15 +19906,14 @@ int np_conditional_density_cvls_lp_stream(double *vector_scale_factor,
       if(np_conditional_y_block_stream_op_core(vector_scale_factor, j0, jb, OP_CONVOLUTION, yconvblock) != 0)
         goto cleanup_cvls_lp_block;
 
+      np_blas_dgemm_tn_int(ib, jb, num_obs, xblock_full[0], yconvblock[0], quad_cross);
       for(ii = 0; ii < ib; ii++){
         double * const ai = xblock_full[ii];
         for(jj = 0; jj < jb; jj++){
           const double aij = ai[j0 + jj];
-          double inner;
           if(aij == 0.0)
             continue;
-          inner = np_blas_ddot_int(num_obs, ai, yconvblock[jj]);
-          quad += aij*inner;
+          quad += aij*quad_cross[ii + jj*ib];
         }
       }
     }
@@ -19919,10 +19925,11 @@ int np_conditional_density_cvls_lp_stream(double *vector_scale_factor,
   status = 0;
 
 cleanup_cvls_lp_block:
-  if(xblock != NULL) free_mat(xblock, block_size);
-  if(xblock_full != NULL) free_mat(xblock_full, block_size);
-  if(yblock != NULL) free_mat(yblock, block_size);
-  if(yconvblock != NULL) free_mat(yconvblock, block_size);
+  if(xblock != NULL) free_tmat(xblock);
+  if(xblock_full != NULL) free_tmat(xblock_full);
+  if(yblock != NULL) free_tmat(yblock);
+  if(yconvblock != NULL) free_tmat(yconvblock);
+  if(quad_cross != NULL) free(quad_cross);
   np_glp_cv_clear_extern();
   return status;
 }
@@ -20004,6 +20011,7 @@ static int np_conditional_distribution_cvls_lp_block_stream(double *vector_scale
   const int num_eval = num_obs_eval_extern;
   const int block_size = MIN(np_conditional_lp_cvls_block_size(), MAX(1, num_train));
   double **xblock = NULL, **yintblock = NULL;
+  double *fit_cross = NULL;
   int i0, j0, ii, jj;
   int status = 1;
 
@@ -20019,9 +20027,10 @@ static int np_conditional_distribution_cvls_lp_block_stream(double *vector_scale
      (int_TREE_Y == NP_TREE_TRUE))
     return np_conditional_distribution_cvls_lp_row_stream(vector_scale_factor, cv);
 
-  xblock = alloc_matd(num_train, block_size);
-  yintblock = alloc_matd(num_train, block_size);
-  if((xblock == NULL) || (yintblock == NULL))
+  xblock = alloc_tmatd(num_train, block_size);
+  yintblock = alloc_tmatd(num_train, block_size);
+  fit_cross = alloc_vecd(block_size*block_size);
+  if((xblock == NULL) || (yintblock == NULL) || (fit_cross == NULL))
     goto cleanup_cdist_lp_block;
 
   *cv = 0.0;
@@ -20046,9 +20055,9 @@ static int np_conditional_distribution_cvls_lp_block_stream(double *vector_scale
                                                     yintblock) != 0)
         goto cleanup_cdist_lp_block;
 
+      np_blas_dgemm_tn_int(ib, jb, num_train, xblock[0], yintblock[0], fit_cross);
       for(ii = 0; ii < ib; ii++){
         const int train_i = i0 + ii;
-        double * const ai = xblock[ii];
 
         for(jj = 0; jj < jb; jj++){
           const int eval_j = j0 + jj;
@@ -20058,7 +20067,7 @@ static int np_conditional_distribution_cvls_lp_block_stream(double *vector_scale
           if(cdfontrain_extern && (train_i == eval_j))
             continue;
 
-          fit = np_blas_ddot_int(num_train, ai, yintblock[jj]);
+          fit = fit_cross[ii + jj*ib];
           indy = np_conditional_indicator_row_core(train_i,
                                                    eval_j,
                                                    cdfontrain_extern,
@@ -20083,8 +20092,9 @@ static int np_conditional_distribution_cvls_lp_block_stream(double *vector_scale
   status = 0;
 
 cleanup_cdist_lp_block:
-  if(xblock != NULL) free_mat(xblock, block_size);
-  if(yintblock != NULL) free_mat(yintblock, block_size);
+  if(xblock != NULL) free_tmat(xblock);
+  if(yintblock != NULL) free_tmat(yintblock);
+  if(fit_cross != NULL) free(fit_cross);
   np_glp_cv_clear_extern();
   return status;
 }

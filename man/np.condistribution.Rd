@@ -28,6 +28,7 @@ npcdist(bws, \dots)
         exdat,
         eydat,
         gradients = FALSE,
+        gradient.order = 1L,
         proper = FALSE,
         proper.method = c("isotonic"),
         proper.control = list(),
@@ -79,8 +80,8 @@ These arguments identify the bandwidth specification, formula/data interface, an
   }
 
 
-\subsection{Bandwidth Search Shortcut}{
-This argument passes the recommended automatic local-polynomial NOMAD preset to \code{\link{npcdistbw}} when bandwidths are computed inside \code{npcdist}.
+\subsection{Local-Polynomial Degree And Bandwidth Search}{
+This argument controls the recommended automatic local-polynomial NOMAD route, which jointly selects continuous polynomial degree and bandwidths when these are computed inside \code{npcdist}.
 }
 
   \item{nomad}{
@@ -90,7 +91,7 @@ This argument passes the recommended automatic local-polynomial NOMAD preset to 
     \code{search.engine}, \code{degree.select},
     \code{bernstein.basis}, \code{degree.min}, \code{degree.max},
     \code{degree.verify}, and \code{bwtype} with the recommended
-    automatic LP NOMAD preset documented in \code{\link{npcdistbw}}.
+    automatic local-polynomial degree-and-bandwidth NOMAD preset documented in \code{\link{npcdistbw}}.
     Additional NOMAD tuning arguments such as \code{nomad.nmulti} may
     also be supplied through \code{\dots}; \code{nmulti} remains the
     outer restart count while \code{nomad.nmulti} controls inner
@@ -122,6 +123,18 @@ These arguments control where the fitted conditional distribution is evaluated a
   \item{gradients}{
     a logical value specifying whether to return estimates of the
     gradients at the evaluation points. Defaults to \code{FALSE}.
+  }
+
+
+  \item{gradient.order}{
+    derivative order for continuous explanatory-variable gradients when
+    \code{gradients = TRUE} and \code{regtype = "lp"}. A scalar is
+    recycled across continuous explanatory variables, or one value may
+    be supplied per continuous explanatory variable. The default
+    \code{1L} returns first derivatives. Higher orders are available
+    for continuous explanatory variables only and must not exceed the
+    corresponding local-polynomial degree; unordered and ordered
+    predictors retain their usual first-order discrete effects.
   }
 
 
@@ -193,10 +206,8 @@ Further arguments are passed to \code{\link{npcdistbw}} when bandwidths are comp
   controls, and finally local-polynomial/NOMAD controls for
   polynomial-adaptive fits.
 
-  For S3 plotting help, use \code{methods("plot")} and query
-  class-specific help topics such as \code{?plot.npregression} and
-  \code{?plot.rbandwidth}. You can inspect implementations with
-  \code{getS3method("plot","npregression")}.
+  For S3 plotting help, see \code{\link{plot.np}}. You can list
+  available plot methods with \code{methods("plot")}.
 
   \code{npcdist} implements a variety of methods for estimating
   multivariate conditional cumulative distributions (\eqn{p+q}-variate)
@@ -228,11 +239,21 @@ Further arguments are passed to \code{\link{npcdistbw}} when bandwidths are comp
   Aitken's (1976) kernel, while ordered data types use a variation of the
   Wang and van Ryzin (1981) kernel.
 
-  For practitioners who want the recommended automatic LP NOMAD route
+  For practitioners who want the recommended automatic local-polynomial degree-and-bandwidth NOMAD route
   without spelling out all LP tuning arguments,
   \code{npcdist(..., nomad=TRUE)} and \code{npcdistbw(..., nomad=TRUE)}
   expand missing settings to the same documented preset. Explicit
   incompatible settings fail fast rather than being silently rewritten.
+
+  With \code{regtype = "lp"}, \code{gradients = TRUE} and
+  \code{gradient.order} greater than one expose higher-order derivative
+  estimates with respect to continuous explanatory variables. These
+  derivatives use the same local-polynomial basis, degree, Bernstein
+  option, bandwidths, and kernels as the fitted conditional
+  distribution. Asymptotic standard errors for these higher-order
+  derivative columns are not currently reported; the corresponding
+  entries of \code{congerr} are \code{NA}. Use bootstrap intervals when
+  inference on higher-order derivatives is required.
 
 }
 \value{
@@ -256,11 +277,33 @@ Further arguments are passed to \code{\link{npcdistbw}} when bandwidths are comp
   \item{conderr}{ standard errors of the cumulative conditional distribution
     estimates }
   \item{congrad}{ if invoked with \code{gradients = TRUE}, estimates of
-    the gradients at the evaluation points }
+    the gradients at the evaluation points. For local-polynomial fits,
+    continuous-coordinate derivative orders are controlled by
+    \code{gradient.order}. }
   \item{congerr}{ if invoked with \code{gradients = TRUE}, standard
-    errors of the gradients at the evaluation points }
+    errors of the gradients at the evaluation points. Higher-order
+    continuous-coordinate derivative standard errors are currently
+    returned as \code{NA}; bootstrap inference is preferred for those
+    targets. }
   \item{log_likelihood}{ log likelihood of the cumulative conditional distribution estimate }
 
+}
+
+\section{Book And Method Pointers}{
+  The conditional distribution target is
+  \eqn{F(y\mid x)=\Pr(Y\le y\mid X=x)}. The estimator uses the selected
+  mixed-data conditional distribution bandwidths and kernels for the
+  response and conditioning coordinates; local-polynomial routes use the
+  selected continuous-coordinate polynomial degree. These fitted
+  conditional CDFs are also the object inverted by \code{\link{npqreg}}
+  when computing conditional quantiles.
+
+  For book-length derivations, see Li and Racine (2007), Chapter 6
+  \emph{Conditional CDF and Quantile Estimation}, especially Sections 6.1,
+  6.2, and 6.5, together with Chapter 5 \emph{Conditional Density
+  Estimation}. The later workflow treatment is Racine (2019), Chapter
+  4 \emph{Conditional Probability Density and Cumulative Distribution
+  Functions}.
 }
 
 \references{
@@ -324,7 +367,7 @@ Further arguments are passed to \code{\link{npcdistbw}} when bandwidths are comp
 
 data("Italy")
 Italy <- Italy[seq_len(min(300, nrow(Italy))), ]
-attach(Italy)
+with(Italy, {
 
 # First, compute the bandwidths.
 
@@ -345,7 +388,7 @@ summary(Fhat)
 
 if (interactive()) plot(bw)
 
-detach(Italy)
+})
 
 # EXAMPLE 1 (INTERFACE=DATA FRAME): For this example, we load Giovanni
 # Baiocchi's Italian GDP panel (see Italy for details), and compute the
@@ -355,7 +398,7 @@ detach(Italy)
 
 data("Italy")
 Italy <- Italy[seq_len(min(300, nrow(Italy))), ]
-attach(Italy)
+with(Italy, {
 
 # First, compute the bandwidths.
 
@@ -383,7 +426,7 @@ summary(Fhat)
 
 if (interactive()) plot(bw)
 
-detach(Italy)
+})
 
 # EXAMPLE 2 (INTERFACE=FORMULA): For this example, we load the old
 # faithful geyser data from the R `datasets' library and compute the
@@ -391,7 +434,7 @@ detach(Italy)
 
 library("datasets")
 data("faithful")
-attach(faithful)
+with(faithful, {
 
 # Note - this may take a few minutes depending on the speed of your
 # computer...
@@ -406,7 +449,7 @@ summary(bw)
 
 if (interactive()) plot(bw)
 
-detach(faithful)
+})
 
 # EXAMPLE 2 (INTERFACE=DATA FRAME): For this example, we load the old
 # faithful geyser data from the R `datasets' library and compute the
@@ -414,7 +457,7 @@ detach(faithful)
 
 library("datasets")
 data("faithful")
-attach(faithful)
+with(faithful, {
 
 # Note - this may take a few minutes depending on the speed of your
 # computer...
@@ -436,7 +479,7 @@ summary(bw)
 
 if (interactive()) plot(bw)
 
-detach(faithful)
+})
 
 # EXAMPLE 3: Variations on local polynomial conditional distribution
 # estimation with proper = TRUE.

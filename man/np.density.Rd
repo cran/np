@@ -113,10 +113,8 @@ Further arguments are passed to \code{\link{npudensbw}} when bandwidths are comp
   representation, then kernel/support controls and numerical search
   controls if defaults need to be changed.
 
-  For S3 plotting help, use \code{methods("plot")} and query
-  class-specific help topics such as \code{?plot.npregression} and
-  \code{?plot.rbandwidth}. You can inspect implementations with
-  \code{getS3method("plot","npregression")}.
+  For S3 plotting help, see \code{\link{plot.np}}. You can list
+  available plot methods with \code{methods("plot")}.
 
 
   Typical usages are (see below for a complete list of options and also
@@ -189,6 +187,24 @@ Further arguments are passed to \code{\link{npudensbw}} when bandwidths are comp
   \item{log_likelihood}{ log likelihood of the density estimates }
 
 }
+\section{Book And Method Pointers}{
+  The unconditional density target is \eqn{f(x)}. In the continuous
+  fixed-bandwidth case the estimator has the usual kernel form
+  \eqn{\hat f(x)=n^{-1}\sum_i K_h(X_i,x)}; with mixed data,
+  \code{npudens} uses generalized product kernels so that the continuous,
+  unordered, and ordered components each contribute their appropriate
+  kernel factor. Nearest-neighbor bandwidth types change how the
+  continuous bandwidth is indexed, not the statistical target.
+
+  For book-length derivations, see Li and Racine (2007), Chapter 1
+  \emph{Density Estimation}, especially Sections 1.1, 1.3, 1.6, 1.8, and
+  1.9, and Chapter 4 \emph{Kernel Estimation with Mixed Data}. The later
+  workflow treatment is Racine (2019), Chapter 2 \emph{Continuous
+  Density and Cumulative Distribution Functions} and Chapter 3
+  \emph{Mixed-Data Probability Density and Cumulative Distribution
+  Functions}.
+}
+
 \references{
   Aitchison, J. and C.G.G. Aitken (1976), \dQuote{ Multivariate binary
     discrimination by the kernel method,} Biometrika, 63, 413-420.
@@ -242,7 +258,7 @@ Further arguments are passed to \code{\link{npudensbw}} when bandwidths are comp
 # purposes.
 
 data("Italy")
-attach(Italy)
+with(Italy, {
 
 # Compute bandwidths using likelihood cross-validation (default).
 
@@ -304,7 +320,7 @@ if (interactive()) Sys.sleep(5)
 
 if (interactive()) plot(bw)
 
-detach(Italy)
+})
 
 # EXAMPLE 1 (INTERFACE=DATA FRAME): For this example, we load Giovanni
 # Baiocchi's Italian GDP panel (see Italy for details), then create a
@@ -314,7 +330,7 @@ detach(Italy)
 # purposes.
 
 data("Italy")
-attach(Italy)
+with(Italy, {
 
 data <- data.frame(year=ordered(year), gdp)
 
@@ -378,7 +394,7 @@ if (interactive()) Sys.sleep(5)
 
 if (interactive()) plot(bw)
 
-detach(Italy)
+})
 
 # EXAMPLE 2 (INTERFACE=FORMULA): For this example, we load the old
 # faithful geyser data and compute the density and distribution
@@ -386,7 +402,7 @@ detach(Italy)
 
 library("datasets")
 data("faithful")
-attach(faithful)
+with(faithful, {
 
 # Note - this may take a few minutes depending on the speed of your
 # computer...
@@ -402,7 +418,7 @@ summary(bw)
 
 if (interactive()) plot(bw, xtrim=-0.2)
 
-detach(faithful)
+})
 
 # EXAMPLE 2 (INTERFACE=DATA FRAME): For this example, we load the old
 # faithful geyser data and compute the density and distribution
@@ -410,7 +426,7 @@ detach(faithful)
 
 library("datasets")
 data("faithful")
-attach(faithful)
+with(faithful, {
 
 # Note - this may take a few minutes depending on the speed of your
 # computer...
@@ -426,7 +442,7 @@ summary(bw)
 
 if (interactive()) plot(bw, xtrim=-0.2)
 
-detach(faithful)
+})
 } % enddontrun
 }
 \keyword{ nonparametric }% at least one, from doc/KEYWORDS

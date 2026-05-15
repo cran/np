@@ -1539,19 +1539,26 @@ npscoefbw.scbandwidth <-
       hot.reg.args$regtype <- "lp"
       hot.reg.args$degree <- degree
       hot.reg.args$bernstein.basis <- degree.search$bernstein.basis
-      hot.opt.args <- opt.args
-      hot.opt.args$nmulti <- .np_nomad_powell_hotstart_nmulti("single_iteration")
+      hot.opt.args <- .np_nomad_powell_hotstart_opt_args(
+        opt.args,
+        strategy = "single_iteration",
+        remin = isTRUE(opt.args$powell.remin)
+      )
       powell.start <- proc.time()[3L]
-      hot.payload <- .np_nomad_with_powell_progress(degree, local({
-        .npscoefbw_run_fixed_degree(
-          xdat = xdat,
-          ydat = ydat,
-          zdat = zdat,
-          bws = bw_vec,
-          reg.args = hot.reg.args,
-          opt.args = hot.opt.args
-        )
-      }))
+      hot.payload <- .np_nomad_with_powell_progress(
+        degree = degree,
+        best_record = best_record,
+        expr = local({
+          .npscoefbw_run_fixed_degree(
+            xdat = xdat,
+            ydat = ydat,
+            zdat = zdat,
+            bws = bw_vec,
+            reg.args = hot.reg.args,
+            opt.args = hot.opt.args
+          )
+        })
+      )
       powell.elapsed <- proc.time()[3L] - powell.start
       direct.payload$num.feval <- as.numeric(direct.payload$num.feval[1L]) + as.numeric(hot.payload$num.feval[1L])
       direct.payload$num.feval.fast <- as.numeric(direct.payload$num.feval.fast[1L]) + as.numeric(hot.payload$num.feval.fast[1L])
@@ -1584,6 +1591,7 @@ npscoefbw.scbandwidth <-
     nmulti = nomad.nmulti,
     nomad.inner.nmulti = nomad.inner.nmulti,
     random.seed = if (!is.null(opt.args$random.seed)) opt.args$random.seed else 42L,
+    remin = isTRUE(opt.args$nomad.remin),
     degree_spec = list(
       initial = degree.search$start.degree,
       lower = degree.search$lower,
@@ -1743,6 +1751,8 @@ npscoefbw.default <-
            degree.max.cycles = 20L,
            degree.verify = FALSE,
            nmulti,
+           nomad.remin = FALSE,
+           powell.remin = TRUE,
            okertype,
            optim.abstol,
            optim.maxattempts,
@@ -1908,6 +1918,7 @@ npscoefbw.default <-
     ## next grab dummies for actual bandwidth selection and perform call
     margs <- c("zdat",
                "nmulti",
+               "powell.remin",
                "random.seed",
                "scale.factor.init.lower", "scale.factor.init.upper", "scale.factor.init",
                "lbd.init", "hbd.init", "dfac.init",

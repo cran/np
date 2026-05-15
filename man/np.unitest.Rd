@@ -92,6 +92,19 @@ Further arguments are passed to the bandwidth-selection routines used by the tes
 
   \code{\link{summary}} supports object of type \code{unitest}.
 }
+\section{Book And Method Pointers}{
+  \code{npunitest} uses an entropy-distance measure to compare
+  univariate density or probability functions. The statistic is based on
+  the normalized Hellinger-type distance described in the entropy-test
+  literature referenced below.
+
+  For book-length background, see Racine (2019), Chapter 2
+  \emph{Continuous Density and Cumulative Distribution Functions},
+  especially the entropy and density-test material. For related density
+  and testing background, see Li and Racine (2007), Chapters 1, 12, and
+  13.
+}
+
 \references{
 
   Granger, C.W. and E. Maasoumi and J.S. Racine (2004), \dQuote{A
@@ -189,7 +202,7 @@ if (interactive()) Sys.sleep(5)
 t.test(x,y)
 ## F test for equality of variances and asymptotic
 ## critical values
-F <- var(x)/var(y)
+Fstat <- var(x)/var(y)
 qf(c(0.025,0.975),df1=n-1,df2=n-1)
 
 ## Plot the nonparametric density estimates on the same axes
@@ -206,7 +219,7 @@ if (interactive()) Sys.sleep(5)
 ## Test for equality of log(wage) distributions
 
 data(wage1)
-attach(wage1)
+with(wage1, {
 lwage.male <- lwage[female=="Male"]
 lwage.female <- lwage[female=="Female"]
 
@@ -227,7 +240,7 @@ lines(f.f$x,f.f$y,col="red",lty=2)
 rug(lwage.male)
 legend(-1,1.2,c("Male","Female"),lty=c(1,2),col=c("black","red"))
 
-detach(wage1)
+})
 
 if (interactive()) Sys.sleep(5)
 

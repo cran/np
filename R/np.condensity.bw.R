@@ -288,7 +288,7 @@ npcdensbw.conbandwidth <-
            memfac = 500.0,
            nmulti,
            penalty.multiplier = 10,
-           remin = TRUE,
+           powell.remin = TRUE,
            scale.init.categorical.sample = FALSE,
            scale.factor.search.lower = NULL,
            cvls.quadrature.grid = NULL,
@@ -326,7 +326,7 @@ npcdensbw.conbandwidth <-
       nmulti <- npDefaultNmulti(dim(ydat)[2]+dim(xdat)[2])
     }
     bandwidth.compute <- npValidateScalarLogical(bandwidth.compute, "bandwidth.compute")
-    remin <- npValidateScalarLogical(remin, "remin")
+    remin <- npValidateScalarLogical(powell.remin, "powell.remin")
     scale.init.categorical.sample <-
       npValidateScalarLogical(scale.init.categorical.sample, "scale.init.categorical.sample")
     scale.factor.search.lower <- .npcdensbw_resolve_scale_factor_lower_bound(
@@ -1100,17 +1100,27 @@ npcdensbw.conbandwidth <-
     rep.int(1, length(x_ord_flat))
   )
 
-  list(
+  setup <- list(
     cont_flat = c(y_cont_flat, x_cont_flat),
-    cont_scale = c(EssDee(ycon), EssDee(xcon)) * nconfac,
+    cont_scale = .npConditionalNomadContScale(
+      ycon = ycon,
+      xcon = xcon,
+      iycon = template$iycon,
+      ixcon = template$ixcon,
+      nconfac = nconfac,
+      where = "npcdensbw"
+    ),
     cat_flat = c(y_uno_flat, y_ord_flat, x_uno_flat, x_ord_flat),
     ncatfac = ncatfac,
     bandwidth.scale.categorical = bandwidth.scale.categorical,
     cat_upper = cat_upper
   )
+  .npAssertConditionalNomadSetup(setup, where = "npcdensbw")
+  setup
 }
 
 .npcdensbw_nomad_point_to_bw <- function(point, template, setup) {
+  .npAssertConditionalNomadSetup(setup, where = "npcdensbw")
   point <- as.numeric(point)
   ncont <- length(setup$cont_flat)
   ncat <- length(setup$cat_flat)
@@ -1132,6 +1142,7 @@ npcdensbw.conbandwidth <-
 }
 
 .npcdensbw_nomad_bw_to_point <- function(bws, template, setup) {
+  .npAssertConditionalNomadSetup(setup, where = "npcdensbw")
   point <- numeric(length(setup$cont_flat) + length(setup$cat_flat))
 
   if (length(setup$cont_flat) > 0L) {
@@ -1408,8 +1419,11 @@ npcdensbw.conbandwidth <-
       hot.reg.args$regtype.engine <- "lp"
       hot.reg.args$degree.engine <- degree
       hot.reg.args$bernstein.basis.engine <- degree.search$bernstein.basis
-      hot.opt.args <- opt.args
-      hot.opt.args$nmulti <- .np_nomad_powell_hotstart_nmulti("disable_multistart")
+      hot.opt.args <- .np_nomad_powell_hotstart_opt_args(
+        opt.args,
+        strategy = "disable_multistart",
+        remin = isTRUE(opt.args$powell.remin)
+      )
       powell.start <- proc.time()[3L]
       hot.payload <- .npcdensbw_with_powell_refinement_progress(
         degree,
@@ -1460,6 +1474,7 @@ npcdensbw.conbandwidth <-
     nomad.inner.nmulti = nomad.inner.nmulti,
     random.seed = random.seed,
     handoff_before_build = identical(degree.search$engine, "nomad+powell"),
+    remin = isTRUE(opt.args$nomad.remin),
     degree_spec = list(
       initial = degree.search$start.degree,
       lower = degree.search$lower,
@@ -1649,7 +1664,8 @@ npcdensbw.default <-
            oxkertype,
            oykertype,
            penalty.multiplier,
-           remin,
+           nomad.remin = FALSE,
+           powell.remin,
            scale.init.categorical.sample,
            scale.factor.search.lower = NULL,
            cvls.quadrature.grid = c("hybrid", "uniform", "sample"),
@@ -1764,6 +1780,9 @@ npcdensbw.default <-
     )
 
     if (isTRUE(nomad.shortcut$enabled)) {
+      if (sum(x.info$icon) == 0L)
+        stop("nomad=TRUE requires at least one continuous predictor for degree search",
+             call. = FALSE)
       if ("degree" %in% mc.names)
         stop("nomad=TRUE does not support an explicit degree; remove degree or set nomad=FALSE")
       if ("regtype" %in% mc.names &&
@@ -1836,6 +1855,7 @@ npcdensbw.default <-
 
     search.mc.names <- names(mc)
     lp.dot.args <- list(...)
+    .np_degree_reject_unknown_dots(lp.dot.args, "npcdensbw")
     random.seed.value <- .np_degree_extract_random_seed(lp.dot.args)
     search.engine.value <- if (!is.null(nomad.shortcut$values$search.engine)) nomad.shortcut$values$search.engine else "nomad+powell"
     degree.min.value <- nomad.shortcut$values$degree.min
@@ -1934,7 +1954,7 @@ npcdensbw.default <-
     ## next grab dummies for actual bandwidth selection and perform call
 
     mc.names <- names(mc)
-    margs <- c("nmulti", "remin", "itmax", "ftol",
+    margs <- c("nmulti", "nomad.remin", "powell.remin", "itmax", "ftol",
                "tol", "small", "memfac",
                "lbc.dir", "dfc.dir", "cfac.dir","initc.dir", 
                "lbd.dir", "hbd.dir", "dfac.dir", "initd.dir", 

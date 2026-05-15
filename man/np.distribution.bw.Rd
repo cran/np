@@ -51,7 +51,7 @@ npudistbw(\dots)
           ngrid = 100,
           nmulti,
           penalty.multiplier = 10,
-          remin = TRUE,
+          powell.remin = TRUE,
           scale.init.categorical.sample = FALSE,
           scale.factor.search.lower = NULL,
           small = 1.490116e-05,
@@ -94,7 +94,7 @@ npudistbw(\dots)
           nmulti,
           okertype,
           penalty.multiplier,
-          remin,
+          powell.remin,
           scale.init.categorical.sample,
           scale.factor.search.lower = NULL,
           small,
@@ -410,10 +410,10 @@ These controls set optimizer tolerances, restart behavior, invalid-candidate pen
     baseline penalty when \code{invalid.penalty="baseline"}.
     Defaults to \code{10}.}
 
-  \item{remin}{
-    a logical value which when set as \code{TRUE} the search routine
-    restarts from located minima for a minor gain in accuracy. Defaults
-    to \code{TRUE}.
+  \item{powell.remin}{
+    logical flag controlling Powell restart-from-minimum behavior. When
+    \code{TRUE}, the Powell-style search restarts from the located minimum
+    for a minor gain in accuracy. Defaults to \code{TRUE}.
   }
 
   \item{small}{
@@ -480,8 +480,8 @@ or standard-deviation factors.
   not affected by \code{scale.factor.search.lower}.
 
   Documentation guide: see \code{\link{np.kernels}} for kernels,
-  \code{\link{np.options}} for global options, and \code{\link{plot}}
-  for plotting options.
+  \code{\link{np.options}} for global options, and
+  \code{\link{plot}}, \code{\link{plot.np}} for plotting options.
 
   The bandwidth-selection argument surface is easiest to read by
   decision group: data, grid, and existing bandwidth inputs; bandwidth
@@ -494,10 +494,8 @@ or standard-deviation factors.
   bandwidth object can pass these same bandwidth-selection controls
   through that function's \code{\dots}.
 
-  For S3 plotting help, use \code{methods("plot")} and query
-  class-specific help topics such as \code{?plot.npregression} and
-  \code{?plot.rbandwidth}. You can inspect implementations with
-  \code{getS3method("plot","npregression")}.
+  For S3 plotting help, see \code{\link{plot.np}}. You can list
+  available plot methods with \code{methods("plot")}.
 
 
   Typical usages are (see below for a complete list of options and also
@@ -604,6 +602,18 @@ or standard-deviation factors.
   The functions  \code{\link{predict}}, \code{\link{summary}} and \code{\link{plot}} support
   objects of type \code{bandwidth}.
 }
+\section{Book And Method Pointers}{
+  \code{npudistbw} selects bandwidths for the unconditional distribution
+  target \eqn{F(x)=\Pr(X\le x)} estimated by \code{\link{npudist}}.
+  The selected bandwidths control the integrated kernel factors used in
+  the mixed-data CDF estimator.
+
+  For book-length derivations, see Li and Racine (2007), Chapter 1
+  \emph{Density Estimation}, especially Sections 1.4 and 1.5, and Chapter
+  4 \emph{Kernel Estimation with Mixed Data}. The later workflow treatment
+  is Racine (2019), Chapters 2 and 3.
+}
+
 \references{
 
   Aitchison, J. and C.G.G. Aitken (1976), \dQuote{Multivariate binary
@@ -679,7 +689,7 @@ or standard-deviation factors.
 }
 
 \seealso{
-  \code{\link{np.kernels}}, \code{\link{np.options}}, \code{\link{plot}}
+  \code{\link{np.kernels}}, \code{\link{np.options}}, \code{\link{plot}}, \code{\link{plot.np}}
   \code{\link{bw.nrd}}, \code{\link{bw.SJ}},  \code{\link{hist}},
   \code{\link{npudist}}, \code{\link{npudist}} }
 \examples{
@@ -689,7 +699,7 @@ or standard-deviation factors.
 # data frame in which year is an ordered factor, GDP is continuous.
 
 data("Italy")
-attach(Italy)
+with(Italy, {
 
 data <- data.frame(ordered(year), gdp)
 
@@ -787,14 +797,14 @@ bw <- npudistbw(formula=~ordered(year)+gdp, bws=c(1, 1))
 
 summary(bw)
 
-detach(Italy)
+})
 
 # EXAMPLE 1 (INTERFACE=DATA FRAME): For this example, we load Giovanni
 # Baiocchi's Italian GDP panel (see Italy for details), then create a
 # data frame in which year is an ordered factor, GDP is continuous.
 
 data("Italy")
-attach(Italy)
+with(Italy, {
 
 data <- data.frame(ordered(year), gdp)
 
@@ -891,7 +901,7 @@ bw <- npudistbw(dat=data, bws=c(1, 1))
 
 summary(bw)
 
-detach(Italy)
+})
 } % enddontrun
 }
 \keyword{nonparametric}

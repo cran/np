@@ -626,11 +626,28 @@ test_that("semihat apply mode matches core fits across bwtypes", {
         output = "matrix",
         iterate = FALSE
       )
+      sc.constraint <- npscoefhat(
+        bws = sc.bw,
+        txdat = tx.sc,
+        tzdat = tz.sc,
+        exdat = ex.sc,
+        ezdat = ez.sc,
+        y = y,
+        output = "constraint",
+        iterate = FALSE
+      )
       expect_equal(
         as.vector(sc.apply),
         as.vector(sc.H %*% y),
         tolerance = 1e-10,
         info = paste("npscoefhat helper parity", regtype, bwtype)
+      )
+      expect_equal(
+        sc.constraint,
+        t(sc.H) * y,
+        tolerance = 0,
+        ignore_attr = TRUE,
+        info = paste("npscoefhat constraint", regtype, bwtype)
       )
       if (identical(bwtype, "fixed")) {
         expect_equal(
@@ -659,11 +676,35 @@ test_that("semihat apply mode matches core fits across bwtypes", {
         y = y,
         output = "apply"
       )
+      pl.H <- npplreghat(
+        bws = pl.bw,
+        txdat = tx.pl,
+        tzdat = tz.pl,
+        exdat = ex.pl,
+        ezdat = ez.pl,
+        output = "matrix"
+      )
+      pl.constraint <- npplreghat(
+        bws = pl.bw,
+        txdat = tx.pl,
+        tzdat = tz.pl,
+        exdat = ex.pl,
+        ezdat = ez.pl,
+        y = y,
+        output = "constraint"
+      )
       expect_equal(
         as.vector(pl.apply),
         as.vector(pl.fit$mean),
         tolerance = 1e-8,
         info = paste("npplreghat", regtype, bwtype)
+      )
+      expect_equal(
+        pl.constraint,
+        t(pl.H) * y,
+        tolerance = 0,
+        ignore_attr = TRUE,
+        info = paste("npplreghat constraint", regtype, bwtype)
       )
 
       si.bw <- do.call(npindexbw, si.args)
@@ -696,6 +737,14 @@ test_that("semihat apply mode matches core fits across bwtypes", {
         output = "matrix",
         s = 0L
       )
+      si.constraint.mean <- npindexhat(
+        bws = si.bw,
+        txdat = tx.si,
+        exdat = ex.si,
+        y = y,
+        output = "constraint",
+        s = 0L
+      )
       si.apply.grad <- npindexhat(
         bws = si.bw,
         txdat = tx.si,
@@ -709,6 +758,14 @@ test_that("semihat apply mode matches core fits across bwtypes", {
         txdat = tx.si,
         exdat = ex.si,
         output = "matrix",
+        s = 1L
+      )
+      si.constraint.grad <- npindexhat(
+        bws = si.bw,
+        txdat = tx.si,
+        exdat = ex.si,
+        y = y,
+        output = "constraint",
         s = 1L
       )
       expect_equal(
@@ -730,6 +787,13 @@ test_that("semihat apply mode matches core fits across bwtypes", {
         info = paste("npindexhat mean matrix/apply", regtype, bwtype)
       )
       expect_equal(
+        si.constraint.mean,
+        t(si.H.mean) * y,
+        tolerance = 0,
+        ignore_attr = TRUE,
+        info = paste("npindexhat mean constraint", regtype, bwtype)
+      )
+      expect_equal(
         as.vector(si.apply.grad),
         as.vector(si.fit.grad$grad[, 1]),
         tolerance = 1e-8,
@@ -746,6 +810,13 @@ test_that("semihat apply mode matches core fits across bwtypes", {
         as.vector(si.apply.grad),
         tolerance = 1e-10,
         info = paste("npindexhat grad matrix/apply", regtype, bwtype)
+      )
+      expect_equal(
+        si.constraint.grad,
+        t(si.H.grad) * y,
+        tolerance = 0,
+        ignore_attr = TRUE,
+        info = paste("npindexhat grad constraint", regtype, bwtype)
       )
     }
   }
@@ -1041,6 +1112,21 @@ test_that("semihat validates class and scalar controls", {
   expect_error(npindexhat(bws = rbw, txdat = data.frame(x = x)), "sibandwidth")
   expect_error(npplreghat(bws = rbw, txdat = data.frame(x = x), tzdat = data.frame(z = z)), "plbandwidth")
   expect_error(npscoefhat(bws = rbw, txdat = data.frame(x = x), tzdat = data.frame(z = z)), "scbandwidth")
+  expect_error(
+    npindexhat(bws = structure(list(), class = "sibandwidth"),
+               txdat = data.frame(x = x), foo = TRUE),
+    "unused argument in npindexhat: 'foo'"
+  )
+  expect_error(
+    npplreghat(bws = structure(list(), class = "plbandwidth"),
+               txdat = data.frame(x = x), tzdat = data.frame(z = z), foo = TRUE),
+    "unused argument in npplreghat: 'foo'"
+  )
+  expect_error(
+    npscoefhat(bws = structure(list(), class = "scbandwidth"),
+               txdat = data.frame(x = x), tzdat = data.frame(z = z), foo = TRUE),
+    "unused argument in npscoefhat: 'foo'"
+  )
 
   sibw <- npindexbw(
     xdat = data.frame(x = x, x2 = x^2),
@@ -1097,10 +1183,10 @@ test_that("plot bootstrap supports wild for sc/pl/si bandwidth objects", {
       ydat = y,
       zdat = data.frame(z = z),
       perspective = FALSE,
-      plot.behavior = "data",
-      plot.errors.method = "bootstrap",
-      plot.errors.boot.method = "wild",
-      plot.errors.boot.num = 19
+      output = "data",
+      errors = "bootstrap",
+      bootstrap = "wild",
+      B = 19
     )
   )
   expect_type(sc.out, "list")
@@ -1113,12 +1199,12 @@ test_that("plot bootstrap supports wild for sc/pl/si bandwidth objects", {
       ydat = y,
       zdat = data.frame(z = z),
       perspective = FALSE,
-      plot.behavior = "data",
-      plot.errors.method = "bootstrap",
-      plot.errors.boot.method = "wild",
-      plot.errors.boot.wild = "rademacher",
-      plot.errors.type = "pointwise",
-      plot.errors.boot.num = 19
+      output = "data",
+      errors = "bootstrap",
+      bootstrap = "wild",
+      boot_control = np_boot_control(wild = "rademacher"),
+      band = "pointwise",
+      B = 19
     )
   )
   expect_type(sc.out.rad, "list")
@@ -1157,10 +1243,10 @@ test_that("plot bootstrap supports wild for sc/pl/si bandwidth objects", {
         ydat = y,
         zdat = data.frame(z = z),
         perspective = FALSE,
-        plot.behavior = "data",
-        plot.errors.method = "bootstrap",
-        plot.errors.boot.method = "wild",
-        plot.errors.boot.num = 11
+        output = "data",
+        errors = "bootstrap",
+        bootstrap = "wild",
+        B = 11
       )
     )
     expect_type(sc.out.cfg, "list")
@@ -1195,10 +1281,10 @@ test_that("plot bootstrap supports wild for sc/pl/si bandwidth objects", {
         ydat = y,
         zdat = data.frame(z = z),
         perspective = FALSE,
-        plot.behavior = "data",
-        plot.errors.method = "bootstrap",
-        plot.errors.boot.method = "wild",
-        plot.errors.boot.num = 9
+        output = "data",
+        errors = "bootstrap",
+        bootstrap = "wild",
+        B = 9
       )
     )
     expect_true(is.list(pl.out), info = cfg$label)
@@ -1216,10 +1302,10 @@ test_that("plot bootstrap supports wild for sc/pl/si bandwidth objects", {
       sibw,
       xdat = data.frame(x1 = x, x2 = z),
       ydat = y,
-      plot.behavior = "data",
-      plot.errors.method = "bootstrap",
-      plot.errors.boot.method = "wild",
-      plot.errors.boot.num = 19
+      output = "data",
+      errors = "bootstrap",
+      bootstrap = "wild",
+      B = 19
     )
   )
   expect_type(si.out, "list")

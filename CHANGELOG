@@ -1,3 +1,175 @@
+Changes from Version 0.70-1 to 0.70-2 [15-May-2026]
+
+* Promoted `npqreg()` to a fully fledged quantile-regression front end. It
+  now supports formula/data calls that compute `npcdistbw()` internally,
+  scalar or vector `tau`, bandwidth reuse for additional quantiles in
+  `plot()`, and the standard S3 workflow through `fitted()`, `predict()`,
+  `predict(..., se.fit = TRUE)`, `se()`, `gradients()`, `summary()`,
+  `print()`, `quantile()`, and `plot()`.
+
+* Promoted `npconmode()` to a first-class conditional-mode estimator with
+  formula/data and bandwidth-object workflows, propagation of
+  bandwidth-selection controls through `npcdensbw()`, local-polynomial/NOMAD
+  metadata in returned objects, class-probability output, level-specific
+  probability gradients, and `fitted()`, `predict()`, `summary()`, `print()`,
+  `gradients()`, and `plot()` methods.
+
+* Extended `npconmode()` plotting to object-fed class-probability slices and
+  two-dimensional probability surfaces, including optional `rgl` rendering and
+  probability-level asymptotic intervals where defined. Surface bootstrap
+  intervals for class probabilities remain intentionally deferred.
+
+* Promoted `npcopula()` to a first-class copula estimator with formula/data
+  and bandwidth-object workflows, automatic two-dimensional probability-grid
+  construction, explicit `u` grid evaluation, ordinary extractable object
+  components including `$bws`, `fitted()`, `predict()`, `predict(...,
+  se.fit = TRUE)`, `se()`, `summary()`, `print()`, `as.data.frame()`, and
+  enhanced `plot()` methods with asymptotic and bootstrap intervals where
+  defined.
+
+* Hardened S3 prediction and evaluation contracts across the newly promoted
+  and adjacent core/semiparametric methods. The repaired routes honor the
+  standard `newdata` workflow, preserve native evaluation-argument precedence
+  such as `exdat`/`eydat`, validate formula right-hand-side variables in new
+  data, and report invalid `se.fit` or gradient controls before expensive
+  computation begins.
+
+* Expanded pre-release validation for the promoted estimator families with
+  hostile argument tests, S3 extractor and prediction contract tests,
+  installed/tarball proof scripts, and parity checks against the mirrored
+  `npRmpi` implementations.
+
+* Added an explicit proper-discrete-probability contract for
+  `npconmode()`. Local-constant conditional-mode fits remain unchanged by
+  default because their categorical probabilities are proper by construction;
+  non-local-constant routes now default to projecting the fitted probabilities
+  over the discrete response support onto the probability simplex before
+  selecting and reporting the conditional mode. Binary outcomes are handled
+  through the complement identity, and the optional `probabilities = TRUE`
+  return component exposes the fitted probability matrix for inspection.
+
+* Split restart-from-minimum controls into `powell.remin` and
+  `nomad.remin`. Ordinary fixed-degree Powell-style searches retain
+  `powell.remin = TRUE` by default, following the established Numerical
+  Recipes restart convention. Local-polynomial NOMAD degree searches now
+  expose `nomad.remin`, which optionally performs a second NOMAD pass from the
+  best full bandwidth/degree candidate; simulation evidence supports
+  `nomad.remin = FALSE` for routine defaults. For
+  `search.engine = "nomad+powell"`, the Powell polish now uses
+  `powell.remin = FALSE` by default unless explicitly supplied, avoiding an
+  unhelpful hot start of the hot-start polish.
+
+* Preserved deprecated legacy `remin` compatibility for `npregbw()` and
+  `npreg()` while steering users to the new `powell.remin` and
+  `nomad.remin` controls. This protects downstream packages that still pass
+  `remin` through formula/front-end wrappers.
+
+* Exposed the same `powell.remin` and `nomad.remin` controls on single-index
+  and smooth-coefficient bandwidth searches so `npindexbw(..., nomad = TRUE)` and
+  `npscoefbw(..., nomad = TRUE)` have the same documented NOMAD restart
+  contract as the other LP-capable bandwidth selectors.
+
+* Added the redesigned public plot-control interface with direct scalar
+  controls such as `errors`, `band`, `alpha`, `bootstrap`, `B`, `behavior`,
+  `renderer`, and `perspective`, plus validated `np_boot_control()`,
+  `np_grid_control()`, and `np_render_control()` helpers for detailed
+  bootstrap, grid, and rendering options. Historical `plot.errors.*` inputs
+  remain accepted as compatibility arguments.
+
+* Hardened S3 plot argument handling so unsupported or misspelled named
+  arguments in `...` fail fast with concise diagnostics before expensive plot
+  computation begins, while preserving ordinary base-graphics pass-through
+  arguments such as labels, limits, colors, and line widths.
+
+* Preserved documented `plot.data.overlay` compatibility under the redesigned
+  plot argument validator: `plot.data.overlay = FALSE` remains an accepted
+  harmless no-op on routes without observed-response overlays, while
+  `plot.data.overlay = TRUE` still fails fast on unsupported plot families.
+
+* Added object-fed plot-data runtime helpers for the main S3 plot families,
+  improving shared plot payload construction for regression, unconditional
+  density/distribution, conditional density/distribution, single-index,
+  partially linear, smooth-coefficient, and quantile-regression plots while
+  preserving the existing public plot API.
+
+* Added `npqreg()` gradient support using the conditional-quantile
+  delta-method relationship between the conditional distribution derivative
+  and conditional density, with plot-data support for quantile gradients.
+
+* Exposed higher-order continuous-derivative extraction for local-polynomial
+  conditional estimators where the selected polynomial degree supports the
+  requested derivative order. `npreg()`, `npcdens()`, and `npcdist()` now honor
+  `gradient.order` more consistently across fitted, evaluated, predicted, and
+  plotted objects, including vector orders over continuous predictors and
+  tensor/additive/Bernstein local-polynomial bases.
+
+* Added asymptotic standard errors for `npqreg()` conditional quantiles and
+  quantile gradients, and documented the implemented delta-method formulas
+  and Nelsen-style quasi-inverse construction used by the conditional
+  quantile solver.
+
+* Repaired `npqreg()` conditional-quantile inversion so quantile levels,
+  standard errors, gradients, and gradient standard errors are all derived
+  from the same selected `npcdistbw()` conditional distribution estimator,
+  including selected local-polynomial degree and basis metadata. This removes
+  an inconsistency where the newly degree-aware quantile-gradient path could
+  use a higher-order conditional distribution fit while the quantile level was
+  still extracted by the legacy degree-unaware inversion path.
+
+* Repaired adaptive nearest-neighbor conditional density/distribution
+  evaluation for local-polynomial fits so `npcdens()`, `npcdist()`, and
+  downstream `npqreg()` quantiles, standard errors, gradients, and gradient
+  standard errors honor the selected LP degree/basis metadata. The regression
+  guard verifies that `regtype = "ll"` remains identical to `regtype = "lp",
+  degree = 1` while higher-degree adaptive-NN LP fits are degree-sensitive.
+
+* Restored live progress updates for local-polynomial plot-bootstrap helpers
+  when bootstrap resampling counts are precomputed and shared by a higher-level
+  route, such as the component regressions inside partially linear
+  `plot(..., errors = "bootstrap")`. The helper now processes the existing
+  count matrix in progress-sized chunks without changing the resamples or
+  bootstrap output order.
+
+* Restored pure-discrete/all-categorical `npregbw()` least-squares
+  cross-validation for fixed bandwidths by allowing the optimized regression
+  CV cache to represent legitimate zero-continuous bandwidth storage. This
+  repairs a regression from legacy behavior where all-categorical regression
+  bandwidth selection could fail with an invalid raw objective, while adjacent
+  mixed continuous/categorical routes were regression-checked for unchanged
+  numerical output.
+
+* Reworked `npplregbw(..., nomad = TRUE)` so local-polynomial automatic degree
+  search follows the natural partially linear decomposition: separate nuisance
+  regressions for `E[y | z]` and each `E[x_j | z]`, each with its own selected
+  degree and bandwidths, followed by the final partially linear solve. Fixed
+  `regtype = "lp"` now also accepts child-indexed degree matrices/lists in the
+  same order as the `plbandwidth` rows (`yzbw`, then the `x` children), while a
+  vector remains the common-degree shorthand.
+
+* Added `predict.plregression(..., se.fit = TRUE)` support using the
+  partially linear fitted-value linear operator and training-fit residuals to
+  return asymptotic prediction standard errors for training and evaluation
+  data.
+
+* Reblocked conditional density and conditional distribution local-polynomial
+  `cv.ls` block products to use BLAS matrix multiplication in the fixed
+  bandwidth block routes, materially reducing repeated long inner-product
+  work while preserving numerical results up to floating-point summation
+  order.
+
+* Repaired explicit-grid `npcopula()` evaluation so large probability grids
+  use the direct estimator route rather than an expanded-grid path with poor
+  scaling. This preserves numerical results while avoiding severe runtime
+  growth as the user increases the grid resolution.
+
+* Hardened bandwidth/front-end argument hygiene so estimator-only options such
+  as `proper` are not forwarded into bandwidth selectors that do not accept
+  them, preventing false-positive "unused argument" failures while preserving
+  the intended estimator behavior.
+
+* Opened the next development cycle after the 0.70-1 CRAN submission, with
+  release-hardening follow-up tracked separately.
+
 Changes from Version 0.70-0 to 0.70-1 [29-Apr-2026]
 
 * Updated the package startup message to point first to the online gallery

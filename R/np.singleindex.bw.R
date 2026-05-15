@@ -857,12 +857,16 @@ npindexbw.NULL <-
       hot.reg.args$regtype.engine <- "lp"
       hot.reg.args$degree.engine <- degree
       hot.reg.args$bernstein.basis.engine <- degree.search$bernstein.basis
-      hot.opt.args <- opt.args
-      hot.opt.args$nmulti <- .np_nomad_powell_hotstart_nmulti("single_iteration")
+      hot.opt.args <- .np_nomad_powell_hotstart_opt_args(
+        opt.args,
+        strategy = "single_iteration",
+        remin = isTRUE(opt.args$powell.remin)
+      )
       powell.start <- proc.time()[3L]
       hot.payload <- .np_nomad_with_powell_progress(
-        degree,
-        .npindexbw_run_fixed_degree(
+        degree = degree,
+        best_record = best_record,
+        expr = .npindexbw_run_fixed_degree(
           xdat = xdat,
           ydat = ydat,
           bws = bw.vec,
@@ -903,6 +907,7 @@ npindexbw.NULL <-
     nmulti = nomad.nmulti,
     nomad.inner.nmulti = nomad.inner.nmulti,
     random.seed = if (!is.null(opt.args$random.seed)) opt.args$random.seed else 42L,
+    remin = isTRUE(opt.args$nomad.remin),
     degree_spec = list(
       initial = degree.search$start.degree,
       lower = degree.search$lower,
@@ -1064,6 +1069,8 @@ npindexbw.default <-
            degree.max.cycles = 20L,
            degree.verify = FALSE,
            nmulti,
+           nomad.remin = FALSE,
+           powell.remin = TRUE,
            only.optimize.beta,
            optim.abstol,
            optim.maxattempts,
@@ -1224,7 +1231,7 @@ npindexbw.default <-
       stop("Klein and Spady's estimator requires binary ydat with 0/1 values only")
 
     mc.names <- names(match.call(expand.dots = FALSE))
-    margs <- c("nmulti","random.seed", "optim.method", "optim.maxattempts",
+    margs <- c("nmulti", "nomad.remin", "powell.remin", "random.seed", "optim.method", "optim.maxattempts",
                "optim.reltol", "optim.abstol", "optim.maxit", "only.optimize.beta",
                "scale.factor.init.lower", "scale.factor.init.upper", "scale.factor.init",
                "scale.factor.search.lower")

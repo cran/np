@@ -115,7 +115,7 @@ npregbw.rbandwidth <-
            lbd.init = 0.1,
            nmulti,
            penalty.multiplier = 10,
-           remin = TRUE,
+           powell.remin = TRUE,
            scale.init.categorical.sample = FALSE,
            scale.factor.search.lower = NULL,
            small = 1.490116e-05,
@@ -130,7 +130,7 @@ npregbw.rbandwidth <-
       nmulti <- npDefaultNmulti(dim(xdat)[2])
     }
     bandwidth.compute <- npValidateScalarLogical(bandwidth.compute, "bandwidth.compute")
-    remin <- npValidateScalarLogical(remin, "remin")
+    remin <- npValidateScalarLogical(powell.remin, "powell.remin")
     scale.init.categorical.sample <-
       npValidateScalarLogical(scale.init.categorical.sample, "scale.init.categorical.sample")
     transform.bounds <- npValidateScalarLogical(transform.bounds, "transform.bounds")
@@ -205,6 +205,14 @@ npregbw.rbandwidth <-
                                           ncon = tbw$ncon)
     tbw$bernstein.basis <- npValidateGlpBernstein(regtype = tbw$regtype,
                                                 bernstein.basis = tbw$bernstein.basis)
+    reg.spec <- npCanonicalConditionalRegSpec(
+      regtype = tbw$regtype,
+      basis = tbw$basis,
+      degree = tbw$degree,
+      bernstein.basis = tbw$bernstein.basis,
+      ncon = tbw$ncon,
+      where = "npregbw"
+    )
 
     mysd <- EssDee(rcon)
     nconfac <- nrow^(-1.0/(2.0*bws$ckerorder+bws$ncon))
@@ -213,15 +221,15 @@ npregbw.rbandwidth <-
     invalid.penalty <- match.arg(invalid.penalty)
     penalty_mode <- (if (invalid.penalty == "baseline") 1L else 0L)
 
-    reg.c <- npRegtypeToC(regtype = tbw$regtype,
-                          degree = tbw$degree,
+    reg.c <- npRegtypeToC(regtype = reg.spec$regtype.engine,
+                          degree = reg.spec$degree.engine,
                           ncon = tbw$ncon,
                           context = "npregbw")
     npCheckRegressionDesignCondition(reg.code = reg.c$code,
                                      xcon = rcon,
-                                     basis = tbw$basis,
-                                     degree = tbw$degree,
-                                     bernstein.basis = tbw$bernstein.basis,
+                                     basis = reg.spec$basis.engine,
+                                     degree = reg.spec$degree.engine,
+                                     bernstein.basis = reg.spec$bernstein.basis.engine,
                                      where = "npregbw")
     degree.c <- if (tbw$ncon > 0) {
       as.integer(if (is.null(reg.c$degree)) rep.int(0L, tbw$ncon) else reg.c$degree)
@@ -292,8 +300,8 @@ npregbw.rbandwidth <-
                 as.integer(penalty_mode),
                 as.double(penalty.multiplier),
                 as.integer(degree.c),
-                as.integer(isTRUE(tbw$bernstein.basis)),
-                as.integer(npLpBasisCode(tbw$basis)),
+                as.integer(isTRUE(reg.spec$bernstein.basis.engine)),
+                as.integer(npLpBasisCode(reg.spec$basis.engine)),
                 as.double(cker.bounds.c$lb),
                 as.double(cker.bounds.c$ub),
                 PACKAGE = "np"))[1]
@@ -511,11 +519,19 @@ npregbw.rbandwidth <-
   ncatfac <- nrow^(-2.0 / (2.0 * bws$ckerorder + bws$ncon))
 
   penalty_mode <- if (invalid.penalty == "baseline") 1L else 0L
-  reg.c <- npRegtypeToC(regtype = bws$regtype,
-                        degree = bws$degree,
+  reg.spec <- npCanonicalConditionalRegSpec(
+    regtype = bws$regtype,
+    basis = bws$basis,
+    degree = bws$degree,
+    bernstein.basis = bws$bernstein.basis,
+    ncon = bws$ncon,
+    where = "npregbw"
+  )
+  reg.c <- npRegtypeToC(regtype = reg.spec$regtype.engine,
+                        degree = reg.spec$degree.engine,
                         ncon = bws$ncon,
                         context = "npregbw")
-  degree.c <- if (bws$ncon > 0) as.integer(bws$degree) else integer(1L)
+  degree.c <- if (bws$ncon > 0) as.integer(reg.spec$degree.engine) else integer(1L)
   nmulti <- as.integer(nmulti[1L])
 
   myopti <- list(
@@ -595,8 +611,8 @@ npregbw.rbandwidth <-
       as.integer(penalty_mode),
       as.double(penalty.multiplier),
       as.integer(degree.c),
-      as.integer(isTRUE(bws$bernstein.basis)),
-      as.integer(npLpBasisCode(bws$basis)),
+      as.integer(isTRUE(reg.spec$bernstein.basis.engine)),
+      as.integer(npLpBasisCode(reg.spec$basis.engine)),
       as.double(cker.bounds.c$lb),
       as.double(cker.bounds.c$ub),
       PACKAGE = "np"
@@ -616,8 +632,8 @@ npregbw.rbandwidth <-
       as.integer(penalty_mode),
       as.double(penalty.multiplier),
       as.integer(degree.c),
-      as.integer(isTRUE(bws$bernstein.basis)),
-      as.integer(npLpBasisCode(bws$basis)),
+      as.integer(isTRUE(reg.spec$bernstein.basis.engine)),
+      as.integer(npLpBasisCode(reg.spec$basis.engine)),
       as.double(cker.bounds.c$lb),
       as.double(cker.bounds.c$ub),
       PACKAGE = "np"
@@ -685,7 +701,7 @@ npregbw.rbandwidth <-
     bws = bws,
     nmulti = opt.value("nmulti", npDefaultNmulti(dim(toFrame(xdat))[2L])),
     itmax = opt.value("itmax", 10000L),
-    remin = opt.value("remin", TRUE),
+    remin = opt.value("powell.remin", TRUE),
     scale.init.categorical.sample = opt.value("scale.init.categorical.sample", FALSE),
     ftol = opt.value("ftol", 1.490116e-07),
     tol = opt.value("tol", 1.490116e-04),
@@ -804,7 +820,7 @@ npregbw.rbandwidth <-
                                             done = NULL,
                                             detail = NULL,
                                             now = .np_progress_now()) {
-  fields <- character()
+  fields <- .np_degree_progress_context_fields()
   elapsed <- max(0, now - state$started)
 
   fields <- c(fields, sprintf("elapsed %ss", .np_progress_fmt_num(elapsed)))
@@ -843,6 +859,7 @@ npregbw.rbandwidth <-
   }, add = TRUE)
 
   active.state$unknown_total_fields <- .npregbw_powell_progress_fields
+  active.state$nomad_nmulti <- 1L
   active.state$nomad_current_degree <- as.integer(degree)
   active.state <- .np_progress_show_now(active.state)
   .np_progress_runtime$bandwidth_state <- active.state
@@ -1000,8 +1017,11 @@ npregbw.rbandwidth <-
     direct.objective <- as.numeric(best_record$objective)
 
     if (identical(degree.search$engine, "nomad+powell")) {
-      hot.opt.args <- opt.args
-      hot.opt.args$nmulti <- .np_nomad_powell_hotstart_nmulti("disable_multistart")
+      hot.opt.args <- .np_nomad_powell_hotstart_opt_args(
+        opt.args,
+        strategy = "disable_multistart",
+        remin = isTRUE(opt.args$powell.remin)
+      )
 
       powell.start <- proc.time()[3L]
       hot.payload <- .npregbw_with_powell_refinement_progress(degree, local({
@@ -1053,6 +1073,7 @@ npregbw.rbandwidth <-
     nomad.inner.nmulti = nomad.inner.nmulti,
     random.seed = random.seed,
     handoff_before_build = identical(degree.search$engine, "nomad+powell"),
+    remin = isTRUE(opt.args$nomad.remin),
     nomad.opts = nomad.opts,
     degree_spec = list(
       initial = degree.search$start.degree,
@@ -1239,7 +1260,8 @@ npregbw.default <-
            okertype,
            penalty.multiplier = 10,
            regtype,
-           remin,
+           nomad.remin = FALSE,
+           powell.remin,
            scale.init.categorical.sample,
            scale.factor.search.lower = NULL,
            small,
@@ -1251,6 +1273,16 @@ npregbw.default <-
     xdat <- toFrame(xdat)
     yname <- deparse(substitute(ydat))
     lp.dot.args <- list(...)
+    if ("remin" %in% names(lp.dot.args)) {
+      legacy.remin <- npValidateScalarLogical(lp.dot.args$remin, "remin")
+      warning("npregbw: argument 'remin' is deprecated; use 'powell.remin' and 'nomad.remin'",
+              call. = FALSE)
+      if (missing(powell.remin))
+        powell.remin <- legacy.remin
+      if (missing(nomad.remin))
+        nomad.remin <- legacy.remin
+      lp.dot.args$remin <- NULL
+    }
     npRejectLegacyLpArgs(names(lp.dot.args), where = "npregbw")
     random.seed.value <- .np_degree_extract_random_seed(lp.dot.args)
     scale.factor.search.lower <- npResolveScaleFactorLowerBound(scale.factor.search.lower)
@@ -1290,6 +1322,9 @@ npregbw.default <-
     )
 
     if (isTRUE(nomad.shortcut$enabled)) {
+      if (sum(untangle(xdat)$icon) == 0L)
+        stop("nomad=TRUE requires at least one continuous predictor for degree search",
+             call. = FALSE)
       if ("degree" %in% mc.names)
         stop("nomad=TRUE does not support an explicit degree; remove degree or set nomad=FALSE")
       if ("regtype" %in% mc.names &&
@@ -1335,7 +1370,7 @@ npregbw.default <-
     }
 
     mc.names <- names(match.call(expand.dots = FALSE))
-    margs <- c("nmulti", "remin", "itmax", "ftol", "tol",
+    margs <- c("nmulti", "nomad.remin", "powell.remin", "itmax", "ftol", "tol",
                "small",
                "lbc.dir", "dfc.dir", "cfac.dir","initc.dir", 
                "lbd.dir", "hbd.dir", "dfac.dir", "initd.dir", 

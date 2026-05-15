@@ -160,6 +160,20 @@ Further arguments are passed to the bandwidth-selection routines used by the tes
 
   \code{\link{summary}} supports object of type \code{cmstest}.
 }
+\section{Book And Method Pointers}{
+  \code{npcmstest} tests a parametric conditional-mean specification
+  against a nonparametric alternative, using residual-based bootstrap or
+  asymptotic calibration as selected by \code{distribution}. The
+  statistic is designed for continuous outcomes and fitted
+  \code{\link{lm}} or \code{\link{glm}} objects whose model frame, model
+  matrix, and response are available.
+
+  For book-length background, see Li and Racine (2007), Chapter 12
+  \emph{Model Specification Tests}, especially Section 12.1 and Section
+  12.1.2. For the conditional-mean estimation context used by the test,
+  see Racine (2019), Chapter 6 \emph{Conditional Mean Function Estimation}.
+}
+
 \references{
   Aitchison, J. and C.G.G. Aitken (1976), \dQuote{Multivariate binary
     discrimination by the kernel method,} Biometrika, 63, 413-420.
@@ -217,7 +231,7 @@ Further arguments are passed to the bandwidth-selection routines used by the tes
 # that this parametric regression model is misspecified.
 
 data("cps71")
-attach(cps71)
+with(cps71, {
 
 model <- lm(logwage~age+I(age^2), x=TRUE, y=TRUE)
 
@@ -250,7 +264,7 @@ npcmstest(model = model, xdat = age, ydat = logwage, boot.num=9, nmulti = 1)
 # search tolerance, or feed in your own vector of bandwidths and so
 # forth.
 
-detach(cps71)
+})
 
 # EXAMPLE 2: For this example, we replicate the application in Maasoumi,
 # Racine, and Stengos (2007) (see oecdpanel for details). We
@@ -258,7 +272,7 @@ detach(cps71)
 # subject it to the model specification test.
 
 data("oecdpanel")
-attach(oecdpanel)
+with(oecdpanel, {
 
 model <- lm(growth ~ oecd +
             factor(year) +
@@ -278,7 +292,7 @@ X <- data.frame(factor(oecd), factor(year), initgdp, popgro, inv, humancap)
 
 npcmstest(model = model, xdat = X, ydat = growth, boot.num=9, nmulti = 1)
 
-detach(oecdpanel)
+})
 } % enddontrun
 }
 \keyword{ nonparametric }

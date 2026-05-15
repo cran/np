@@ -34,20 +34,24 @@ with_np_bindings <- function(bindings, code) {
 capture_progress_conditions <- function(expr) {
   messages <- character()
   warnings <- character()
+  value <- NULL
 
-  value <- withCallingHandlers(
-    expr,
-    message = function(m) {
-      messages <<- c(messages, conditionMessage(m))
-      invokeRestart("muffleMessage")
-    },
-    warning = function(w) {
-      warnings <<- c(warnings, conditionMessage(w))
-      invokeRestart("muffleWarning")
-    }
+  message.output <- utils::capture.output(
+    value <- withCallingHandlers(
+      expr,
+      message = function(m) {
+        messages <<- c(messages, conditionMessage(m))
+        invokeRestart("muffleMessage")
+      },
+      warning = function(w) {
+        warnings <<- c(warnings, conditionMessage(w))
+        invokeRestart("muffleWarning")
+      }
+    ),
+    type = "message"
   )
 
-  list(value = value, messages = messages, warnings = warnings)
+  list(value = value, messages = c(messages, message.output), warnings = warnings)
 }
 
 normalize_messages <- function(x) {
@@ -62,7 +66,7 @@ make_npcopula_fixture <- function(seed = 42, n = 30) {
   )
 }
 
-test_that("npcopula sample-realization path emits append-only progress notes", {
+test_that("npcopula sample-realization path emits compact staged progress", {
   skip_if_not(exists("npcopula", mode = "function"), "np package not attached")
   mydat <- make_npcopula_fixture()
   bw <- npudistbw(dat = mydat, bws = c(0.2, 0.2), bandwidth.compute = FALSE)
@@ -79,14 +83,13 @@ test_that("npcopula sample-realization path emits append-only progress notes", {
 
   messages <- normalize_messages(res$messages)
 
-  expect_s3_class(res$value, "data.frame")
-  expect_true(any(grepl("^\\[np\\] Computing the copula for the sample realizations$", messages)))
-  expect_true(any(grepl("^\\[np\\] Computing the marginal of x for the sample realizations$", messages)))
-  expect_true(any(grepl("^\\[np\\] Computing the marginal of y for the sample realizations$", messages)))
-  expect_false(any(grepl("\b", messages, fixed = TRUE)))
+  expect_s3_class(res$value, "npcopula")
+  expect_true(is.data.frame(as.data.frame(res$value)))
+  expect_true(any(grepl("\\[np\\] Copula (distribution|dist) sample", messages)))
+  expect_false(any(grepl("^\\[np\\] Computing the marginal of", messages)))
 })
 
-test_that("npcopula u-grid density path emits append-only progress notes", {
+test_that("npcopula u-grid density path emits compact staged progress", {
   skip_if_not(exists("npcopula", mode = "function"), "np package not attached")
   mydat <- make_npcopula_fixture(seed = 99)
   bw <- npudensbw(dat = mydat, bws = c(0.2, 0.2), bandwidth.compute = FALSE)
@@ -109,14 +112,11 @@ test_that("npcopula u-grid density path emits append-only progress notes", {
 
   messages <- normalize_messages(res$messages)
 
-  expect_s3_class(res$value, "data.frame")
-  expect_true(any(grepl("^\\[np\\] Computing the quasi-inverse for the marginal of x$", messages)))
-  expect_true(any(grepl("^\\[np\\] Computing the quasi-inverse for the marginal of y$", messages)))
-  expect_true(any(grepl("^\\[np\\] Expanding the u matrix$", messages)))
-  expect_true(any(grepl("^\\[np\\] Computing the copula density for the expanded grid$", messages)))
-  expect_true(any(grepl("^\\[np\\] Computing the marginal of x for the expanded grid$", messages)))
-  expect_true(any(grepl("^\\[np\\] Computing the marginal of y for the expanded grid$", messages)))
-  expect_false(any(grepl("\b", messages, fixed = TRUE)))
+  expect_s3_class(res$value, "npcopula")
+  expect_true(is.data.frame(as.data.frame(res$value)))
+  expect_true(any(grepl("\\[np\\] Copula (density|dens) grid", messages)))
+  expect_false(any(grepl("^\\[np\\] Computing the quasi-inverse", messages)))
+  expect_false(any(grepl("^\\[np\\] Computing the marginal of", messages)))
 })
 
 test_that("npcopula progress respects np.messages FALSE", {

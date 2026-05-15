@@ -11,11 +11,11 @@ test_that("plot contract: regression and conditional estimators return data payl
   rout <- suppressWarnings(
     plot(
       rbw,
-      plot.behavior = "data",
+      output = "data",
       perspective = FALSE,
-      plot.errors.method = "bootstrap",
-      plot.errors.boot.num = 9,
-      plot.errors.type = "all",
+      errors = "bootstrap",
+      B = 9,
+      band = "all",
       view = "fixed"
     )
   )
@@ -25,6 +25,51 @@ test_that("plot contract: regression and conditional estimators return data payl
   expect_true(all(vapply(rout, inherits, logical(1), "npregression")))
   expect_true(all(vapply(rout, function(xi) !is.null(xi$mean), logical(1))))
   expect_true(all(vapply(rout, function(xi) !is.null(xi$merr), logical(1))))
+})
+
+test_that("plot contract: package legends are user-controllable on band-all plots", {
+  set.seed(20260511)
+  n <- 36L
+  x <- runif(n)
+  y <- sin(2 * pi * x) + rnorm(n, sd = 0.1)
+  rbw <- npregbw(
+    xdat = data.frame(x = x),
+    ydat = y,
+    bws = 0.35,
+    bandwidth.compute = FALSE
+  )
+
+  old.dev <- grDevices::dev.cur()
+  grDevices::pdf(file = tempfile(fileext = ".pdf"))
+  on.exit({
+    grDevices::dev.off()
+    if (old.dev > 1L)
+      grDevices::dev.set(old.dev)
+  }, add = TRUE)
+
+  expect_silent(suppressWarnings(plot(
+    rbw, xdat = data.frame(x = x), ydat = y, perspective = FALSE,
+    errors = "bootstrap", bootstrap = "wild", B = 9L, band = "all",
+    neval = 6L, legend = FALSE
+  )))
+  expect_silent(suppressWarnings(plot(
+    rbw, xdat = data.frame(x = x), ydat = y, perspective = FALSE,
+    errors = "bootstrap", bootstrap = "wild", B = 9L, band = "all",
+    neval = 6L, legend = "bottomright"
+  )))
+  expect_silent(suppressWarnings(plot(
+    rbw, xdat = data.frame(x = x), ydat = y, perspective = FALSE,
+    errors = "bootstrap", bootstrap = "wild", B = 9L, band = "all",
+    neval = 6L, legend = list(x = "bottomleft", bty = "o")
+  )))
+  expect_error(
+    suppressWarnings(plot(
+      rbw, xdat = data.frame(x = x), ydat = y, perspective = FALSE,
+      errors = "bootstrap", bootstrap = "wild", B = 9L, band = "all",
+      neval = 6L, legend = 1
+    )),
+    "legend must be TRUE/FALSE"
+  )
 })
 
 test_that("plot contract: npcdens/npcdist support bootstrap all in data mode", {
@@ -39,11 +84,11 @@ test_that("plot contract: npcdens/npcdist support bootstrap all in data mode", {
   cout <- suppressWarnings(
     plot(
       cbw,
-      plot.behavior = "data",
+      output = "data",
       perspective = FALSE,
-      plot.errors.method = "bootstrap",
-      plot.errors.boot.num = 9,
-      plot.errors.type = "all",
+      errors = "bootstrap",
+      B = 9,
+      band = "all",
       view = "fixed"
     )
   )
@@ -58,11 +103,11 @@ test_that("plot contract: npcdens/npcdist support bootstrap all in data mode", {
   dout <- suppressWarnings(
     plot(
       dbw,
-      plot.behavior = "data",
+      output = "data",
       perspective = FALSE,
-      plot.errors.method = "bootstrap",
-      plot.errors.boot.num = 9,
-      plot.errors.type = "all",
+      errors = "bootstrap",
+      B = 9,
+      band = "all",
       view = "fixed"
     )
   )
@@ -99,9 +144,9 @@ test_that("plot contract: 3D plot-data matches data mode for regression and cond
     txdat = data.frame(x = x, z = z),
     tydat = y
   )
-  rdata <- plot(rfit, plot.behavior = "data", view = "fixed")
-  expect_warning(plot(rfit, plot.behavior = "data", view = "fixed"), NA)
-  rplotdata <- with_plot_device(plot(rfit, plot.behavior = "plot-data", view = "fixed"))
+  rdata <- plot(rfit, output = "data", view = "fixed")
+  expect_warning(plot(rfit, output = "data", view = "fixed"), NA)
+  rplotdata <- with_plot_device(plot(rfit, output = "plot-data", view = "fixed"))
 
   expect_type(rplotdata, "list")
   expect_named(rplotdata, names(rdata))
@@ -123,9 +168,9 @@ test_that("plot contract: 3D plot-data matches data mode for regression and cond
     tydat = data.frame(y = y),
     proper = TRUE
   )
-  cdata <- plot(cfit, plot.behavior = "data", view = "fixed")
-  expect_warning(plot(cfit, plot.behavior = "data", view = "fixed"), NA)
-  cplotdata <- with_plot_device(plot(cfit, plot.behavior = "plot-data", view = "fixed"))
+  cdata <- plot(cfit, output = "data", view = "fixed")
+  expect_warning(plot(cfit, output = "data", view = "fixed"), NA)
+  cplotdata <- with_plot_device(plot(cfit, output = "plot-data", view = "fixed"))
 
   expect_type(cplotdata, "list")
   expect_named(cplotdata, names(cdata))
@@ -149,8 +194,8 @@ test_that("plot contract: 3D plot-data matches data mode for regression and cond
     tydat = data.frame(y = y),
     proper = TRUE
   )
-  ddata <- suppressWarnings(plot(dfit, plot.behavior = "data", view = "fixed"))
-  dplotdata <- with_plot_device(plot(dfit, plot.behavior = "plot-data", view = "fixed"))
+  ddata <- suppressWarnings(plot(dfit, output = "data", view = "fixed"))
+  dplotdata <- with_plot_device(plot(dfit, output = "plot-data", view = "fixed"))
 
   expect_type(dplotdata, "list")
   expect_named(dplotdata, names(ddata))
@@ -171,8 +216,8 @@ test_that("plot contract: remaining public plot families return plot-data payloa
   }
 
   expect_plot_modes_match <- function(object, fields, ...) {
-    data.out <- suppressWarnings(plot(object, plot.behavior = "data", ...))
-    plot.out <- with_plot_device(plot(object, plot.behavior = "plot-data", ...))
+    data.out <- suppressWarnings(plot(object, output = "data", ...))
+    plot.out <- with_plot_device(plot(object, output = "plot-data", ...))
 
     expect_type(plot.out, "list")
     expect_named(plot.out, names(data.out))
@@ -271,7 +316,7 @@ test_that("plot contract: remaining public plot families return plot-data payloa
     bw.cf,
     xdat = data.frame(x = x),
     ydat = data.frame(y = y),
-    plot.behavior = "data",
+    output = "data",
     perspective = TRUE,
     view = "fixed",
     quantreg = TRUE,
@@ -279,7 +324,7 @@ test_that("plot contract: remaining public plot families return plot-data payloa
   )
   fit.qr.alt.fixed <- plot(
     fit.qr.alt,
-    plot.behavior = "data",
+    output = "data",
     perspective = TRUE,
     view = "fixed"
   )
@@ -287,14 +332,14 @@ test_that("plot contract: remaining public plot families return plot-data payloa
     bw.cf,
     xdat = data.frame(x = x),
     ydat = data.frame(y = y),
-    plot.behavior = "data",
+    output = "data",
     perspective = FALSE,
     quantreg = TRUE,
     tau = 0.4
   )
   fit.qr.alt.slice <- plot(
     fit.qr.alt,
-    plot.behavior = "data",
+    output = "data",
     perspective = FALSE
   )
 
@@ -376,18 +421,18 @@ test_that("plot contract: rgl plot-data returns the usual data payload", {
 
   rdata <- suppressWarnings(plot(
     rfit,
-    plot.behavior = "data",
+    output = "data",
     renderer = "rgl",
     view = "fixed",
-    plot.data.overlay = FALSE
+    data_overlay = FALSE
   ))
 
   rplotdata <- suppressWarnings(plot(
     rfit,
-    plot.behavior = "plot-data",
+    output = "plot-data",
     renderer = "rgl",
     view = "fixed",
-    plot.data.overlay = FALSE
+    data_overlay = FALSE
   ))
 
   expect_type(rplotdata, "list")
@@ -413,14 +458,14 @@ test_that("plot contract: rgl plot-data returns the usual data payload", {
 
   cdata <- suppressWarnings(plot(
     cfit,
-    plot.behavior = "data",
+    output = "data",
     renderer = "rgl",
     view = "fixed"
   ))
 
   cplotdata <- suppressWarnings(plot(
     cfit,
-    plot.behavior = "plot-data",
+    output = "plot-data",
     renderer = "rgl",
     view = "fixed"
   ))
@@ -433,7 +478,7 @@ test_that("plot contract: rgl plot-data returns the usual data payload", {
   expect_equal(cplotdata$cd1$yeval, cdata$cd1$yeval)
 })
 
-test_that("plot contract: plot.errors.alpha is enforced in (0,0.5)", {
+test_that("plot contract: alpha is enforced in (0,0.5)", {
   skip_if_not_installed("np")
 
   set.seed(103)
@@ -446,26 +491,26 @@ test_that("plot contract: plot.errors.alpha is enforced in (0,0.5)", {
     suppressWarnings(
       plot(
         bw,
-        plot.behavior = "data",
+        output = "data",
         perspective = FALSE,
-        plot.errors.method = "bootstrap",
-        plot.errors.alpha = 0.5
+        errors = "bootstrap",
+        alpha = 0.5
       )
     ),
-    "must lie in \\(0,0\\.5\\)"
+    "must lie in \\(0, 0\\.5\\)"
   )
 
   expect_error(
     suppressWarnings(
       plot(
         bw,
-        plot.behavior = "data",
+        output = "data",
         perspective = FALSE,
-        plot.errors.method = "bootstrap",
-        plot.errors.alpha = 0
+        errors = "bootstrap",
+        alpha = 0
       )
     ),
-    "must lie in \\(0,0\\.5\\)"
+    "must lie in \\(0, 0\\.5\\)"
   )
 })
 
@@ -499,11 +544,11 @@ test_that("plot contract: npscoef supports coef=TRUE plot path", {
     plot(
       fit,
       coef = TRUE,
-      coef.index = 1,
+      coef_index = 1,
       perspective = FALSE,
       neval = 20,
-      plot.behavior = "plot-data",
-      plot.errors.method = "none"
+      output = "plot-data",
+      errors = "none"
     )
   )
 
@@ -532,8 +577,8 @@ test_that("plot contract: npplreg supports coef=TRUE plot-data payload", {
       ydat = y,
       zdat = zdat,
       coef = TRUE,
-      plot.behavior = "plot-data",
-      plot.errors.method = "none"
+      output = "plot-data",
+      errors = "none"
     )
   )
 
@@ -587,11 +632,11 @@ test_that("plot contract: scbandwidth perspective bootstrap uses z evaluation co
       zdat = zdat,
       perspective = TRUE,
       view = "fixed",
-      plot.behavior = "data",
-      plot.errors.method = "bootstrap",
-      plot.errors.boot.method = "inid",
-      plot.errors.boot.num = 9,
-      plot.errors.type = "pointwise",
+      output = "data",
+      errors = "bootstrap",
+      bootstrap = "inid",
+      B = 9,
+      band = "pointwise",
       neval = neval
     )
   )
@@ -637,9 +682,9 @@ test_that("plot contract: npscoef fitted perspective path preserves semantic z e
     fit,
     view = "fixed",
     renderer = "base",
-    plot.behavior = "data",
-    plot.data.overlay = FALSE,
-    plot.errors.method = "none"
+    output = "data",
+    data_overlay = FALSE,
+    errors = "none"
   ))
 
   expect_type(out, "list")
