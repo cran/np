@@ -376,13 +376,13 @@ the analysis.</p>
 <span id="cb1-11"><a href="#cb1-11" tabindex="-1"></a><span class="co">#&gt; Formula: logwage ~ age</span></span>
 <span id="cb1-12"><a href="#cb1-12" tabindex="-1"></a><span class="co">#&gt; Bandwidth Type: Fixed</span></span>
 <span id="cb1-13"><a href="#cb1-13" tabindex="-1"></a><span class="co">#&gt; Objective Function Value: 0.316055 (achieved on multistart 1)</span></span>
-<span id="cb1-14"><a href="#cb1-14" tabindex="-1"></a><span class="co">#&gt; Number of Function Evaluations: 47 (fast = 0)</span></span>
+<span id="cb1-14"><a href="#cb1-14" tabindex="-1"></a><span class="co">#&gt; Number of Function Evaluations: 47 (fast = 17)</span></span>
 <span id="cb1-15"><a href="#cb1-15" tabindex="-1"></a><span class="co">#&gt; </span></span>
-<span id="cb1-16"><a href="#cb1-16" tabindex="-1"></a><span class="co">#&gt; Exp. Var. Name: age Bandwidth: 1.892158 Scale Factor: 0.4487743</span></span>
+<span id="cb1-16"><a href="#cb1-16" tabindex="-1"></a><span class="co">#&gt; Exp. Var. Name: age Bandwidth: 1.892158  Scale Factor: 0.4487743</span></span>
 <span id="cb1-17"><a href="#cb1-17" tabindex="-1"></a><span class="co">#&gt; </span></span>
 <span id="cb1-18"><a href="#cb1-18" tabindex="-1"></a><span class="co">#&gt; Continuous Kernel Type: Second-Order Gaussian</span></span>
 <span id="cb1-19"><a href="#cb1-19" tabindex="-1"></a><span class="co">#&gt; No. Continuous Explanatory Vars.: 1</span></span>
-<span id="cb1-20"><a href="#cb1-20" tabindex="-1"></a><span class="co">#&gt; Estimation Time: 0.074 seconds</span></span>
+<span id="cb1-20"><a href="#cb1-20" tabindex="-1"></a><span class="co">#&gt; Estimation Time: 0.075 seconds</span></span>
 <span id="cb1-21"><a href="#cb1-21" tabindex="-1"></a></span>
 <span id="cb1-22"><a href="#cb1-22" tabindex="-1"></a>fit <span class="ot">&lt;-</span> <span class="fu">npreg</span>(<span class="at">bws =</span> bw)</span>
 <span id="cb1-23"><a href="#cb1-23" tabindex="-1"></a><span class="fu">summary</span>(fit)</span>
@@ -398,7 +398,7 @@ the analysis.</p>
 <span id="cb1-33"><a href="#cb1-33" tabindex="-1"></a><span class="co">#&gt; </span></span>
 <span id="cb1-34"><a href="#cb1-34" tabindex="-1"></a><span class="co">#&gt; Continuous Kernel Type: Second-Order Gaussian</span></span>
 <span id="cb1-35"><a href="#cb1-35" tabindex="-1"></a><span class="co">#&gt; No. Continuous Explanatory Vars.: 1</span></span>
-<span id="cb1-36"><a href="#cb1-36" tabindex="-1"></a><span class="co">#&gt; Estimation Time: 0.074 seconds (optim 0.074s, fit 0s)</span></span></code></pre></div>
+<span id="cb1-36"><a href="#cb1-36" tabindex="-1"></a><span class="co">#&gt; Estimation Time: 0.075 seconds (optim 0.075s, fit 0s)</span></span></code></pre></div>
 </div>
 <div id="plotting-the-fitted-relationship" class="section level2">
 <h2>Plotting the fitted relationship</h2>
@@ -425,23 +425,26 @@ factors when appropriate.</p>
 <span id="cb3-11"><a href="#cb3-11" tabindex="-1"></a><span class="fu">summary</span>(fit_mixed)</span>
 <span id="cb3-12"><a href="#cb3-12" tabindex="-1"></a><span class="co">#&gt; </span></span>
 <span id="cb3-13"><a href="#cb3-13" tabindex="-1"></a><span class="co">#&gt; Regression Data: 200 training points, in 3 variable(s)</span></span>
-<span id="cb3-14"><a href="#cb3-14" tabindex="-1"></a><span class="co">#&gt;                x_cont x_unordered x_ordered</span></span>
-<span id="cb3-15"><a href="#cb3-15" tabindex="-1"></a><span class="co">#&gt; Bandwidth(s): 1808084   0.6610069 0.9981613</span></span>
-<span id="cb3-16"><a href="#cb3-16" tabindex="-1"></a><span class="co">#&gt; </span></span>
-<span id="cb3-17"><a href="#cb3-17" tabindex="-1"></a><span class="co">#&gt; Kernel Regression Estimator: Local-Constant</span></span>
-<span id="cb3-18"><a href="#cb3-18" tabindex="-1"></a><span class="co">#&gt; Bandwidth Type: Fixed</span></span>
-<span id="cb3-19"><a href="#cb3-19" tabindex="-1"></a><span class="co">#&gt; Residual standard error: 0.9721457</span></span>
-<span id="cb3-20"><a href="#cb3-20" tabindex="-1"></a><span class="co">#&gt; R-squared: 0</span></span>
-<span id="cb3-21"><a href="#cb3-21" tabindex="-1"></a><span class="co">#&gt; </span></span>
-<span id="cb3-22"><a href="#cb3-22" tabindex="-1"></a><span class="co">#&gt; Continuous Kernel Type: Second-Order Gaussian</span></span>
-<span id="cb3-23"><a href="#cb3-23" tabindex="-1"></a><span class="co">#&gt; No. Continuous Explanatory Vars.: 1</span></span>
+<span id="cb3-14"><a href="#cb3-14" tabindex="-1"></a><span class="co">#&gt; Search Parameter(s):</span></span>
+<span id="cb3-15"><a href="#cb3-15" tabindex="-1"></a><span class="co">#&gt;          x_cont  x_unordered  x_ordered</span></span>
+<span id="cb3-16"><a href="#cb3-16" tabindex="-1"></a><span class="co">#&gt; Type  Bandwidth       Lambda     Lambda</span></span>
+<span id="cb3-17"><a href="#cb3-17" tabindex="-1"></a><span class="co">#&gt; Value   1718322    0.6636654  0.9981613</span></span>
+<span id="cb3-18"><a href="#cb3-18" tabindex="-1"></a><span class="co">#&gt; Max          --    0.6666667          1</span></span>
+<span id="cb3-19"><a href="#cb3-19" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb3-20"><a href="#cb3-20" tabindex="-1"></a><span class="co">#&gt; Kernel Regression Estimator: Local-Constant</span></span>
+<span id="cb3-21"><a href="#cb3-21" tabindex="-1"></a><span class="co">#&gt; Bandwidth Type: Fixed</span></span>
+<span id="cb3-22"><a href="#cb3-22" tabindex="-1"></a><span class="co">#&gt; Residual standard error: 0.9721457</span></span>
+<span id="cb3-23"><a href="#cb3-23" tabindex="-1"></a><span class="co">#&gt; R-squared: 0</span></span>
 <span id="cb3-24"><a href="#cb3-24" tabindex="-1"></a><span class="co">#&gt; </span></span>
-<span id="cb3-25"><a href="#cb3-25" tabindex="-1"></a><span class="co">#&gt; Unordered Categorical Kernel Type: Aitchison and Aitken</span></span>
-<span id="cb3-26"><a href="#cb3-26" tabindex="-1"></a><span class="co">#&gt; No. Unordered Categorical Explanatory Vars.: 1</span></span>
+<span id="cb3-25"><a href="#cb3-25" tabindex="-1"></a><span class="co">#&gt; Continuous Kernel Type: Second-Order Gaussian</span></span>
+<span id="cb3-26"><a href="#cb3-26" tabindex="-1"></a><span class="co">#&gt; No. Continuous Explanatory Vars.: 1</span></span>
 <span id="cb3-27"><a href="#cb3-27" tabindex="-1"></a><span class="co">#&gt; </span></span>
-<span id="cb3-28"><a href="#cb3-28" tabindex="-1"></a><span class="co">#&gt; Ordered Categorical Kernel Type: Li and Racine</span></span>
-<span id="cb3-29"><a href="#cb3-29" tabindex="-1"></a><span class="co">#&gt; No. Ordered Categorical Explanatory Vars.: 1</span></span>
-<span id="cb3-30"><a href="#cb3-30" tabindex="-1"></a><span class="co">#&gt; Estimation Time: 0.166 seconds (optim 0.166s, fit 0s)</span></span></code></pre></div>
+<span id="cb3-28"><a href="#cb3-28" tabindex="-1"></a><span class="co">#&gt; Unordered Categorical Kernel Type: Aitchison and Aitken</span></span>
+<span id="cb3-29"><a href="#cb3-29" tabindex="-1"></a><span class="co">#&gt; No. Unordered Categorical Explanatory Vars.: 1</span></span>
+<span id="cb3-30"><a href="#cb3-30" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb3-31"><a href="#cb3-31" tabindex="-1"></a><span class="co">#&gt; Ordered Categorical Kernel Type: Li and Racine</span></span>
+<span id="cb3-32"><a href="#cb3-32" tabindex="-1"></a><span class="co">#&gt; No. Ordered Categorical Explanatory Vars.: 1</span></span>
+<span id="cb3-33"><a href="#cb3-33" tabindex="-1"></a><span class="co">#&gt; Estimation Time: 0.18 seconds (optim 0.179s, fit 0.001s)</span></span></code></pre></div>
 </div>
 <div id="a-note-on-modern-local-polynomial-search" class="section level2">
 <h2>A note on modern local-polynomial search</h2>

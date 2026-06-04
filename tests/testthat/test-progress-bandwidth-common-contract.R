@@ -103,6 +103,34 @@ test_that("NOMAD progress fuses component context with dynamic fields", {
   )
 })
 
+test_that("NOMAD degree search emits its initial line before long first evaluations", {
+  nomad_begin <- getFromNamespace(".np_nomad_progress_begin", "np")
+
+  old_opts <- options(
+    np.messages = TRUE,
+    np.progress.start.grace.unknown.sec = 60
+  )
+  on.exit(options(old_opts), add = TRUE)
+
+  actual <- capture_progress_shadow_trace(
+    {
+      state <- nomad_begin(
+        nmulti = 2L,
+        baseline_degree = 0L,
+        best_record = list(degree = 0L)
+      )
+      expect_true(is.list(state))
+    },
+    now = progress_time_values(c(0, 56))
+  )
+
+  lines <- shadow_lines(actual)
+
+  expect_true(grepl("^\\[np\\] Selecting degree and bandwidth \\(", lines[[1L]]))
+  expect_true(grepl("multistart 1/2", lines[[1L]], fixed = TRUE))
+  expect_true(grepl("deg \\(", lines[[1L]]))
+})
+
 test_that("dark-launched bandwidth engine preserves nmulti=1 iteration heartbeats", {
   select_bw <- getFromNamespace(".np_progress_select_bandwidth", "np")
   activity_bw <- getFromNamespace(".np_progress_bandwidth_activity_step", "np")
@@ -132,6 +160,36 @@ test_that("dark-launched bandwidth engine preserves nmulti=1 iteration heartbeat
   expect_true(any(grepl("^\\[np\\] Bandwidth selection \\(iteration 28, elapsed [0-9]+\\.[0-9]s\\)$", lines)))
   expect_true(any(grepl("^\\[np\\] Bandwidth selection \\(iteration 64, elapsed [0-9]+\\.[0-9]s\\)$", lines)))
   expect_false(any(grepl("multistart", lines, fixed = TRUE)))
+})
+
+test_that("bandwidth selection emits its initial line before long first evaluations", {
+  select_bw <- getFromNamespace(".np_progress_select_bandwidth", "np")
+  set_total <- getFromNamespace(".np_progress_bandwidth_set_total", "np")
+  activity_bw <- getFromNamespace(".np_progress_bandwidth_activity_step", "np")
+
+  old_opts <- options(
+    np.messages = TRUE,
+    np.progress.bandwidth.enhanced = TRUE,
+    np.progress.start.grace.unknown.sec = 60
+  )
+  on.exit(options(old_opts), add = TRUE)
+
+  actual <- capture_progress_shadow_trace(
+    {
+      value <- select_bw("Selecting density bandwidth", {
+        set_total(2L)
+        activity_bw(2L)
+        7
+      })
+      expect_identical(value, 7)
+    },
+    now = progress_time_values(c(0, 0, 56, 58))
+  )
+
+  lines <- shadow_lines(actual)
+
+  expect_identical(lines[[1L]], "[np] Bandwidth selection (multistart 1/2)")
+  expect_true(any(grepl("^\\[np\\] Bandwidth selection \\(multistart 1/2, iteration 2, elapsed [0-9]+\\.[0-9]s\\)$", lines)))
 })
 
 test_that("dark-launched bandwidth engine switches from iteration to estimate mode after first completion", {

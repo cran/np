@@ -14,7 +14,7 @@ npcdensbw.formula <-
       .np_terms_ts_mask(terms_obj = terms(formula),
                         data = environment(formula),
                         eval_env = environment(formula))
-    else .np_terms_ts_mask(terms_obj = terms(formula),
+    else .np_terms_ts_mask(terms_obj = terms(formula, data = data),
                            data = data,
                            eval_env = environment(formula))
 
@@ -33,10 +33,13 @@ npcdensbw.formula <-
                                         formula_call = formula.call,
                                         eval_env = parent.frame())
 
-    variableNames <- explodeFormula(formula.obj)
+    variableNames <- if(m[2] > 0) explodeFormula(formula.obj, data = data) else explodeFormula(formula.obj)
     
     ## make formula evaluable, then eval
-    varsPlus <- lapply(variableNames, paste, collapse=" + ")
+    formula.labels <- attr(variableNames, "formula.labels")
+    if (is.null(formula.labels))
+      formula.labels <- lapply(variableNames, .np_formula_quote_if_needed)
+    varsPlus <- lapply(formula.labels, paste, collapse=" + ")
     mf[["formula"]] <- as.formula(paste(" ~ ", varsPlus[[1]]," + ",
                                         varsPlus[[2]]),
                                   env = environment(formula))
@@ -102,6 +105,32 @@ npcdensbw.formula <-
   }
 
   invisible(TRUE)
+}
+
+.npcdensbw_tree_code <- function(bws, ncon, ncat) {
+  code <- npDoTreeOrCategoricalCompress(ncon = ncon, ncat = ncat, bws = bws)
+
+  if (!identical(code, DO_TREE_YES))
+    return(code)
+
+  method <- if (!is.null(bws$method) && length(bws$method)) {
+    as.character(bws$method[1L])
+  } else {
+    "cv.ml"
+  }
+  bwtype <- if (!is.null(bws$type) && length(bws$type)) {
+    as.character(bws$type[1L])
+  } else {
+    "fixed"
+  }
+
+  if (ncon > 0L &&
+      identical(method, "cv.ls") &&
+      identical(bwtype, "generalized_nn")) {
+    return(DO_TREE_NO)
+  }
+
+  code
 }
 
 .npcdensbw_validate_scale_factor_lower_bound <- function(value,
@@ -289,6 +318,7 @@ npcdensbw.conbandwidth <-
            nmulti,
            penalty.multiplier = 10,
            powell.remin = TRUE,
+           bwsolver = c("powell", "mads", "mads+powell"),
            scale.init.categorical.sample = FALSE,
            scale.factor.search.lower = NULL,
            cvls.quadrature.grid = NULL,
@@ -300,6 +330,7 @@ npcdensbw.conbandwidth <-
            transform.bounds = FALSE,
            ...){
 
+    dot.args <- list(...)
     elapsed.start <- proc.time()[3]
 
     ydat = toFrame(ydat)
@@ -326,6 +357,7 @@ npcdensbw.conbandwidth <-
       nmulti <- npDefaultNmulti(dim(ydat)[2]+dim(xdat)[2])
     }
     bandwidth.compute <- npValidateScalarLogical(bandwidth.compute, "bandwidth.compute")
+    bwsolver <- npValidateBwsolver(bwsolver)
     remin <- npValidateScalarLogical(powell.remin, "powell.remin")
     scale.init.categorical.sample <-
       npValidateScalarLogical(scale.init.categorical.sample, "scale.init.categorical.sample")
@@ -383,6 +415,90 @@ npcdensbw.conbandwidth <-
     if (dim(ydat)[1] != dim(xdat)[1])
       stop(paste("number of rows of", "'ydat'", "does not match", "'xdat'"))
 
+    if (bandwidth.compute && npBwsolverUsesMads(bwsolver)) {
+      bws.regtype <- if (is.null(bws$regtype)) "lc" else bws$regtype
+      bws.pregtype <- if (is.null(bws$pregtype)) "Local-Constant" else bws$pregtype
+      bws.basis <- if (is.null(bws$basis)) "glp" else bws$basis
+      bws.degree <- if (is.null(bws$degree)) NULL else bws$degree
+      bws.bernstein <- isTRUE(bws$bernstein.basis)
+      bws.regtype.engine <- if (is.null(bws$regtype.engine)) bws.regtype else bws$regtype.engine
+      bws.basis.engine <- if (is.null(bws$basis.engine)) bws.basis else bws$basis.engine
+      bws.degree.engine <- if (is.null(bws$degree.engine)) bws.degree else bws$degree.engine
+      bws.bernstein.engine <- isTRUE(bws$bernstein.basis.engine)
+
+      return(.npcdensbw_run_fixed_degree_mads(
+        xdat = xdat,
+        ydat = ydat,
+        bws = c(bws$ybw, bws$xbw),
+        reg.args = list(
+          bwmethod = bws$method,
+          bwscaling = bws$scaling,
+          bwtype = bws$type,
+          cxkertype = bws$cxkertype,
+          cxkerorder = bws$cxkerorder,
+          cxkerbound = bws$cxkerbound,
+          cxkerlb = bws$cxkerlb,
+          cxkerub = bws$cxkerub,
+          cykertype = bws$cykertype,
+          cykerorder = bws$cykerorder,
+          cykerbound = bws$cykerbound,
+          cykerlb = bws$cykerlb,
+          cykerub = bws$cykerub,
+          uxkertype = bws$uxkertype,
+          oxkertype = bws$oxkertype,
+          uykertype = bws$uykertype,
+          oykertype = bws$oykertype,
+          regtype = bws.regtype,
+          pregtype = bws.pregtype,
+          basis = bws.basis,
+          degree = bws.degree,
+          bernstein.basis = bws.bernstein,
+          regtype.engine = bws.regtype.engine,
+          basis.engine = bws.basis.engine,
+          degree.engine = bws.degree.engine,
+          bernstein.basis.engine = bws.bernstein.engine,
+          scale.factor.search.lower = scale.factor.search.lower,
+          cvls.quadrature.grid = cvls.quadrature.grid,
+          cvls.quadrature.extend.factor = cvls.quadrature.extend.factor,
+          cvls.quadrature.points = cvls.quadrature.points,
+          cvls.quadrature.ratios = cvls.quadrature.ratios
+        ),
+        opt.args = list(
+          bandwidth.compute = TRUE,
+          nmulti = nmulti,
+          mads.nmulti = dot.args$mads.nmulti,
+          nomad.nmulti = dot.args$nomad.nmulti,
+          nomad.remin = FALSE,
+          powell.remin = powell.remin,
+          itmax = itmax,
+          ftol = ftol,
+          tol = tol,
+          small = small,
+          memfac = memfac,
+          lbc.dir = lbc.dir,
+          dfc.dir = dfc.dir,
+          cfac.dir = cfac.dir,
+          initc.dir = initc.dir,
+          lbd.dir = lbd.dir,
+          hbd.dir = hbd.dir,
+          dfac.dir = dfac.dir,
+          initd.dir = initd.dir,
+          scale.factor.init.lower = scale.factor.init.lower,
+          scale.factor.init.upper = scale.factor.init.upper,
+          scale.factor.init = scale.factor.init,
+          lbd.init = lbd.init,
+          hbd.init = hbd.init,
+          dfac.init = dfac.init,
+          scale.init.categorical.sample = scale.init.categorical.sample,
+          transform.bounds = transform.bounds,
+          invalid.penalty = invalid.penalty,
+          penalty.multiplier = penalty.multiplier,
+          nomad.opts = dot.args$nomad.opts
+        ),
+        bwsolver = bwsolver
+      ))
+    }
+
     if ((any(bws$iycon) &&
          !all(vapply(as.data.frame(ydat[, bws$iycon]), inherits, logical(1), c("integer", "numeric")))) ||
         (any(bws$iyord) &&
@@ -398,6 +514,8 @@ npcdensbw.conbandwidth <-
         (any(bws$ixuno) &&
          !all(vapply(as.data.frame(xdat[, bws$ixuno]), inherits, logical(1), "factor"))))
       stop(paste("supplied bandwidths do not match", "'xdat'", "in type"))
+
+    npValidateConditionalExtendedNn(bws, where = "npcdensbw")
 
     ## catch and destroy NA's
     goodrows <- seq_len(nrow(xdat))
@@ -519,7 +637,10 @@ npcdensbw.conbandwidth <-
         xnord = dim(xord)[2],
         xncon = dim(xcon)[2],
         old.cdens = FALSE,
-        int_do_tree = if (isTRUE(getOption("np.tree"))) DO_TREE_YES else DO_TREE_NO,
+        int_do_tree = .npcdensbw_tree_code(
+          bws = bws,
+          ncon = dim(ycon)[2] + dim(xcon)[2],
+          ncat = dim(yuno)[2] + dim(yord)[2] + dim(xuno)[2] + dim(xord)[2]),
         scale.init.categorical.sample = scale.init.categorical.sample,
         dfc.dir = dfc.dir,
         transform.bounds = transform.bounds,
@@ -614,6 +735,8 @@ npcdensbw.conbandwidth <-
       tbw$ifval = myout$fval[2]
       tbw$num.feval <- sum(myout$eval.history[is.finite(myout$eval.history)])
       tbw$num.feval.fast <- myout$fast.history[1]
+      tbw$num.feval.guarded <- if (identical(as.character(tbw$method)[1L], "cv.ml")) myout$guarded.history[1] else NA_real_
+      tbw$nn.cache <- .np_nn_cache_stats(myout$nn.cache)
       tbw$fval.history <- myout$fval.history
       tbw$eval.history <- myout$eval.history
       tbw$invalid.history <- myout$invalid.history
@@ -690,6 +813,8 @@ npcdensbw.conbandwidth <-
                         ifval = tbw$ifval,
                         num.feval = tbw$num.feval,
                         num.feval.fast = tbw$num.feval.fast,
+                        num.feval.guarded = tbw$num.feval.guarded,
+                        nn.cache = tbw$nn.cache,
                         fval.history = tbw$fval.history,
                         eval.history = tbw$eval.history,
                         invalid.history = tbw$invalid.history,
@@ -975,7 +1100,10 @@ npcdensbw.conbandwidth <-
     xnord = dim(xord)[2],
     xncon = dim(xcon)[2],
     old.cdens = FALSE,
-    int_do_tree = if (isTRUE(getOption("np.tree"))) DO_TREE_YES else DO_TREE_NO,
+    int_do_tree = .npcdensbw_tree_code(
+      bws = bws,
+      ncon = dim(ycon)[2] + dim(xcon)[2],
+      ncat = dim(yuno)[2] + dim(yord)[2] + dim(xuno)[2] + dim(xord)[2]),
     scale.init.categorical.sample = FALSE,
     dfc.dir = 0L,
     transform.bounds = FALSE,
@@ -1047,9 +1175,999 @@ npcdensbw.conbandwidth <-
   list(
     objective = as.numeric(out$fval[1L]),
     num.feval = 1L,
-    num.feval.fast = as.numeric(as.numeric(out$fast.history[1L]) > 0)
+    num.feval.fast = as.numeric(as.numeric(out$fast.history[1L]) > 0),
+    num.feval.guarded = if (identical(as.character(bws$method)[1L], "cv.ml")) {
+      as.numeric(as.numeric(out$guarded.history[1L]) > 0)
+    } else {
+      NA_real_
+    }
   )
 }
+
+.npcdensbw_count_or_zero <- function(x) {
+  x <- suppressWarnings(as.numeric(x[1L]))
+  if (length(x) == 0L || is.na(x) || !is.finite(x))
+    return(0)
+  x
+}
+
+npNomadShadowPrepareConditionalDensity <- function(c.uno,
+                                                       c.ord,
+                                                       c.con,
+                                                       u.uno,
+                                                       u.ord,
+                                                       u.con,
+                                                       mysd,
+                                                       myopti,
+                                                       myoptd,
+                                                       rbw,
+                                                       penalty.mode,
+                                                       penalty.multiplier,
+                                                       degree,
+                                                       bernstein,
+                                                       basis,
+                                                       regtype,
+                                                       cxkerlb,
+                                                       cxkerub,
+                                                       cykerlb,
+                                                       cykerub) {
+  if (length(myoptd) <= 23L || length(myopti) <= 28L)
+    stop("resident npcdens NOMAD shadow options are missing quadrature controls", call. = FALSE)
+
+  ok <- .Call(
+    "C_np_density_conditional_nomad_shadow_prepare",
+    c.uno,
+    c.ord,
+    c.con,
+    u.uno,
+    u.ord,
+    u.con,
+    mysd,
+    myopti,
+    myoptd,
+    rbw,
+    penalty.mode,
+    penalty.multiplier,
+    degree,
+    bernstein,
+    basis,
+    regtype,
+    cxkerlb,
+    cxkerub,
+    cykerlb,
+    cykerub,
+    PACKAGE = "np"
+  )
+
+  if (isTRUE(ok))
+    return(TRUE)
+
+  stop("failed to prepare resident npcdens NOMAD shadow state", call. = FALSE)
+}
+
+npNomadShadowEvalConditionalDensity <- function(bw, degree) {
+  .Call(
+    "C_np_density_conditional_nomad_shadow_eval",
+    bw,
+    degree,
+    PACKAGE = "np"
+  )
+}
+
+npNomadShadowNativeSearchConditionalDensity <- function(x0,
+                                                            bbin,
+                                                            lb,
+                                                            ub,
+                                                            flat.from.point,
+                                                            point.upper,
+                                                            max.eval,
+                                                            random.seed,
+                                                            inner.start.count = 0L,
+                                                            option.names,
+                                                            option.values,
+                                                            flat.decode.scale = rep.int(1, length(flat.from.point))) {
+  native.call <- .np_nomad_capture_solver_output(.Call(
+    "C_np_density_conditional_nomad_shadow_native_search",
+    x0,
+    as.integer(bbin),
+    lb,
+    ub,
+    as.integer(flat.from.point),
+    as.double(flat.decode.scale),
+    as.double(point.upper),
+    as.integer(max.eval),
+    as.integer(random.seed),
+    as.integer(inner.start.count),
+    as.character(option.names),
+    as.character(option.values),
+    PACKAGE = "np"
+  ), capture.output = TRUE)
+  .np_nomad_native_call_value(native.call)
+}
+
+npNomadShadowFixedNativeSearchConditionalDensity <- function(x0,
+                                                                 bbin,
+                                                                 lb,
+                                                                 ub,
+                                                                 flat.from.point,
+                                                                 point.upper,
+                                                                 max.eval,
+                                                                 random.seed,
+                                                                 inner.start.count = 0L,
+                                                                 option.names,
+                                                                 option.values,
+                                                                 flat.decode.scale = rep.int(1, length(flat.from.point))) {
+  native.call <- .np_nomad_capture_solver_output(.Call(
+    "C_np_density_conditional_nomad_shadow_fixed_native_search",
+    x0,
+    as.integer(bbin),
+    lb,
+    ub,
+    as.integer(flat.from.point),
+    as.double(flat.decode.scale),
+    as.double(point.upper),
+    as.integer(max.eval),
+    as.integer(random.seed),
+    as.integer(inner.start.count),
+    as.character(option.names),
+    as.character(option.values),
+    PACKAGE = "np"
+  ), capture.output = TRUE)
+  .np_nomad_native_call_value(native.call)
+}
+
+npNomadShadowClearConditionalDensity <- function() {
+  .Call("C_np_density_conditional_nomad_shadow_clear", PACKAGE = "np")
+}
+
+.npcdensbw_nomad_shadow_native_target <- function(template, reg.args, degree.search) {
+  bwtype <- if (!is.null(template$type) && length(template$type)) {
+    as.character(template$type[1L])
+  } else {
+    ""
+  }
+  method <- if (!is.null(reg.args$bwmethod) && length(reg.args$bwmethod)) {
+    as.character(reg.args$bwmethod[1L])
+  } else if (!is.null(template$method) && length(template$method)) {
+    as.character(template$method[1L])
+  } else {
+    ""
+  }
+  engine <- if (!is.null(degree.search$engine) && length(degree.search$engine)) {
+    as.character(degree.search$engine[1L])
+  } else {
+    ""
+  }
+
+  (identical(method, "cv.ml") ||
+     (identical(method, "cv.ls") && bwtype %in% c("fixed", "generalized_nn", "adaptive_nn"))) &&
+    bwtype %in% c("fixed", "generalized_nn", "adaptive_nn") &&
+    engine %in% c("nomad", "nomad+powell")
+}
+
+.npcdensbw_fixed_native_target <- function(template, reg.args, bwsolver) {
+  bwtype <- if (!is.null(template$type) && length(template$type)) {
+    as.character(template$type[1L])
+  } else {
+    ""
+  }
+  method <- if (!is.null(reg.args$bwmethod) && length(reg.args$bwmethod)) {
+    as.character(reg.args$bwmethod[1L])
+  } else if (!is.null(template$method) && length(template$method)) {
+    as.character(template$method[1L])
+  } else {
+    ""
+  }
+
+  method %in% c("cv.ml", "cv.ls") &&
+    bwtype %in% c("fixed", "generalized_nn", "adaptive_nn") &&
+    bwsolver %in% c("mads", "mads+powell")
+}
+
+.npcdensbw_nomad_shadow_native_require_crs <- function() {
+  if (!requireNamespace("crs", quietly = TRUE))
+    stop("native npcdens NOMAD route requires crs >= 0.15-44", call. = FALSE)
+  if (utils::packageVersion("crs") < "0.15.44")
+    stop("native npcdens NOMAD route requires crs >= 0.15-44", call. = FALSE)
+  invisible(TRUE)
+}
+
+.npcdensbw_nomad_shadow_native_flat_map <- function(template, setup) {
+  x.offset <- length(template$ybw)
+  point.full.indices <- c(setup$cont_flat, setup$cat_flat)
+  flat.full.indices <- c(
+    x.offset + which(template$ixcon),
+    which(template$iycon),
+    which(template$iyuno),
+    which(template$iyord),
+    x.offset + which(template$ixuno),
+    x.offset + which(template$ixord)
+  )
+  flat.from.point <- match(flat.full.indices, point.full.indices)
+  if (anyNA(flat.from.point))
+    stop("native npcdens NOMAD route could not map search point to evaluator bandwidth order", call. = FALSE)
+  as.integer(flat.from.point)
+}
+
+.npcdensbw_nomad_shadow_native_decode_scale <- function(template, setup, flat.from.point) {
+  ncont <- length(setup$cont_flat)
+  ncat <- length(setup$cat_flat)
+  point.scale <- numeric(ncont + ncat)
+
+  if (ncont > 0L) {
+    point.scale[seq_len(ncont)] <- if (identical(as.character(template$type)[1L], "fixed")) {
+      if (isTRUE(template$scaling)) {
+        rep.int(1, ncont)
+      } else {
+        as.double(setup$cont_scale)
+      }
+    } else {
+      rep.int(1, ncont)
+    }
+  }
+
+  if (ncat > 0L) {
+    cat.scale <- 1 / as.double(setup$bandwidth.scale.categorical)
+    if (isTRUE(template$scaling))
+      cat.scale <- cat.scale / as.double(setup$ncatfac)
+    point.scale[ncont + seq_len(ncat)] <- rep.int(cat.scale, ncat)
+  }
+
+  as.double(point.scale[flat.from.point])
+}
+
+.npcdensbw_nomad_shadow_native_option_vectors <- function(opts) {
+  if (is.null(opts) || !length(opts))
+    return(list(names = character(), values = character()))
+
+  .np_nomad_native_reject_unsupported_options(opts, "native npcdens NOMAD route")
+
+  option.names <- names(opts)
+  if (is.null(option.names) || any(!nzchar(option.names)))
+    stop("native npcdens NOMAD route received unnamed NOMAD options", call. = FALSE)
+
+  option.values <- vapply(opts, function(value) {
+    if (is.logical(value)) {
+      if (isTRUE(value[1L])) "true" else "false"
+    } else if (length(value) > 1L) {
+      paste0("( ", paste(as.character(value), collapse = " "), " )")
+    } else {
+      as.character(value[1L])
+    }
+  }, character(1L))
+
+  list(names = as.character(option.names), values = option.values)
+}
+
+.npcdensbw_nomad_shadow_prepare_args <- function(xdat,
+                                                 ydat,
+                                                 bws,
+                                                 start.bw = NULL,
+                                                 invalid.penalty = c("baseline", "dbmax"),
+                                                 penalty.multiplier = 10) {
+  invalid.penalty <- match.arg(invalid.penalty)
+
+  ydat <- toFrame(ydat)
+  xdat <- toFrame(xdat)
+
+  if (length(bws$ybw) != dim(ydat)[2])
+    stop("length of bandwidth vector does not match number of columns of 'ydat'")
+  if (length(bws$xbw) != dim(xdat)[2])
+    stop("length of bandwidth vector does not match number of columns of 'xdat'")
+  if (dim(ydat)[1] != dim(xdat)[1])
+    stop("number of rows of 'ydat' does not match 'xdat'")
+
+  keep.rows <- rep_len(TRUE, nrow(xdat))
+  rows.omit <- attr(na.omit(data.frame(xdat, ydat)), "na.action")
+  if (length(rows.omit) > 0L)
+    keep.rows[as.integer(rows.omit)] <- FALSE
+
+  xdat <- xdat[keep.rows,, drop = FALSE]
+  ydat <- ydat[keep.rows,, drop = FALSE]
+
+  ymat <- toMatrix(ydat)
+  xmat <- toMatrix(xdat)
+
+  yuno <- ymat[, bws$iyuno, drop = FALSE]
+  ycon <- ymat[, bws$iycon, drop = FALSE]
+  yord <- ymat[, bws$iyord, drop = FALSE]
+  xuno <- xmat[, bws$ixuno, drop = FALSE]
+  xcon <- xmat[, bws$ixcon, drop = FALSE]
+  xord <- xmat[, bws$ixord, drop = FALSE]
+
+  mysd <- EssDee(data.frame(xcon, ycon))
+  nrow <- nrow(ymat)
+  nconfac <- nrow^(-1.0 / (2.0 * bws$cxkerorder + bws$ncon))
+  ncatfac <- nrow^(-2.0 / (2.0 * bws$cxkerorder + bws$ncon))
+  scale.factor.search.lower <- .npcdensbw_resolve_scale_factor_lower_bound(
+    npGetScaleFactorSearchLower(bws),
+    fallback = 0.1,
+    argname = "bws$scale.factor.search.lower"
+  )
+  cvls.quadrature.extend.factor <- .npcdensbw_resolve_cvls_quadrature_extend_factor(
+    bws$cvls.quadrature.extend.factor,
+    fallback = 1,
+    argname = "bws$cvls.quadrature.extend.factor"
+  )
+  cvls.quadrature.points <- .npcdensbw_resolve_cvls_quadrature_points(
+    bws$cvls.quadrature.points,
+    fallback = c(100L, 50L),
+    argname = "bws$cvls.quadrature.points"
+  )
+  cvls.quadrature.ratios <- .npcdensbw_resolve_cvls_quadrature_ratios(
+    bws$cvls.quadrature.ratios,
+    fallback = c(0.20, 0.55, 0.25),
+    argname = "bws$cvls.quadrature.ratios"
+  )
+  cvls.quadrature.grid <- .npcdensbw_resolve_cvls_quadrature_grid(
+    bws$cvls.quadrature.grid,
+    fallback = .npcdensbw_cvls_quadrature_grid_fallback(bws$yncon),
+    argname = "bws$cvls.quadrature.grid"
+  )
+  cvls.quadrature.grid <- .npcdensbw_validate_cvls_quadrature_grid_dimension(
+    cvls.quadrature.grid,
+    bws$yncon,
+    argname = "bws$cvls.quadrature.grid"
+  )
+
+  penalty_mode <- if (invalid.penalty == "baseline") 1L else 0L
+  reg.code <- if (identical(bws$regtype.engine, "lp")) REGTYPE_LP else REGTYPE_LC
+  degree.code <- if (bws$xncon > 0L) as.integer(bws$degree.engine) else integer(0L)
+  basis.code <- as.integer(npLpBasisCode(bws$basis.engine))
+  bernstein.engine <- isTRUE(bws$bernstein.basis.engine)
+
+  myopti <- list(
+    num_obs_train = nrow,
+    iMultistart = IMULTI_FALSE,
+    iNum_Multistart = 0L,
+    int_use_starting_values = USE_START_YES,
+    int_LARGE_SF = if (bws$scaling) SF_NORMAL else SF_ARB,
+    BANDWIDTH_den_extern = switch(bws$type,
+      fixed = BW_FIXED,
+      generalized_nn = BW_GEN_NN,
+      adaptive_nn = BW_ADAP_NN),
+    itmax = 0L,
+    int_RESTART_FROM_MIN = RE_MIN_FALSE,
+    int_MINIMIZE_IO = IO_MIN_TRUE,
+    bwmethod = switch(bws$method,
+      cv.ml = CBWM_CVML,
+      cv.ls = CBWM_CVLS),
+    xkerneval = switch(bws$cxkertype,
+      gaussian = CKER_GAUSS + bws$cxkerorder/2 - 1,
+      epanechnikov = CKER_EPAN + bws$cxkerorder/2 - 1,
+      uniform = CKER_UNI,
+      "truncated gaussian" = CKER_TGAUSS),
+    ykerneval = switch(bws$cykertype,
+      gaussian = CKER_GAUSS + bws$cykerorder/2 - 1,
+      epanechnikov = CKER_EPAN + bws$cykerorder/2 - 1,
+      uniform = CKER_UNI,
+      "truncated gaussian" = CKER_TGAUSS),
+    uxkerneval = switch(bws$uxkertype,
+      aitchisonaitken = UKER_AIT,
+      liracine = UKER_LR),
+    uykerneval = switch(bws$uykertype,
+      aitchisonaitken = UKER_AIT,
+      liracine = UKER_LR),
+    oxkerneval = switch(bws$oxkertype,
+      wangvanryzin = OKER_WANG,
+      liracine = OKER_LR,
+      racineliyan = OKER_RLY),
+    oykerneval = switch(bws$oykertype,
+      wangvanryzin = OKER_WANG,
+      liracine = OKER_NLR,
+      racineliyan = OKER_RLY),
+    ynuno = dim(yuno)[2],
+    ynord = dim(yord)[2],
+    yncon = dim(ycon)[2],
+    xnuno = dim(xuno)[2],
+    xnord = dim(xord)[2],
+    xncon = dim(xcon)[2],
+    old.cdens = FALSE,
+    int_do_tree = .npcdensbw_tree_code(
+      bws = bws,
+      ncon = dim(ycon)[2] + dim(xcon)[2],
+      ncat = dim(yuno)[2] + dim(yord)[2] + dim(xuno)[2] + dim(xord)[2]),
+    scale.init.categorical.sample = FALSE,
+    dfc.dir = 0L,
+    transform.bounds = FALSE,
+    cvls.quadrature.grid = .npcdensbw_cvls_quadrature_grid_code(cvls.quadrature.grid),
+    cvls.quadrature.points =
+      .npcdensbw_effective_cvls_quadrature_points(cvls.quadrature.points, bws$yncon)
+  )
+
+  myoptd <- list(
+    ftol = 0,
+    tol = 0,
+    small = 0,
+    memfac = 0,
+    lbc.dir = 0,
+    cfac.dir = 0,
+    initc.dir = 0,
+    lbd.dir = 0,
+    hbd.dir = 0,
+    dfac.dir = 0,
+    initd.dir = 0,
+    lbc.init = 0,
+    hbc.init = 0,
+    cfac.init = 0,
+    lbd.init = 0,
+    hbd.init = 0,
+    dfac.init = 0,
+    nconfac = nconfac,
+    ncatfac = ncatfac,
+    scale.factor.lower.bound = scale.factor.search.lower,
+    cvls.quadrature.extend.factor = cvls.quadrature.extend.factor,
+    cvls.quadrature.ratios.uniform = cvls.quadrature.ratios[[1L]],
+    cvls.quadrature.ratios.sample = cvls.quadrature.ratios[[2L]],
+    cvls.quadrature.ratios.gl = cvls.quadrature.ratios[[3L]]
+  )
+
+  cxker.bounds.c <- npKernelBoundsMarshal(bws$cxkerlb[bws$ixcon], bws$cxkerub[bws$ixcon])
+  cyker.bounds.c <- .npcdensbw_marshal_y_bounds(bws$cykerlb[bws$iycon],
+                                                bws$cykerub[bws$iycon],
+                                                bws$cykerbound)
+  if (is.null(start.bw)) {
+    start.bw <- c(bws$xbw[bws$ixcon], bws$ybw[bws$iycon],
+                  bws$ybw[bws$iyuno], bws$ybw[bws$iyord],
+                  bws$xbw[bws$ixuno], bws$xbw[bws$ixord])
+  } else {
+    x.offset <- length(bws$ybw)
+    start.bw <- c(start.bw[x.offset + which(bws$ixcon)], start.bw[which(bws$iycon)],
+                  start.bw[which(bws$iyuno)], start.bw[which(bws$iyord)],
+                  start.bw[x.offset + which(bws$ixuno)], start.bw[x.offset + which(bws$ixord)])
+  }
+
+  list(
+    c.uno = as.double(yuno),
+    c.ord = as.double(yord),
+    c.con = as.double(ycon),
+    u.uno = as.double(xuno),
+    u.ord = as.double(xord),
+    u.con = as.double(xcon),
+    mysd = as.double(mysd),
+    myopti = as.integer(myopti),
+    myoptd = as.double(myoptd),
+    rbw = as.double(start.bw),
+    penalty_mode = as.integer(penalty_mode),
+    penalty_multiplier = as.double(penalty.multiplier),
+    degree = as.integer(degree.code),
+    bernstein = as.integer(bernstein.engine),
+    basis = as.integer(basis.code),
+    regtype = as.integer(reg.code),
+    cxkerlb = as.double(cxker.bounds.c$lb),
+    cxkerub = as.double(cxker.bounds.c$ub),
+    cykerlb = as.double(cyker.bounds.c$lb),
+    cykerub = as.double(cyker.bounds.c$ub)
+  )
+}
+
+npNomadShadowSearchConditionalDensity <- function(template,
+                                                      setup,
+                                                      prep,
+                                                      degree.search,
+                                                      x0,
+                                                      bbin,
+                                                      lb,
+                                                      ub,
+                                                      nomad.nmulti = 1L,
+                                                      nomad.inner.nmulti = 0L,
+                                                      random.seed = 42L,
+                                                      use.runtime.bandwidth.progress = FALSE,
+                                                      remin = FALSE,
+                                                      xdat = NULL,
+                                                      ydat = NULL,
+                                                      reg.args = NULL,
+                                                      opt.args = NULL,
+                                                      direct.meta.context = NULL) {
+  seed.state <- .np_seed_enter(random.seed)
+  on.exit(.np_seed_exit(seed.state, remove_if_absent = TRUE), add = TRUE)
+  .np_nomad_baseline_note(degree.search$start.degree)
+
+  bwdim <- length(setup$cont_flat) + length(setup$cat_flat)
+  ndeg <- length(degree.search$start.degree)
+
+  prepared <- npNomadShadowPrepareConditionalDensity(
+    c.uno = prep$c.uno,
+    c.ord = prep$c.ord,
+    c.con = prep$c.con,
+    u.uno = prep$u.uno,
+    u.ord = prep$u.ord,
+    u.con = prep$u.con,
+    mysd = prep$mysd,
+    myopti = prep$myopti,
+    myoptd = prep$myoptd,
+    rbw = prep$rbw,
+    penalty.mode = prep$penalty_mode,
+    penalty.multiplier = prep$penalty_multiplier,
+    degree = prep$degree,
+    bernstein = prep$bernstein,
+    basis = prep$basis,
+    regtype = prep$regtype,
+    cxkerlb = prep$cxkerlb,
+    cxkerub = prep$cxkerub,
+    cykerlb = prep$cykerlb,
+    cykerub = prep$cykerub
+  )
+  if (!isTRUE(prepared))
+    return(list(
+      best_payload = NULL,
+      powell.time = NA_real_,
+      num.feval.total = 0,
+      num.feval.fast.total = 0,
+      num.feval.guarded.total = 0,
+      method = degree.search$engine
+    ))
+  on.exit(npNomadShadowClearConditionalDensity(), add = TRUE)
+  nomad.num.feval.total <- 0
+  nomad.num.feval.fast.total <- 0
+  nomad.num.feval.guarded.total <- 0
+
+  eval_fun <- function(point) {
+    point <- as.numeric(point)
+    degree <- as.integer(round(point[bwdim + seq_len(ndeg)]))
+    degree <- .np_degree_clip_to_grid(degree, degree.search$candidates)
+    bw_vec <- .npcdensbw_nomad_point_to_bw(point[seq_len(bwdim)], template = template, setup = setup)
+    x.offset <- length(template$ybw)
+    flat.bw <- c(bw_vec[x.offset + which(template$ixcon)], bw_vec[which(template$iycon)],
+                 bw_vec[which(template$iyuno)], bw_vec[which(template$iyord)],
+                 bw_vec[x.offset + which(template$ixuno)], bw_vec[x.offset + which(template$ixord)])
+    out <- npNomadShadowEvalConditionalDensity(
+      bw = as.double(flat.bw),
+      degree = as.integer(degree)
+    )
+    nomad.num.feval.total <<- nomad.num.feval.total + as.numeric(out[2L])
+    nomad.num.feval.fast.total <<- nomad.num.feval.fast.total + as.numeric(out[3L])
+    nomad.num.feval.guarded.total <<- nomad.num.feval.guarded.total + as.numeric(out[4L])
+
+    list(
+      objective = as.numeric(out[1L]),
+      degree = degree,
+      num.feval = as.numeric(out[2L]),
+      num.feval.fast = as.numeric(out[3L]),
+      num.feval.guarded = as.numeric(out[4L])
+    )
+  }
+
+  external.progress <- if (isTRUE(use.runtime.bandwidth.progress) &&
+                           !is.null(.np_progress_runtime$bandwidth_state)) {
+    .np_progress_runtime$bandwidth_state
+  } else {
+    NULL
+  }
+  search.engine.used <- if (identical(degree.search$engine, "nomad+powell")) {
+    "nomad"
+  } else {
+    degree.search$engine
+  }
+  opt.value.local <- function(name, default) {
+    if (is.null(opt.args) || is.null(opt.args[[name]])) default else opt.args[[name]]
+  }
+  native.bw.bounds <- list(
+    lower = lb[seq_len(bwdim)],
+    upper = ub[seq_len(bwdim)],
+    bbin = bbin[seq_len(bwdim)],
+    ncon = length(setup$cont_flat),
+    ncat = length(setup$cat_flat)
+  )
+  native.start.bounds <- .np_nomad_bw_restart_start_bounds(
+    bounds = native.bw.bounds,
+    setup = setup,
+    opt.value = opt.value.local,
+    where = "npcdensbw"
+  )
+
+  if (.npcdensbw_nomad_shadow_native_target(template, reg.args, degree.search)) {
+    .npcdensbw_nomad_shadow_native_require_crs()
+    native.nmulti <- npValidateNmulti(nomad.nmulti)
+    native.inner.nmulti <- npValidateNonNegativeInteger(
+      nomad.inner.nmulti,
+      "nomad.inner.nmulti"
+    )
+    native.inner.nmulti <- as.integer(native.inner.nmulti[1L])
+
+    native.max.eval <- 0L
+    native.nomad.opts <- .np_nomad_prepare_solver_opts(
+      random.seed = random.seed,
+      nomad.opts = if (!is.null(opt.args$nomad.opts)) opt.args$nomad.opts else list(),
+      geometry.policy = "user-only",
+      where = "npcdensbw native NOMAD degree source geometry"
+    )
+    native.option.vectors <- .npcdensbw_nomad_shadow_native_option_vectors(native.nomad.opts)
+    flat.from.point <- .npcdensbw_nomad_shadow_native_flat_map(template, setup)
+    flat.decode.scale <- .npcdensbw_nomad_shadow_native_decode_scale(
+      template = template,
+      setup = setup,
+      flat.from.point = flat.from.point
+    )
+    native.cont.upper <- if (identical(as.character(template$type)[1L], "fixed")) {
+      rep.int(Inf, length(setup$cont_flat))
+    } else if (!is.null(setup$cont_extendednn_upper) &&
+               length(setup$cont_extendednn_upper) == length(setup$cont_flat)) {
+      pmax(1, as.double(setup$cont_extendednn_upper))
+    } else if (!is.null(setup$nobs)) {
+      rep.int(max(1L, as.integer(setup$nobs) - 1L), length(setup$cont_flat))
+    } else {
+      rep.int(Inf, length(setup$cont_flat))
+    }
+    native.point.upper <- c(native.cont.upper, rep.int(Inf, length(setup$cat_flat)))
+    native.start.matrix <- .np_nomad_build_starts(
+      x0 = x0,
+      bbin = bbin,
+      lb = lb,
+      ub = ub,
+      nmulti = native.nmulti,
+      random.seed = random.seed,
+      start.lower = c(native.start.bounds$lower, degree.search$lower),
+      start.upper = c(native.start.bounds$upper, degree.search$upper),
+      degree_spec = list(
+        initial = degree.search$start.degree,
+        lower = degree.search$lower,
+        upper = degree.search$upper,
+        basis = degree.search$basis,
+        nobs = degree.search$nobs,
+        user_supplied = degree.search$start.user
+      )
+    )
+    native.results <- vector("list", nrow(native.start.matrix))
+    native.best.index <- NA_integer_
+    native.best.objective <- -Inf
+    native.nomad.elapsed <- 0
+    native.callback.total <- 0L
+    native.progress <- .np_nomad_native_progress_begin(
+      nmulti = native.nmulti,
+      baseline_degree = degree.search$start.degree,
+      best_record = NULL
+    )
+    on.exit(.np_nomad_native_progress_abort(native.progress), add = TRUE)
+
+    run_native_restart <- function(start, restart.index) {
+      native.restart.degree <- if (ndeg > 0L) {
+        as.integer(round(start[bwdim + seq_len(ndeg)]))
+      } else {
+        integer(0L)
+      }
+      .np_nomad_native_progress_restart(
+        handle = native.progress,
+        restart_index = restart.index,
+        degree = native.restart.degree,
+        best_record = NULL,
+        eval_offset = native.callback.total
+      )
+      native.start <- proc.time()[3L]
+      native <- npNomadShadowNativeSearchConditionalDensity(
+        x0 = as.numeric(start),
+        bbin = as.integer(bbin),
+        lb = as.double(lb),
+        ub = as.double(ub),
+        flat.from.point = flat.from.point,
+        flat.decode.scale = flat.decode.scale,
+        point.upper = native.point.upper,
+        max.eval = native.max.eval,
+        random.seed = random.seed,
+        inner.start.count = native.inner.nmulti,
+        option.names = native.option.vectors$names,
+        option.values = native.option.vectors$values
+      )
+      native.elapsed <- proc.time()[3L] - native.start
+      if (!identical(as.integer(native$status[1L]), 0L) ||
+          !identical(as.integer(native$result_status[1L]), 0L)) {
+        stop(sprintf(
+          "native npcdens NOMAD route failed (status=%s, result_status=%s): %s",
+          as.integer(native$status[1L]),
+          as.integer(native$result_status[1L]),
+          as.character(native$message[1L])
+        ), call. = FALSE)
+      }
+      if (is.null(native$best_point) || any(!is.finite(native$best_point)))
+        stop("native npcdens NOMAD route did not return a finite best point", call. = FALSE)
+
+      native.degree <- as.integer(native$best_degree)
+      native.objective <- as.numeric(native$objective[1L])
+      list(
+        restart = as.integer(restart.index),
+        start = as.numeric(start),
+        degree.start = native.restart.degree,
+        elapsed = native.elapsed,
+        status = "ok",
+        message = as.character(native$message[1L]),
+        objective = native.objective,
+        bbe = as.numeric(native$blackbox_evaluations[1L]),
+        iterations = as.numeric(native$iterations[1L]),
+        solution = as.numeric(native$solution),
+        best_point = as.numeric(native$best_point),
+        best_degree = native.degree,
+        best_flat_bandwidth = as.numeric(native$best_flat_bandwidth),
+        native = native
+      )
+    }
+
+    for (i in seq_len(nrow(native.start.matrix))) {
+      native.i <- run_native_restart(
+        start = as.numeric(native.start.matrix[i, ]),
+        restart.index = i
+      )
+      native.results[[i]] <- native.i
+      native.nomad.elapsed <- native.nomad.elapsed + as.numeric(native.i$elapsed[1L])
+      nomad.num.feval.total <- nomad.num.feval.total + as.numeric(native.i$native$total_num.feval[1L])
+      nomad.num.feval.fast.total <- nomad.num.feval.fast.total + as.numeric(native.i$native$total_num.feval.fast[1L])
+      nomad.num.feval.guarded.total <- nomad.num.feval.guarded.total + as.numeric(native.i$native$total_num.feval.guarded[1L])
+      native.callback.total <- native.callback.total + as.integer(native.i$native$compiled_callback_calls[1L])
+      if (is.finite(native.i$objective) &&
+          .np_degree_better(native.i$objective, native.best.objective, direction = "max")) {
+        native.best.objective <- native.i$objective
+        native.best.index <- i
+      }
+    }
+    if (!is.finite(native.best.index))
+      stop("native npcdens NOMAD route did not return a finite solution", call. = FALSE)
+
+    if (isTRUE(remin)) {
+      remin.index <- length(native.results) + 1L
+      remin.start <- as.numeric(native.results[[native.best.index]]$best_point)
+      native.remin <- run_native_restart(
+        start = remin.start,
+        restart.index = remin.index
+      )
+      native.results[[remin.index]] <- native.remin
+      native.nomad.elapsed <- native.nomad.elapsed + as.numeric(native.remin$elapsed[1L])
+      nomad.num.feval.total <- nomad.num.feval.total + as.numeric(native.remin$native$total_num.feval[1L])
+      nomad.num.feval.fast.total <- nomad.num.feval.fast.total + as.numeric(native.remin$native$total_num.feval.fast[1L])
+      nomad.num.feval.guarded.total <- nomad.num.feval.guarded.total + as.numeric(native.remin$native$total_num.feval.guarded[1L])
+      native.callback.total <- native.callback.total + as.integer(native.remin$native$compiled_callback_calls[1L])
+      if (is.finite(native.remin$objective) &&
+          .np_degree_better(native.remin$objective, native.best.objective, direction = "max")) {
+        native.best.objective <- native.remin$objective
+        native.best.index <- remin.index
+      }
+    }
+
+    native.best <- native.results[[native.best.index]]
+    native <- native.best$native
+    native.degree <- as.integer(native.best$best_degree)
+    native.objective <- as.numeric(native.best$objective[1L])
+    native.record <- list(
+      eval_id = as.integer(native$compiled_callback_calls[1L]),
+      degree = native.degree,
+      objective = native.objective,
+      status = "ok",
+      cached = FALSE,
+      message = as.character(native$message[1L]),
+      elapsed = native.best$elapsed,
+      num.feval = as.numeric(native$best_num.feval[1L]),
+      num.feval.fast = as.numeric(native$best_num.feval.fast[1L]),
+      num.feval.guarded = as.numeric(native$best_num.feval.guarded[1L])
+    )
+    .np_nomad_native_progress_end(
+      handle = native.progress,
+      degree = native.record$degree,
+      best_record = native.record
+    )
+    search.result <- list(
+      best = native.record,
+      best_point = as.numeric(native.best$best_point),
+      best_payload = NULL,
+      completed = TRUE,
+      method = search.engine.used,
+      restart.results = native.results,
+      best.restart = native.best.index,
+      nomad.time = native.nomad.elapsed,
+      powell.time = NA_real_,
+      num.feval.total = nomad.num.feval.total,
+      num.feval.fast.total = nomad.num.feval.fast.total,
+      num.feval.guarded.total = nomad.num.feval.guarded.total,
+      native.diagnostics = list(
+        raw.point = as.numeric(native.best$best_point),
+        degree = native.degree,
+        flat.bandwidth = as.numeric(native.best$best_flat_bandwidth),
+        objective = native.objective,
+        official.solution = as.numeric(native.best$solution),
+        official.objective = as.numeric(native$official_objective[1L]),
+        compiled.callback.count = as.integer(native$compiled_callback_calls[1L]),
+        compiled.callback.failures = as.integer(native$compiled_callback_failures[1L]),
+        crs.callback.evaluations = as.integer(native$crs_callback_evaluations[1L]),
+        blackbox.evaluations = as.integer(native$blackbox_evaluations[1L]),
+        cache.hits = as.integer(native$cache_hits[1L]),
+        cache.size = as.integer(native$cache_size[1L]),
+        total.evaluations = as.integer(native$total_evaluations[1L]),
+        iterations = as.integer(native$iterations[1L])
+      )
+    )
+  } else {
+    search.result <- .np_nomad_search(
+      engine = search.engine.used,
+      baseline_record = NULL,
+      start_degree = degree.search$start.degree,
+      x0 = x0,
+      bbin = bbin,
+      lb = lb,
+      ub = ub,
+      eval_fun = eval_fun,
+      build_payload = function(point, best_record, solution, interrupted) {
+        list(
+          payload = NULL,
+          objective = as.numeric(best_record$objective),
+          powell.time = NA_real_
+        )
+      },
+      direction = "max",
+      objective_name = "fval",
+      nmulti = nomad.nmulti,
+      nomad.inner.nmulti = nomad.inner.nmulti,
+      random.seed = random.seed,
+      progress_state = external.progress,
+      manage_progress_lifecycle = is.null(external.progress),
+      bind_bandwidth_runtime = !is.null(external.progress),
+      handoff_before_build = identical(degree.search$engine, "nomad+powell"),
+      remin = isTRUE(remin),
+      start.lower = c(native.start.bounds$lower, degree.search$lower),
+      start.upper = c(native.start.bounds$upper, degree.search$upper),
+      degree_spec = list(
+        initial = degree.search$start.degree,
+        lower = degree.search$lower,
+        upper = degree.search$upper,
+        basis = degree.search$basis,
+        nobs = degree.search$nobs,
+        user_supplied = degree.search$start.user
+      )
+    )
+  }
+  if (!identical(search.engine.used, degree.search$engine)) {
+    search.result$method <- degree.search$engine
+  }
+
+  if (!is.null(xdat) &&
+      !is.null(ydat) &&
+      !is.null(reg.args) &&
+      !is.null(opt.args) &&
+      !is.null(direct.meta.context) &&
+      !is.null(search.result$best_point) &&
+      !is.null(search.result$best)) {
+    best.solution <- NULL
+    if (!is.null(search.result$best.restart) &&
+        is.finite(search.result$best.restart) &&
+        length(search.result$restart.results) >= as.integer(search.result$best.restart)) {
+      best.solution <- search.result$restart.results[[as.integer(search.result$best.restart)]]
+    }
+
+    build_shadow_payload <- function(point, best_record, solution, interrupted) {
+      point <- as.numeric(point)
+      degree <- as.integer(best_record$degree)
+      bw_vec <- .npcdensbw_nomad_point_to_bw(point[seq_len(bwdim)], template = template, setup = setup)
+      powell.elapsed <- NA_real_
+
+      build_direct_payload <- function() {
+        final.reg.args <- reg.args
+        final.reg.args$regtype <- "lp"
+        final.reg.args$pregtype <- "Local-Polynomial"
+        final.reg.args$degree <- degree
+        final.reg.args$bernstein.basis <- degree.search$bernstein.basis
+        final.reg.args$regtype.engine <- "lp"
+        final.reg.args$degree.engine <- degree
+        final.reg.args$bernstein.basis.engine <- degree.search$bernstein.basis
+
+        payload <- .npcdensbw_build_conbandwidth(
+          xdat = xdat,
+          ydat = ydat,
+          bws = bw_vec,
+          bandwidth.compute = FALSE,
+          reg.args = final.reg.args
+        )
+        payload$nconfac <- direct.meta.context$nconfac
+        payload$ncatfac <- direct.meta.context$ncatfac
+        payload$sdev <- direct.meta.context$sdev
+        payload <- .np_refresh_xy_bandwidth_metadata(payload)
+        payload$method <- if (!is.null(payload$method) && length(payload$method)) {
+          as.character(payload$method[1L])
+        } else if (!is.null(reg.args$bwmethod) && length(reg.args$bwmethod)) {
+          as.character(reg.args$bwmethod[1L])
+        } else {
+          "cv.ml"
+        }
+        payload$pmethod <- bwmToPrint(payload$method)
+        payload$fval <- as.numeric(best_record$objective)
+        payload$ifval <- NA_real_
+        payload$num.feval <- as.numeric(nomad.num.feval.total)
+        payload$num.feval.fast <- as.numeric(nomad.num.feval.fast.total)
+        payload$num.feval.guarded <- if (identical(as.character(payload$method)[1L], "cv.ml")) as.numeric(nomad.num.feval.guarded.total) else NA_real_
+        payload$fval.history <- NA_real_
+        payload$eval.history <- NA_real_
+        payload$invalid.history <- NA_real_
+        payload$timing <- NA_real_
+        payload$total.time <- NA_real_
+        payload
+      }
+
+      direct.payload <- build_direct_payload()
+      if (is.null(direct.payload$timing.profile) && is.list(best_record$timing.profile))
+        direct.payload$timing.profile <- best_record$timing.profile
+      direct.objective <- as.numeric(best_record$objective)
+
+      if (identical(degree.search$engine, "nomad+powell")) {
+        hot.reg.args <- reg.args
+        hot.reg.args$regtype <- "lp"
+        hot.reg.args$pregtype <- "Local-Polynomial"
+        hot.reg.args$degree <- degree
+        hot.reg.args$bernstein.basis <- degree.search$bernstein.basis
+        hot.reg.args$regtype.engine <- "lp"
+        hot.reg.args$degree.engine <- degree
+        hot.reg.args$bernstein.basis.engine <- degree.search$bernstein.basis
+        hot.opt.args <- .np_nomad_powell_hotstart_opt_args(
+          opt.args,
+          strategy = "disable_multistart",
+          remin = isTRUE(opt.args$powell.remin)
+        )
+        powell.start <- proc.time()[3L]
+        hot.payload <- .npcdensbw_with_powell_refinement_progress(
+          degree,
+          .npcdensbw_run_fixed_degree(
+            xdat = xdat,
+            ydat = ydat,
+            bws = bw_vec,
+            reg.args = hot.reg.args,
+            opt.args = hot.opt.args
+          )
+        )
+        powell.elapsed <- proc.time()[3L] - powell.start
+        direct.payload$num.feval <- as.numeric(direct.payload$num.feval[1L]) + as.numeric(hot.payload$num.feval[1L])
+        direct.payload$num.feval.fast <- as.numeric(direct.payload$num.feval.fast[1L]) + as.numeric(hot.payload$num.feval.fast[1L])
+        direct.payload$num.feval.guarded <- if (identical(as.character(direct.payload$method)[1L], "cv.ml")) {
+          .npcdensbw_count_or_zero(direct.payload$num.feval.guarded) +
+            .npcdensbw_count_or_zero(hot.payload$num.feval.guarded)
+        } else {
+          NA_real_
+        }
+        hot.payload$num.feval <- direct.payload$num.feval
+        hot.payload$num.feval.fast <- direct.payload$num.feval.fast
+        hot.payload$num.feval.guarded <- direct.payload$num.feval.guarded
+        if (!is.null(hot.payload$method) && length(hot.payload$method))
+          hot.payload$pmethod <- bwmToPrint(as.character(hot.payload$method[1L]))
+        hot.objective <- as.numeric(hot.payload$fval[1L])
+        if (is.finite(hot.objective) &&
+            .np_degree_better(hot.objective, direct.objective, direction = "max")) {
+          return(list(payload = hot.payload, objective = hot.objective, powell.time = powell.elapsed))
+        }
+      }
+
+      list(payload = direct.payload, objective = direct.objective, powell.time = powell.elapsed)
+    }
+
+    payload.result <- build_shadow_payload(
+      point = search.result$best_point,
+      best_record = search.result$best,
+      solution = best.solution,
+      interrupted = !isTRUE(search.result$completed)
+    )
+    if (is.list(payload.result) && !is.null(payload.result$payload)) {
+      search.result$best_payload <- payload.result$payload
+      if (isTRUE(getOption("np.developer.native.nomad.diagnostics", FALSE)) &&
+          !is.null(search.result$native.diagnostics)) {
+        attr(search.result$best_payload, "native.nomad.diagnostics") <- search.result$native.diagnostics
+      }
+      if (!is.null(payload.result$powell.time))
+        search.result$powell.time <- as.numeric(payload.result$powell.time[1L])
+      if (!is.null(payload.result$objective) &&
+          .np_degree_better(payload.result$objective, search.result$best$objective, direction = "max")) {
+        search.result$best$objective <- as.numeric(payload.result$objective[1L])
+      }
+    }
+  }
+
+  if (is.null(search.result$best_payload))
+    search.result$best_payload <- NULL
+  if (is.null(search.result$powell.time))
+    search.result$powell.time <- NA_real_
+  if (is.null(search.result$optim.time) ||
+      !is.finite(as.numeric(search.result$optim.time[1L]))) {
+    timing.parts <- as.numeric(c(search.result$nomad.time, search.result$powell.time))
+    timing.parts <- timing.parts[is.finite(timing.parts)]
+    search.result$optim.time <- if (length(timing.parts)) sum(timing.parts) else NA_real_
+  }
+  search.result$num.feval.total <- as.numeric(nomad.num.feval.total)
+  search.result$num.feval.fast.total <- as.numeric(nomad.num.feval.fast.total)
+  search.result$num.feval.guarded.total <- as.numeric(nomad.num.feval.guarded.total)
+  search.result
+}
+
 
 .npcdensbw_run_fixed_degree <- function(xdat, ydat, bws, reg.args, opt.args) {
   tbw <- .npcdensbw_build_conbandwidth(
@@ -1063,10 +2181,433 @@ npcdensbw.conbandwidth <-
   do.call(npcdensbw.conbandwidth, c(list(xdat = xdat, ydat = ydat, bws = tbw), opt.args))
 }
 
+.npcdensbw_run_fixed_degree_mads <- function(xdat,
+                                             ydat,
+                                             bws,
+                                             reg.args,
+                                             opt.args,
+                                             bwsolver = c("mads", "mads+powell")) {
+  bwsolver <- npValidateBwsolver(bwsolver)
+  opt.value <- function(name, default = NULL) {
+    if (!is.null(opt.args[[name]])) opt.args[[name]] else default
+  }
+
+  template <- .npcdensbw_build_conbandwidth(
+    xdat = xdat,
+    ydat = ydat,
+    bws = bws,
+    bandwidth.compute = FALSE,
+    reg.args = reg.args
+  )
+  if (!(template$type %in% c("fixed", "generalized_nn", "adaptive_nn")))
+    stop("bwsolver='mads' requires bwtype='fixed', 'generalized_nn', or 'adaptive_nn'")
+
+  setup <- .npcdensbw_nomad_bw_setup(
+    xdat = xdat,
+    ydat = ydat,
+    template = template,
+    allow.extended.nn = TRUE
+  )
+  setup$nobs <- nrow(toFrame(xdat))
+  bwdim <- length(setup$cont_flat) + length(setup$cat_flat)
+  bounds <- .npcdensbw_nomad_bw_bounds(template = template, setup = setup)
+  point.start <- {
+    raw <- c(template$ybw, template$xbw)
+    if (all(raw == 0)) NULL else .npcdensbw_nomad_bw_to_point(raw, template = template, setup = setup)
+  }
+  x0 <- .npcdensbw_nomad_complete_bw_start_point(
+    point = point.start,
+    bounds = bounds,
+    template = template
+  )
+  objective.direction <- "max"
+  mads.num.feval.total <- 0
+  mads.num.feval.fast.total <- 0
+  mads.num.feval.guarded.total <- 0
+
+  eval_fun <- function(point) {
+    bw_vec <- .npcdensbw_nomad_point_to_bw(point[seq_len(bwdim)], template = template, setup = setup)
+    tbw <- .npcdensbw_build_conbandwidth(
+      xdat = xdat,
+      ydat = ydat,
+      bws = bw_vec,
+      bandwidth.compute = FALSE,
+      reg.args = reg.args
+    )
+    out <- .npcdensbw_eval_only(
+      xdat = xdat,
+      ydat = ydat,
+      bws = tbw,
+      invalid.penalty = opt.value("invalid.penalty", "baseline"),
+      penalty.multiplier = opt.value("penalty.multiplier", 10)
+    )
+    mads.num.feval.total <<- mads.num.feval.total + as.numeric(out$num.feval[1L])
+    mads.num.feval.fast.total <<- mads.num.feval.fast.total + as.numeric(out$num.feval.fast[1L])
+    mads.num.feval.guarded.total <<- mads.num.feval.guarded.total + .npcdensbw_count_or_zero(out$num.feval.guarded)
+
+    list(
+      objective = out$objective,
+      degree = integer(0L),
+      num.feval = out$num.feval
+    )
+  }
+
+  build_payload <- function(point, best_record, solution, interrupted) {
+    bw_vec <- .npcdensbw_nomad_point_to_bw(point[seq_len(bwdim)], template = template, setup = setup)
+    final.tbw <- .npcdensbw_build_conbandwidth(
+      xdat = xdat,
+      ydat = ydat,
+      bws = bw_vec,
+      bandwidth.compute = FALSE,
+      reg.args = reg.args
+    )
+    final.tbw$fval <- as.numeric(best_record$objective)
+    final.tbw$ifval <- NA_real_
+    final.tbw$num.feval <- as.numeric(mads.num.feval.total)
+    final.tbw$num.feval.fast <- as.numeric(mads.num.feval.fast.total)
+    final.tbw$num.feval.guarded <- if (identical(as.character(final.tbw$method)[1L], "cv.ml")) {
+      as.numeric(mads.num.feval.guarded.total)
+    } else {
+      NA_real_
+    }
+    final.tbw$fval.history <- as.numeric(best_record$objective)
+    final.tbw$eval.history <- if (!is.null(solution$bbe)) rep(1, max(1L, as.integer(solution$bbe))) else 1
+    final.tbw$invalid.history <- 0
+    final.tbw$timing <- NA_real_
+    final.tbw$total.time <- NA_real_
+    direct.payload <- npcdensbw.conbandwidth(
+      xdat = xdat,
+      ydat = ydat,
+      bws = final.tbw,
+      bandwidth.compute = FALSE
+    )
+    direct.payload$num.feval <- as.numeric(mads.num.feval.total)
+    direct.payload$num.feval.fast <- as.numeric(mads.num.feval.fast.total)
+    direct.payload$num.feval.guarded <- final.tbw$num.feval.guarded
+    direct.objective <- as.numeric(best_record$objective)
+    powell.elapsed <- NA_real_
+
+    if (identical(bwsolver, "mads+powell")) {
+      hot.opt.args <- .np_nomad_powell_hotstart_opt_args(
+        opt.args,
+        strategy = "disable_multistart",
+        remin = isTRUE(opt.args$powell.remin)
+      )
+      hot.start <- proc.time()[3L]
+      hot.payload <- .npcdensbw_run_fixed_degree(
+        xdat = xdat,
+        ydat = ydat,
+        bws = bw_vec,
+        reg.args = reg.args,
+        opt.args = hot.opt.args
+      )
+      powell.elapsed <- proc.time()[3L] - hot.start
+      direct.payload$num.feval <- as.numeric(direct.payload$num.feval[1L]) + as.numeric(hot.payload$num.feval[1L])
+      direct.payload$num.feval.fast <- as.numeric(direct.payload$num.feval.fast[1L]) + as.numeric(hot.payload$num.feval.fast[1L])
+      direct.payload$num.feval.guarded <- if (identical(as.character(direct.payload$method)[1L], "cv.ml")) {
+        .npcdensbw_count_or_zero(direct.payload$num.feval.guarded) +
+          .npcdensbw_count_or_zero(hot.payload$num.feval.guarded)
+      } else {
+        NA_real_
+      }
+      hot.payload$num.feval <- direct.payload$num.feval
+      hot.payload$num.feval.fast <- direct.payload$num.feval.fast
+      hot.payload$num.feval.guarded <- direct.payload$num.feval.guarded
+      hot.objective <- as.numeric(hot.payload$fval[1L])
+      if (is.finite(hot.objective) &&
+          .np_degree_better(hot.objective, direct.objective, direction = objective.direction))
+        return(list(payload = hot.payload, objective = hot.objective, powell.time = powell.elapsed))
+    }
+
+    list(payload = direct.payload, objective = direct.objective, powell.time = powell.elapsed)
+  }
+
+  native.start.bounds <- .np_nomad_bw_restart_start_bounds(
+    bounds = bounds,
+    setup = setup,
+    opt.value = opt.value,
+    where = "npcdensbw"
+  )
+  if (is.null(point.start)) {
+    x0 <- .npcdensbw_nomad_complete_bw_start_point(
+      point = NULL,
+      bounds = bounds,
+      template = template,
+      initial = native.start.bounds$initial,
+      where = "npcdensbw"
+    )
+  }
+
+  if (.npcdensbw_fixed_native_target(template, reg.args, bwsolver)) {
+    .npcdensbw_nomad_shadow_native_require_crs()
+    native.nmulti <- npValidateNmulti(
+      opt.value("nmulti", npDefaultNmulti(dim(ydat)[2L] + dim(xdat)[2L]))
+    )
+    native.inner.nmulti <- npValidateNonNegativeInteger(
+      opt.value("mads.nmulti", opt.value("nomad.nmulti", 0L)),
+      "nomad.nmulti"
+    )
+    native.inner.nmulti <- as.integer(native.inner.nmulti[1L])
+
+    native.random.seed <- opt.value("random.seed", 42L)
+    native.nomad.opts <- .np_nomad_prepare_solver_opts(
+      random.seed = native.random.seed,
+      nomad.opts = opt.value("nomad.opts", list()),
+      geometry.policy = "user-only",
+      where = "npcdensbw native NOMAD source geometry"
+    )
+    native.option.vectors <- .npcdensbw_nomad_shadow_native_option_vectors(native.nomad.opts)
+    flat.from.point <- .npcdensbw_nomad_shadow_native_flat_map(template, setup)
+    flat.decode.scale <- .npcdensbw_nomad_shadow_native_decode_scale(
+      template = template,
+      setup = setup,
+      flat.from.point = flat.from.point
+    )
+    native.cont.upper <- if (identical(as.character(template$type)[1L], "fixed")) {
+      rep.int(Inf, length(setup$cont_flat))
+    } else if (!is.null(setup$cont_extendednn_upper) &&
+               length(setup$cont_extendednn_upper) == length(setup$cont_flat)) {
+      pmax(1, as.double(setup$cont_extendednn_upper))
+    } else if (!is.null(setup$nobs)) {
+      rep.int(max(1L, as.integer(setup$nobs) - 1L), length(setup$cont_flat))
+    } else {
+      rep.int(Inf, length(setup$cont_flat))
+    }
+    native.point.upper <- c(native.cont.upper, rep.int(Inf, length(setup$cat_flat)))
+    native.start.matrix <- .np_nomad_build_starts(
+      x0 = x0,
+      bbin = bounds$bbin,
+      lb = bounds$lower,
+      ub = bounds$upper,
+      nmulti = native.nmulti,
+      random.seed = native.random.seed,
+      degree_spec = NULL,
+      start.lower = native.start.bounds$lower,
+      start.upper = native.start.bounds$upper
+    )
+    start.bw <- .npcdensbw_nomad_point_to_bw(x0[seq_len(bwdim)], template = template, setup = setup)
+    native.prep <- .npcdensbw_nomad_shadow_prepare_args(
+      xdat = xdat,
+      ydat = ydat,
+      bws = template,
+      start.bw = start.bw,
+      invalid.penalty = opt.value("invalid.penalty", "baseline"),
+      penalty.multiplier = opt.value("penalty.multiplier", 10)
+    )
+
+    prepared <- npNomadShadowPrepareConditionalDensity(
+      c.uno = native.prep$c.uno,
+      c.ord = native.prep$c.ord,
+      c.con = native.prep$c.con,
+      u.uno = native.prep$u.uno,
+      u.ord = native.prep$u.ord,
+      u.con = native.prep$u.con,
+      mysd = native.prep$mysd,
+      myopti = native.prep$myopti,
+      myoptd = native.prep$myoptd,
+      rbw = native.prep$rbw,
+      penalty.mode = native.prep$penalty_mode,
+      penalty.multiplier = native.prep$penalty_multiplier,
+      degree = native.prep$degree,
+      bernstein = native.prep$bernstein,
+      basis = native.prep$basis,
+      regtype = native.prep$regtype,
+      cxkerlb = native.prep$cxkerlb,
+      cxkerub = native.prep$cxkerub,
+      cykerlb = native.prep$cykerlb,
+      cykerub = native.prep$cykerub
+    )
+    if (!isTRUE(prepared))
+      stop("failed to prepare native npcdens fixed-degree route", call. = FALSE)
+    on.exit(npNomadShadowClearConditionalDensity(), add = TRUE)
+
+    native.results <- vector("list", nrow(native.start.matrix))
+    native.best.index <- NA_integer_
+    native.best.objective <- -Inf
+    native.nomad.elapsed <- 0
+    native.num.feval.total <- 0
+    native.num.feval.fast.total <- 0
+    native.num.feval.guarded.total <- 0
+
+    run_native_restart <- function(start, restart.index) {
+      native.start <- proc.time()[3L]
+      native <- npNomadShadowFixedNativeSearchConditionalDensity(
+        x0 = as.numeric(start),
+        bbin = bounds$bbin,
+        lb = bounds$lower,
+        ub = bounds$upper,
+        flat.from.point = flat.from.point,
+        flat.decode.scale = flat.decode.scale,
+        point.upper = native.point.upper,
+        max.eval = 0L,
+        random.seed = native.random.seed,
+        inner.start.count = native.inner.nmulti,
+        option.names = native.option.vectors$names,
+        option.values = native.option.vectors$values
+      )
+      native.elapsed <- proc.time()[3L] - native.start
+      if (!identical(as.integer(native$status[1L]), 0L) ||
+          !identical(as.integer(native$result_status[1L]), 0L)) {
+        stop(sprintf(
+          "native npcdens fixed-degree NOMAD route failed (status=%s, result_status=%s): %s",
+          as.integer(native$status[1L]),
+          as.integer(native$result_status[1L]),
+          as.character(native$message[1L])
+        ), call. = FALSE)
+      }
+      if (is.null(native$best_point) || any(!is.finite(native$best_point)))
+        stop("native npcdens fixed-degree NOMAD route did not return a finite best point", call. = FALSE)
+      list(
+        restart = as.integer(restart.index),
+        start = as.numeric(start),
+        elapsed = native.elapsed,
+        status = "ok",
+        message = as.character(native$message[1L]),
+        objective = as.numeric(native$objective[1L]),
+        bbe = as.numeric(native$blackbox_evaluations[1L]),
+        iterations = as.numeric(native$iterations[1L]),
+        solution = as.numeric(native$solution),
+        best_point = as.numeric(native$best_point),
+        best_flat_bandwidth = as.numeric(native$best_flat_bandwidth),
+        native = native
+      )
+    }
+
+    for (i in seq_len(nrow(native.start.matrix))) {
+      native.i <- run_native_restart(
+        start = as.numeric(native.start.matrix[i, ]),
+        restart.index = i
+      )
+      native.results[[i]] <- native.i
+      native.nomad.elapsed <- native.nomad.elapsed + as.numeric(native.i$elapsed[1L])
+      native.num.feval.total <- native.num.feval.total + as.numeric(native.i$native$total_num.feval[1L])
+      native.num.feval.fast.total <- native.num.feval.fast.total + as.numeric(native.i$native$total_num.feval.fast[1L])
+      native.num.feval.guarded.total <- native.num.feval.guarded.total + as.numeric(native.i$native$total_num.feval.guarded[1L])
+      if (is.finite(native.i$objective) &&
+          .np_degree_better(native.i$objective, native.best.objective, direction = objective.direction)) {
+        native.best.objective <- native.i$objective
+        native.best.index <- i
+      }
+    }
+    if (!is.finite(native.best.index))
+      stop("native npcdens fixed-degree NOMAD route did not return a finite solution", call. = FALSE)
+
+    if (isTRUE(opt.args$nomad.remin)) {
+      remin.index <- length(native.results) + 1L
+      native.remin <- run_native_restart(
+        start = as.numeric(native.results[[native.best.index]]$best_point),
+        restart.index = remin.index
+      )
+      native.results[[remin.index]] <- native.remin
+      native.nomad.elapsed <- native.nomad.elapsed + as.numeric(native.remin$elapsed[1L])
+      native.num.feval.total <- native.num.feval.total + as.numeric(native.remin$native$total_num.feval[1L])
+      native.num.feval.fast.total <- native.num.feval.fast.total + as.numeric(native.remin$native$total_num.feval.fast[1L])
+      native.num.feval.guarded.total <- native.num.feval.guarded.total + as.numeric(native.remin$native$total_num.feval.guarded[1L])
+      if (is.finite(native.remin$objective) &&
+          .np_degree_better(native.remin$objective, native.best.objective, direction = objective.direction)) {
+        native.best.objective <- native.remin$objective
+        native.best.index <- remin.index
+      }
+    }
+
+    native.best <- native.results[[native.best.index]]
+    native.handoff.point <- as.numeric(native.best$best_point)
+    native.bw <- .npcdensbw_nomad_point_to_bw(native.handoff.point[seq_len(bwdim)], template = template, setup = setup)
+    native.record <- list(
+      eval_id = as.integer(native.best$native$compiled_callback_calls[1L]),
+      degree = integer(0L),
+      objective = as.numeric(native.best$objective[1L]),
+      status = "ok",
+      cached = FALSE,
+      message = native.best$message,
+      elapsed = native.best$elapsed,
+      num.feval = as.numeric(native.best$native$best_num.feval[1L]),
+      num.feval.fast = as.numeric(native.best$native$best_num.feval.fast[1L]),
+      num.feval.guarded = as.numeric(native.best$native$best_num.feval.guarded[1L])
+    )
+    mads.num.feval.total <- native.num.feval.total
+    mads.num.feval.fast.total <- native.num.feval.fast.total
+    mads.num.feval.guarded.total <- native.num.feval.guarded.total
+    payload.result <- build_payload(
+      point = native.handoff.point,
+      best_record = native.record,
+      solution = native.best,
+      interrupted = FALSE
+    )
+    search.result <- list(
+      best = native.record,
+      best_point = native.handoff.point,
+      best_payload = payload.result$payload,
+      completed = TRUE,
+      method = "nomad",
+      restart.results = native.results,
+      best.restart = native.best.index,
+      nomad.time = native.nomad.elapsed,
+      powell.time = payload.result$powell.time,
+      optim.time = native.nomad.elapsed + as.numeric(payload.result$powell.time[1L]),
+      num.feval.total = native.num.feval.total,
+      num.feval.fast.total = native.num.feval.fast.total,
+      num.feval.guarded.total = native.num.feval.guarded.total,
+      native.diagnostics = list(
+        raw.point = native.handoff.point,
+        bandwidth = native.bw,
+        objective = as.numeric(native.best$objective[1L]),
+        official.solution = as.numeric(native.best$solution),
+        official.objective = as.numeric(native.best$native$official_objective[1L]),
+        compiled.callback.count = as.integer(native.best$native$compiled_callback_calls[1L]),
+        compiled.callback.failures = as.integer(native.best$native$compiled_callback_failures[1L]),
+        crs.callback.evaluations = as.integer(native.best$native$crs_callback_evaluations[1L]),
+        blackbox.evaluations = as.integer(native.best$native$blackbox_evaluations[1L]),
+        cache.hits = as.integer(native.best$native$cache_hits[1L]),
+        cache.size = as.integer(native.best$native$cache_size[1L]),
+        total.evaluations = as.integer(native.best$native$total_evaluations[1L]),
+        iterations = as.integer(native.best$native$iterations[1L])
+      )
+    )
+    if (isTRUE(getOption("np.developer.native.nomad.diagnostics", FALSE)) &&
+        !is.null(search.result$best_payload))
+      attr(search.result$best_payload, "native.nomad.diagnostics") <- search.result$native.diagnostics
+    if (!is.null(payload.result$objective) &&
+        .np_degree_better(payload.result$objective, search.result$best$objective, direction = objective.direction))
+      search.result$best$objective <- as.numeric(payload.result$objective[1L])
+  } else {
+    search.result <- .np_nomad_search(
+      engine = "nomad",
+      baseline_record = NULL,
+      start_degree = integer(0L),
+      x0 = x0,
+      bbin = bounds$bbin,
+      lb = bounds$lower,
+      ub = bounds$upper,
+      eval_fun = eval_fun,
+      build_payload = build_payload,
+      direction = objective.direction,
+      objective_name = "fval",
+      nmulti = opt.value("nmulti", npDefaultNmulti(dim(ydat)[2L] + dim(xdat)[2L])),
+      nomad.inner.nmulti = opt.value("mads.nmulti", opt.value("nomad.nmulti", 0L)),
+      random.seed = opt.value("random.seed", 42L),
+      handoff_before_build = identical(bwsolver, "mads+powell"),
+      remin = isTRUE(opt.args$nomad.remin),
+      nomad.opts = opt.value("nomad.opts", list()),
+      start.lower = native.start.bounds$lower,
+      start.upper = native.start.bounds$upper
+    )
+  }
+  search.result$method <- bwsolver
+  out <- search.result$best_payload
+  out$bwsolver <- bwsolver
+  out$search.engine <- bwsolver
+  out$nomad.time <- as.numeric(search.result$nomad.time[1L])
+  out$powell.time <- as.numeric(search.result$powell.time[1L])
+  out$total.time <- as.numeric(search.result$optim.time[1L])
+  .np_attach_nomad_restart_summary(out, search.result)
+}
+
 .npcdensbw_nomad_bw_setup <- function(xdat,
                                       ydat,
                                       template,
-                                      bandwidth.scale.categorical = 1e4) {
+                                      bandwidth.scale.categorical = 1e4,
+                                      allow.extended.nn = FALSE) {
   xdat <- toFrame(xdat)
   ydat <- toFrame(ydat)
   xmat <- toMatrix(xdat)
@@ -1100,7 +2641,29 @@ npcdensbw.conbandwidth <-
     rep.int(1, length(x_ord_flat))
   )
 
+  cont_extendednn_upper <- if (isTRUE(allow.extended.nn)) {
+    c(
+      npContinuousExtendedNnNomadUpper(
+        traindat = ydat,
+        evaldat = ydat,
+        bwtype = template$type,
+        ckertype = template$cykertype,
+        cont.idx = which(template$iycon)
+      ),
+      npContinuousExtendedNnNomadUpper(
+        traindat = xdat,
+        evaldat = xdat,
+        bwtype = template$type,
+        ckertype = template$cxkertype,
+        cont.idx = which(template$ixcon)
+      )
+    )
+  } else {
+    NULL
+  }
+
   setup <- list(
+    type = template$type,
     cont_flat = c(y_cont_flat, x_cont_flat),
     cont_scale = .npConditionalNomadContScale(
       ycon = ycon,
@@ -1113,7 +2676,8 @@ npcdensbw.conbandwidth <-
     cat_flat = c(y_uno_flat, y_ord_flat, x_uno_flat, x_ord_flat),
     ncatfac = ncatfac,
     bandwidth.scale.categorical = bandwidth.scale.categorical,
-    cat_upper = cat_upper
+    cat_upper = cat_upper,
+    cont_extendednn_upper = cont_extendednn_upper
   )
   .npAssertConditionalNomadSetup(setup, where = "npcdensbw")
   setup
@@ -1121,46 +2685,18 @@ npcdensbw.conbandwidth <-
 
 .npcdensbw_nomad_point_to_bw <- function(point, template, setup) {
   .npAssertConditionalNomadSetup(setup, where = "npcdensbw")
-  point <- as.numeric(point)
-  ncont <- length(setup$cont_flat)
-  ncat <- length(setup$cat_flat)
-  bws <- numeric(length(template$ybw) + length(template$xbw))
-
-  if (ncont > 0L) {
-    gamma <- point[seq_len(ncont)]
-    ext_bw <- gamma * setup$cont_scale
-    bws[setup$cont_flat] <- if (isTRUE(template$scaling)) gamma else ext_bw
-  }
-
-  if (ncat > 0L) {
-    lambda_scaled <- point[ncont + seq_len(ncat)]
-    ext_bw <- lambda_scaled / setup$bandwidth.scale.categorical
-    bws[setup$cat_flat] <- if (isTRUE(template$scaling)) ext_bw / setup$ncatfac else ext_bw
-  }
-
-  bws
+  .np_nomad_bw_point_to_storage(
+    point = point,
+    template = template,
+    setup = setup,
+    storage.length = length(template$ybw) + length(template$xbw),
+    clamp.nn = TRUE
+  )
 }
 
 .npcdensbw_nomad_bw_to_point <- function(bws, template, setup) {
   .npAssertConditionalNomadSetup(setup, where = "npcdensbw")
-  point <- numeric(length(setup$cont_flat) + length(setup$cat_flat))
-
-  if (length(setup$cont_flat) > 0L) {
-    raw <- bws[setup$cont_flat]
-    point[seq_along(setup$cont_flat)] <- if (isTRUE(template$scaling)) {
-      raw
-    } else {
-      raw / setup$cont_scale
-    }
-  }
-
-  if (length(setup$cat_flat) > 0L) {
-    raw <- bws[setup$cat_flat]
-    ext_bw <- if (isTRUE(template$scaling)) raw * setup$ncatfac else raw
-    point[length(setup$cont_flat) + seq_along(setup$cat_flat)] <- ext_bw * setup$bandwidth.scale.categorical
-  }
-
-  point
+  .np_nomad_bw_storage_to_point(bws = bws, template = template, setup = setup)
 }
 
 .npcdensbw_nomad_continuous_lower_bound <- function(template) {
@@ -1168,6 +2704,32 @@ npcdensbw.conbandwidth <-
     template,
     fallback = 0.1,
     argname = "template$scale.factor.search.lower"
+  )
+}
+
+.npcdensbw_nomad_bw_bounds <- function(template, setup) {
+  .npAssertConditionalNomadSetup(setup, where = "npcdensbw")
+  .np_nomad_bw_bounds(
+    template = template,
+    setup = setup,
+    fixed.lower = .npcdensbw_nomad_continuous_lower_bound(template),
+    nn.lower = 1L,
+    where = "npcdensbw"
+  )
+}
+
+.npcdensbw_nomad_complete_bw_start_point <- function(point,
+                                                     bounds,
+                                                     template,
+                                                     initial = NULL,
+                                                     where = "npcdensbw") {
+  .np_nomad_bw_complete_start_point(
+    point = point,
+    bounds = bounds,
+    template = template,
+    setup = NULL,
+    initial = initial,
+    where = where
   )
 }
 
@@ -1199,22 +2761,35 @@ npcdensbw.conbandwidth <-
 
 .npcdensbw_with_powell_refinement_progress <- function(degree, expr) {
   old.state <- .np_progress_runtime$bandwidth_state
-  active.state <- .np_progress_begin(
-    label = .np_nomad_powell_progress_label(),
-    domain = "general",
-    surface = "bandwidth"
-  )
+  reuse.active <- !is.null(old.state) &&
+    isTRUE(old.state$enabled) &&
+    isTRUE(old.state$visible)
+  active.state <- if (isTRUE(reuse.active)) {
+    old.state
+  } else {
+    .np_progress_begin(
+      label = .np_nomad_powell_progress_label(),
+      domain = "general",
+      surface = "bandwidth"
+    )
+  }
 
   on.exit({
-    current.state <- .np_progress_runtime$bandwidth_state
-    if (!is.null(current.state)) {
-      .np_progress_end(current.state)
+    if (!isTRUE(reuse.active)) {
+      current.state <- .np_progress_runtime$bandwidth_state
+      if (!is.null(current.state)) {
+        .np_progress_end(current.state)
+      }
     }
     .np_progress_runtime$bandwidth_state <- old.state
   }, add = TRUE)
 
+  active.state$label <- .np_nomad_powell_progress_label()
   active.state$unknown_total_fields <- .npcdensbw_powell_progress_fields
+  active.state$nomad_nmulti <- 1L
   active.state$nomad_current_degree <- as.integer(degree)
+  active.state$started <- .np_progress_now()
+  active.state$last_done <- NULL
   active.state <- .np_progress_show_now(active.state)
   .np_progress_runtime$bandwidth_state <- active.state
 
@@ -1242,9 +2817,12 @@ npcdensbw.conbandwidth <-
                                     opt.args,
                                     degree.search,
                                     nomad.inner.nmulti = 0L,
-                                    random.seed = 42L) {
+                                    random.seed = 42L,
+                                    nomad.opts = list()) {
   if (isTRUE(degree.search$verify))
     stop("automatic degree search with search.engine='nomad' does not support degree.verify")
+  if (is.null(opt.args$nomad.opts) && length(nomad.opts))
+    opt.args$nomad.opts <- nomad.opts
 
   template.reg.args <- reg.args
   template.reg.args$regtype <- "lp"
@@ -1263,36 +2841,52 @@ npcdensbw.conbandwidth <-
     reg.args = template.reg.args
   )
 
-  if (!identical(template$type, "fixed"))
-    stop("automatic degree search with search.engine='nomad' currently requires bwtype='fixed'")
+  if (!(template$type %in% c("fixed", "generalized_nn", "adaptive_nn")))
+    stop("automatic degree search with search.engine='nomad' requires bwtype='fixed', 'generalized_nn', or 'adaptive_nn'")
 
-  setup <- .npcdensbw_nomad_bw_setup(xdat = xdat, ydat = ydat, template = template)
+  setup <- .npcdensbw_nomad_bw_setup(
+    xdat = xdat,
+    ydat = ydat,
+    template = template,
+    allow.extended.nn = TRUE
+  )
+  setup$nobs <- nrow(toFrame(xdat))
   bwdim <- length(setup$cont_flat) + length(setup$cat_flat)
   ndeg <- length(degree.search$start.degree)
   nomad.nmulti <- if (is.null(opt.args$nmulti)) npDefaultNmulti(dim(ydat)[2]+dim(xdat)[2]) else npValidateNmulti(opt.args$nmulti[1L])
   objective.direction <- "max"
-  cont_lower <- .npcdensbw_nomad_continuous_lower_bound(template)
-  bw_lower <- c(rep.int(cont_lower, length(setup$cont_flat)), rep.int(0, length(setup$cat_flat)))
-  bw_upper <- c(rep.int(1e6, length(setup$cont_flat)), setup$cat_upper * setup$bandwidth.scale.categorical)
+  bw_bounds <- .npcdensbw_nomad_bw_bounds(template = template, setup = setup)
+  opt.value.local <- function(name, default) {
+    if (is.null(opt.args[[name]])) default else opt.args[[name]]
+  }
+  bw_start_bounds <- .np_nomad_bw_restart_start_bounds(
+    bounds = bw_bounds,
+    setup = setup,
+    opt.value = opt.value.local,
+    where = "npcdensbw"
+  )
+  point.start <- {
+    raw <- c(template$ybw, template$xbw)
+    if (all(raw == 0)) NULL else .npcdensbw_nomad_bw_to_point(raw, template = template, setup = setup)
+  }
 
   x0 <- c(
-    .np_nomad_complete_start_point(
-      point = {
-        raw <- c(template$ybw, template$xbw)
-        if (all(raw == 0)) NULL else .npcdensbw_nomad_bw_to_point(raw, template = template, setup = setup)
-      },
-      lower = bw_lower,
-      upper = bw_upper,
-      ncont = length(setup$cont_flat)
+    .npcdensbw_nomad_complete_bw_start_point(
+      point = point.start,
+      bounds = bw_bounds,
+      template = template,
+      initial = bw_start_bounds$initial,
+      where = "npcdensbw"
     ),
     as.integer(degree.search$start.degree)
   )
-  lb <- c(bw_lower, degree.search$lower)
-  ub <- c(bw_upper, degree.search$upper)
-  bbin <- c(rep.int(0L, bwdim), rep.int(1L, ndeg))
+  lb <- c(bw_bounds$lower, degree.search$lower)
+  ub <- c(bw_bounds$upper, degree.search$upper)
+  bbin <- c(bw_bounds$bbin, rep.int(1L, ndeg))
   baseline.record <- NULL
   nomad.num.feval.total <- 0
   nomad.num.feval.fast.total <- 0
+  nomad.num.feval.guarded.total <- 0
   direct.meta.context <- if (is.recursive(bws) &&
                              !is.null(bws$nconfac) &&
                              !is.null(bws$ncatfac) &&
@@ -1351,6 +2945,7 @@ npcdensbw.conbandwidth <-
     )
     nomad.num.feval.total <<- nomad.num.feval.total + as.numeric(out$num.feval[1L])
     nomad.num.feval.fast.total <<- nomad.num.feval.fast.total + as.numeric(out$num.feval.fast[1L])
+    nomad.num.feval.guarded.total <<- nomad.num.feval.guarded.total + .npcdensbw_count_or_zero(out$num.feval.guarded)
 
     list(
       objective = out$objective,
@@ -1399,6 +2994,7 @@ npcdensbw.conbandwidth <-
       payload$ifval <- NA_real_
       payload$num.feval <- as.numeric(nomad.num.feval.total)
       payload$num.feval.fast <- as.numeric(nomad.num.feval.fast.total)
+      payload$num.feval.guarded <- if (identical(as.character(payload$method)[1L], "cv.ml")) as.numeric(nomad.num.feval.guarded.total) else NA_real_
       payload$fval.history <- NA_real_
       payload$eval.history <- NA_real_
       payload$invalid.history <- NA_real_
@@ -1438,8 +3034,15 @@ npcdensbw.conbandwidth <-
       powell.elapsed <- proc.time()[3L] - powell.start
       direct.payload$num.feval <- as.numeric(direct.payload$num.feval[1L]) + as.numeric(hot.payload$num.feval[1L])
       direct.payload$num.feval.fast <- as.numeric(direct.payload$num.feval.fast[1L]) + as.numeric(hot.payload$num.feval.fast[1L])
+      direct.payload$num.feval.guarded <- if (identical(as.character(direct.payload$method)[1L], "cv.ml")) {
+        .npcdensbw_count_or_zero(direct.payload$num.feval.guarded) +
+          .npcdensbw_count_or_zero(hot.payload$num.feval.guarded)
+      } else {
+        NA_real_
+      }
       hot.payload$num.feval <- direct.payload$num.feval
       hot.payload$num.feval.fast <- direct.payload$num.feval.fast
+      hot.payload$num.feval.guarded <- direct.payload$num.feval.guarded
       if (!is.null(hot.payload$method) && length(hot.payload$method))
         hot.payload$pmethod <- bwmToPrint(as.character(hot.payload$method[1L]))
       hot.objective <- as.numeric(hot.payload$fval[1L])
@@ -1456,6 +3059,75 @@ npcdensbw.conbandwidth <-
     "nomad"
   } else {
     degree.search$engine
+  }
+
+  if (.npcdensbw_nomad_shadow_native_target(template, reg.args, degree.search)) {
+    start.bw <- .npcdensbw_nomad_point_to_bw(x0[seq_len(bwdim)], template = template, setup = setup)
+    prep <- .npcdensbw_nomad_shadow_prepare_args(
+      xdat = xdat,
+      ydat = ydat,
+      bws = template,
+      start.bw = start.bw,
+      invalid.penalty = "baseline",
+      penalty.multiplier = if (is.null(opt.args$penalty.multiplier)) 10 else opt.args$penalty.multiplier
+    )
+    search.template <- list(
+      method = template$method,
+      type = template$type,
+      scaling = isTRUE(template$scaling),
+      ybw = template$ybw,
+      xbw = template$xbw,
+      iycon = template$iycon,
+      ixcon = template$ixcon,
+      iyuno = template$iyuno,
+      iyord = template$iyord,
+      ixuno = template$ixuno,
+      ixord = template$ixord
+    )
+    search.setup <- list(
+      type = template$type,
+      cont_flat = setup$cont_flat,
+      cont_scale = setup$cont_scale,
+      cat_flat = setup$cat_flat,
+      ncatfac = setup$ncatfac,
+      bandwidth.scale.categorical = setup$bandwidth.scale.categorical,
+      cat_upper = setup$cat_upper,
+      cont_extendednn_upper = setup$cont_extendednn_upper,
+      nobs = setup$nobs
+    )
+    search.degree <- list(
+      engine = degree.search$engine,
+      start.degree = degree.search$start.degree,
+      candidates = degree.search$candidates,
+      lower = degree.search$lower,
+      upper = degree.search$upper,
+      basis = degree.search$basis,
+      nobs = degree.search$nobs,
+      start.user = degree.search$start.user,
+      bernstein.basis = degree.search$bernstein.basis
+    )
+
+    search.result <- npNomadShadowSearchConditionalDensity(
+      template = search.template,
+      setup = search.setup,
+      prep = prep,
+      degree.search = search.degree,
+      x0 = x0,
+      bbin = bbin,
+      lb = lb,
+      ub = ub,
+      nomad.nmulti = nomad.nmulti,
+      nomad.inner.nmulti = nomad.inner.nmulti,
+      random.seed = random.seed,
+      use.runtime.bandwidth.progress = TRUE,
+      remin = isTRUE(opt.args$nomad.remin),
+      xdat = xdat,
+      ydat = ydat,
+      reg.args = reg.args,
+      opt.args = opt.args,
+      direct.meta.context = direct.meta.context
+    )
+    return(search.result)
   }
 
   search.result <- .np_nomad_search(
@@ -1475,6 +3147,9 @@ npcdensbw.conbandwidth <-
     random.seed = random.seed,
     handoff_before_build = identical(degree.search$engine, "nomad+powell"),
     remin = isTRUE(opt.args$nomad.remin),
+    nomad.opts = if (is.null(opt.args$nomad.opts)) list() else opt.args$nomad.opts,
+    start.lower = c(bw_start_bounds$lower, degree.search$lower),
+    start.upper = c(bw_start_bounds$upper, degree.search$upper),
     degree_spec = list(
       initial = degree.search$start.degree,
       lower = degree.search$lower,
@@ -1548,6 +3223,9 @@ npcdensbw.conbandwidth <-
     candidates = bounds$candidates,
     lower = bounds$lower,
     upper = bounds$upper,
+    grid.size = bounds$grid.size,
+    singleton = bounds$singleton,
+    fixed.degree = bounds$fixed.degree,
     baseline.degree = baseline.degree,
     start.degree = start.degree,
     start.user = !is.null(degree.start),
@@ -1579,6 +3257,8 @@ npcdensbw.conbandwidth <-
     n.visits = search_result$n.visits,
     n.cached = search_result$n.cached,
     grid.size = search_result$grid.size,
+    singleton = isTRUE(search_result$singleton),
+    fixed.degree = search_result$fixed.degree,
     best.restart = search_result$best.restart,
     restart.starts = search_result$restart.starts,
     restart.degree.starts = search_result$restart.degree.starts,
@@ -1603,6 +3283,11 @@ npcdensbw.NULL <-
   function(xdat = stop("data 'xdat' missing"),
            ydat = stop("data 'ydat' missing"),
            bws, ...){
+    dots <- list(...)
+    .np_nomad_native_reject_unsupported_options_from_dots(
+      dots,
+      "native npcdens NOMAD route"
+    )
 
     ## maintain x names and 'toFrame'
     xdat <- toFrame(xdat)
@@ -1614,7 +3299,7 @@ npcdensbw.NULL <-
     
     bws = double(ncol(ydat)+ncol(xdat))
 
-    tbw <- npcdensbw.default(xdat = xdat, ydat = ydat, bws = bws, ...)
+    tbw <- do.call(npcdensbw.default, c(list(xdat = xdat, ydat = ydat, bws = bws), dots))
 
     ## clean up (possible) inconsistencies due to recursion ...
     mc <- match.call(expand.dots = FALSE)
@@ -1666,6 +3351,7 @@ npcdensbw.default <-
            penalty.multiplier,
            nomad.remin = FALSE,
            powell.remin,
+           bwsolver = c("powell", "mads", "mads+powell"),
            scale.init.categorical.sample,
            scale.factor.search.lower = NULL,
            cvls.quadrature.grid = c("hybrid", "uniform", "sample"),
@@ -1789,8 +3475,9 @@ npcdensbw.default <-
           !identical(as.character(match.arg(nomad.shortcut$values$regtype, c("lc", "ll", "lp")))[1L], "lp"))
         stop("nomad=TRUE requires regtype='lp'")
       if ("bwtype" %in% mc.names &&
-          !identical(as.character(match.arg(nomad.shortcut$values$bwtype, c("fixed", "generalized_nn", "adaptive_nn")))[1L], "fixed"))
-        stop("nomad=TRUE currently requires bwtype='fixed'")
+          !(as.character(match.arg(nomad.shortcut$values$bwtype, c("fixed", "generalized_nn", "adaptive_nn")))[1L] %in%
+              c("fixed", "generalized_nn", "adaptive_nn")))
+        stop("nomad=TRUE requires bwtype='fixed', 'generalized_nn', or 'adaptive_nn'")
       if ("degree.select" %in% mc.names &&
           identical(as.character(match.arg(nomad.shortcut$values$degree.select, c("manual", "coordinate", "exhaustive")))[1L], "manual"))
         stop("nomad=TRUE requires automatic degree search; use degree.select='coordinate' or 'exhaustive'")
@@ -1798,10 +3485,6 @@ npcdensbw.default <-
           !(as.character(match.arg(nomad.shortcut$values$search.engine, c("nomad+powell", "cell", "nomad")))[1L] %in%
               c("nomad", "nomad+powell")))
         stop("nomad=TRUE requires search.engine='nomad' or 'nomad+powell'")
-      if ("bernstein.basis" %in% mc.names &&
-          !isTRUE(npValidateGlpBernstein(regtype = "lp",
-                                        bernstein.basis = nomad.shortcut$values$bernstein.basis)))
-        stop("nomad=TRUE currently requires bernstein.basis=TRUE")
       if ("degree.verify" %in% mc.names &&
           isTRUE(npValidateScalarLogical(nomad.shortcut$values$degree.verify, "degree.verify")))
         stop("nomad=TRUE currently requires degree.verify=FALSE")
@@ -1855,7 +3538,11 @@ npcdensbw.default <-
 
     search.mc.names <- names(mc)
     lp.dot.args <- list(...)
-    .np_degree_reject_unknown_dots(lp.dot.args, "npcdensbw")
+    .np_degree_reject_unknown_dots(
+      lp.dot.args,
+      "npcdensbw",
+      allowed = c("random.seed", "mads.nmulti", "nomad.nmulti", "nomad.opts")
+    )
     random.seed.value <- .np_degree_extract_random_seed(lp.dot.args)
     search.engine.value <- if (!is.null(nomad.shortcut$values$search.engine)) nomad.shortcut$values$search.engine else "nomad+powell"
     degree.min.value <- nomad.shortcut$values$degree.min
@@ -1881,6 +3568,19 @@ npcdensbw.default <-
       bernstein.basis = bernstein.value,
       bernstein.named = bernstein.named
     )
+    if (!is.null(degree.search) &&
+        "bwsolver" %in% search.mc.names &&
+        npBwsolverUsesMads(bwsolver)) {
+      stop("bwsolver is for fixed-degree bandwidth searches; use search.engine for automatic degree search")
+    }
+    mads.inner.named <- "mads.nmulti" %in% names(lp.dot.args)
+    if (mads.inner.named) {
+      npValidateNonNegativeInteger(lp.dot.args$mads.nmulti, "mads.nmulti")
+      if (!is.null(degree.search) ||
+          !("bwsolver" %in% search.mc.names && npBwsolverUsesMads(bwsolver))) {
+        stop("mads.nmulti is only supported for fixed-degree MADS searches")
+      }
+    }
     nomad.inner.named <- "nomad.nmulti" %in% mc.names
     nomad.inner.nmulti <- if (nomad.inner.named) {
       npValidateNonNegativeInteger(nomad.nmulti, "nomad.nmulti")
@@ -1888,8 +3588,9 @@ npcdensbw.default <-
       0L
     }
     if (nomad.inner.named &&
-        (is.null(degree.search) || !(degree.search$engine %in% c("nomad", "nomad+powell")))) {
-      stop("nomad.nmulti is only supported when regtype='lp', automatic degree search is active, and search.engine is 'nomad' or 'nomad+powell'")
+        (is.null(degree.search) || !(degree.search$engine %in% c("nomad", "nomad+powell"))) &&
+        !("bwsolver" %in% search.mc.names && npBwsolverUsesMads(bwsolver))) {
+      stop("nomad.nmulti is only supported for fixed-degree MADS searches or when regtype='lp', automatic degree search is active, and search.engine is 'nomad' or 'nomad+powell'")
     }
 
     if (!is.null(degree.search)) {
@@ -1954,7 +3655,7 @@ npcdensbw.default <-
     ## next grab dummies for actual bandwidth selection and perform call
 
     mc.names <- names(mc)
-    margs <- c("nmulti", "nomad.remin", "powell.remin", "itmax", "ftol",
+    margs <- c("nmulti", "nomad.remin", "powell.remin", "bwsolver", "itmax", "ftol",
                "tol", "small", "memfac",
                "lbc.dir", "dfc.dir", "cfac.dir","initc.dir", 
                "lbd.dir", "hbd.dir", "dfac.dir", "initd.dir", 
@@ -1963,7 +3664,8 @@ npcdensbw.default <-
                "scale.init.categorical.sample",
                "transform.bounds",
                "invalid.penalty",
-               "penalty.multiplier")
+               "penalty.multiplier",
+               "mads.nmulti", "nomad.nmulti", "nomad.opts")
     m <- match(margs, mc.names, nomatch = 0)
     any.m <- any(m != 0)
 
@@ -1974,32 +3676,43 @@ npcdensbw.default <-
       opt.args <- list()
     }
     opt.args <- c(list(bandwidth.compute = bandwidth.compute), opt.args)
+    if ("mads.nmulti" %in% names(lp.dot.args))
+      opt.args$mads.nmulti <- lp.dot.args$mads.nmulti
+    if ("nomad.opts" %in% names(lp.dot.args))
+      opt.args$nomad.opts <- lp.dot.args$nomad.opts
 
     if (!is.null(degree.search)) {
-      if (identical(degree.search$engine, "cell")) {
-        eval_fun <- function(degree.vec) {
-          cell.reg.args <- reg.args
-          cell.reg.args$regtype <- "lp"
-          cell.reg.args$pregtype <- "Local-Polynomial"
-          cell.reg.args$degree <- as.integer(degree.vec)
-          cell.reg.args$bernstein.basis <- degree.search$bernstein.basis
-          cell.reg.args$regtype.engine <- "lp"
-          cell.reg.args$degree.engine <- as.integer(degree.vec)
-          cell.reg.args$bernstein.basis.engine <- degree.search$bernstein.basis
-          cell.bws <- .npcdensbw_run_fixed_degree(
-            xdat = xdat,
-            ydat = ydat,
-            bws = bws,
-            reg.args = cell.reg.args,
-            opt.args = opt.args
-          )
-          list(
-            objective = as.numeric(cell.bws$fval[1L]),
-            payload = cell.bws,
-            num.feval = if (!is.null(cell.bws$num.feval)) as.numeric(cell.bws$num.feval[1L]) else NA_real_
-          )
-        }
+      eval_fun <- function(degree.vec) {
+        cell.reg.args <- reg.args
+        cell.reg.args$regtype <- "lp"
+        cell.reg.args$pregtype <- "Local-Polynomial"
+        cell.reg.args$degree <- as.integer(degree.vec)
+        cell.reg.args$bernstein.basis <- degree.search$bernstein.basis
+        cell.reg.args$regtype.engine <- "lp"
+        cell.reg.args$degree.engine <- as.integer(degree.vec)
+        cell.reg.args$bernstein.basis.engine <- degree.search$bernstein.basis
+        cell.bws <- .npcdensbw_run_fixed_degree(
+          xdat = xdat,
+          ydat = ydat,
+          bws = bws,
+          reg.args = cell.reg.args,
+          opt.args = opt.args
+        )
+        list(
+          objective = as.numeric(cell.bws$fval[1L]),
+          payload = cell.bws,
+          num.feval = if (!is.null(cell.bws$num.feval)) as.numeric(cell.bws$num.feval[1L]) else NA_real_
+        )
+      }
 
+      if (isTRUE(degree.search$singleton)) {
+        search.result <- .np_degree_singleton_search_result(
+          degree.search = degree.search,
+          eval_result = eval_fun(degree.search$fixed.degree),
+          direction = "max",
+          objective_name = "fval"
+        )
+      } else if (identical(degree.search$engine, "cell")) {
         search.result <- .np_degree_search(
           method = degree.search$method,
           candidates = degree.search$candidates,
@@ -2022,7 +3735,8 @@ npcdensbw.default <-
           opt.args = opt.args,
           degree.search = degree.search,
           nomad.inner.nmulti = nomad.inner.nmulti,
-          random.seed = random.seed.value
+          random.seed = random.seed.value,
+          nomad.opts = if (is.null(opt.args$nomad.opts)) list() else opt.args$nomad.opts
         )
       }
       tbw <- .npcdensbw_attach_degree_search(

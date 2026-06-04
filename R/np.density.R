@@ -98,6 +98,8 @@ npudens.bandwidth <-
        !all(vapply(as.data.frame(tdat[, bws$iuno]), inherits, logical(1), "factor"))))
     stop("supplied bandwidths do not match 'tdat' in type")
 
+  npValidateExtendedNnContinuousBandwidth(bws, where = "npudens")
+
   tdat <- na.omit(tdat)
   rows.omit <- unclass(na.action(tdat))
 
@@ -176,7 +178,7 @@ npudens.bandwidth <-
     mcv.numRow = attr(bws$xmcv, "num.row"),
       densOrDist = NP_DO_DENS,
       old.dens = FALSE,
-      int_do_tree = if (isTRUE(getOption("np.tree"))) DO_TREE_YES else DO_TREE_NO)
+      int_do_tree = npDoTreeOrCategoricalCompress(ncon = bws$ncon, ncat = bws$nuno + bws$nord, bws = bws))
   cker.bounds.c <- npKernelBoundsMarshal(bws$ckerlb[bws$icon], bws$ckerub[bws$icon])
 
   myout <- .np_with_compiled_fit_progress(

@@ -140,6 +140,8 @@ npcdens.conbandwidth <- function(bws,
       (any(bws$iyuno) &&
        !all(vapply(tydat[, bws$iyuno, drop = FALSE], inherits, logical(1), "factor"))))
     stop("supplied bandwidths do not match 'tydat' in type")
+
+  npValidateConditionalExtendedNn(bws, where = "npcdens")
   
   ## catch and destroy NA's
   keep.rows <- rep_len(TRUE, nrow(txdat))
@@ -249,16 +251,24 @@ npcdens.conbandwidth <- function(bws,
     gradient.order = gradient.order,
     where = "npcdens"
   )
+  lp.degree0.lc.gradient <- isTRUE(gradients) &&
+    npGlpDegree0FirstDerivativeLcOk(
+      regtype.engine = reg.engine,
+      degree.engine = degree.engine,
+      gradient.order = glp.gradient.order,
+      ncon = bws$xncon
+    )
   if (isTRUE(gradients) &&
       identical(reg.engine, "lp") &&
       (bws$xncon > 0L) &&
+      !lp.degree0.lc.gradient &&
       all(degree.engine == 0L)) {
     stop("regtype='lp' with degree=0 does not support derivatives; use gradients=FALSE for fitted/predicted values")
   }
 
   reg.c <- npRegtypeToC(
-    regtype = if (identical(reg.engine, "lp")) "lp" else "lc",
-    degree = degree.engine,
+    regtype = if (identical(reg.engine, "lp") && !lp.degree0.lc.gradient) "lp" else "lc",
+    degree = if (lp.degree0.lc.gradient) rep.int(0L, bws$xncon) else degree.engine,
     ncon = bws$xncon,
     context = "npcdens"
   )
@@ -313,7 +323,7 @@ npcdens.conbandwidth <- function(bws,
       ymcv.numRow = attr(bws$ymcv, "num.row"),
       xmcv.numRow = attr(bws$xmcv, "num.row"),
       densOrDist = NP_DO_DENS,
-      int_do_tree = if (isTRUE(getOption("np.tree"))) DO_TREE_YES else DO_TREE_NO)
+      int_do_tree = npDoTreeOrCategoricalCompress(ncon = bws$yncon + bws$xncon, ncat = bws$ynuno + bws$ynord + bws$xnuno + bws$xnord, bws = bws))
 
   cxker.bounds.c <- npKernelBoundsMarshal(bws$cxkerlb[bws$ixcon], bws$cxkerub[bws$ixcon])
   cyker.bounds.c <- npKernelBoundsMarshal(bws$cykerlb[bws$iycon], bws$cykerub[bws$iycon])
@@ -358,7 +368,7 @@ npcdens.conbandwidth <- function(bws,
     myout$congerr = matrix(data=myout$congerr, nrow = enrow, ncol = bws$xndim, byrow = FALSE)
     myout$congerr = myout$congerr[, rorder, drop = FALSE]
 
-    if (identical(reg.engine, "lp") && bws$xncon > 0L) {
+    if (identical(reg.engine, "lp") && bws$xncon > 0L && !lp.degree0.lc.gradient) {
       cont.idx <- which(bws$ixcon)
       invalid.order <- glp.gradient.order > degree.engine
       if (any(invalid.order)) {
