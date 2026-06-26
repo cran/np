@@ -489,6 +489,8 @@ np_render_control <- function(style = c("band", "bar"),
       stop("renderer='rgl' is not yet implemented for this plot route. Use renderer='base'.",
            call. = FALSE)
     }
+    if (identical(dots$renderer, "rgl") && is.null(dots$view))
+      dots$view <- "fixed"
   }
 
   .np_with_seed(random.seed, do.call(method, c(list(bws = bws), dots)))
@@ -506,6 +508,8 @@ np_render_control <- function(style = c("band", "bar"),
       stop("renderer='rgl' is not yet implemented for this plot route. Use renderer='base'.",
            call. = FALSE)
     }
+    if (identical(dots$renderer, "rgl") && is.null(dots$view))
+      dots$view <- "fixed"
   }
   if (!is.null(dots$plot.rug)) {
     dots$plot.rug <- .np_plot_match_flag(dots$plot.rug, "plot.rug")
@@ -642,9 +646,12 @@ np_render_control <- function(style = c("band", "bar"),
       !is.null(object$mean) &&
       !is.null(object$resid) &&
       NROW(object$eval) == length(object$mean) &&
-      length(object$mean) == length(object$resid)) {
+      length(object$mean) == length(object$resid) &&
+      all(is.finite(object$mean)) &&
+      all(is.finite(object$resid))) {
     dots$xdat <- object$eval
     dots$ydat <- object$mean + object$resid
+    dots$fit.mean.train <- object$mean
   }
 
   do.call(.np_plot_from_slot, c(list(object = object, slot = "bws"), dots))

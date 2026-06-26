@@ -376,29 +376,30 @@ the analysis.</p>
 <span id="cb1-11"><a href="#cb1-11" tabindex="-1"></a><span class="co">#&gt; Formula: logwage ~ age</span></span>
 <span id="cb1-12"><a href="#cb1-12" tabindex="-1"></a><span class="co">#&gt; Bandwidth Type: Fixed</span></span>
 <span id="cb1-13"><a href="#cb1-13" tabindex="-1"></a><span class="co">#&gt; Objective Function Value: 0.316055 (achieved on multistart 1)</span></span>
-<span id="cb1-14"><a href="#cb1-14" tabindex="-1"></a><span class="co">#&gt; Number of Function Evaluations: 47 (fast = 17)</span></span>
-<span id="cb1-15"><a href="#cb1-15" tabindex="-1"></a><span class="co">#&gt; </span></span>
-<span id="cb1-16"><a href="#cb1-16" tabindex="-1"></a><span class="co">#&gt; Exp. Var. Name: age Bandwidth: 1.892158  Scale Factor: 0.4487743</span></span>
-<span id="cb1-17"><a href="#cb1-17" tabindex="-1"></a><span class="co">#&gt; </span></span>
-<span id="cb1-18"><a href="#cb1-18" tabindex="-1"></a><span class="co">#&gt; Continuous Kernel Type: Second-Order Gaussian</span></span>
-<span id="cb1-19"><a href="#cb1-19" tabindex="-1"></a><span class="co">#&gt; No. Continuous Explanatory Vars.: 1</span></span>
-<span id="cb1-20"><a href="#cb1-20" tabindex="-1"></a><span class="co">#&gt; Estimation Time: 0.075 seconds</span></span>
-<span id="cb1-21"><a href="#cb1-21" tabindex="-1"></a></span>
-<span id="cb1-22"><a href="#cb1-22" tabindex="-1"></a>fit <span class="ot">&lt;-</span> <span class="fu">npreg</span>(<span class="at">bws =</span> bw)</span>
-<span id="cb1-23"><a href="#cb1-23" tabindex="-1"></a><span class="fu">summary</span>(fit)</span>
-<span id="cb1-24"><a href="#cb1-24" tabindex="-1"></a><span class="co">#&gt; </span></span>
-<span id="cb1-25"><a href="#cb1-25" tabindex="-1"></a><span class="co">#&gt; Regression Data: 205 training points, in 1 variable(s)</span></span>
-<span id="cb1-26"><a href="#cb1-26" tabindex="-1"></a><span class="co">#&gt;                    age</span></span>
-<span id="cb1-27"><a href="#cb1-27" tabindex="-1"></a><span class="co">#&gt; Bandwidth(s): 1.892158</span></span>
-<span id="cb1-28"><a href="#cb1-28" tabindex="-1"></a><span class="co">#&gt; </span></span>
-<span id="cb1-29"><a href="#cb1-29" tabindex="-1"></a><span class="co">#&gt; Kernel Regression Estimator: Local-Constant</span></span>
-<span id="cb1-30"><a href="#cb1-30" tabindex="-1"></a><span class="co">#&gt; Bandwidth Type: Fixed</span></span>
-<span id="cb1-31"><a href="#cb1-31" tabindex="-1"></a><span class="co">#&gt; Residual standard error: 0.5307943</span></span>
-<span id="cb1-32"><a href="#cb1-32" tabindex="-1"></a><span class="co">#&gt; R-squared: 0.3108675</span></span>
-<span id="cb1-33"><a href="#cb1-33" tabindex="-1"></a><span class="co">#&gt; </span></span>
-<span id="cb1-34"><a href="#cb1-34" tabindex="-1"></a><span class="co">#&gt; Continuous Kernel Type: Second-Order Gaussian</span></span>
-<span id="cb1-35"><a href="#cb1-35" tabindex="-1"></a><span class="co">#&gt; No. Continuous Explanatory Vars.: 1</span></span>
-<span id="cb1-36"><a href="#cb1-36" tabindex="-1"></a><span class="co">#&gt; Estimation Time: 0.075 seconds (optim 0.075s, fit 0s)</span></span></code></pre></div>
+<span id="cb1-14"><a href="#cb1-14" tabindex="-1"></a><span class="co">#&gt; Number of Function Evaluations: 47</span></span>
+<span id="cb1-15"><a href="#cb1-15" tabindex="-1"></a><span class="co">#&gt; Powell cache: 17 repeated objective lookups avoided out of 41 (41.5%)</span></span>
+<span id="cb1-16"><a href="#cb1-16" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb1-17"><a href="#cb1-17" tabindex="-1"></a><span class="co">#&gt; Exp. Var. Name: age Bandwidth: 1.892158  Scale Factor: 0.4487743</span></span>
+<span id="cb1-18"><a href="#cb1-18" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb1-19"><a href="#cb1-19" tabindex="-1"></a><span class="co">#&gt; Continuous Kernel Type: Second-Order Gaussian</span></span>
+<span id="cb1-20"><a href="#cb1-20" tabindex="-1"></a><span class="co">#&gt; No. Continuous Explanatory Vars.: 1</span></span>
+<span id="cb1-21"><a href="#cb1-21" tabindex="-1"></a><span class="co">#&gt; Estimation Time: 0.074 seconds</span></span>
+<span id="cb1-22"><a href="#cb1-22" tabindex="-1"></a></span>
+<span id="cb1-23"><a href="#cb1-23" tabindex="-1"></a>fit <span class="ot">&lt;-</span> <span class="fu">npreg</span>(<span class="at">bws =</span> bw)</span>
+<span id="cb1-24"><a href="#cb1-24" tabindex="-1"></a><span class="fu">summary</span>(fit)</span>
+<span id="cb1-25"><a href="#cb1-25" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb1-26"><a href="#cb1-26" tabindex="-1"></a><span class="co">#&gt; Regression Data: 205 training points, in 1 variable(s)</span></span>
+<span id="cb1-27"><a href="#cb1-27" tabindex="-1"></a><span class="co">#&gt;                    age</span></span>
+<span id="cb1-28"><a href="#cb1-28" tabindex="-1"></a><span class="co">#&gt; Bandwidth(s): 1.892158</span></span>
+<span id="cb1-29"><a href="#cb1-29" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb1-30"><a href="#cb1-30" tabindex="-1"></a><span class="co">#&gt; Kernel Regression Estimator: Local-Constant</span></span>
+<span id="cb1-31"><a href="#cb1-31" tabindex="-1"></a><span class="co">#&gt; Bandwidth Type: Fixed</span></span>
+<span id="cb1-32"><a href="#cb1-32" tabindex="-1"></a><span class="co">#&gt; Residual standard error: 0.5307943</span></span>
+<span id="cb1-33"><a href="#cb1-33" tabindex="-1"></a><span class="co">#&gt; R-squared: 0.3108675</span></span>
+<span id="cb1-34"><a href="#cb1-34" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb1-35"><a href="#cb1-35" tabindex="-1"></a><span class="co">#&gt; Continuous Kernel Type: Second-Order Gaussian</span></span>
+<span id="cb1-36"><a href="#cb1-36" tabindex="-1"></a><span class="co">#&gt; No. Continuous Explanatory Vars.: 1</span></span>
+<span id="cb1-37"><a href="#cb1-37" tabindex="-1"></a><span class="co">#&gt; Estimation Time: 0.075 seconds (optim 0.074s, fit 0.001s)</span></span></code></pre></div>
 </div>
 <div id="plotting-the-fitted-relationship" class="section level2">
 <h2>Plotting the fitted relationship</h2>
@@ -444,7 +445,7 @@ factors when appropriate.</p>
 <span id="cb3-30"><a href="#cb3-30" tabindex="-1"></a><span class="co">#&gt; </span></span>
 <span id="cb3-31"><a href="#cb3-31" tabindex="-1"></a><span class="co">#&gt; Ordered Categorical Kernel Type: Li and Racine</span></span>
 <span id="cb3-32"><a href="#cb3-32" tabindex="-1"></a><span class="co">#&gt; No. Ordered Categorical Explanatory Vars.: 1</span></span>
-<span id="cb3-33"><a href="#cb3-33" tabindex="-1"></a><span class="co">#&gt; Estimation Time: 0.18 seconds (optim 0.179s, fit 0.001s)</span></span></code></pre></div>
+<span id="cb3-33"><a href="#cb3-33" tabindex="-1"></a><span class="co">#&gt; Estimation Time: 0.185 seconds (optim 0.184s, fit 0.001s)</span></span></code></pre></div>
 </div>
 <div id="a-note-on-modern-local-polynomial-search" class="section level2">
 <h2>A note on modern local-polynomial search</h2>

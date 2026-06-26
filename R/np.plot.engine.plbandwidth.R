@@ -42,7 +42,7 @@
            plot.errors.boot.wild = c("rademacher", "mammen"),
            plot.errors.boot.blocklen = NULL,
            plot.errors.boot.num = 1999,
-           plot.errors.center = c("estimate","bias-corrected"),
+           plot.errors.center = c("estimate", "bias-corrected"),
            plot.errors.type = c("pmzsd","pointwise","bonferroni","simultaneous","all"),
            plot.errors.alpha = 0.05,
            plot.errors.style = c("band","bar"),
@@ -393,6 +393,7 @@
           slice.index = 0,
           progress.target = NULL,
           plot.errors.boot.method = plot.errors.boot.method,
+          t0.override = as.vector(tobj$mean),
           plot.errors.boot.nonfixed = plot.errors.boot.nonfixed,
           plot.errors.boot.wild = plot.errors.boot.wild,
           plot.errors.boot.blocklen = plot.errors.boot.blocklen,
@@ -404,7 +405,7 @@
         terr <- terr.obj[["boot.err"]]
         terr.all <- terr.obj[["boot.all.err"]]
 
-        pc = (plot.errors.center == "bias-corrected")
+        pc = (.np_plot_center_is_bias_corrected(plot.errors.center))
         center.val <- if(pc) terr[,3] else {tobj$mean}
 
         lerr = matrix(data = center.val - terr[,1],
@@ -446,12 +447,13 @@
 
         r1$merr = NA
         r1$bias = NA
+        r1$bias.corrected = NA
 
         if (plot.errors)
           r1$merr = terr[,1:2]
         
-        if (plot.errors.center == "bias-corrected")
-          r1$bias = terr[,3] - treg
+        if (.np_plot_center_is_bias_corrected(plot.errors.center))
+          r1 <- .np_plot_add_bias_fields(r1, tobj$mean, terr[,3])
 
         if (plot.behavior == "data")
           return ( list(r1 = r1) )
@@ -755,6 +757,7 @@
                         slice.index = plot.index
                       ),
                       plot.errors.boot.method = plot.errors.boot.method,
+                      t0.override = as.vector(tobj$mean),
                       plot.errors.boot.nonfixed = plot.errors.boot.nonfixed,
                       plot.errors.boot.wild = plot.errors.boot.wild,
                       plot.errors.boot.blocklen = plot.errors.boot.blocklen,
@@ -911,8 +914,14 @@
 
           ## error plotting evaluation
           if (plot.errors && !(xi.factor && plot.bootstrap && plot.bxp)){
-            if (!xi.factor && !plotOnEstimate)
-              lines(na.omit(ei), na.omit(temp.err[,3]), lty = .np_plot_lty("center"))
+            .np_plot_draw_bias_center_1d(
+              x = ei,
+              center = temp.err[, 3],
+              xi.factor = xi.factor,
+              plotOnEstimate = plotOnEstimate,
+              legend = plot.legend,
+              draw.legend = isTRUE(plot.legend)
+            )
 
             if (plot.errors.type == "all") {
               draw.all.error.types(
@@ -952,12 +961,19 @@
                            xtra = c(tobj$RSQ, tobj$MSE, 0, 0, 0, 0))
             plot.out[[plot.index]]$merr = NA
             plot.out[[plot.index]]$bias = NA
+            plot.out[[plot.index]]$bias.corrected = NA
+
+            eval.rows <- seq_len(xi.neval)
 
             if (plot.errors)
-              plot.out[[plot.index]]$merr = temp.err[,1:2]
+              plot.out[[plot.index]]$merr = temp.err[eval.rows, 1:2, drop = FALSE]
 
-            if (plot.errors.center == "bias-corrected")
-              plot.out[[plot.index]]$bias = temp.err[,3] - temp.mean
+            if (.np_plot_center_is_bias_corrected(plot.errors.center))
+              plot.out[[plot.index]] <- .np_plot_add_bias_fields(
+                plot.out[[plot.index]],
+                temp.mean[eval.rows],
+                temp.err[eval.rows, 3]
+              )
             plot.out[[plot.index]]$bxp = temp.boot
           }
         }
@@ -1033,6 +1049,7 @@
                         slice.index = plot.index
                       ),
                       plot.errors.boot.method = plot.errors.boot.method,
+                      t0.override = as.vector(tobj$mean),
                       plot.errors.boot.nonfixed = plot.errors.boot.nonfixed,
                       plot.errors.boot.wild = plot.errors.boot.wild,
                       plot.errors.boot.blocklen = plot.errors.boot.blocklen,
@@ -1184,8 +1201,14 @@
 
           ## error plotting evaluation
           if (plot.errors && !(xi.factor && plot.bootstrap && plot.bxp)){
-            if (!xi.factor && !plotOnEstimate)
-              lines(na.omit(ei), na.omit(temp.err[,3]), lty = .np_plot_lty("center"))
+            .np_plot_draw_bias_center_1d(
+              x = ei,
+              center = temp.err[, 3],
+              xi.factor = xi.factor,
+              plotOnEstimate = plotOnEstimate,
+              legend = plot.legend,
+              draw.legend = isTRUE(plot.legend)
+            )
 
             if (plot.errors.type == "all") {
               draw.all.error.types(
@@ -1227,12 +1250,19 @@
                            xtra = c(tobj$RSQ, tobj$MSE, 0, 0, 0, 0))
             plot.out[[plot.index]]$merr = NA
             plot.out[[plot.index]]$bias = NA
+            plot.out[[plot.index]]$bias.corrected = NA
+
+            eval.rows <- seq_len(xi.neval)
 
             if (plot.errors)
-              plot.out[[plot.index]]$merr = temp.err[,1:2]
+              plot.out[[plot.index]]$merr = temp.err[eval.rows, 1:2, drop = FALSE]
 
-            if (plot.errors.center == "bias-corrected")
-              plot.out[[plot.index]]$bias = temp.err[,3] - temp.mean
+            if (.np_plot_center_is_bias_corrected(plot.errors.center))
+              plot.out[[plot.index]] <- .np_plot_add_bias_fields(
+                plot.out[[plot.index]],
+                temp.mean[eval.rows],
+                temp.err[eval.rows, 3]
+              )
             plot.out[[plot.index]]$bxp = temp.boot
           }
         }
@@ -1267,7 +1297,7 @@
             y.min = min(na.omit(as.double(data.eval)) -
               if (plot.errors) na.omit(as.double(data.err[,jj-2]))
               else 0)
-          } else if (plot.errors.center == "bias-corrected") {
+          } else if (.np_plot_center_is_bias_corrected(plot.errors.center)) {
             y.max = max(na.omit(as.double(data.err[,jj] + data.err[,jj-1])))
             y.min = min(na.omit(as.double(data.err[,jj] - data.err[,jj-2])))
           }
@@ -1410,6 +1440,15 @@
 
           ## error plotting evaluation
           if (plot.errors && !(xi.factor && plot.bootstrap && plot.bxp)){
+            .np_plot_draw_bias_center_1d(
+              x = allei[, plot.index],
+              center = data.err[, 3 * plot.index],
+              xi.factor = xi.factor,
+              plotOnEstimate = plotOnEstimate,
+              legend = plot.legend,
+              draw.legend = isTRUE(plot.legend)
+            )
+
             if (plot.errors.type == "all") {
               draw.all.error.types(
                 ex = as.numeric(na.omit(allei[,plot.index])),
@@ -1421,9 +1460,6 @@
                 xi.factor = xi.factor,
                   legend = plot.legend)
             } else {
-              if (!xi.factor && !plotOnEstimate)
-                lines(na.omit(ei), na.omit(temp.err[,3]), lty = .np_plot_lty("center"))
-
               draw.args <- list(
                 ex = as.numeric(na.omit(allei[,plot.index])),
                 ely = if (plotOnEstimate) na.omit(data.eval[,plot.index] - data.err[,3*plot.index-2]) else na.omit(data.err[,3*plot.index] - data.err[,3*plot.index-2]),
