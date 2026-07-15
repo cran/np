@@ -186,8 +186,8 @@ test_that("plot contract: 3D plot-data matches data mode for regression and cond
     tydat = data.frame(y = y),
     proper = TRUE
   )
-  cdata <- plot(cfit, output = "data", view = "fixed")
-  expect_warning(plot(cfit, output = "data", view = "fixed"), NA)
+  cdata <- suppressWarnings(plot(cfit, output = "data", view = "fixed"))
+  expect_warning(plot(cfit, output = "data", view = "fixed"), "proper=TRUE projected")
   cplotdata <- with_plot_device(plot(cfit, output = "plot-data", view = "fixed"))
 
   expect_type(cplotdata, "list")
@@ -550,6 +550,7 @@ test_that("plot contract: default condensity plot call stays scalar-safe", {
 
 test_that("plot contract: npscoef supports coef=TRUE plot path", {
   skip_if_not_installed("np")
+  withr::local_pdf(NULL)
 
   set.seed(105)
   n <- 60
@@ -578,6 +579,7 @@ test_that("plot contract: npscoef supports coef=TRUE plot path", {
 
 test_that("plot contract: npplreg supports coef=TRUE plot-data payload", {
   skip_if_not_installed("np")
+  withr::local_pdf(NULL)
 
   set.seed(106)
   n <- 80

@@ -30,6 +30,8 @@ npudist.formula <-
     tmf <- bws$call[c(1,m)]
     tmf[[1]] <- as.name("model.frame")
     tmf[["formula"]] <- tt
+    if (!missing(data) && !is.null(data))
+      tmf[["data"]] <- substitute(data)
     mf.args <- as.list(tmf)[-1L]
     umf <- tmf <- do.call(stats::model.frame, mf.args, envir = environment(tt))
 
@@ -99,12 +101,22 @@ npudist.dbandwidth <-
 
     npValidateExtendedNnContinuousBandwidth(bws, where = "npudist")
 
+    if(any(bws$iuno))
+      stop("distribution estimation does not support unordered data types")
+
     tdat = na.omit(tdat)
-    rows.omit <- unclass(na.action(tdat))
+    train.rows.omit <- unclass(na.action(tdat))
+    if (nrow(tdat) == 0L)
+      stop("Data has no rows without NAs")
+    rows.omit <- train.rows.omit
+    eval.rows.omit <- integer(0)
 
     if (!no.e){
       edat = na.omit(edat)
-      rows.omit <- unclass(na.action(edat))
+      eval.rows.omit <- unclass(na.action(edat))
+      if (nrow(edat) == 0L)
+        stop("Evaluation data has no rows without NAs")
+      rows.omit <- eval.rows.omit
     }
 
     tnrow = nrow(tdat)
@@ -206,6 +218,8 @@ npudist.dbandwidth <-
     ev <- npdistribution(bws=bws, eval=teval, dist = myout$dist,
                          derr = myout$derr, ntrain = tnrow, trainiseval = no.e,
                          rows.omit = rows.omit,
+                         train.rows.omit = train.rows.omit,
+                         eval.rows.omit = eval.rows.omit,
                          timing = bws$timing, total.time = total.time,
                          optim.time = optim.time, fit.time = fit.elapsed)
     return(ev)
@@ -226,6 +240,8 @@ npudist.default <- function(bws, tdat, ...){
   no.tdat <- missing(tdat)
   has.explicit.bws <- (!no.bws) && isa(bws, "dbandwidth")
   bws.formula <- (!no.bws) && inherits(bws, "formula")
+  direct.formula.tdat <- (!no.tdat) && !tdat.named &&
+    inherits(tdat, "formula") && bws.named && !has.explicit.bws
 
   if (bws.named && no.tdat && bws.formula) {
     sc$`bws` <- NULL
@@ -267,7 +283,7 @@ npudist.default <- function(bws, tdat, ...){
 
   ## convention: first argument is always dropped, second, if present, propagated
   call.args <- list(bws = tbw)
-  if (!no.tdat) {
+  if (!no.tdat && !direct.formula.tdat) {
     if (tdat.named) {
       call.args$tdat <- tdat
     } else {

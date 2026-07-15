@@ -16,6 +16,7 @@
 npindex <-
   function(bws, ...){
     args <- list(...)
+    .np_singleindex_reject_higher_gradient_order(args, where = "npindex")
 
     if (!missing(bws)){
       if (length(args) > 0L &&
@@ -140,6 +141,10 @@ npindex.formula <-
             if (!is.null(ev$bws))
                 ev$bws$ynames <- response.name
         }
+        if (!is.null(ev$bws) && inherits(bws, "formula")) {
+            ev$bws$formula <- bws
+            ev$bws$terms <- attr(tmf, "terms")
+        }
 
         ev$omit <- attr(umf,"na.action")
         ev$rows.omit <- as.vector(ev$omit)
@@ -166,23 +171,114 @@ npindex.call <-
             bws = bws, ...)
   }
 
+.np_index_kernel_args <- function(bws) {
+  args <- list(
+    bwtype = bws$type,
+    ckertype = bws$ckertype,
+    ckerorder = bws$ckerorder
+  )
+  if (!is.null(bws$ckerbound))
+    args$ckerbound <- bws$ckerbound
+  args
+}
+
+.np_index_ks_prediction <- function(prob) {
+  pred <- as.integer(round(as.double(prob)))
+  pmax(0L, pmin(1L, pred))
+}
+
+.np_index_ks_confusion_matrix <- function(actual, pred) {
+  table(
+    factor(as.integer(actual), levels = 0:1),
+    factor(pred, levels = 0:1),
+    dnn = c("Actual", "Predicted")
+  )
+}
+
 .np_index_regression_bandwidth <- function(index.df, ydat, bws, spec) {
-  bw.args <- list(
+  reg.args <- c(
+    .np_index_kernel_args(bws),
+    list(
+      regtype = spec$regtype.engine
+    )
+  )
+  if (identical(spec$regtype.engine, "lp")) {
+    reg.args$basis <- spec$basis.engine
+    reg.args$degree <- spec$degree.engine
+    reg.args$bernstein.basis <- spec$bernstein.basis.engine
+  }
+  template <- .npregbw_build_rbandwidth(
     xdat = index.df,
     ydat = ydat,
     bws = bws$bw,
     bandwidth.compute = FALSE,
-    bwtype = bws$type,
-    ckertype = bws$ckertype,
-    ckerorder = bws$ckerorder,
-    regtype = spec$regtype.engine
+    reg.args = reg.args,
+    yname = bws$ynames
   )
-  if (identical(spec$regtype.engine, "lp")) {
-    bw.args$basis <- spec$basis.engine
-    bw.args$degree <- spec$degree.engine
-    bw.args$bernstein.basis <- spec$bernstein.basis.engine
+  npregbw.rbandwidth(
+    xdat = index.df,
+    ydat = ydat,
+    bws = template,
+    bandwidth.compute = FALSE
+  )
+}
+
+.np_index_formula_reentry_xdat <- function(mf) {
+  terms.obj <- attr(mf, "terms")
+  mf[, attr(terms.obj, "term.labels"), drop = FALSE]
+}
+
+.np_index_formula_reentry_rhs_terms <- function(formula, xdat) {
+  delete.response(terms(formula, data = toFrame(xdat)))
+}
+
+.np_index_formula_reentry_response_name <- function(formula) {
+  response.vars <- all.vars(formula[[2L]])
+  if (length(response.vars) != 1L)
+    stop("direct formula 'bws' with explicit 'txdat'/'tydat' requires a single response variable",
+         call. = FALSE)
+  response.vars
+}
+
+.np_index_formula_reentry_model_frame <- function(formula, txdat, tydat, call, caller_env) {
+  data <- toFrame(txdat)
+  if (is.data.frame(tydat) && ncol(tydat) == 1L)
+    tydat <- tydat[[1L]]
+  data[[.np_index_formula_reentry_response_name(formula)]] <- tydat
+  data[[".np_index_formula_reentry_response"]] <- tydat
+
+  rhs.formula <- formula(.np_index_formula_reentry_rhs_terms(formula, txdat))
+  mf.formula <- as.formula(
+    as.call(list(as.name("~"),
+                 as.name(".np_index_formula_reentry_response"),
+                 rhs.formula[[2L]])),
+    env = environment(formula)
+  )
+
+  mf.call <- as.call(list(quote(stats::model.frame),
+                          formula = mf.formula,
+                          data = as.name(".np_index_formula_reentry_data")))
+  call.names <- names(call)
+  for (arg in c("subset", "na.action")) {
+    pos <- match(arg, call.names, nomatch = 0L)
+    if (pos > 0L)
+      mf.call[[arg]] <- call[[pos]]
   }
-  do.call(npregbw, bw.args)
+
+  eval.env <- new.env(parent = caller_env)
+  eval.env$.np_index_formula_reentry_data <- data
+  eval(mf.call, envir = eval.env)
+}
+
+.np_index_formula_reentry_eval_xdat <- function(formula, xdat, caller_env) {
+  tt <- .np_index_formula_reentry_rhs_terms(formula, xdat)
+  mf.call <- as.call(list(quote(stats::model.frame),
+                          formula = tt,
+                          data = as.name(".np_index_formula_reentry_data")))
+  eval.env <- new.env(parent = caller_env)
+  eval.env$.np_index_formula_reentry_data <- toFrame(xdat)
+  mf <- eval(mf.call, envir = eval.env)
+  .np_index_formula_reentry_xdat(mf)
 }
 
 npindex.default <- function(bws, txdat, tydat, nomad = FALSE, ...){
@@ -202,6 +298,45 @@ npindex.default <- function(bws, txdat, tydat, nomad = FALSE, ...){
   no.txdat <- missing(txdat)
   no.tydat <- missing(tydat)
   has.explicit.bws <- (!no.bws) && isa(bws, "sibandwidth")
+  bws.formula <- (!no.bws) && inherits(bws, "formula")
+  bws.call <- (!no.bws) && is.call(bws)
+
+  if (!has.explicit.bws && (bws.formula || bws.call) && !no.txdat && !no.tydat) {
+    txdat <- toFrame(txdat)
+    if (bws.formula) {
+      mf <- .np_index_formula_reentry_model_frame(
+        formula = bws,
+        txdat = txdat,
+        tydat = tydat,
+        call = sc,
+        caller_env = parent.frame()
+      )
+      txdat <- .np_index_formula_reentry_xdat(mf)
+      tydat <- model.response(mf)
+    }
+
+    dots <- list(...)
+    bw.dots <- dots
+    bw.dots$.np_fit_progress_handoff <- NULL
+    if (bws.formula)
+      bw.dots[c("subset", "na.action")] <- NULL
+    bw.args <- c(list(xdat = txdat, ydat = tydat, nomad = nomad), bw.dots)
+    tbw <- do.call(npindexbw, bw.args)
+
+    fit.args <- list(bws = tbw, txdat = txdat, tydat = tydat)
+    fit.dots <- dots
+    fit.dots$.np_fit_progress_handoff <- TRUE
+    if (bws.formula) {
+      fit.dots[c("subset", "na.action")] <- NULL
+      if (!is.null(fit.dots$exdat))
+        fit.dots$exdat <- .np_index_formula_reentry_eval_xdat(
+          formula = bws,
+          xdat = fit.dots$exdat,
+          caller_env = parent.frame()
+        )
+    }
+    return(do.call(npindex, c(fit.args, fit.dots)))
+  }
 
   ## if bws was passed in explicitly, do not compute bandwidths
 
@@ -212,10 +347,12 @@ npindex.default <- function(bws, txdat, tydat, nomad = FALSE, ...){
   
   sc.bw[[1]] <- quote(npindexbw)
 
-  bws.formula <- (!no.bws) && inherits(bws, "formula")
   if (bws.formula) {
     ib <- match("bws", names(sc.bw), nomatch = 0L)
     if (ib > 0L) names(sc.bw)[ib] <- "formula"
+    drop.xy <- names(sc.bw) %in% c("txdat", "tydat")
+    if (any(drop.xy))
+      sc.bw <- sc.bw[!drop.xy]
   }
 
   if(bws.named && !bws.formula){
@@ -227,7 +364,7 @@ npindex.default <- function(bws, txdat, tydat, nomad = FALSE, ...){
   
   m.txy <- match(ostxy, names(sc.bw), nomatch = 0)
 
-  if(any(m.txy > 0)) {
+  if(!bws.formula && any(m.txy > 0)) {
     names(sc.bw)[m.txy] <- nstxy[m.txy > 0]
   }
     
@@ -246,7 +383,7 @@ npindex.default <- function(bws, txdat, tydat, nomad = FALSE, ...){
       .np_eval_bw_call(sc.bw, caller_env = parent.frame())
     }
   } else {
-    .np_eval_bw_call(sc.bw, caller_env = parent.frame())
+    bws
   }
 
   call.args <- list(bws = tbw)
@@ -427,12 +564,10 @@ npindex.sibandwidth <-
       txdat = index.df,
       tydat = tydat,
       bws = bws$bw,
-      bwtype = bws$type,
-      ckertype = bws$ckertype,
-      ckerorder = bws$ckerorder,
       regtype = regtype,
       warn.glp.gradient = FALSE
     )
+    npreg.idx.args <- c(npreg.idx.args, .np_index_kernel_args(bws))
     if (identical(regtype, "lp")) {
       npreg.idx.args$basis <- spec$basis.engine
       npreg.idx.args$degree <- spec$degree.engine
@@ -477,7 +612,8 @@ npindex.sibandwidth <-
     fast.largeh <- FALSE
     fast.largeh.eval.mean <- NULL
     fast.largeh.train.mean <- NULL
-    if (identical(regtype, "lc") && !gradients && !errors && !lc.fixed.progress.route) {
+    if (identical(regtype, "lc") && !gradients && !errors && !lc.fixed.progress.route &&
+        identical(bws$ckerbound, "none")) {
       gate.index <- if (no.ex) index else c(index, index.eval)
       fast.largeh <- .npindexbw_fast_eligible(
         h = as.double(bws$bw),
@@ -494,7 +630,8 @@ npindex.sibandwidth <-
             bws = bws$bw,
             bwtype = bws$type,
             ckertype = bws$ckertype,
-            ckerorder = bws$ckerorder
+            ckerorder = bws$ckerorder,
+            ckerbound = bws$ckerbound
           )$ksum
           as.double(tww.fast[1, 2, 1L] / NZD(tww.fast[2, 2, 1L]))
         }
@@ -509,7 +646,8 @@ npindex.sibandwidth <-
               bws = bws$bw,
               bwtype = bws$type,
               ckertype = bws$ckertype,
-              ckerorder = bws$ckerorder
+              ckerorder = bws$ckerorder,
+              ckerbound = bws$ckerbound
             )$ksum
             as.double(tww.fast[1, 2, 1L] / NZD(tww.fast[2, 2, 1L]))
           }
@@ -531,7 +669,8 @@ npindex.sibandwidth <-
                         bws=bws$bw,
                         bwtype = bws$type,
                         ckertype = bws$ckertype,
-                        ckerorder = bws$ckerorder)$ksum
+                        ckerorder = bws$ckerorder,
+                        ckerbound = bws$ckerbound)$ksum
 
           index.mean <- tww[1,2,]/NZD(tww[2,2,])
         }
@@ -552,7 +691,8 @@ npindex.sibandwidth <-
                           bws=bws$bw,
                           bwtype = bws$type,
                           ckertype = bws$ckertype,
-                          ckerorder = bws$ckerorder)$ksum
+                          ckerorder = bws$ckerorder,
+                          ckerbound = bws$ckerbound)$ksum
 
             index.tmean <- tww[1,2,]/NZD(tww[2,2,])
           }
@@ -623,7 +763,7 @@ npindex.sibandwidth <-
     if (bws$method == "ichimura" && gradients) {
 
       ## First row & column of covariance matrix `Bvcov' are zero due
-      ## to identification condition that beta_1=0. Note the n n^{-1}
+      ## to identification condition that beta_1=1. Note the n n^{-1}
       ## n in V^{-1}\Sigma V^{-1} and the \sqrt{n} in the
       ## normalization of \hat\beta will cancel.
 
@@ -643,13 +783,15 @@ npindex.sibandwidth <-
                         bws = bws$bw,
                         bwtype = bws$type,
                         ckertype = bws$ckertype,
-                        ckerorder = bws$ckerorder)$ksum
+                        ckerorder = bws$ckerorder,
+                        ckerbound = bws$ckerbound)$ksum
 
       tindex <- npksum(txdat = index.df,
                        bws = bws$bw,
                        bwtype = bws$type,
                        ckertype = bws$ckertype,
-                       ckerorder = bws$ckerorder)$ksum
+                       ckerorder = bws$ckerorder,
+                       ckerbound = bws$ckerbound)$ksum
 
       ## Need to trap case where k-1=1... ksum will return a 1 D
       ## array, need a 1 x n matrix
@@ -662,20 +804,19 @@ npindex.sibandwidth <-
 
       ## Need to trap case where k-1=1..., sapply will return a
       ## vector, need a 1 x n matrix
-
-      ## Need to trap case where k-1=1..., sapply will return a
-      ## vector, need a 1 x n matrix
       if(is.vector(xmex)) {
-        dg.db.xmex <- matrix(index.tgrad[,1]*xmex,nrow=1,ncol=length(xmex))
-      } else {
-        dg.db.xmex <- index.tgrad[,1]*xmex
+        xmex <- matrix(xmex,nrow=1,ncol=length(xmex))
       }
+
+      dg.db.xmex <- sweep(xmex, 2L, index.tgrad[,1L], `*`)
 
       uhat <- tydat - index.tmean ## Training y and training mean
 
       Vinv <- chol2inv(chol(dg.db.xmex%*%t(dg.db.xmex)))
 
-      Sigma <- (uhat*dg.db.xmex)%*%t(uhat*dg.db.xmex)
+      weighted.score <- sweep(dg.db.xmex, 2L, uhat, `*`)
+
+      Sigma <- weighted.score%*%t(weighted.score)
 
       Bvcov[-1,-1] <- Vinv %*% Sigma %*% Vinv
 
@@ -691,7 +832,7 @@ npindex.sibandwidth <-
       dg.db <- txdat[,-1,drop=FALSE]*index.tgrad[,1]
 
       ## First row & column of covariance matrix are zero due to
-      ## identification condition that beta_1=0. Note the n^{-1} in
+      ## identification condition that beta_1=1. Note the n^{-1} in
       ## the E and the \sqrt{n} in the normalization of \hat\beta will
       ## cancel.
 
@@ -718,6 +859,7 @@ npindex.sibandwidth <-
           bwtype = bws$type,
           ckertype = bws$ckertype,
           ckerorder = bws$ckerorder,
+          ckerbound = bws$ckerbound,
           regtype = regtype,
           gradients = TRUE,
           warn.glp.gradient = FALSE
@@ -744,7 +886,8 @@ npindex.sibandwidth <-
                         bws = bws$bw,
                         bwtype = bws$type,
                         ckertype = bws$ckertype,
-                        ckerorder = bws$ckerorder)$ksum
+                        ckerorder = bws$ckerorder,
+                        ckerbound = bws$ckerbound)$ksum
 
           tww[1,2,]/NZD(tww[2,2,])
         } else {
@@ -757,6 +900,7 @@ npindex.sibandwidth <-
             bwtype = bws$type,
             ckertype = bws$ckertype,
             ckerorder = bws$ckerorder,
+            ckerbound = bws$ckerbound,
             regtype = regtype,
             gradients = FALSE,
             warn.glp.gradient = FALSE
@@ -813,13 +957,14 @@ npindex.sibandwidth <-
       strgof = "xtra=c(RSQ,MSE,MAE,MAPE,CORR,SIGN),"
       strres = (if (residuals) "resid = tydat - index.tmean," else "")
     } else if(bws$method == "kleinspady") {
-      index.pred =
-        if (!no.ey) round(index.mean)
-        else round(index.tmean)
+      index.pred <- .np_index_ks_prediction(
+        if (!no.ey) index.mean else index.tmean
+      )
 
-      confusion.matrix =
-        table(if (!no.ey) eydat else tydat,
-              index.pred, dnn=c("Actual", "Predicted"))
+      confusion.matrix <- .np_index_ks_confusion_matrix(
+        actual = if (!no.ey) eydat else tydat,
+        pred = index.pred
+      )
 
       CCR.overall <- sum(diag(confusion.matrix))/sum(confusion.matrix)
       CCR.byoutcome <- diag(confusion.matrix)/rowSums(confusion.matrix)

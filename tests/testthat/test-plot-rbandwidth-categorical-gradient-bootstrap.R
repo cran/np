@@ -81,6 +81,94 @@ test_that("wild categorical regression gradient helper matches explicit refits",
   expect_equal(as.vector(helper.out$t0), as.vector(fit0 - fit0[1L]), tolerance = 1e-6)
 })
 
+test_that("ordered regression gradient wild bootstrap targets adjacent differences", {
+  skip_if_not_installed("np")
+
+  library(np)
+
+  wild_helper <- getFromNamespace(".np_plot_boot_from_hat_wild", "np")
+  ordered_gradient_matrix <- function(x) {
+    dx <- x[, -1L, drop = FALSE] - x[, -ncol(x), drop = FALSE]
+    cbind(dx[, 1L], dx)
+  }
+  ordered_gradient_vector <- function(x) {
+    dx <- diff(x)
+    c(dx[1L], dx)
+  }
+
+  set.seed(20260709)
+  n <- 60L
+  o <- ordered(rep(seq_len(5L), length.out = n), levels = seq_len(5L))
+  y <- as.numeric(o) + rnorm(n, sd = 0.08)
+  xdat <- data.frame(o = o)
+  bw <- npregbw(
+    xdat = xdat,
+    ydat = y,
+    regtype = "lc",
+    bwtype = "fixed",
+    bws = 0.25,
+    bandwidth.compute = FALSE
+  )
+  fit <- npreg(
+    bws = bw,
+    txdat = xdat,
+    tydat = y,
+    gradients = TRUE,
+    errors = TRUE
+  )
+  base <- plot(
+    fit,
+    output = "data",
+    perspective = FALSE,
+    gradients = TRUE
+  )[[1L]]
+  exdat <- base$eval
+  H <- npreghat(
+    bws = bw,
+    txdat = xdat,
+    exdat = exdat,
+    output = "matrix"
+  )
+  fit.mean <- as.vector(npreghat(
+    bws = bw,
+    txdat = xdat,
+    exdat = xdat,
+    y = y,
+    output = "apply"
+  ))
+
+  B <- 31L
+  set.seed(33)
+  expected.level <- wild_helper(
+    H = H,
+    ydat = y,
+    fit.mean = fit.mean,
+    B = B,
+    wild = "rademacher"
+  )
+  expected.t <- ordered_gradient_matrix(expected.level$t)
+  expected.t0 <- ordered_gradient_vector(expected.level$t0)
+
+  set.seed(33)
+  out <- plot(
+    fit,
+    output = "data",
+    perspective = FALSE,
+    gradients = TRUE,
+    errors = "bootstrap",
+    plot.errors.type = "pmzsd",
+    plot.errors.boot.method = "wild",
+    plot.errors.boot.wild = "rademacher",
+    plot.errors.boot.num = B,
+    random.seed = 33
+  )[[1L]]
+  expected.hw <- qnorm(0.05 / 2, lower.tail = FALSE) *
+    apply(expected.t, 2L, stats::sd)
+
+  expect_equal(as.vector(out$grad), as.vector(expected.t0), tolerance = 1e-10)
+  expect_equal(out$gerr[, 2L], expected.hw, tolerance = 1e-10)
+})
+
 test_that("categorical regression gradient bootstrap works for default, inid, and wild routes", {
   skip_if_not_installed("np")
 
@@ -129,4 +217,100 @@ test_that("categorical regression gradient bootstrap works for default, inid, an
     expect_true(all(is.finite(out[[1L]]$glerr)), info = boot.method)
     expect_true(all(is.finite(out[[1L]]$gherr)), info = boot.method)
   }
+})
+
+test_that("categorical regression gradient asymptotic intervals fail clearly", {
+  skip_if_not_installed("np")
+
+  library(np)
+
+  set.seed(20260313)
+  n <- 36L
+  g <- factor(sample(c("a", "b"), n, replace = TRUE))
+  x <- runif(n)
+  y <- 1 + 0.4 * (g == "b") + cos(2 * pi * x) + rnorm(n, sd = 0.05)
+  xdat <- data.frame(g = g, x = x)
+  bw <- npregbw(
+    xdat = xdat,
+    ydat = y,
+    regtype = "ll",
+    bwtype = "fixed",
+    bws = c(0.25, 0.3),
+    bandwidth.compute = FALSE
+  )
+  fit <- npreg(
+    bws = bw,
+    txdat = xdat,
+    tydat = y,
+    gradients = TRUE,
+    errors = TRUE
+  )
+
+  eval.count.name <- paste0("np_plot_regression_eval_count_", Sys.getpid())
+  assign(eval.count.name, 0L, envir = .GlobalEnv)
+  on.exit(rm(list = eval.count.name, envir = .GlobalEnv), add = TRUE)
+  invisible(trace(
+    ".np_plot_regression_eval",
+    where = asNamespace("np"),
+    tracer = bquote(assign(
+      .(eval.count.name),
+      get(.(eval.count.name), envir = .GlobalEnv) + 1L,
+      envir = .GlobalEnv
+    )),
+    print = FALSE
+  ))
+  on.exit(untrace(".np_plot_regression_eval", where = asNamespace("np")),
+          add = TRUE)
+
+  expect_error(
+    suppressWarnings(plot(
+      fit,
+      output = "data",
+      perspective = FALSE,
+      gradients = TRUE,
+      errors = "asymptotic",
+      data_overlay = FALSE
+    )),
+    "categorical gradient contrast panels"
+  )
+  expect_identical(get(eval.count.name, envir = .GlobalEnv), 0L)
+})
+
+test_that("continuous regression gradient asymptotic intervals remain available", {
+  skip_if_not_installed("np")
+
+  library(np)
+
+  set.seed(20260314)
+  n <- 36L
+  x <- runif(n)
+  z <- runif(n)
+  y <- 1 + sin(2 * pi * x) + 0.5 * z + rnorm(n, sd = 0.05)
+  xdat <- data.frame(x = x, z = z)
+  bw <- npregbw(
+    xdat = xdat,
+    ydat = y,
+    regtype = "ll",
+    bwtype = "fixed",
+    bws = c(0.25, 0.3),
+    bandwidth.compute = FALSE
+  )
+  fit <- npreg(
+    bws = bw,
+    txdat = xdat,
+    tydat = y,
+    gradients = TRUE,
+    errors = TRUE
+  )
+
+  out <- expect_no_error(suppressWarnings(plot(
+    fit,
+    output = "data",
+    perspective = FALSE,
+    gradients = TRUE,
+    errors = "asymptotic",
+    data_overlay = FALSE
+  )))
+  expect_type(out, "list")
+  expect_true(all(vapply(out, inherits, logical(1), "npregression")))
 })

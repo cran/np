@@ -429,11 +429,13 @@ npregbw.rbandwidth <-
            small = 1.490116e-05,
            tol = 1.490116e-04,
            transform.bounds = FALSE,
-           ...){
+           ...,
+           nomad.opts = list()){
+    nomad.opts <- .np_nomad_normalize_user_opts(nomad.opts, "npregbw")
     dots <- list(...)
-    if ("nomad.opts" %in% names(dots))
+    if (length(nomad.opts))
       .np_nomad_native_reject_unsupported_options_for_route(
-        opts = dots$nomad.opts,
+        opts = nomad.opts,
         route = "native npreg NOMAD route",
         bwsolver = bwsolver
       )
@@ -589,7 +591,7 @@ npregbw.rbandwidth <-
           transform.bounds = transform.bounds,
           bandwidth.compute = TRUE,
           bwsolver = bwsolver,
-          nomad.opts = dots$nomad.opts
+          nomad.opts = nomad.opts
         )
         return(.npregbw_run_fixed_degree_mads(
           xdat = xdat.frame,
@@ -827,7 +829,6 @@ npregbw.rbandwidth <-
   }
 
   if (ncon > 0L &&
-      identical(method, "cv.ls") &&
       bwtype %in% c("generalized_nn", "adaptive_nn") &&
       !identical(regtype, "lc")) {
     return(DO_TREE_NO)
@@ -840,14 +841,17 @@ npregbw.rbandwidth <-
                                ydat,
                                bws,
                                invalid.penalty = c("baseline", "dbmax"),
-                               penalty.multiplier = 10) {
+                               penalty.multiplier = 10,
+                               objective = c("ls", "ks")) {
+  objective <- match.arg(objective)
   out <- .npregbw_call_fixed_degree_core(
     xdat = xdat,
     ydat = ydat,
     bws = bws,
     invalid.penalty = invalid.penalty,
     penalty.multiplier = penalty.multiplier,
-    eval.only = TRUE
+    eval.only = TRUE,
+    objective = objective
   )
 
   list(
@@ -885,8 +889,12 @@ npregbw.rbandwidth <-
                                             penalty.multiplier = 10,
                                             transform.bounds = FALSE,
                                             scale.factor.search.lower = NULL,
-                                            eval.only = FALSE) {
+                                            eval.only = FALSE,
+                                            objective = c("ls", "ks")) {
   invalid.penalty <- match.arg(invalid.penalty)
+  objective <- match.arg(objective)
+  if (identical(objective, "ks") && !isTRUE(eval.only))
+    stop("internal Klein-Spady regression objective is eval-only", call. = FALSE)
   scale.factor.search.lower <- npResolveScaleFactorLowerBound(
     if (is.null(scale.factor.search.lower)) npGetScaleFactorSearchLower(bws) else scale.factor.search.lower
   )
@@ -962,7 +970,7 @@ npregbw.rbandwidth <-
     itmax = itmax,
     int_RESTART_FROM_MIN = if (isTRUE(remin)) RE_MIN_TRUE else RE_MIN_FALSE,
     int_MINIMIZE_IO = if (isTRUE(eval.only) || !isTRUE(getOption("np.messages"))) IO_MIN_TRUE else IO_MIN_FALSE,
-    bwmethod = switch(bws$method,
+    bwmethod = if (identical(objective, "ks")) RBWM_CVKS else switch(bws$method,
       cv.aic = BWM_CVAIC,
       cv.ls = BWM_CVLS),
     kerneval = switch(bws$ckertype,
@@ -2434,37 +2442,7 @@ npregbw.rbandwidth <-
     sum(values)
   }
 
-  metadata <- list(
-    mode = search_result$method,
-    source = if (!is.null(search_result$source)) search_result$source else "explicit",
-    reason = if (!is.null(search_result$reason)) search_result$reason else NULL,
-    engine = if (!is.null(search_result$engine)) search_result$engine else search_result$method,
-    verify = isTRUE(search_result$verify),
-    completed = isTRUE(search_result$completed),
-    certified = isTRUE(search_result$certified),
-    interrupted = isTRUE(search_result$interrupted),
-    baseline.degree = search_result$baseline$degree,
-    baseline.fval = search_result$baseline$objective,
-    best.degree = search_result$best$degree,
-    best.fval = search_result$best$objective,
-    nomad.time = search_result$nomad.time,
-    powell.time = search_result$powell.time,
-    optim.time = search_result$optim.time,
-    n.unique = search_result$n.unique,
-    n.visits = search_result$n.visits,
-    n.cached = search_result$n.cached,
-    grid.size = search_result$grid.size,
-    singleton = isTRUE(search_result$singleton),
-    fixed.degree = search_result$fixed.degree,
-    best.restart = search_result$best.restart,
-    restart.starts = search_result$restart.starts,
-    restart.degree.starts = search_result$restart.degree.starts,
-    restart.bandwidth.starts = search_result$restart.bandwidth.starts,
-    restart.start.info = search_result$restart.start.info,
-    restart.results = search_result$restart.results,
-    nn.cache = search_result$nn.cache,
-    trace = search_result$trace
-  )
+  metadata <- .np_degree_search_metadata(search_result, default_direction = "min")
 
   if (!is.null(search_result$nomad.time))
     bws$nomad.time <- as.numeric(search_result$nomad.time[1L])
@@ -2539,20 +2517,22 @@ npregbw.default <-
            tol,
            transform.bounds = FALSE,
            ukertype,
-           ...){
-
-    xdat <- toFrame(xdat)
-    yname <- deparse(substitute(ydat))
+           ...,
+           nomad.opts = list()){
+    nomad.opts <- .np_nomad_normalize_user_opts(nomad.opts, "npregbw")
     lp.dot.args <- list(...)
-    if ("nomad.opts" %in% names(lp.dot.args))
+    if (length(nomad.opts))
       .np_nomad_native_reject_unsupported_options_for_route(
-        opts = lp.dot.args$nomad.opts,
+        opts = nomad.opts,
         route = "native npreg NOMAD route",
         nomad = nomad,
         degree.select = degree.select,
         search.engine = search.engine,
         bwsolver = bwsolver
       )
+
+    xdat <- toFrame(xdat)
+    yname <- deparse(substitute(ydat))
     if ("remin" %in% names(lp.dot.args)) {
       legacy.remin <- npValidateScalarLogical(lp.dot.args$remin, "remin")
       warning("npregbw: argument 'remin' is deprecated; use 'powell.remin' and 'nomad.remin'",
@@ -2672,8 +2652,6 @@ npregbw.default <-
 
     reg.args <- bw.args[setdiff(names(bw.args), c("bw", "nobs", "xdati", "ydati", "xnames", "ynames", "bandwidth.compute"))]
     opt.args <- c(list(bandwidth.compute = bandwidth.compute), opt.args)
-    if ("nomad.opts" %in% names(lp.dot.args))
-      opt.args$nomad.opts <- lp.dot.args$nomad.opts
     reg.args$scale.factor.search.lower <- scale.factor.search.lower
     opt.args$scale.factor.search.lower <- scale.factor.search.lower
 
