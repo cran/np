@@ -22,7 +22,7 @@ test_that("npcdens exposes lp higher-order continuous gradients via hat operator
       bandwidth.compute = FALSE
     )
 
-    fit <- npcdens(
+    fit <- npcdens(se = TRUE,
       bws = bw,
       txdat = x,
       tydat = y,
@@ -35,7 +35,8 @@ test_that("npcdens exposes lp higher-order continuous gradients via hat operator
 
     expect_equal(as.vector(fit$congrad[, 1L]), as.vector(H2 %*% rhs),
                  tolerance = 1e-9, info = basis)
-    expect_true(all(is.na(fit$congerr[, 1L])), info = basis)
+    expect_true(all(is.finite(fit$congerr[, 1L])), info = basis)
+    expect_true(all(fit$congerr[, 1L] >= 0), info = basis)
     expect_equal(gradients(fit, gradient.order = 2L), fit$congrad,
                  tolerance = 0, info = basis)
     expect_error(gradients(fit, gradient.order = 1L),
@@ -66,7 +67,7 @@ test_that("npcdist exposes lp higher-order continuous gradients via hat operator
       bandwidth.compute = FALSE
     )
 
-    fit <- npcdist(
+    fit <- npcdist(se = TRUE,
       bws = bw,
       txdat = x,
       tydat = y,
@@ -79,7 +80,8 @@ test_that("npcdist exposes lp higher-order continuous gradients via hat operator
 
     expect_equal(as.vector(fit$congrad[, 1L]), as.vector(H2 %*% rhs),
                  tolerance = 1e-9, info = basis)
-    expect_true(all(is.na(fit$congerr[, 1L])), info = basis)
+    expect_true(all(is.finite(fit$congerr[, 1L])), info = basis)
+    expect_true(all(fit$congerr[, 1L] >= 0), info = basis)
     expect_equal(gradients(fit, gradient.order = 2L), fit$congrad,
                  tolerance = 0, info = basis)
     expect_error(gradients(fit, gradient.order = 1L),
@@ -101,7 +103,7 @@ test_that("conditional higher-order gradient requests validate scope", {
     bandwidth.compute = FALSE
   )
   expect_error(
-    npcdens(bws = bw.ll, txdat = x, tydat = y, gradients = TRUE,
+    npcdens(se = TRUE, bws = bw.ll, txdat = x, tydat = y, gradients = TRUE,
             gradient.order = 2L),
     "no available derivative components"
   )
@@ -115,7 +117,7 @@ test_that("conditional higher-order gradient requests validate scope", {
     bandwidth.compute = FALSE
   )
   expect_error(
-    npcdist(bws = bw.lp1, txdat = x, tydat = y, gradients = TRUE,
+    npcdist(se = TRUE, bws = bw.lp1, txdat = x, tydat = y, gradients = TRUE,
             gradient.order = 2L),
     "no available derivative components"
   )
@@ -128,7 +130,7 @@ test_that("formula routes keep gradient.order out of bandwidth selection", {
     y = seq(0, 1, length.out = 28)^2 + rnorm(28, sd = 0.02)
   )
 
-  fit.dens <- npcdens(
+  fit.dens <- npcdens(se = TRUE,
     y ~ x,
     data = dat,
     regtype = "lp",
@@ -139,7 +141,7 @@ test_that("formula routes keep gradient.order out of bandwidth selection", {
   )
   expect_equal(fit.dens$gradient.order, 2L)
 
-  fit.dist <- npcdist(
+  fit.dist <- npcdist(se = TRUE,
     y ~ x,
     data = dat,
     regtype = "lp",
@@ -186,7 +188,7 @@ test_that("conditional plot data honors higher-order gradient requests", {
 
     slice <- plot.out[[1L]]
     eval.fun <- if (inherits(bw, "condbandwidth")) npcdist else npcdens
-    fit <- eval.fun(
+    fit <- eval.fun(se = TRUE,
       bws = bw,
       txdat = x,
       tydat = y,
@@ -199,6 +201,7 @@ test_that("conditional plot data honors higher-order gradient requests", {
     expect_equal(slice$gradient.order, 2L)
     expect_equal(as.vector(slice$congrad[, 1L]), as.vector(fit$congrad[, 1L]),
                  tolerance = 1e-10)
-    expect_true(all(is.na(slice$congerr[, 1L])))
+    expect_equal(as.vector(slice$congerr[, 1L]), as.vector(fit$congerr[, 1L]),
+                 tolerance = 1e-10)
   }
 })

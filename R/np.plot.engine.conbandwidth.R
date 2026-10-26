@@ -39,7 +39,7 @@
            plot.errors.boot.method = c("inid", "fixed", "geom"),
            plot.errors.boot.nonfixed = c("exact", "frozen"),
            plot.errors.boot.blocklen = NULL,
-           plot.errors.boot.num = 1999,
+           plot.errors.boot.num = 9999,
            plot.errors.center = c("estimate", "bias-corrected"),
            plot.errors.type = c("pmzsd","pointwise","bonferroni","simultaneous","all"),
            plot.errors.alpha = 0.05,
@@ -54,10 +54,53 @@
            proper.method = c("project"),
            proper.control = list(),
            ...,
-           random.seed){
+           random.seed, .np.empty.report = NULL, gaussian.draws = 9999L){
+
+    if (.np_data_formal_supplied(sys.call(), sys.function()))
+      .np_plot_data_error()
+
+    sub.supplied <- !missing(sub)
+
+    plot.gradient.available <- rep.int(TRUE, bws$xndim)
+    if (isTRUE(gradients)) {
+      reg.spec <- npConditionalRegEngineSpec(bws, where = "plot.conbandwidth()")
+      if (identical(reg.spec$reg.engine, "lp") && bws$xncon > 0L) {
+        gradient.order <- npConditionalGradientOrder(
+          bws = bws,
+          reg.engine = reg.spec$reg.engine,
+          gradient.order = gradient.order,
+          where = "plot.conbandwidth()"
+        )
+        available <- npGlpGradientAvailability(
+          regtype.engine = reg.spec$reg.engine,
+          degree.engine = reg.spec$degree.engine,
+          gradient.order = gradient.order,
+          ncon = bws$xncon
+        )
+        plot.gradient.available[which(bws$ixcon)] <- available
+        if (!any(plot.gradient.available)) {
+          npStopGlpGradientNoneAvailable(
+            where = "plot.conbandwidth()",
+            action = "plot",
+            degree.engine = reg.spec$degree.engine,
+            gradient.order = gradient.order,
+            available = available,
+            con.names = bws$xnames[bws$ixcon]
+          )
+        }
+        if (any(!available)) {
+          npWarnGlpGradientPartialAvailability(
+            where = "plot.conbandwidth()",
+            degree.engine = reg.spec$degree.engine,
+            gradient.order = gradient.order,
+            available = available,
+            con.names = bws$xnames[bws$ixcon]
+          )
+        }
+      }
+    }
 
     engine.ctx <- .np_plot_engine_begin(plot.par.mfrow = plot.par.mfrow)
-    on.exit(.np_plot_restore_par(engine.ctx$oldpar), add = TRUE)
     plot.par.mfrow <- engine.ctx$plot.par.mfrow
 
     scalar_default <- function(value, default) {
@@ -68,14 +111,7 @@
     plot.legend <- if (!is.null(dots$legend)) dots$legend else TRUE
     plot.user.args <- .np_plot_user_args(dots, "plot")
     bxp.user.args <- .np_plot_user_args(dots, "bxp")
-    rgl.persp3d.user.args <- .np_plot_collect_rgl_args(dots, "rgl.persp3d", "rgl.persp3d.")
-    rgl.view3d.user.args <- .np_plot_collect_rgl_args(dots, "rgl.view3d", "rgl.view3d.")
-    rgl.par3d.user.args <- .np_plot_collect_rgl_args(dots, "rgl.par3d", "rgl.par3d.")
-    rgl.grid3d.user.args <- .np_plot_collect_rgl_args(dots, "rgl.grid3d", "rgl.grid3d.")
-    rgl.widget.user.args <- .np_plot_collect_rgl_args(dots, "rgl.widget", "rgl.widget.")
-    rgl.legend3d.user.args <- .np_plot_collect_rgl_args(dots, "rgl.legend3d", "rgl.legend3d.")
-    rgl.legend3d.user.args <- .np_plot_merge_rgl_legend_control(rgl.legend3d.user.args, plot.legend)
-    rgl.surface3d.user.args <- .np_plot_extract_prefixed_args(dots, "rgl.surface3d.")
+    rgl.controls <- .np_plot_rgl_controls(dots, legend = plot.legend)
     bxp.args <- bxp.user.args
     if (!is.null(col)) bxp.args$col <- col
     if (!is.null(lty)) bxp.args$lty <- lty
@@ -96,7 +132,7 @@
     tmf[[1]] <- as.name("model.frame")
     tmf[["formula"]] <- tt
     mf.args <- as.list(tmf)[-1L]
-    umf <- tmf <- do.call(stats::model.frame, mf.args, envir = environment(tt))
+    umf <- tmf <- .np_bws_formula_model_frame(bws, mf.args)
 
       ydat <- tmf[, bws$variableNames[["response"]], drop = FALSE]
       xdat <- tmf[, bws$variableNames[["terms"]], drop = FALSE]
@@ -142,6 +178,16 @@
       )
     }
     
+    error.request <- .np_plot_normalize_error_request(plot.errors.method,
+                                                      plot.errors.type)
+    joint.request <- identical(error.request$method, "asymptotic") &&
+      error.request$type %in% c("simultaneous", "all")
+    if (!missing(gaussian.draws) && !joint.request)
+      stop("gaussian.draws requires asymptotic simultaneous or all bands", call. = FALSE)
+    joint.eligible <- joint.request && !quantreg && !isTRUE(proper)
+    quantile.joint <- joint.request && isTRUE(quantreg)
+    if (joint.request)
+      gaussian.draws <- .np_plot_gaussian_integer(gaussian.draws, "gaussian.draws")
     normalized.opts <- .np_plot_normalize_common_options(
       plot.behavior = plot.behavior,
       plot.errors.method = plot.errors.method,
@@ -155,10 +201,15 @@
       plot.errors.bar = plot.errors.bar,
       xdat = xdat,
       common.scale = common.scale,
-      ylim = ylim
+      ylim = ylim,
+      allow_asymptotic_simultaneous = joint.eligible || quantile.joint,
+      error.request = error.request
     )
 
     plot.behavior <- normalized.opts$plot.behavior
+    # Data-only evaluation does not own the caller's graphics state.
+    if (plot.behavior != "data")
+      on.exit(.np_plot_restore_par(engine.ctx$oldpar), add = TRUE)
     plot.errors.method <- normalized.opts$plot.errors.method
     plot.errors.boot.method <- normalized.opts$plot.errors.boot.method
     plot.errors.boot.nonfixed <- normalized.opts$plot.errors.boot.nonfixed
@@ -207,6 +258,7 @@
     )
 
     if (surface.supported && perspective && !gradients){
+      .np_plot_progress_plan(1L)
       view = match.arg(view)
       rotate = (view == "rotate")
       
@@ -260,6 +312,8 @@
 
       if (quantreg) {
         tobj <- .np_plot_quantile_eval(
+          allow.external = TRUE,
+          need.errors = plot.behavior != "plot" || plot.errors.method == "asymptotic",
           txdat = xdat,
           tydat = ydat,
           exdat = x.eval,
@@ -268,6 +322,8 @@
         )
       } else {
         tobj <- .np_plot_conditional_eval(
+          allow.external = TRUE, .np.empty.report = .np.empty.report,
+          se = plot.behavior != "plot" || plot.errors.method == "asymptotic",
           bws = bws,
           xdat = xdat,
           ydat = ydat,
@@ -285,6 +341,7 @@
                       "dist" = tobj$condist,
                       "dens" = tobj$condens)
       tcerr <- if (quantreg) tobj$quanterr else tobj$conderr
+      if (is.null(tcerr)) tcerr <- rep.int(NA_real_, length(tcomp))
       tex <- if (quantreg) x.eval else x.eval[,1]
       tey <- if (quantreg) NA else x.eval[,2]
 
@@ -341,8 +398,19 @@
           se = tcerr,
           alpha = plot.errors.alpha,
           band.type = plot.errors.type,
-          m = nrow(tex)
+          m = length(tcomp)
         )
+        if (quantile.joint)
+          terr.obj <- .np_plot_quantile_interval(terr.obj,
+            bws, xdat, ydat, x.eval, tau, tcomp, tcerr,
+            alpha = plot.errors.alpha, band.type = plot.errors.type,
+            gaussian.draws = gaussian.draws)
+        if (joint.eligible)
+          terr.obj <- .np_plot_density_interval(terr.obj,
+            bws, xdat, x.eval[, 1L, drop = FALSE], tcerr, tcomp,
+            y = ydat, ey = x.eval[, 2L, drop = FALSE], cdf = cdf,
+            alpha = plot.errors.alpha, band.type = plot.errors.type,
+            gaussian.draws = gaussian.draws)
         terr[,1:2] <- terr.obj$err
         terr.all <- terr.obj$all.err
         center.val <- tcomp
@@ -364,9 +432,12 @@
           zlim =
               if (plot.errors){
                   if (plot.errors.type == "all" && !is.null(lerr.all))
-                    c(min(c(unlist(lerr.all), lerr)), max(c(unlist(herr.all), herr)))
+                    .np_plot_all_surface_range(tcomp, lerr, herr,
+                                               lerr.all, herr.all)
+                  else if ((joint.eligible || quantile.joint) && identical(plot.errors.type, "simultaneous"))
+                    .np_plot_joint_panel_range(tcomp, terr)
                   else
-                    c(min(lerr),max(herr))
+                    c(min(lerr), max(herr))
               } else
                 c(min(tcomp),max(tcomp))
       }
@@ -376,13 +447,19 @@
                           "quant" = qregression,
                           "dist" = condistribution,
                           "dens" = condensity)
-        ret.args <- list(bws = bws, xeval = tex, ntrain = dim(xdat)[1])
+        # Preserve frame dimensions and trained names in the returned object.
+        # The evaluation and bootstrap inputs above are unchanged.
+        result.x <- if (quantreg) x.eval else x.eval[, 1L, drop = FALSE]
+        names(result.x) <- bws$xnames
+        ret.args <- list(bws = bws, xeval = result.x, ntrain = dim(xdat)[1])
         if (quantreg) {
           ret.args$tau <- tau
           ret.args$quantile <- tcomp
           ret.args$quanterr <- terr[,1:2]
         } else {
-          ret.args$yeval <- tey
+          result.y <- x.eval[, 2L, drop = FALSE]
+          names(result.y) <- bws$ynames
+          ret.args$yeval <- result.y
           if (cdf) ret.args$condist <- tcomp else ret.args$condens <- tcomp
           ret.args$conderr <- terr[,1:2]
           ret.args$proper.requested <- tobj$proper.requested
@@ -392,6 +469,8 @@
           ret.args$proper.info <- tobj$proper.info
         }
         cd1 <- do.call(ret.fun, ret.args)
+        if (joint.eligible || quantile.joint)
+          cd1 <- .np_plot_density_band_fields(cd1, terr.obj)
         cd1$bias = NA
         cd1$bias.corrected = NA
 
@@ -429,11 +508,11 @@
           theta = rgl.view$theta,
           phi = rgl.view$phi,
           main = main.val,
-          par3d.args = rgl.par3d.user.args,
-          view3d.args = rgl.view3d.user.args,
-          persp3d.args = rgl.persp3d.user.args,
-          grid3d.args = rgl.grid3d.user.args,
-          widget.args = rgl.widget.user.args,
+          par3d.args = rgl.controls$par3d,
+          view3d.args = rgl.controls$view3d,
+          persp3d.args = rgl.controls$persp3d,
+          grid3d.args = rgl.controls$grid3d,
+          widget.args = rgl.controls$widget,
           draw.extras = function() {
             if (plot.rug) {
               .np_plot_draw_floor_rug_rgl(
@@ -447,12 +526,13 @@
                 x = x1.eval,
                 y = x2.eval,
                 plot.errors.type = plot.errors.type,
+                plot.errors.method = plot.errors.method,
                 lerr = lerr,
                 herr = herr,
                 lerr.all = lerr.all,
                 herr.all = herr.all,
-                surface3d.args = rgl.surface3d.user.args,
-                legend3d.args = rgl.legend3d.user.args
+                surface3d.args = rgl.controls$surface3d,
+                legend3d.args = rgl.controls$legend3d
               )
             }
           }
@@ -469,7 +549,7 @@
       dtheta = rotate.defaults$dtheta
       persp.col = grDevices::adjustcolor(
         .np_plot_persp_surface_colors(z = tdens, col = col),
-        alpha.f = 0.5
+        alpha.f = .np_plot_surface_alpha("base")
       )
       first.render.activity <- NULL
       first.render.pending <- TRUE
@@ -482,36 +562,38 @@
           i <- frame.theta[[frame.idx]]
           if (isTRUE(first.render.pending))
             first.render.activity <- .np_plot_activity_begin("Rendering plot surface")
-          persp.mat <- persp(x1.eval,
-                             x2.eval,
-                             tdens,
-                             zlim = zlim,
-                             col = persp.col,
-                             border = scalar_default(border, .np_plot_color("surface_border")),
-                             ticktype = "detailed",
-                             cex.axis = scalar_default(cex.axis, par()$cex.axis),
-                             cex.lab = scalar_default(cex.lab, par()$cex.lab),
-                             cex.main = scalar_default(cex.main, par()$cex.main),
-                             cex.sub = scalar_default(cex.sub, par()$cex.sub),
-                             lwd = .np_plot_lwd("surface_border", scalar_default(lwd, par()$lwd)),
-                             xlab = xlab.val,
-                             ylab = ylab.val,
-                             zlab = zlab.val,
-                             theta = i,
-                             phi = phi,
-                             main = scalar_default(main, ""))
+          persp.args <- list(
+            x = x1.eval,
+            y = x2.eval,
+            z = tdens,
+            zlim = zlim,
+            col = persp.col,
+            border = scalar_default(border, .np_plot_color("surface_border")),
+            ticktype = "detailed",
+            cex.axis = scalar_default(cex.axis, par()$cex.axis),
+            cex.lab = scalar_default(cex.lab, par()$cex.lab),
+            cex.main = scalar_default(cex.main, par()$cex.main),
+            cex.sub = scalar_default(cex.sub, par()$cex.sub),
+            lwd = .np_plot_lwd("surface_border", scalar_default(lwd, par()$lwd)),
+            xlab = xlab.val,
+            ylab = ylab.val,
+            zlab = zlab.val,
+            theta = i,
+            phi = phi,
+            main = scalar_default(main, "")
+          )
+          persp.mat <- .np_plot_render_surface_base_frame(
+            persp.args = persp.args,
+            xlim = range(x1.eval, finite = TRUE),
+            ylim = range(x2.eval, finite = TRUE),
+            zlim = zlim
+          )
 
           if (isTRUE(first.render.pending)) {
             .np_plot_activity_end(first.render.activity)
             first.render.activity <- NULL
             first.render.pending <- FALSE
           }
-          .np_plot_draw_box_grid_persp(
-            xlim = range(x1.eval, finite = TRUE),
-            ylim = range(x2.eval, finite = TRUE),
-            zlim = zlim,
-            persp.mat = persp.mat
-          )
           if (plot.rug) {
             .np_plot_draw_floor_rug_persp(
               x1 = xdat[,1],
@@ -532,14 +614,32 @@
               lerr.all = lerr.all,
               herr.all = herr.all,
               border = scalar_default(border, .np_plot_color("context_border")),
-              lwd = scalar_default(lwd, par()$lwd)
+              lwd = scalar_default(lwd, par()$lwd),
+              annotation = .np_plot_variability_annotation_spec(
+                plot.errors.method = plot.errors.method,
+                plot.errors.type = plot.errors.type,
+                plot.errors.alpha = plot.errors.alpha,
+                plot.errors.center = plot.errors.center,
+                sub.supplied = sub.supplied,
+                plot.args = persp.args,
+                context = engine.ctx$annotation,
+                continuous = if (quantreg) {
+                  isTRUE(bws$xncon == 2L)
+                } else {
+                  isTRUE(bws$xncon + bws$yncon == 2L)
+                },
+                fixed = !isTRUE(rotate)
+              )
             )
             if (plot.errors.type == "all" && !is.null(lerr.all) && !is.null(herr.all)) {
               .np_plot_draw_all_band_legend(
                 legend = plot.legend,
                 x = "topright",
                 lty = .np_plot_lty("solid"),
-                lwd = .np_plot_lwd("band_all_surface", scalar_default(lwd, par()$lwd))
+                lwd = .np_plot_lwd("band_all_surface", scalar_default(lwd, par()$lwd)),
+                plot.errors.method = plot.errors.method,
+                lerr.all = lerr.all,
+                herr.all = herr.all
               )
             }
           }
@@ -554,6 +654,7 @@
 
       dsf = if (gradients) bws$xndim else 1
       tot.dim = bws$xndim + bws$yndim - quantreg
+      .np_plot_progress_plan(tot.dim * if (gradients) sum(plot.gradient.available) else 1L)
 
       plot.layout <- .np_plot_layout_begin(
         plot.behavior = plot.behavior,
@@ -630,7 +731,7 @@
         
         if (xi.factor){
           ei = levels(xdat[,i])
-          ei = factor(ei, levels = ei)
+          ei = .np_factor_with_levels(ei, levels = ei)
           xi.neval = length(ei)
         } else {
           xi.neval = neval
@@ -644,15 +745,21 @@
 
         if (quantreg) {
           tobj <- .np_plot_quantile_eval(
+            allow.external = TRUE,
+            need.errors = plot.behavior != "plot" || plot.errors.method == "asymptotic",
             txdat = xdat,
             tydat = ydat,
             exdat = subcol(exdat,ei,i)[seq_len(xi.neval),, drop = FALSE],
             gradients = gradients,
+            lp.first.se.demand = if (plot.behavior != "plot") NULL else FALSE,
+            cat.se.demand = if (plot.behavior != "plot") NULL else FALSE,
             tau = tau,
             bws = bws
           )
         } else {
           tobj <- .np_plot_conditional_eval(
+          allow.external = TRUE, .np.empty.report = .np.empty.report,
+            se = plot.behavior != "plot" || plot.errors.method == "asymptotic",
             bws = bws,
             xdat = xdat,
             ydat = ydat,
@@ -660,6 +767,8 @@
             eydat = eydat[seq_len(xi.neval),, drop = FALSE],
             cdf = cdf,
             gradients = gradients,
+            lp.first.se.demand = if (plot.behavior != "plot" || plot.errors.method == "asymptotic") NULL else FALSE,
+            cat.se.demand = if (plot.behavior != "plot" || plot.errors.method == "asymptotic") NULL else FALSE,
             gradient.order = gradient.order
           )
         }
@@ -688,6 +797,8 @@
           }
         }
         err.extract <- function(obj, jj){
+          if (!quantreg && is.null(obj[["conderr", exact = TRUE]]))
+            return(rep.int(NA_real_, length(eval.extract(obj, jj))))
           if (gradients) {
             if (quantreg) rep(NA_real_, length(eval.extract(obj, jj))) else obj$congerr[,jj]
           } else if (quantreg) {
@@ -703,11 +814,13 @@
         }
 
         for (j in seq_len(dsf)){
+          component.available <- !isTRUE(gradients) || plot.gradient.available[j]
+          temp.err[,] <- NA_real_
           temp.boot = list()
           temp.all.err <- NULL
           temp.dens[seq_len(xi.neval)] <- eval.extract(tobj, j)
           
-          if (plot.errors){
+          if (plot.errors && component.available){
             if (plot.errors.method == "asymptotic") {
               terr.j <- err.extract(tobj, j)
               asym.obj <- .np_plot_asymptotic_error_from_se(
@@ -716,6 +829,29 @@
                 band.type = plot.errors.type,
                 m = xi.neval
               )
+              if (quantile.joint) {
+                asym.obj <- .np_plot_quantile_interval(asym.obj,
+                  bws, xdat, ydat, subcol(exdat,ei,i)[seq_len(xi.neval),, drop = FALSE],
+                  tau, temp.dens[seq_len(xi.neval)], terr.j,
+                  gradient = if (gradients) j else NULL,
+                  gradient.order = gradient.order, alpha = plot.errors.alpha,
+                  band.type = plot.errors.type, gaussian.draws = gaussian.draws)
+                if (plot.behavior != "plot")
+                  plot.out[[plot.index]] <- .np_plot_quantile_band_fields(
+                    plot.out[[plot.index]], asym.obj, if (gradients) j else NULL)
+              }
+              if (joint.eligible) {
+                asym.obj <- .np_plot_density_interval(asym.obj,
+                  bws, xdat, subcol(exdat,ei,i)[seq_len(xi.neval),, drop = FALSE],
+                  terr.j, temp.dens[seq_len(xi.neval)],
+                  y = ydat, ey = eydat[seq_len(xi.neval),, drop = FALSE],
+                  cdf = cdf, gradient = if (gradients) j else NULL,
+                  gradient.order = gradient.order, alpha = plot.errors.alpha,
+                  band.type = plot.errors.type, gaussian.draws = gaussian.draws)
+                if (plot.behavior != "plot")
+                  plot.out[[plot.index]] <- .np_plot_density_band_fields(
+                    plot.out[[plot.index]], asym.obj, gradients, j)
+              }
               temp.err[seq_len(xi.neval),1:2] <- asym.obj$err
               temp.all.err <- asym.obj$all.err
             }
@@ -764,10 +900,11 @@
               all.bxp[[plot.index]] = temp.boot
 
               data.err[,seq(3*((plot.index-1)*dsf+j)-2,length=3)] = temp.err
-              data.err.all[[(plot.index-1)*dsf+j]] = temp.all.err
+              data.err.all[(plot.index-1)*dsf+j] = list(temp.all.err)
             }
           } else if (plot.behavior != "data") {
             plot.layout <- .np_plot_layout_activate(plot.layout)
+            .np_plot_variability_panel_begin(engine.ctx$annotation)
             ## plot evaluation
             plot.fun <- if (xi.factor) {
               .np_plot_panel_fun(plot.bootstrap = plot.bootstrap, plot.bxp = plot.bxp)
@@ -781,15 +918,22 @@
               plot.args$x <- ei
             }
             if (!(xi.factor && plot.bootstrap && plot.bxp))
-              plot.args$y <- temp.dens
-            if (plot.errors)
-              plot.args$ylim <- .np_plot_panel_error_range(
+              plot.args$y <- .np_plot_geometry_values(temp.dens)
+            panel.ylim <- if (plot.errors) {
+              .np_plot_panel_error_range(
                 estimate = temp.dens,
                 err = temp.err,
                 all.err = temp.all.err,
                 plot.errors.type = plot.errors.type,
                 plotOnEstimate = plotOnEstimate
               )
+            } else {
+              range(temp.dens, finite = TRUE)
+            }
+            if (!all(is.finite(panel.ylim)))
+              panel.ylim <- c(-1, 1)
+            panel.ylim <- .np_plot_resolve_requested_ylim(panel.ylim, ylim)
+            plot.args$ylim <- panel.ylim
             plot.args$xlab <- scalar_default(xlab, gen.label(if (xOrY == "x") bws$xnames[i] else bws$ynames[i], paste(toupper(xOrY), i, sep = "")))
             plot.args$ylab <- scalar_default(ylab, if (gradients) conditional_gradient_axis_label(j) else tylabE)
             if (!xi.factor) {
@@ -817,14 +961,27 @@
               .np_plot_draw_rug_1d(if (xOrY == "x") xdat[,i] else ydat[,i])
 
             ## error plotting evaluation
-            if (plot.errors && !(xi.factor && plot.bootstrap && plot.bxp)){
+            if (plot.errors && component.available &&
+                !(xi.factor && plot.bootstrap && plot.bxp)){
+              panel.annotation <- .np_plot_variability_annotation_spec(
+                plot.errors.method = plot.errors.method,
+                plot.errors.type = plot.errors.type,
+                plot.errors.alpha = plot.errors.alpha,
+                plot.errors.center = plot.errors.center,
+                sub.supplied = sub.supplied,
+                plot.args = plot.args,
+                context = engine.ctx$annotation,
+                continuous = !xi.factor
+              )
               if (plot.errors.type == "all") {
-                draw.all.error.types(
+                .np_plot_draw_all_errors_with_gaps(
                   ex = as.numeric(ei),
                   center = .np_plot_error_center(temp.dens, temp.err, plotOnEstimate),
                   all.err = temp.all.err,
+                  plot.errors.method = plot.errors.method,
                   xi.factor = xi.factor,
-                  legend = plot.legend)
+                  legend = plot.legend,
+                  annotation = panel.annotation)
                 .np_plot_draw_bias_center_1d(
                   x = ei,
                   center = .np_plot_error_center(temp.dens, temp.err, plotOnEstimate),
@@ -845,7 +1002,7 @@
                   estimate.col = plot.args$col,
                   estimate.lty = plot.args$lty,
                   estimate.lwd = plot.args$lwd)
-                draw.vec <- .np_plot_error_draw_vectors(ei, temp.dens, temp.err, plotOnEstimate)
+                draw.vec <- .np_plot_error_vectors_with_gaps(ei, temp.dens, temp.err, plotOnEstimate)
                 draw.args <- list(
                   ex = draw.vec$x,
                   ely = draw.vec$lower,
@@ -853,9 +1010,10 @@
                   plot.errors.style = if (xi.factor) "bar" else plot.errors.style,
                   plot.errors.bar = if (xi.factor) "I" else plot.errors.bar,
                   plot.errors.bar.num = plot.errors.bar.num,
-                  lty = if (xi.factor) 1 else 2
+                  lty = if (xi.factor) 1 else 2,
+                  annotation = panel.annotation
                 )
-                do.call(draw.errors, draw.args)
+                do.call(.np_plot_draw_errors_with_gaps, draw.args)
               }
             }
           }
@@ -864,7 +1022,14 @@
             err.name <- if (gradients) paste("gc", j, "err", sep = "") else if (quantreg) "quanterr" else "conderr"
             bias.name <- if (gradients) paste("gc", j, "bias", sep = "") else "bias"
             corrected.name <- if (gradients) paste("gc", j, "bias.corrected", sep = "") else "bias.corrected"
-            plot.out[[plot.index]][[err.name]] <- na.omit(cbind(-temp.err[,1], temp.err[,2]))
+            plot.out[[plot.index]][[err.name]] <- if (component.available) {
+              .np_plot_joint_interval_rows(
+                cbind(-temp.err[, 1], temp.err[, 2]), temp.dens,
+                joint.eligible || quantile.joint, plot.errors.type)
+            } else {
+              cbind(-temp.err[seq_len(xi.neval), 1],
+                    temp.err[seq_len(xi.neval), 2])
+            }
             plot.out[[plot.index]] <- .np_plot_add_named_bias_fields(
               plot.out[[plot.index]],
               estimate = temp.dens,
@@ -901,15 +1066,21 @@
 
           if (quantreg) {
             tobj <- .np_plot_quantile_eval(
+              allow.external = TRUE,
+              need.errors = plot.behavior != "plot" || plot.errors.method == "asymptotic",
               txdat = xdat,
               tydat = ydat,
               eydat = subcol(eydat,ei,i)[seq_len(xi.neval),, drop = FALSE],
               gradients = gradients,
+              lp.first.se.demand = if (plot.behavior != "plot") NULL else FALSE,
               tau = tau,
+              cat.se.demand = if (plot.behavior != "plot") NULL else FALSE,
               bws = bws
             )
           } else {
             tobj <- .np_plot_conditional_eval(
+          allow.external = TRUE, .np.empty.report = .np.empty.report,
+              se = plot.behavior != "plot" || plot.errors.method == "asymptotic",
               bws = bws,
               xdat = xdat,
               ydat = ydat,
@@ -917,7 +1088,9 @@
               eydat = subcol(eydat,ei,i)[seq_len(xi.neval),, drop = FALSE],
               cdf = cdf,
               gradients = gradients,
+              lp.first.se.demand = if (plot.behavior != "plot" || plot.errors.method == "asymptotic") NULL else FALSE,
               gradient.order = gradient.order,
+              cat.se.demand = if (plot.behavior != "plot" || plot.errors.method == "asymptotic") NULL else FALSE,
               proper = isTRUE(proper.args$proper.requested),
               proper.method = proper.args$proper.method,
               proper.control = proper.args$proper.control
@@ -939,6 +1112,8 @@
             }
           }
           err.extract <- function(obj, jj){
+            if (!quantreg && is.null(obj[["conderr", exact = TRUE]]))
+              return(rep.int(NA_real_, length(eval.extract(obj, jj))))
             if (gradients) {
               if (quantreg) rep(NA_real_, length(eval.extract(obj, jj))) else obj$congerr[,jj]
             } else if (quantreg) {
@@ -954,11 +1129,13 @@
           }
 
           for (j in seq_len(dsf)){
+            component.available <- !isTRUE(gradients) || plot.gradient.available[j]
+            temp.err[,] <- NA_real_
             temp.boot = list()
             temp.all.err <- NULL
             temp.dens[seq_len(xi.neval)] <- eval.extract(tobj, j)
             
-            if (plot.errors){
+            if (plot.errors && component.available){
               if (plot.errors.method == "asymptotic") {
                 terr.j <- err.extract(tobj, j)
                 asym.obj <- .np_plot_asymptotic_error_from_se(
@@ -967,6 +1144,18 @@
                   band.type = plot.errors.type,
                   m = xi.neval
                 )
+                if (joint.eligible) {
+                  asym.obj <- .np_plot_density_interval(asym.obj,
+                    bws, xdat, exdat[seq_len(xi.neval),, drop = FALSE],
+                    terr.j, temp.dens[seq_len(xi.neval)],
+                    y = ydat, ey = subcol(eydat,ei,i)[seq_len(xi.neval),, drop = FALSE],
+                    cdf = cdf, gradient = if (gradients) j else NULL,
+                    gradient.order = gradient.order, alpha = plot.errors.alpha,
+                    band.type = plot.errors.type, gaussian.draws = gaussian.draws)
+                  if (plot.behavior != "plot")
+                    plot.out[[plot.index]] <- .np_plot_density_band_fields(
+                      plot.out[[plot.index]], asym.obj, gradients, j)
+                }
                 temp.err[seq_len(xi.neval),1:2] <- asym.obj$err
                 temp.all.err <- asym.obj$all.err
               }
@@ -1018,10 +1207,11 @@
                 all.bxp[[plot.index]] = temp.boot
 
                 data.err[,seq(3*((plot.index-1)*dsf+j)-2,length=3)] = temp.err
-                data.err.all[[(plot.index-1)*dsf+j]] = temp.all.err
+                data.err.all[(plot.index-1)*dsf+j] = list(temp.all.err)
               }
             } else if (plot.behavior != "data") {
               plot.layout <- .np_plot_layout_activate(plot.layout)
+              .np_plot_variability_panel_begin(engine.ctx$annotation)
               ## plot evaluation
               plot.fun <- if (xi.factor) {
                 .np_plot_panel_fun(plot.bootstrap = plot.bootstrap, plot.bxp = plot.bxp)
@@ -1036,14 +1226,21 @@
               }
               if (!(xi.factor && plot.bootstrap && plot.bxp))
                 plot.args$y <- temp.dens
-              if (plot.errors)
-                plot.args$ylim <- .np_plot_panel_error_range(
+              panel.ylim <- if (plot.errors) {
+                .np_plot_panel_error_range(
                   estimate = temp.dens,
                   err = temp.err,
                   all.err = temp.all.err,
                   plot.errors.type = plot.errors.type,
                   plotOnEstimate = plotOnEstimate
                 )
+              } else {
+                range(temp.dens, finite = TRUE)
+              }
+              if (!all(is.finite(panel.ylim)))
+                panel.ylim <- c(-1, 1)
+              panel.ylim <- .np_plot_resolve_requested_ylim(panel.ylim, ylim)
+              plot.args$ylim <- panel.ylim
               plot.args$xlab <- scalar_default(xlab, gen.label(if (xOrY == "x") bws$xnames[i] else bws$ynames[i], paste(toupper(xOrY), i, sep = "")))
               plot.args$ylab <- scalar_default(ylab, if (gradients) conditional_gradient_axis_label(j) else tylabE)
               if (!xi.factor) {
@@ -1071,14 +1268,27 @@
                 .np_plot_draw_rug_1d(if (xOrY == "x") xdat[,i] else ydat[,i])
 
               ## error plotting evaluation
-              if (plot.errors && !(xi.factor && plot.bootstrap && plot.bxp)){
+              if (plot.errors && component.available &&
+                  !(xi.factor && plot.bootstrap && plot.bxp)){
+                panel.annotation <- .np_plot_variability_annotation_spec(
+                  plot.errors.method = plot.errors.method,
+                  plot.errors.type = plot.errors.type,
+                  plot.errors.alpha = plot.errors.alpha,
+                  plot.errors.center = plot.errors.center,
+                  sub.supplied = sub.supplied,
+                  plot.args = plot.args,
+                  context = engine.ctx$annotation,
+                  continuous = !xi.factor
+                )
                 if (plot.errors.type == "all") {
-                  draw.all.error.types(
+                  .np_plot_draw_all_errors_with_gaps(
                     ex = as.numeric(ei),
                     center = .np_plot_error_center(temp.dens, temp.err, plotOnEstimate),
                     all.err = temp.all.err,
+                    plot.errors.method = plot.errors.method,
                     xi.factor = xi.factor,
-                  legend = plot.legend)
+                  legend = plot.legend,
+                    annotation = panel.annotation)
                   .np_plot_draw_bias_center_1d(
                     x = ei,
                     center = .np_plot_error_center(temp.dens, temp.err, plotOnEstimate),
@@ -1099,7 +1309,7 @@
                     estimate.col = plot.args$col,
                     estimate.lty = plot.args$lty,
                     estimate.lwd = plot.args$lwd)
-                  draw.vec <- .np_plot_error_draw_vectors(ei, temp.dens, temp.err, plotOnEstimate)
+                  draw.vec <- .np_plot_error_vectors_with_gaps(ei, temp.dens, temp.err, plotOnEstimate)
                   draw.args <- list(
                     ex = draw.vec$x,
                     ely = draw.vec$lower,
@@ -1107,9 +1317,10 @@
                     plot.errors.style = if (xi.factor) "bar" else plot.errors.style,
                     plot.errors.bar = if (xi.factor) "I" else plot.errors.bar,
                     plot.errors.bar.num = plot.errors.bar.num,
-                    lty = if (xi.factor) 1 else 2
+                    lty = if (xi.factor) 1 else 2,
+                    annotation = panel.annotation
                   )
-                  do.call(draw.errors, draw.args)
+                  do.call(.np_plot_draw_errors_with_gaps, draw.args)
                 }
               }
             }
@@ -1118,7 +1329,14 @@
               err.name <- if (gradients) paste("gc", j, "err", sep = "") else if (quantreg) "quanterr" else "conderr"
               bias.name <- if (gradients) paste("gc", j, "bias", sep = "") else "bias"
               corrected.name <- if (gradients) paste("gc", j, "bias.corrected", sep = "") else "bias.corrected"
-              plot.out[[plot.index]][[err.name]] <- na.omit(cbind(-temp.err[,1], temp.err[,2]))
+              plot.out[[plot.index]][[err.name]] <- if (component.available) {
+                .np_plot_joint_interval_rows(
+                cbind(-temp.err[, 1], temp.err[, 2]), temp.dens,
+                joint.eligible || quantile.joint, plot.errors.type)
+              } else {
+                cbind(-temp.err[seq_len(xi.neval), 1],
+                      temp.err[seq_len(xi.neval), 2])
+              }
               plot.out[[plot.index]] <- .np_plot_add_named_bias_fields(
                 plot.out[[plot.index]],
                 estimate = temp.dens,
@@ -1148,8 +1366,9 @@
             y.max <- max(y.max, range.k[2], na.rm = TRUE)
           }
           if (!is.finite(y.min) || !is.finite(y.max)) {
-            y.min <- min(na.omit(as.double(data.eval)))
-            y.max <- max(na.omit(as.double(data.eval)))
+            y.range <- .np_plot_finite_range(data.eval)
+            y.min <- y.range[1L]
+            y.max <- y.range[2L]
           }
         } else {
           y.min <- Inf
@@ -1169,8 +1388,9 @@
             y.max <- max(y.max, range.k[2L], na.rm = TRUE)
           }
           if (!is.finite(y.min) || !is.finite(y.max)) {
-            y.min <- min(na.omit(as.double(data.eval)))
-            y.max <- max(na.omit(as.double(data.eval)))
+            y.range <- .np_plot_finite_range(data.eval)
+            y.min <- y.range[1L]
+            y.max <- y.range[2L]
           }
         }
 
@@ -1191,6 +1411,7 @@
 
           for (j in seq_len(dsf)){
             plot.layout <- .np_plot_layout_activate(plot.layout)
+            .np_plot_variability_panel_begin(engine.ctx$annotation)
             ## plot evaluation
             idx <- (plot.index-1)*dsf+j
             plot.fun <- if (xi.factor) {
@@ -1205,7 +1426,7 @@
               plot.args$x <- allei[,plot.index]
             }
             if (!(xi.factor && plot.bootstrap && plot.bxp))
-              plot.args$y <- data.eval[,idx]
+              plot.args$y <- .np_plot_geometry_values(data.eval[,idx])
             plot.args$ylim <- c(y.min, y.max)
             plot.args$xlab <- scalar_default(xlab, gen.label(if (xOrY == "x") bws$xnames[i] else bws$ynames[i], paste(toupper(xOrY), i, sep = "")))
             plot.args$ylab <- scalar_default(ylab, if (gradients) conditional_gradient_axis_label(j) else tylabE)
@@ -1236,13 +1457,25 @@
             ## error plotting evaluation
             if (plot.errors && !(xi.factor && plot.bootstrap && plot.bxp)){
               err.block <- data.err[, seq(3*idx - 2L, length.out = 3L), drop = FALSE]
+              panel.annotation <- .np_plot_variability_annotation_spec(
+                plot.errors.method = plot.errors.method,
+                plot.errors.type = plot.errors.type,
+                plot.errors.alpha = plot.errors.alpha,
+                plot.errors.center = plot.errors.center,
+                sub.supplied = sub.supplied,
+                plot.args = plot.args,
+                context = engine.ctx$annotation,
+                continuous = !xi.factor
+              )
               if (plot.errors.type == "all") {
-                draw.all.error.types(
+                .np_plot_draw_all_errors_with_gaps(
                   ex = as.numeric(allei[,plot.index]),
                   center = .np_plot_error_center(data.eval[,idx], err.block, plotOnEstimate),
                   all.err = data.err.all[[idx]],
+                  plot.errors.method = plot.errors.method,
                   xi.factor = xi.factor,
-                  legend = plot.legend)
+                  legend = plot.legend,
+                  annotation = panel.annotation)
                 .np_plot_draw_bias_center_1d(
                   x = allei[,plot.index],
                   center = .np_plot_error_center(data.eval[,idx], err.block, plotOnEstimate),
@@ -1263,7 +1496,7 @@
                   estimate.col = plot.args$col,
                   estimate.lty = plot.args$lty,
                   estimate.lwd = plot.args$lwd)
-                draw.vec <- .np_plot_error_draw_vectors(allei[,plot.index], data.eval[,idx], err.block, plotOnEstimate)
+                draw.vec <- .np_plot_error_vectors_with_gaps(allei[,plot.index], data.eval[,idx], err.block, plotOnEstimate)
                 draw.args <- list(
                   ex = draw.vec$x,
                   ely = draw.vec$lower,
@@ -1271,9 +1504,10 @@
                   plot.errors.style = if (xi.factor) "bar" else plot.errors.style,
                   plot.errors.bar = if (xi.factor) "I" else plot.errors.bar,
                   plot.errors.bar.num = plot.errors.bar.num,
-                  lty = if (xi.factor) 1 else 2
+                  lty = if (xi.factor) 1 else 2,
+                  annotation = panel.annotation
                 )
-                do.call(draw.errors, draw.args)
+                do.call(.np_plot_draw_errors_with_gaps, draw.args)
               }
             }
           }

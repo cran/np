@@ -25,14 +25,16 @@ npplreg(bws,
        data = NULL, 
        newdata = NULL, 
        y.eval = FALSE, 
-       \dots)
+       \dots,
+       se = FALSE)
 
 \method{npplreg}{default}(bws,
         txdat,
         tydat,
         tzdat,
         nomad = FALSE,
-        \dots)
+        \dots,
+        se = FALSE)
 
 \method{npplreg}{plbandwidth}(bws,
         txdat = stop("training data txdat missing"),
@@ -42,7 +44,8 @@ npplreg(bws,
         eydat,
         ezdat,
         residuals = FALSE,
-        \dots)
+        \dots,
+        se = FALSE)
 }
 \arguments{
 \subsection{Data, Bandwidth Inputs And Formula Interface}{
@@ -65,6 +68,13 @@ These arguments identify the bandwidth specification, formula/data interface, an
 
 
   \item{data}{
+    This argument belongs to the formula interface (including supported
+    formula-bearing bandwidth-object refits). Native calls must supply their
+    vectors, matrices or data frames directly, or use \code{with(data, ...)}.
+    Supplying \code{data}, including explicit \code{data = NULL}, to a native
+    route that does not consume it is an error; see
+    \code{\link{np-data-interfaces}}.
+
     an optional data frame, list or environment (or object
     coercible to a data frame by \code{\link{as.data.frame}}) containing the variables
     in the model. If not found in data, the variables are taken from
@@ -147,6 +157,9 @@ These arguments control where the partially linear regression is evaluated and w
     a \eqn{q}-variate data frame of points on which the regression will
     be estimated (evaluation data).  By default,
     evaluation takes place on the data provided by \code{tzdat}.
+    Supplying only \code{ezdat} uses the original training \code{txdat}
+    for the linear evaluation role. The two evaluation roles must have the
+    same row count before omitting missing rows.
   }
 
 
@@ -155,6 +168,18 @@ These arguments control where the partially linear regression is evaluated and w
     omitted, the training data are used.
   }
 
+
+  \item{se}{
+    a scalar logical value indicating whether to compute and retain
+    coefficient standard errors and their asymptotic covariance matrix.
+    Defaults to \code{FALSE}; coefficients, fitted values, residuals and
+    bandwidth selection do not depend on this switch. Use \code{TRUE}
+    before extracting \code{coef(object, se = TRUE)} or \code{vcov(object)}.
+    These extractors do not refit the model. If uncertainty was omitted,
+    \code{npplreg(bws = object$bws, se = TRUE)} reuses the bandwidths
+    without repeating search; supply the original training data if they
+    are no longer recoverable from the bandwidth object.
+  }
 
   \item{residuals}{
     a logical value indicating that you want residuals computed and
@@ -194,6 +219,35 @@ Further arguments are passed to \code{\link{npplregbw}} and its component \code{
   }
 }
 \details{
+  With a formula-derived bandwidth object, supplying only \code{tydat}
+  replaces the evaluated response in retained-training-sample order: one row
+  per observation retained after the original subset and missing-value selection.
+  Original excluded rows are not restored; row names or equal lengths do not
+  imply original-data order. The effective \code{na.action} is then applied
+  jointly to the retained predictors and replacement response; any new omission
+  indices refer to this retained sample. The selected bandwidths remain fixed,
+  and the returned object retains the replacement sample for subsequent refits.
+  Use \code{data} for full formula-data replacement, not together with a partial
+  response replacement. Explicit native training arguments retain their separate
+  positional contract.
+
+  For native (non-formula) objects, named \code{newdata} columns are matched
+  to the retained variable names and reordered as needed. Extra columns are
+  ignored; missing, duplicate or ambiguous names are errors. An unnamed
+  matrix or vector remains positional for a single evaluation role.
+  Explicit native evaluation arguments retain their positional contract and
+  take precedence over \code{newdata}.
+
+  For a native bandwidth object, \code{newdata} is split into
+  \code{exdat} and \code{ezdat} using the retained linear and nonparametric
+  predictor names. Names must identify both roles unambiguously;
+  explicitly supplied native evaluation arguments take precedence. This
+  evaluates at the requested rows without repeating bandwidth selection.
+
+  Nuisance regressions inherit numerical ridging from \code{\link{npreg}}.
+  Their point fits do not apply its residual uncertainty correction to the
+  separate partially linear coefficient covariance described below.
+
   Documentation guide: see \code{\link{npplregbw}} for partially linear
   bandwidth selection, \code{\link{npregbw}} for the component
   nonparametric regression search controls, \code{\link{np.kernels}}
@@ -274,7 +328,23 @@ Further arguments are passed to \code{\link{npplregbw}} and its component \code{
   returns a list with components \code{fit} and \code{se.fit}. The
   \code{se.fit} component contains asymptotic prediction standard errors
   computed from the partially linear fitted-value linear operator and
-  the squared residuals from the training fit.
+  the squared residuals from the training fit. This explicit prediction
+  request works even when the original model used \code{se = FALSE};
+  it does not require coefficient covariance or alter the original object.
+
+  With \code{se = TRUE}, coefficient covariance allows conditional
+  heteroskedasticity. Let
+  \eqn{\widetilde X} be the residualized linear design, \eqn{u} the residuals
+  from the training fit, and \eqn{A=\widetilde X'\widetilde X}. The returned
+  covariance is
+  \eqn{\{n/(n-p-q)\} A^{-1}\widetilde X'\mathrm{diag}(u^2)\widetilde X A^{-1}},
+  where \eqn{n} is the number of complete training observations, \eqn{p} is
+  the number of linear regressors and \eqn{q} the number of smoothing
+  variables. The multiplier retains the package's finite-sample convention;
+  it is not an estimate of a smoother's effective degrees of freedom.
+  Coefficient standard errors are square roots of its diagonal. This
+  coefficient covariance and the fitted-value prediction errors above are
+  different targets; neither changes the coefficient or bandwidth estimates.
 
   \item{evalx}{ evaluation points }
   \item{evalz}{ evaluation points }
@@ -282,8 +352,11 @@ Further arguments are passed to \code{\link{npplregbw}} and its component \code{
     evaluation points }
   \item{xcoef}{ coefficient(s) corresponding to the components
     \eqn{\beta_i}{B[i]} in the model }
-  \item{xcoeferr}{ standard errors of the coefficients }
-  \item{xcoefvcov}{ covariance matrix of the coefficients }
+  \item{xcoeferr}{ standard errors of the coefficients, or \code{NULL}
+    when \code{se = FALSE} }
+  \item{xcoefvcov}{ covariance matrix of the coefficients, or \code{NULL}
+    when \code{se = FALSE} }
+  \item{se}{ whether coefficient uncertainty was requested }
   \item{bws}{ the canonical bandwidth object, stored as a
     \code{plbandwidth} object }
   \item{bw}{ backward-compatible alias for \code{bws} }
@@ -362,13 +435,22 @@ Further arguments are passed to \code{\link{npplregbw}} and its component \code{
   intended on mixed data types and will coerce the data to the same
   type.
 
+  For formula fits, character-valued missing-data policies are resolved
+  through the \code{stats} model-frame owner; pass a caller-local policy as
+  a function object rather than its name. With replacement training data,
+  an explicit \code{na.action}, including \code{NULL}, takes precedence
+  over the saved policy. Native fitting still requires complete rows, so
+  a permissive policy does not guarantee the same retained sample as
+  \code{stats::model.frame}.
+
   When reusing a bandwidth object without explicit training or evaluation
-  data, the required data are recovered from object-retained state or
-  from the stored call environment when available. This is a convenience
-  for ordinary same-session use, not a guarantee that a saved object is
-  self-contained. For reproducible replay after \code{saveRDS()} and
-  \code{readRDS()} in a fresh R session, supply the required data
-  arguments explicitly.
+  data, newly constructed bandwidth objects use retained training values.
+  A fit with explicit replacement training data retains that sample in its
+  returned bandwidth object; evaluation grids do not replace training data.
+  Older objects without retained samples use their stored call environment
+  when available and may require explicit training inputs after
+  \code{saveRDS()} and \code{readRDS()}. Custom formula transformations used
+  on new evaluation data must still be available.
 }
 
 \seealso{
@@ -399,7 +481,7 @@ bw <- npplregbw(formula=y~x1+factor(x2)|factor(z1)+z2)
 
 # Next, compute the partially linear fit
 
-pl <- npplreg(bws=bw)
+pl <- npplreg(bws=bw, se=TRUE)
 
 # Print a summary of the model...
 
@@ -412,7 +494,7 @@ if (interactive()) Sys.sleep(5)
 # Retrieve the coefficient estimates and their standard errors...
 
 coef(pl)
-coef(pl, errors = TRUE)
+coef(pl, se = TRUE)
 
 # Compare the partially linear results to those from a correctly
 # specified model's coefficients for x1 and x2
@@ -439,7 +521,7 @@ if (interactive()) plot(bw)
 # from bootstrapped standard errors, use the following (note that this
 # may take a minute or two depending on the speed of your computer as
 # the bootstrapping is done in real time, and note also that we override
-# the default number of bootstrap replications (399) reducing them to 25
+# the default number of bootstrap replications (9999) reducing them to 25
 # in order to quickly compute standard errors in this instance - don't
 # of course do this in general)
 
@@ -474,7 +556,7 @@ bw <- npplregbw(xdat=X, zdat=Z, ydat=y)
 
 # Next, compute the partially linear fit
 
-pl <- npplreg(bws=bw)
+pl <- npplreg(bws=bw, se=TRUE)
 
 # Print a summary of the model...
 
@@ -487,7 +569,7 @@ if (interactive()) Sys.sleep(5)
 # Retrieve the coefficient estimates and their standard errors...
 
 coef(pl)
-coef(pl, errors = TRUE)
+coef(pl, se = TRUE)
 
 # Compare the partially linear results to those from a correctly
 # specified model's coefficients for x1 and x2
@@ -514,7 +596,7 @@ if (interactive()) plot(bw)
 # from bootstrapped standard errors, use the following (note that this
 # may take a minute or two depending on the speed of your computer as
 # the bootstrapping is done in real time, and note also that we override
-# the default number of bootstrap replications (399) reducing them to 25
+# the default number of bootstrap replications (9999) reducing them to 25
 # in order to quickly compute standard errors in this instance - don't
 # of course do this in general)
 

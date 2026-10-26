@@ -14,7 +14,7 @@ npdeptest(data.x = NULL,
           data.y = NULL,
           method = c("integration","summation"),
           bootstrap = TRUE,
-          boot.num = 399,
+          B = 399,
           random.seed = 42)
   
 }
@@ -45,7 +45,7 @@ These arguments identify the paired samples being tested.
 These arguments control bootstrap execution and reproducibility settings.
 }
 
-  \item{boot.num}{
+  \item{B}{
     an integer value specifying the number of bootstrap
     replications to use. Defaults to \code{399}.
   }
@@ -63,6 +63,13 @@ These arguments control bootstrap execution and reproducibility settings.
     ensure replicability. Defaults to 42.
   }
 
+}
+\section{Bootstrap P-Values}{
+  The bootstrap upper-tail p-value is the proportion of bootstrap statistics
+  greater than or equal to the observed statistic. Ties count as at least as
+  extreme, giving the conservative tie convention for discrete statistics.
+  This is the ordinary bootstrap proportion, without an add-one correction;
+  a reported zero is possible with a finite number of replications.
 }
 \value{
   \code{npdeptest} returns an object of type \code{deptest} with the
@@ -145,12 +152,24 @@ These arguments control bootstrap execution and reproducibility settings.
 
 \section{Usage Issues}{
 
-  The \code{integration} version of the statistic uses multidimensional
-  numerical methods from the \pkg{cubature} package. See
-  \pkg{adaptIntegrate} for details. The \code{integration}
-  version of the statistic will be substantially slower than the
-  \code{summation} version, however, it will likely be both more
-  accurate and powerful.
+  The \code{integration} version uses deterministic tensor-product,
+  corrected composite trapezoidal quadrature. Along each axis the domain
+  extends eight relevant bandwidths beyond the observed support and uses
+  two evaluation points per smallest relevant bandwidth. A registered
+  native callback evaluates the Gaussian marginal and joint densities in
+  bounded tiles, so package-owned working memory does not grow as a dense
+  sample-by-quadrature array. The integration version is generally more
+  computationally demanding than \code{summation}, but avoids the density
+  division that can make the summation statistic unstable.
+
+  The \code{summation} version fuses both marginal density sums and the
+  joint density sum in one registered native pass with constant auxiliary
+  storage. During bootstrapping, bounded groups of sampled \code{data.x}
+  indices share the invariant \code{data.y} marginal work while retaining
+  every draw's positionwise pairing, reduction order, and output order.
+  Workspace grows only with the sample size times the bounded group size;
+  no dense sample-by-sample kernel matrix is retained. Counts alone are not
+  used because they would discard the required pairing with \code{data.y}.
 
 }
 
@@ -172,7 +191,7 @@ y <- 1 + x + rnorm(n)
 model <- lm(y~x)
 y.fit <- fitted(model)
 
-npdeptest(y,y.fit,boot.num=99,method="summation")
+npdeptest(y,y.fit,B=99,method="summation")
 
 if (interactive()) Sys.sleep(5)
 
@@ -185,7 +204,7 @@ y <- 1 + rnorm(n)
 model <- lm(y~x)
 y.fit <- fitted(model)
 
-npdeptest(y,y.fit,boot.num=99,method="summation")
+npdeptest(y,y.fit,B=99,method="summation")
 
 ## Test/measure lack of fit between y and its fitted value from a
 ## regression model when x is relevant using the `integration'
@@ -197,7 +216,7 @@ y <- 1 + x + rnorm(n)
 model <- lm(y~x)
 y.fit <- fitted(model)
 
-npdeptest(y,y.fit,boot.num=99)
+npdeptest(y,y.fit,B=99)
 
 if (interactive()) Sys.sleep(5)
 
@@ -211,7 +230,7 @@ y <- 1 + rnorm(n)
 model <- lm(y~x)
 y.fit <- fitted(model)
 
-npdeptest(y,y.fit,boot.num=99)
+npdeptest(y,y.fit,B=99)
 } % enddontrun
 }
 \keyword{ univar }

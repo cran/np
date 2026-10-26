@@ -59,17 +59,26 @@ Named options passed via \code{\dots} include:
     \strong{Data and evaluation controls}
     \describe{
       \item{\code{data}}{
-        an optional \code{\link{data.frame}} used to resolve stored
-        formula calls when explicit training data arguments are not
-        supplied.
+        replacement training data for the partially linear formula-bandwidth
+        plot route, when explicit training inputs are omitted. Other plot
+        routes do not consume this argument and reject it, including explicit
+        \code{NULL}. Refit with the intended data before plotting; see
+        \code{\link{np-data-interfaces}}.
       }
-      \item{\code{grid_control}}{
+      \item{\code{grid.control}}{
         optional detailed grid controls created by
         \code{\link{np_grid_control}}.
       }
       \item{\code{neval}}{
         the number of evaluation points used for each plotted continuous
-        margin.
+        margin, defaulting to \code{50L}. Continuous numeric variables use
+        this grid even when their observed values are integers or have few
+        distinct values. Categorical margins use their levels. For
+        \code{npudens}/\code{npudist} perspective surfaces with numeric
+        ordered margins, the grid uses the ordered levels observed in the
+        training data. Their one-dimensional categorical slices use all
+        declared levels, including unused levels. A surface with two
+        continuous margins has \code{neval^2} evaluation points.
       }
       \item{\code{xdat}, \code{ydat}, \code{zdat}}{
         training data used when plotting bandwidth objects. \code{xdat}
@@ -88,23 +97,30 @@ Named options passed via \code{\dots} include:
 
     \strong{Plot content controls}
     \describe{
-      \item{\code{coef}, \code{coef_index}}{
+      \item{\code{coef}, \code{coef.index}}{
         coefficient-function plotting controls for semiparametric
         families where supported.
       }
-      \item{\code{common_scale}}{
+      \item{\code{common.scale}}{
         a logical value specifying whether multiple panels should share a
         common plotting scale when feasible.
       }
-      \item{\code{gradient_order}, \code{gradients}}{
+      \item{\code{gradient.order}, \code{gradients}}{
         derivative plotting controls for families that support
         gradients/derivatives. For \code{npreg} local-polynomial
-        objects, \code{gradient_order} requests the continuous-predictor
+        objects, \code{gradient.order} requests the continuous-predictor
         derivative order to generate on the plot evaluation grid; if
         omitted the first derivative/effect is plotted. Location-scale
         quantile-regression \code{nplsqreg} objects use the same
         coordinate-wise local-polynomial contract while preserving their
         existing \code{tau}-indexed output; no mixed partials are generated.
+        When a requested continuous derivative order exceeds that
+        coordinate's fitted degree, its values remain \code{NA} and its plot
+        panel remains present but empty if another derivative or categorical
+        effect is available. Plotting stops with an informative error only
+        when no requested component is available. Ordered and unordered
+        categorical panels remain first-order finite differences, denoted by
+        \eqn{\Delta} labels.
         For
         \code{npconmode} objects,
         \code{gradients=TRUE} plots stored class-probability gradients/effects
@@ -132,7 +148,7 @@ Named options passed via \code{\dots} include:
         \code{"both"} is the public spelling for the historical
         \code{"plot-data"} behavior.
       }
-      \item{\code{proper}, \code{proper_control}, \code{proper_method}}{
+      \item{\code{proper}, \code{proper.control}, \code{proper.method}}{
         controls for proper conditional density/distribution handling
         where implemented.
       }
@@ -154,7 +170,11 @@ Named options passed via \code{\dots} include:
     \describe{
       \item{\code{alpha}}{
         the nominal significance level used for interval/band
-        construction.
+        construction. The default is \code{0.05}, corresponding to a
+        nominal variability level of \eqn{1-\alpha=0.95}{1-alpha=0.95}.
+        This nominal level describes the construction; it is not by itself
+        a claim that smoothing bias is negligible or that the displayed
+        bounds have literal confidence coverage for the unknown target.
       }
       \item{\code{B}}{
         the bootstrap replication count.
@@ -162,8 +182,13 @@ Named options passed via \code{\dots} include:
       \item{\code{band}}{
         one of \code{"pmzsd"}, \code{"pointwise"},
         \code{"bonferroni"}, \code{"simultaneous"}, or \code{"all"}.
+        The common bandwidth-engine default is \code{"pmzsd"}; direct
+        \code{npcopula} and \code{npconmode} plots retain their
+        method-specific \code{"pointwise"} default. The meaning of a band
+        name depends on whether \code{errors="bootstrap"} or
+        \code{errors="asymptotic"}; see Details.
       }
-      \item{\code{boot_control}}{
+      \item{\code{boot.control}}{
         optional detailed bootstrap controls created by
         \code{\link{np_boot_control}}. This controls non-fixed bootstrap
         behavior, wild-bootstrap multipliers, and dependent-bootstrap
@@ -175,7 +200,7 @@ Named options passed via \code{\dots} include:
         \code{"geom"}; density/distribution-family plots support
         \code{"inid"}, \code{"fixed"}, and \code{"geom"}.
       }
-      \item{\code{boxplot_outliers}, \code{factor_boxplot}}{
+      \item{\code{boxplot.outliers}, \code{factor.boxplot}}{
         boxplot-style bootstrap summary controls for factor/categorical
         displays when available.
       }
@@ -200,13 +225,18 @@ Named options passed via \code{\dots} include:
       }
       \item{\code{errors}}{
         one of \code{"none"}, \code{"bootstrap"}, or
-        \code{"asymptotic"}.
+        \code{"asymptotic"}. The default is \code{"none"}.
+        Bootstrap errors can use either a symmetric normal-quantile rule
+        based on bootstrap standard deviations or full bootstrap
+        quantile/rank distributions, according to \code{band}.
+        Asymptotic errors use pointwise standard errors and normal
+        quantiles where available.
       }
     }
 
     \strong{Rendering and view controls}
     \describe{
-      \item{\code{data_overlay}}{
+      \item{\code{data.overlay}}{
         logical; when \code{TRUE}, overlay raw data on regression,
         quantile-regression, single-index, partially linear, and smooth
         coefficient plot surfaces and expand plot limits to include the data. For
@@ -233,22 +263,22 @@ Named options passed via \code{\dots} include:
         \code{legend=list(tau=list(x="topright"), bands=FALSE)} may
         be used when a route distinguishes those legend roles.
       }
-      \item{\code{data_rug}}{
+      \item{\code{data.rug}}{
         logical; when \code{TRUE}, draw a rug-style support cue for the
         plotted coordinates. For ordinary 1D base plots this behaves
         like a standard rug. For eligible 2D surface plots, the base
         renderer draws short floor-rug ticks and
         \code{renderer="rgl"} draws the analogous 3D floor-rug ticks
         on supported surface routes. In this rollout tranche,
-        \code{data_rug=TRUE} is implemented across the current base
+        \code{data.rug=TRUE} is implemented across the current base
         plot families and across supported \code{rgl} surface routes;
         unsupported renderer/geometry combinations still fail clearly
         rather than being ignored silently. On mixed base plot layouts,
         rug marks are drawn for continuous panels and omitted for
         categorical panels.
-        This option is distinct from \code{data_overlay}:
-        \code{data_rug} shows where observations lie in the plotted
-        covariate support, while \code{data_overlay} is the
+        This option is distinct from \code{data.overlay}:
+        \code{data.rug} shows where observations lie in the plotted
+        covariate support, while \code{data.overlay} is the
         regression-only 3D response overlay used on supported surface
         plots. On supported regression surfaces, both options may be
         used together. Default is \code{FALSE}.
@@ -260,7 +290,7 @@ Named options passed via \code{\dots} include:
       \item{\code{phi}, \code{theta}, \code{view}}{
         view controls for bivariate continuous surface plots.
       }
-      \item{\code{render_control}}{
+      \item{\code{render.control}}{
         optional detailed rendering controls created by
         \code{\link{np_render_control}}, including band-versus-bar
         uncertainty display controls.
@@ -280,20 +310,26 @@ Named options passed via \code{\dots} include:
         \code{renderer="rgl"} requires \code{perspective=TRUE},
         \code{view="fixed"} and \code{output="plot"};
         unsupported combinations still error rather than falling back
-        silently. The suggested package
-        \code{rgl} must be installed when \code{renderer="rgl"} is
+        silently. The suggested packages
+        \code{rgl} and \code{htmlwidgets} must be installed when
+        \code{renderer="rgl"} is
         requested. When drawn, the \code{rgl} surface is displayed via
         the active \code{rgl} backend, which on this rollout path is
         typically the RStudio Viewer or a browser/WebGL window rather
-        than the base graphics plot pane. When \code{col} is omitted,
+        than the base graphics plot pane. The base and \code{rgl}
+        renderers share the same viridis palette mapper and neutral-gray
+        three-face reference-grid default. When \code{col} is omitted,
         the \code{rgl} surface uses a value-based
         \code{\link[grDevices]{hcl.colors}(..., "viridis")} gradient. When the
         inherited base-view defaults \code{theta=0} and \code{phi=20}
-        are left unchanged, the \code{rgl} backend remaps that default
-        camera to a more informative oblique view for this rollout
-        tranche. For the currently supported \code{npreg},
+        are left unchanged, the \code{rgl} backend uses
+        \code{theta=0}, \code{phi=-70}, and \code{fov=55} to approximate
+        the base perspective in the square interactive viewport. The widget
+        automatically uses up to two backing-store pixels per CSS pixel on
+        high-DPI displays. Axis titles retain rgl's native screen-facing text
+        orientation while the scene is rotated. For the currently supported \code{npreg},
         \code{npplreg}, and plain mean-surface
-        \code{npscoef} surface routes, \code{data_overlay=TRUE}
+        \code{npscoef} surface routes, \code{data.overlay=TRUE}
         adds observed data as an interactive point cloud. For all
         currently supported \code{rgl} surface routes,
         \code{errors != "none"} adds interval surfaces;
@@ -319,9 +355,12 @@ Named options passed via \code{\dots} include:
         \code{rgl.points3d.<arg>} customizes observed-point overlays
         and \code{rgl.surface3d.<arg>} customizes interval surfaces.
         When \code{band="all"} is used on supported
-        \code{rgl} routes, a matching interactive legend is drawn, and
+        \code{rgl} routes, a matching construction-aware interactive legend
+        is drawn using the same default labels as the base renderer, and
         \code{rgl.legend3d.<arg>} may be used to customize it, for
-        example \code{rgl.legend3d.bty="o"} to restore a legend box.
+        example \code{rgl.legend3d.bty="o"} to restore a legend box or
+        \code{rgl.legend3d.magnify=1} to request the original legend texture
+        resolution.
         By default, these legends follow the base-graphics uncertainty
         legend convention and are drawn without a surrounding box.
       }
@@ -400,17 +439,316 @@ Further plotting controls are passed through \code{\dots} to the relevant plot m
   distance on the lower limit of the interval. \code{plot} uses an
   analogous procedure to extend the upper limit of the interval.
 
-  Plot interval/error types are:
+  Numeric estimator output follows R's extended-real conventions:
+  mathematically defined one-sided limits are retained as \code{-Inf} or
+  \code{Inf}, while unavailable or indeterminate values are returned as
+  \code{NA_real_}. Plotting does not rewrite the estimator object or values
+  returned with \code{output="data"}. Instead, a temporary graphics-only copy
+  maps every non-finite coordinate to missing geometry. Consequently lines
+  break at an infinite or unavailable point, interval segments at that point
+  are omitted, and axis limits are computed from finite values. If a panel has
+  no finite geometry, a finite fallback scale is used unless the user supplies
+  \code{ylim}. This allows exact beta endpoint derivatives and other
+  extended-real estimates to retain their mathematical meaning without
+  passing invalid coordinates or limits to a graphics backend.
+
+  Plot variability-band constructions are:
   \preformatted{
-  "pmzsd"        : point estimate +/- z_(1-alpha/2) * standard error
-  "pointwise"    : per-point two-sided interval from N(0,1) quantiles
-  "bonferroni"   : pointwise interval with alpha replaced by alpha/m
-  "simultaneous" : joint-band interval (bootstrap route)
+  errors       band             construction
+  bootstrap    pmzsd            center +/- z_(1-alpha/2) * bootstrap SD
+  bootstrap    pointwise        pointwise bootstrap quantiles
+  bootstrap    bonferroni       Bonferroni-adjusted bootstrap quantiles
+  bootstrap    simultaneous     rank-based joint bootstrap band
+  bootstrap    all              all three bootstrap quantile/rank families
+  asymptotic   pmzsd/pointwise  center +/- z_(1-alpha/2) * asymptotic SE
+  asymptotic   bonferroni       normal rule with alpha replaced by alpha/m
+  asymptotic   simultaneous     finite-grid Gaussian rule for supported targets
+  asymptotic   all              marginal families plus Gaussian where supported
   }
   where \eqn{m} is the number of evaluation points used in the plotted
   curve/surface (\eqn{m=\texttt{neval}}{m=neval} for univariate curves,
   typically \eqn{m=\texttt{neval}^2}{m=neval^2} for full 2D perspective
   surfaces).
+
+  Thus \code{errors="bootstrap", band="pmzsd"} summarizes each
+  bootstrap distribution by its standard deviation and imposes a symmetric
+  normal-quantile shape on the displayed band. In contrast, bootstrap
+  \code{"pointwise"} and \code{"bonferroni"} bands use the corresponding
+  lower and upper empirical bootstrap quantiles separately and may be
+  asymmetric at each evaluation point. Bootstrap \code{"simultaneous"}
+  uses a joint rank construction rather than either pointwise standard
+  deviations or pointwise tail quantiles. With \code{band="all"}, these
+  distinct bootstrap families are displayed together where supported.
+
+  For asymptotic errors, \code{"pmzsd"} and \code{"pointwise"} are two
+  names for the same symmetric normal construction. Let \eqn{T(x)} denote
+  the plotted functional (mean, gradient, density, distribution, etc.) and
+  \eqn{\widehat{se}(x)} its asymptotic standard error. Both use
+  \eqn{T(x)\pm z_{1-\alpha/2}\widehat{se}(x)}{T(x) +/- z_(1-alpha/2) se(x)}.
+  \code{"bonferroni"} applies the same rule with \eqn{\alpha/m} in place
+  of \eqn{\alpha}.
+
+  Regression, single-index and smooth-coefficient mean and gradient curves support asymptotic Gaussian simultaneous variability
+  bands within each panel's finite evaluation grid. This supports fixed, generalized nearest-neighbor and adaptive nearest-neighbor
+  bandwidths with second-order Gaussian or Epanechnikov kernels and the
+  existing LC, LL or LP specification. Numeric, unordered-factor and
+  ordered-factor panels are supported, including mixed-data models and
+  all-categorical smoothing under its existing local-constant specification.
+  When there are no continuous smoothing variables, continuous-kernel settings
+  do not restrict joint calibration. Regression, partially linear and smooth-coefficient mean surfaces support
+  the same bands with both perspective and \code{renderer="rgl"} rendering.
+  Gradients retain their slice plots; single-index plots retain their existing
+  scalar-index geometry. Other continuous kernels retain a warning and
+  unavailable simultaneous limits. With \code{band="all"}, supported curves retain the pointwise and
+  Bonferroni families and add the Gaussian simultaneous family.
+
+  For partially linear plots, a material influence reconstruction discrepancy
+  (more than 1\% of a standard error, with a roundoff allowance) signals
+  numerical instability in the plotted fit. A warning identifies the affected
+  points. Pointwise and Bonferroni limits are NA only at those points, and
+  simultaneous limits are NA for the entire affected panel. The fitted curve
+  is preserved; other panels retain their available bands.
+
+  Density and distribution plots (\code{npudens}, \code{npudist},
+  \code{npcdens} and \code{npcdist}) also support Gaussian simultaneous
+  variability bands for ordinary panels and complete perspective/rgl level
+  grids. Supported specifications include fixed, generalized nearest-neighbor
+  and adaptive nearest-neighbor bandwidths with second-order Gaussian or
+  Epanechnikov kernels. Conditional LC, LL and LP fits retain their selected
+  degree and basis. Available conditional continuous derivatives and categorical
+  first differences are supported in slice plots; higher generalized-NN
+  derivatives retain their existing restrictions. Unconditional adaptive-NN
+  uniform kernels are supported on regular spacing and support-face domains.
+  Fixed continuous conditional LC specifications also support beta kernels.
+  Proper-projected density/CDF plots and other continuous kernel
+  specifications retain their documented simultaneous-band restrictions.
+  Conditional quantile plots have a separate finite-grid influence
+  construction; see \code{\link{npqreg}} for its supported level and
+  gradient targets and conditioning assumptions.
+
+  These density-family bands use the incumbent marginal standard errors and
+  the correlation of centered observation-level empirical influence rows.
+  Writing \eqn{D} for the diagonal matrix of those standard errors and
+  \eqn{R} for that correlation, the working covariance is \eqn{D R D}.
+  The conditional ratio includes numerator-denominator dependence; LP uses
+  the accepted local solve, including smooth ridge-scale and intercept
+  compensation terms. Categorical contrasts subtract endpoint influence rows
+  before computing covariance. Conditional NN geometry is held fixed, and
+  unconditional generalized-NN uses its frozen-query-radius approximation;
+  unconditional adaptive-NN includes the same-sample random-radius contribution.
+  All three band families share the same marginal scale. Simultaneity is within
+  the complete displayed panel/grid, not across separate panels.
+
+  The Gaussian-multiplier calibration is based on the framework developed by
+  Victor Chernozhukov, Denis Chetverikov and Kengo Kato (2013, 2015).
+  Related Gaussian-process and simultaneous-inference results for local
+  regression distribution estimators are due to Matias D. Cattaneo,
+  Michael Jansson and Xinwei Ma (2024); for local polynomial conditional
+  density estimators, see Matias D. Cattaneo, Rajita Chandak, Michael Jansson
+  and Xinwei Ma (2024). These works provide the related methodological
+  foundation; the implementations here retain this package's kernel
+  estimators, marginal standard errors and density-specific influence
+  contracts described above. They do not implement the distinct estimators
+  or robust bias-correction procedures in those papers.
+  This is finite-grid variability conditional on the selected model and
+  smoothing specification, not bias correction, bandwidth-search uncertainty
+  or honest continuous-domain confidence coverage. Gaussian approximation can
+  be poor with small nearest-neighbor neighborhoods or sparse evaluation points,
+  including grids extending to sample extremes. Increasing the number of
+  Gaussian draws reduces simulation error but does not correct these limitations.
+  Nonregular ANN geometry,
+  unavailable marginal uncertainty and resource limits produce a warning and
+  NA simultaneous limits, preserving other available bands. Unexpected
+  calculation errors and material target reconstruction failures remain errors.
+
+  The separately named plot argument \code{gaussian.draws} has a fixed default
+  of 9999 and accepts positive integer counts subject to representability and
+  workspace limits, without a fixed one-million upper cap. It applies only to asymptotic
+  simultaneous/all requests; \code{B} remains bootstrap-only. The usual
+  \code{random.seed} (default 42) controls calibration without changing the
+  caller's random-number state. A count below
+  \code{ceiling(qnorm(.975)^2 * (1-alpha) / (.1^2 * alpha))} warns and is used
+  unchanged. This is an approximate 95 percent Monte Carlo target for relative
+  error within 10 percent in the simulated maximum's upper-tail probability.
+  It is about 7299 draws at \code{alpha=0.05} and 38031 at \code{alpha=0.01}.
+  The maximum's tail probability is \eqn{\alpha} for either a slice or a full
+  \code{neval^2} perspective/rgl grid; the number of points affects the maximum
+  distribution and computational cost, but does not divide this tail probability.
+  This recommendation does not guarantee critical-value accuracy or statistical
+  coverage and is not a draw-count prescription in Chernozhukov, Chetverikov and
+  Kato (2013). Explicit counts are never increased silently.
+  Simulation uses bounded blocks and the bootstrap progress mechanism to
+  report completed draws, elapsed time and estimated time remaining during
+  interactive computation. It uses a conservative 64 MiB workspace budget;
+  reduce \code{neval} or \code{gaussian.draws} if the workspace is too large.
+  Regression, single-index and smooth-coefficient slice covariance calibration
+  is limited to 512 grid points. Density-family plots switch to an
+  observation-level factor above 512 points and budget up to 128 MiB for
+  influence construction. This admission accounts for training size as well as
+  grid size and LP workspaces: with the default 50 by 50 density-family surface,
+  the factor/calibration allowance alone limits admission to about 1677 training
+  observations; additional workspaces can lower that limit. Reducing
+  \code{neval} reduces the surface grid quadratically. An over-budget request
+  warns and retains the available marginal bands with NA simultaneous limits.
+  Surfaces and partially linear plots instead
+  use observation-level influence factors, avoiding a grid-by-grid covariance
+  matrix and that grid-size limit.
+
+  Write \eqn{S} for the training smoother and \eqn{L} for its evaluation
+  influence map. The covariance is
+  \eqn{L\operatorname{diag}(z_i^2)L^\mathsf{T}}, where
+  \eqn{z_i=((I-S)y)_i/\sqrt{\sum_j(\delta_{ij}-S_{ij})^2}}.
+  For regression derivatives, replace \eqn{L} by the corresponding derivative
+  influence map; the training smoother and normalized residuals remain those
+  of the fitted mean. Available higher-order continuous partials use the
+  existing \code{gradient.order} contract. For categorical regression
+  gradients, use the difference of the two endpoint influence rows. Unordered
+  factors compare each level with the first retained level; ordered factors
+  use adjacent-level differences, with the first forward difference repeated
+  at the first level. This retains the covariance between endpoints, gives
+  zero width for an unordered reference contrast, and calibrates jointly over
+  all displayed levels. Simultaneity remains within each panel, not across
+  separate panels.
+  A simulated maximum of the absolute standardized joint Gaussian coordinates
+  supplies one multiplier for the existing standard errors. Its simulated
+  critical value is bounded by the analytical pointwise and Bonferroni critical
+  values, ensuring that these three band widths remain ordered despite Monte
+  Carlo variation. The raw simulated critical value is retained as
+  \code{critical.raw} in the calibration metadata for nonzero-variance panels.
+  For regression, single-index and smooth-coefficient plots, if the joint
+  calculation cannot reproduce the plotted target or standard errors, has
+  unidentified residual information, or exceeds its workspace/grid budget,
+  the plot warns and returns unavailable (NA) simultaneous limits.
+  With \code{band="all"}, pointwise and Bonferroni intervals are retained.
+  This can occur in sparse, locally ridged tails even after bandwidth selection.
+  Invalid arguments, invalid covariance objects and unexpected computation
+  errors still fail explicitly.
+
+  This Gaussian/multiplier connection follows the framework developed by
+  Victor Chernozhukov, Denis Chetverikov and Kengo Kato (2013); see also their
+  Gaussian comparison and anti-concentration results (2015). Conditional on
+  the data and the fitted smoothing specification, simulating this covariance
+  has the same Gaussian law as applying independent standard normal multipliers
+  to the observation-level influence contributions. The covariance is assembled
+  once per panel, so calibration requires no repeated estimator fits. These
+  references concern the Gaussian approximation and multiplier framework;
+  the covariance above retains this package's estimator-specific standard-error
+  convention and does not by itself establish bias correction or honest
+  confidence coverage.
+
+  Density-family output objects retain \code{band.calibration} and, for
+  \code{band="all"}, \code{band.errors}. With conditional gradients these
+  are lists indexed by the explanatory-variable component. Calibration records
+  the draw count, grid size, critical value and working dependence contract.
+
+  Single-index bands additionally condition on the fitted index coefficients;
+  gradient panels multiply the scalar-index derivative by the corresponding
+  fitted index coefficient and its widths by that coefficient's absolute value;
+  negative coefficients exchange lower and upper widths for asymmetric
+  bootstrap intervals before scaling.
+  They retain the scalar-index regression standard-error convention. Smooth-coefficient bands describe the
+  noniterated plotted mean or existing slope-coefficient gradient selected by
+  \code{coef.index}, and use fitted raw training residuals in place
+  of the normalized residuals above. These gradients hold the smoothing
+  coordinates fixed, including when explanatory and smoothing variables
+  overlap; they are not total derivatives through those coordinates.
+  The separate \code{coef=TRUE} display remains excluded. A joint
+  request reports unavailable simultaneous limits if its influence map cannot
+  reproduce the incumbent plotted target and standard errors, including
+  incompatible locally deficient solve configurations. These three families
+  retain their existing pointwise intervals.
+
+  Partially linear mean plots use the complete response map of the fitted
+  estimator, including coefficient estimation. Write \eqn{R=X-S_xX} and
+  \eqn{R_e=X_e-L_xX}, with each column using its own nuisance smoother, and
+  let \eqn{K=R^+(I-S_y)}. The evaluation map is \eqn{H=L_y+R_eK}; the training
+  map is \eqn{S=S_y+RK}. The plot covariance is
+  \eqn{H\operatorname{diag}(z_i^2)H^\mathsf{T}}, using the complete training
+  map in the normalized-residual formula above. Thus the shared-observation
+  cross-covariances are retained. This corrects the previous partially linear
+  plot helper, which added component variances separately; its pointwise and
+  Bonferroni plot widths consequently change as well. Coefficient estimates
+  and their reported covariance are unchanged. With raw residuals in place of
+  normalized residuals, this response map gives exactly the conditional
+  covariance of independent fixed-design wild-bootstrap multipliers.
+  Partially linear curves and surfaces use influence-factor calibration.
+  Their nuisance influence projections reuse the scalar fit's accepted local
+  factorization or global inverse; the fitted estimator and its ridge policy
+  are unchanged. Reconstruction differences below one percent of a plotted
+  standard error are treated as negligible on the interval scale. Material
+  discrepancies raise an error.
+
+  Nearest-neighbor radii are held at the fitted design for this conditional
+  asymptotic calculation. Training residuals retain the estimator's training
+  evaluation convention, which can differ from explicit evaluation at the
+  same coordinates. A blocked response-map calculation preserves that
+  distinction without retaining a full training smoother. This can add
+  computation for NN and partially linear asymptotic bands; it does not repeat
+  bandwidth selection or propagate its sampling variability.
+
+  Bandwidths and the polynomial specification are held fixed. This construction
+  neither corrects smoothing bias nor guarantees finite-sample confidence
+  coverage. It does not cover points between the grid or jointly cover different
+  panels. Returned data include compact \code{band.calibration} metadata;
+  \code{band="all"} also returns the three width matrices in \code{band.errors}.
+  Surface widths follow the flattened evaluation-grid order. For a single-index
+  gradient object, each width family is an evaluation-point by bound by
+  coefficient array, aligned with the returned gradient columns. Factor-based
+  calibration reports \code{rank=NA} because no eigendecomposition is
+  computed.
+
+  On an eligible single-panel plot rendered by base graphics,
+  a missing \code{sub} argument allows the plot method to add a concise
+  variability subtitle after finite bounds have actually been drawn. This
+  includes individual figures in a sequence with
+  \code{options(plot.par.mfrow=FALSE)} when the active graphics layout is
+  a full-frame single panel. Levels and supported gradients/effects follow
+  the same rule. Categorical interval bars use interval rather than band
+  terminology.
+  The wording distinguishes symmetric \eqn{z}{z}-times-standard-error
+  bands from bootstrap quantile and rank constructions. For example, at
+  the default \code{alpha=0.05}, labels include
+  \code{"95\% symmetric variability band (normal quantile × asymptotic SE)"}
+  and
+  \code{"95\% pointwise bootstrap variability band (quantiles)"}.
+  Bias-corrected bootstrap labels also identify their center.
+
+  The automatic subtitle uses the effective subtitle typography (including
+  \code{cex.sub}) and only appears when an approved one-line wording fits
+  the existing plot width and bottom-margin clearance. It does not enlarge
+  margins or reduce the plotting region; when no wording fits, it is
+  silently omitted. Supplying \code{sub}, including \code{sub=""} or
+  \code{sub=NULL}, suppresses
+  the automatic label without changing that route's existing handling of the
+  supplied subtitle.
+
+  Package-managed multi-panel base figures instead receive one shared
+  annotation at the top of each page, using existing whitespace without
+  changing margins, panel sizes, or fonts. Simultaneous and Bonferroni wording
+  identifies the within-panel scope; for multiple quantile curves, the scope
+  is within each quantile curve, not joint across quantiles. An annotation
+  is omitted if its text does not fit or clearance from a main title cannot
+  be established. Caller-managed multi-panel layouts and partial figure
+  regions are not labelled with a figure-wide annotation. Bootstrap boxplots
+  and coefficient displays of plus/minus one standard error are not labelled
+  as nominal variability intervals. The global \code{plot.par.mfrow} option
+  also governs automatic layout for class-probability plots.
+
+  On these eligible base plots, with \code{band="all"}, default legend
+  labels also identify the
+  construction, for example \code{"Pointwise (quantiles)"} and
+  \code{"Simultaneous (rank-based)"} for bootstrap bands, or
+  \code{"Pointwise (z × SE)"} and
+  \code{"Bonferroni (adjusted z × SE)"} for asymptotic bands. A default
+  legend omits any family for which no finite band was drawn. Explicit
+  user-supplied legend labels are preserved without relabelling or
+  filtering.
+
+  These automatic annotations apply to the base renderer. The
+  \code{"rgl"} renderer uses the same construction-aware default labels in
+  its existing \code{band="all"} legend, but retains its sparse interactive
+  presentation: it adds no automatic footer or subtitle, and panning, zooming,
+  responsive sizing, and widget geometry are unchanged.
 
   When \code{center="bias-corrected"} and \code{output="data"} (or
   \code{output="both"}) is requested, returned
@@ -481,7 +819,9 @@ Further plotting controls are passed through \code{\dots} to the relevant plot m
   perturbation. The smooth perturbation law is drawn from the selected
   ordinary continuous kernel when that kernel defines a probability law:
   second-order Gaussian, uniform, and second-order Epanechnikov kernels
-  are supported. Higher-order Gaussian and Epanechnikov kernels remain
+  are supported. Epanechnikov perturbations use the package's standardized
+  support \eqn{[-\sqrt{5},\sqrt{5}]} before multiplication by the pilot
+  bandwidth. Higher-order Gaussian and Epanechnikov kernels remain
   valid estimation kernels, but their signed equivalent-kernel forms do
   not define ordinary random perturbations, so
   \code{center="bias-corrected"} with pair/block/geometric bootstrap
@@ -492,7 +832,10 @@ Further plotting controls are passed through \code{\dots} to the relevant plot m
   without perturbation. The conditioning-variable side uses a full
   regression-style pilot: continuous conditioning bandwidths are
   enlarged, and categorical conditioning lambdas are moved toward their
-  admissible upper bounds without crossing them. For
+  admissible upper bounds without crossing them. Categorical conditioning
+  values are drawn independently given the selected donor, using the selected
+  categorical kernel normalized over the declared possible levels for that
+  donor. Factor levels and their ordering are retained. For
   conditional density this is
   \deqn{g_{xj} = h_{xj} n^{2r / ((p + 2r)(p + 4r))},}
   and for conditional distribution this is
@@ -506,7 +849,21 @@ Further plotting controls are passed through \code{\dots} to the relevant plot m
   row-wise without perturbation, continuous conditioning variables use
   the conditional regression-style pilot, and categorical conditioning
   lambdas are moved toward their admissible upper bounds as in the
-  corresponding level route.
+  corresponding level route and actually used in the categorical draws.
+  The conditional pilot uses donor-truncated continuous probability laws
+  when finite domain bounds are supplied, with the same normalization in
+  its reference calculation.
+
+  Each conditional pilot resample is refitted at the original estimation
+  bandwidths and the selected LC/LL/LP specification. The bias estimate
+  subtracts the known conditional target of the generating pilot law from
+  the mean pilot-bootstrap estimate, not the original fitted estimate.
+  Conditional PDF/CDF levels, continuous derivatives and categorical first
+  differences use this same reference contract; the endpoints of a
+  categorical contrast share each resampled dataset. Ordinary bootstrap
+  draws still determine variability widths. A pilot reference without
+  support, or a derivative at a nonsmooth compact-kernel knot, fails
+  explicitly rather than silently changing the requested centering method.
   These are practical, evidence-backed rules-of-thumb guided by the
   smoothed-bootstrap and regression two-bandwidth literatures, not claims
   of universal optimality.
@@ -517,20 +874,12 @@ Further plotting controls are passed through \code{\dots} to the relevant plot m
   bias correction can increase variance and may have larger mean squared
   error than the uncorrected estimator.
 
-  For asymptotic intervals, let \eqn{T(x)} denote the plotted functional
-  (mean, gradient, density, distribution, etc.) and \eqn{\widehat{se}(x)}
-  its asymptotic standard error:
-  \eqn{T(x)\pm z_{1-\alpha/2}\widehat{se}(x)} for \code{"pmzsd"} and
-  \eqn{[T(x)+z_{\alpha/2}\widehat{se}(x),\ T(x)+z_{1-\alpha/2}\widehat{se}(x)]}
-  for \code{"pointwise"}.
-  \code{"bonferroni"} applies the same pointwise construction with
-  \eqn{\alpha/m} in place of \eqn{\alpha}. For the kernel estimators in
-  this package, asymptotic simultaneous bands are not generally
-  available, so \code{"simultaneous"} with
-  \code{errors="asymptotic"} returns \code{NA} bands.
   Asymptotic standard errors are taken from fitted-object components such as
   \code{merr}, \code{gerr}, \code{derr}, \code{conderr}, and
-  \code{congerr} where implemented.
+  \code{congerr} where implemented. Ordinary regression, single-index
+  mean/gradient and transformed-response least-squares quantile errors
+  inherit the residual normalization described in \code{\link{npreg}}.
+  This does not replace other families' covariance formulas.
 
   Bootstrap resampling is conducted pairwise on \eqn{(y,X,Z)} (i.e., by
   resampling rows of \eqn{(y,X)} or \eqn{(y,X,Z)} as appropriate).
@@ -561,8 +910,8 @@ Further plotting controls are passed through \code{\dots} to the relevant plot m
   }
   For non-fixed density/distribution bootstrap, an explicit experimental
   approximation is available via
-  \code{boot_control = np_boot_control(nonfixed = "exact")} or
-  \code{boot_control = np_boot_control(nonfixed = "frozen")}. The default
+  \code{boot.control = np_boot_control(nonfixed = "exact")} or
+  \code{boot.control = np_boot_control(nonfixed = "frozen")}. The default
   \code{"exact"} route recomputes the non-fixed geometry for each resample.
   The experimental \code{"frozen"} route reuses the original-sample
   non-fixed geometry throughout the bootstrap run. This option is currently
@@ -623,17 +972,23 @@ Further plotting controls are passed through \code{\dots} to the relevant plot m
   error for the bootstrap estimate of the variance of the empirical mean
   is minimized.
 
-  The default bootstrap replication count is
-  \code{B=1999}. For pointwise tails, ensure
-  \eqn{B \ge \lceil 2/\alpha - 1 \rceil}{B >= ceiling(2/alpha - 1)} so
-  \eqn{\alpha(B+1)} is feasible on the bootstrap rank grid. For interval
-  types \code{"bonferroni"}, \code{"simultaneous"}, and \code{"all"},
-  the minimum recommended count is
-  \eqn{B_{\min}=\lceil 2m/\alpha-1 \rceil}{Bmin=ceiling(2*m/alpha-1)},
-  where \eqn{m} is the number of evaluation points used by the plotted
-  curve/surface. For full 2D perspective grids this is typically
-  \eqn{m=\texttt{neval}^2}{m=neval^2}. When \code{B} is below these
-  thresholds, plotting proceeds but warning guidance is reported.
+  The default bootstrap replication count is \code{B=9999}, including
+  copula plots. Class-probability plots retain their default \code{B=399}.
+  Estimator and test bootstrap defaults are separate. For pointwise percentile intervals the bare
+  tail-resolution reference is
+  \eqn{B \ge \lceil 2/\alpha - 1 \rceil}{B >= ceiling(2/alpha - 1)}.
+  For \code{"bonferroni"}, \code{"simultaneous"}, and \code{"all"}, the warning
+  uses \eqn{B_{\min}=\lceil 2m/\alpha-1 \rceil}{Bmin=ceiling(2*m/alpha-1)},
+  where \eqn{m} is the actual within-panel evaluation count, including
+  \eqn{m=\texttt{neval}^2}{m=neval^2} on a full perspective grid. For rank-based
+  simultaneous intervals this is a conservative Bonferroni reference.
+  These are bare rank-scale floors, not integrality requirements, Monte Carlo
+  precision targets or coverage guarantees. Meeting a floor may still leave
+  noisy endpoints; larger \code{B} can stabilize them. At \code{alpha=0.05},
+  a 50-point curve has a floor of 1999, while a 50 by 50 surface has a floor of
+  99999. Below the floor the plot warns and uses the requested count unchanged.
+  Bootstrap standard-deviation bands (\code{"pmzsd"}) do not estimate empirical
+  tail quantiles and are not subject to this tail-resolution warning.
 
   Typical plotting calls:
   \preformatted{
@@ -648,10 +1003,10 @@ Further plotting controls are passed through \code{\dots} to the relevant plot m
   plot(fit, errors="bootstrap", bootstrap="inid")
   }
 
-  New public plot controls use \code{snake_case}. Dotted names are reserved for
-  S3 methods and internal plot-engine plumbing. Use \code{errors},
+  Compound public plot argument names use dots, consistent with the package
+  interface. Retired underscore spellings are not accepted. Use \code{errors},
   \code{bootstrap}, \code{B}, \code{band}, \code{alpha}, \code{center},
-  \code{output}, \code{data_overlay}, \code{data_rug}, \code{layout}, and the
+  \code{output}, \code{data.overlay}, \code{data.rug}, \code{layout}, and the
   control constructors documented in \code{\link{np_boot_control}},
   \code{\link{np_grid_control}}, and \code{\link{np_render_control}}.
 
@@ -679,6 +1034,24 @@ Further plotting controls are passed through \code{\dots} to the relevant plot m
   Cao-Abad, R. (1991), \dQuote{Rate of convergence for the wild
     bootstrap in nonparametric regression,} The Annals of Statistics,
   19, 2226-2231.
+
+  Cattaneo, Matias D., Rajita Chandak, Michael Jansson and Xinwei Ma (2024),
+  \dQuote{Boundary adaptive local polynomial conditional density estimators,}
+  Bernoulli, 30(4), 3193-3223. \doi{10.3150/23-BEJ1711}.
+
+  Cattaneo, Matias D., Michael Jansson and Xinwei Ma (2024),
+  \dQuote{Local regression distribution estimators,} Journal of Econometrics,
+  240(2), 105074. \doi{10.1016/j.jeconom.2021.01.006}.
+
+  Chernozhukov, Victor, Denis Chetverikov and Kengo Kato (2013),
+  \dQuote{Gaussian approximations and multiplier bootstrap for maxima of sums
+    of high-dimensional random vectors,} The Annals of Statistics, 41(6),
+  2786-2819. \doi{10.1214/13-AOS1161}.
+
+  Chernozhukov, Victor, Denis Chetverikov and Kengo Kato (2015),
+  \dQuote{Comparison and anti-concentration bounds for maxima of Gaussian
+    random vectors,} Probability Theory and Related Fields, 162, 47-70.
+  \doi{10.1007/s00440-014-0565-9}.
 
   Hall, P. and J.S. Racine and Q. Li (2004), \dQuote{Cross-validation and the
     estimation of conditional probability densities,} Journal of the
@@ -920,7 +1293,7 @@ plot.out <- plot(fit,
 # are stored in objects rg1, rg2 etc.
 
 grad.eval <- gradients(plot.out$rg1)
-grad.se <- gradients(plot.out$rg1, errors = TRUE)
+grad.se <- gradients(plot.out$rg1, se = TRUE)
 grad.lower.ci <- grad.eval + grad.se[,1]
 grad.upper.ci <- grad.eval + grad.se[,2]
 

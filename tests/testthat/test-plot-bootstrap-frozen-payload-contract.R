@@ -7,9 +7,12 @@ collect_plot_payload_fields <- function(x, path = character()) {
     return(out)
   }
 
-  if (is.data.frame(x)) {
-    x <- as.list(x)
+  leaf <- if (length(path)) path[[length(path)]] else ""
+  if (is.data.frame(x) && leaf %in% c("eval", "xeval", "yeval", "evalx", "evaly", "evalz")) {
+    out[[paste(path, collapse = ".")]] <- x
+    return(out)
   }
+  if (is.data.frame(x)) x <- as.list(x)
 
   if (is.list(x)) {
     nm <- names(x)
@@ -28,11 +31,14 @@ collect_plot_payload_fields <- function(x, path = character()) {
   }
 
   leaf <- if (length(path)) path[[length(path)]] else ""
-  if (!(leaf %in% c("mean", "merr", "evalx", "evaly", "evalz"))) {
+  if (!(leaf %in% c("mean", "merr", "dens", "dist", "condens", "condist",
+                    "derr", "conderr", "eval", "xeval", "yeval",
+                    "evalx", "evaly", "evalz"))) {
     return(out)
   }
 
-  out[[paste(path, collapse = ".")]] <- as.numeric(x)
+  out[[paste(path, collapse = ".")]] <-
+    if (leaf %in% c("derr", "conderr")) x else as.numeric(x)
   out
 }
 
@@ -43,12 +49,12 @@ run_exact_frozen_plot_pair <- function(fit, ..., seed = 9001L) {
 
   set.seed(seed)
   suppressWarnings(capture.output(
-    exact <- do.call(plot, c(list(fit), extra, list(boot_control = np_boot_control(nonfixed = "exact"))))
+    exact <- do.call(plot, c(list(fit), extra, list(boot.control = np_boot_control(nonfixed = "exact"))))
   ))
 
   set.seed(seed)
   suppressWarnings(capture.output(
-    frozen <- do.call(plot, c(list(fit), extra, list(boot_control = np_boot_control(nonfixed = "frozen"))))
+    frozen <- do.call(plot, c(list(fit), extra, list(boot.control = np_boot_control(nonfixed = "frozen"))))
   ))
 
   list(exact = exact, frozen = frozen)
@@ -61,18 +67,58 @@ expect_plot_payload_comparable <- function(pair,
   exact.fields <- collect_plot_payload_fields(pair$exact)
   frozen.fields <- collect_plot_payload_fields(pair$frozen)
 
+  expect_true(length(exact.fields) > 0L, info = label)
+  expect_true(length(frozen.fields) > 0L, info = label)
   expect_equal(sort(names(exact.fields)), sort(names(frozen.fields)), info = label)
 
+  required <- list(npudens = c("dens", "eval", "derr"),
+                   npudist = c("dist", "eval", "derr"),
+                   npcdens = c("condens", "xeval", "yeval", "conderr"),
+                   npcdist = c("condist", "xeval", "yeval", "conderr"))
+  for (field in required[[label]])
+    expect_true(any(grepl(paste0("(^|[.])", field, "$"), names(exact.fields))),
+                info = paste(label, "missing", field))
+
+  if (identical(label, "npplreg")) {
+    expect_true(any(grepl("(^|[.])evalx$", names(exact.fields))), info = label)
+    expect_true(any(grepl("(^|[.])evalz$", names(exact.fields))), info = label)
+  }
   for (nm in names(exact.fields)) {
     exact.val <- exact.fields[[nm]]
     frozen.val <- frozen.fields[[nm]]
     leaf <- sub("^.*\\.", "", nm)
+    if (is.data.frame(exact.val)) {
+      expect_identical(dim(frozen.val), dim(exact.val), info = label)
+      expect_identical(names(frozen.val), names(exact.val), info = label)
+      expect_true(all(is.finite(as.matrix(exact.val))), info = label)
+      expect_true(all(is.finite(as.matrix(frozen.val))), info = label)
+      expect_equal(frozen.val, exact.val, tolerance = 1e-10, info = label)
+      next
+    }
 
     expect_equal(length(frozen.val), length(exact.val), info = sprintf("%s %s length", label, nm))
-    if (leaf %in% c("mean", "evalx", "evaly", "evalz")) {
+    if (leaf %in% c("mean", "dens", "dist", "condens", "condist",
+                    "eval", "xeval", "yeval", "evalx", "evaly", "evalz")) {
       expect_true(all(is.finite(exact.val)), info = sprintf("%s %s exact finite", label, nm))
       expect_true(all(is.finite(frozen.val)), info = sprintf("%s %s frozen finite", label, nm))
       expect_equal(frozen.val, exact.val, tolerance = 1e-10, info = sprintf("%s %s", label, nm))
+      next
+    }
+
+    if (leaf %in% c("derr", "conderr")) {
+      # These fields were not collected by the old test. Exact resampling
+      # recomputes NN bandwidths; frozen resampling holds them fixed. There
+      # is no contract that their uncertainty estimates meet the regression
+      # merr correlation thresholds below. Check the interval payload, while
+      # the point estimates and coordinates above must agree exactly.
+      expect_identical(dim(frozen.val), dim(exact.val), info = label)
+      expect_identical(is.na(frozen.val), is.na(exact.val), info = label)
+      for (value in list(exact.val, frozen.val)) {
+        observed <- value[!is.na(value)]
+        expect_true(length(observed) > 0L, info = label)
+        expect_true(all(is.finite(observed)), info = label)
+        expect_true(any(observed != 0), info = label)
+      }
       next
     }
 
@@ -182,7 +228,7 @@ test_that("exact and frozen plot payloads stay comparable for regression and sem
   expect_plot_payload_comparable(sc.pair, "npscoef", min.merr.corr = 0.95, max.merr.rel = 0.35)
 })
 
-test_that("exact and frozen plot payloads stay comparable for density and distribution families", {
+test_that("density and distribution plots preserve points, grids and interval layout", {
   set.seed(20260323)
 
   n.u <- 75L
@@ -240,4 +286,45 @@ test_that("exact and frozen plot payloads stay comparable for density and distri
     neval = 8L
   )
   expect_plot_payload_comparable(cf.pair, "npcdist", min.merr.corr = 0.90, max.merr.rel = 0.75)
+})
+
+test_that("density plot interval values equal quantiles of their own bootstrap draws", {
+  pkg<-getNamespaceName(environment(npudens))
+  original<-getFromNamespace('.np_plot_bootstrap_centered_interval_payload',pkg)
+  seen<-list()
+  testthat::local_mocked_bindings(.np_plot_bootstrap_centered_interval_payload=
+    function(boot.t,t0,alpha,band.type,center,...) {
+      expect_identical(band.type,'pointwise');expect_identical(center,'estimate')
+      expect_identical(alpha, .05)
+      expect_equal(nrow(as.matrix(boot.t)), 41L)
+      bounds<-t(apply(as.matrix(boot.t),2,quantile,probs=c(alpha/2,1-alpha/2)))
+      seen[[length(seen)+1L]]<<-list(point=as.numeric(t0),err=sweep(bounds,1,as.numeric(t0),'-'))
+      original(boot.t=boot.t,t0=t0,alpha=alpha,band.type=band.type,center=center,...)
+    },.package=pkg)
+  set.seed(36174);n<-80L;d<-data.frame(x=runif(n));d$y<-sin(3*d$x)+rnorm(n,sd=.4)
+  fits<-list(npudens(npudensbw(~y,data=d,bws=20,bwtype='adaptive_nn',bandwidth.compute=FALSE)),
+    npudist(npudistbw(~y,data=d,bws=20,bwtype='adaptive_nn',bandwidth.compute=FALSE)),
+    npcdens(npcdensbw(y~x,data=d,bws=c(20,20),bwtype='generalized_nn',bandwidth.compute=FALSE)),
+    npcdist(npcdistbw(y~x,data=d,bws=c(20,20),bwtype='generalized_nn',bandwidth.compute=FALSE)))
+  for (fit in fits) for(mode in c('exact','frozen')) {
+    seen<-list();set.seed(9174)
+    suppressWarnings(capture.output(out<-plot(fit,output='data',perspective=FALSE,view='fixed',
+      errors='bootstrap',bootstrap='inid',B=41L,band='pointwise',center='estimate',neval=7L,
+      boot.control=np_boot_control(nonfixed=mode))))
+    fields<-collect_plot_payload_fields(out)
+    intervals<-grep('(^|[.])(derr|conderr)$',names(fields),value=TRUE)
+    expect_true(length(intervals)>0L);expect_equal(length(intervals),length(seen))
+    for(nm in intervals){
+      prefix<-sub('(derr|conderr)$','',nm)
+      point.names<-paste0(prefix,c('dens','dist','condens','condist'))
+      point<-fields[[intersect(point.names,names(fields))]]
+      index<-which(vapply(seen,function(s)length(s$point)==length(point)&&max(abs(s$point-point))<1e-10,logical(1)))
+      expect_length(index,1L)
+      expected<-seen[[index]]$err;actual<-fields[[nm]]
+      expect_equal(unname(actual),unname(expected),tolerance=1e-12)
+      # Calibrate this fixture against the reported undetected mutations.
+      expect_false(isTRUE(all.equal(unname(actual*3),unname(expected),tolerance=1e-12)))
+      expect_false(isTRUE(all.equal(unname(actual[,2:1,drop=FALSE]),unname(expected),tolerance=1e-12)))
+    }
+  }
 })

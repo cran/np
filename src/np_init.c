@@ -5,95 +5,178 @@
 /* Routine registration for the serial np shared library. */
 
 /* .Call calls */
-extern SEXP C_gsl_bspline(SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP);
-extern SEXP C_gsl_bspline_deriv(SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP);
+extern SEXP C_np_nomad_condition_raise(SEXP);
+extern SEXP C_np_ordered_rly_matrix(SEXP, SEXP, SEXP, SEXP);
+extern SEXP C_np_copula_density_se(SEXP);
+extern SEXP C_np_ann_geometry(SEXP, SEXP);
+extern SEXP C_np_ann_variance(SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP);
+extern SEXP C_np_ann_variance_faces(SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP);
 extern SEXP C_np_dim_basis(SEXP, SEXP, SEXP, SEXP, SEXP, SEXP);
-extern SEXP C_np_density(SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP);
-extern SEXP C_np_density_bw(SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP);
-extern SEXP C_np_density_bw_eval(SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP);
-extern SEXP C_np_density_nomad_native_fixed_eval(SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP);
-extern SEXP C_np_density_nomad_native_search(SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP);
-extern SEXP C_np_density_conditional_nomad_shadow_prepare(SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP);
-extern SEXP C_np_density_conditional_nomad_shadow_eval(SEXP, SEXP);
-extern SEXP C_np_density_conditional_nomad_shadow_native_search(SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP);
-extern SEXP C_np_density_conditional_nomad_shadow_fixed_native_search(SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP);
-extern SEXP C_np_density_conditional_nomad_shadow_clear(void);
-extern SEXP C_np_density_conditional(SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP);
-extern SEXP C_np_shadow_cv_density_conditional(SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP);
-extern SEXP C_np_shadow_cv_distribution_conditional(SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP);
-extern SEXP C_np_shadow_cv_xweights_conditional(SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP);
-extern SEXP C_np_shadow_cv_xweights_full_conditional(SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP);
-extern SEXP C_np_shadow_cv_yrow_conditional(SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP);
-extern SEXP C_np_regression_lp_apply_conditional(SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP);
-extern SEXP C_np_density_conditional_bw(SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP);
-extern SEXP C_np_density_conditional_bw_eval(SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP);
-extern SEXP C_np_distribution_bw(SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP);
-extern SEXP C_np_distribution_bw_eval(SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP);
-extern SEXP C_np_distribution_nomad_native_search(SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP);
-extern SEXP C_np_distribution_conditional_bw(SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP);
-extern SEXP C_np_distribution_conditional_bw_eval(SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP);
-extern SEXP C_np_distribution_conditional_nomad_native_search(SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP);
+extern SEXP C_np_density(SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP);
+extern SEXP C_np_density_bw(SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP);
+extern SEXP C_np_density_bw_eval(SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP);
+extern SEXP C_np_density_nomad_native_search(SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP);
+extern SEXP C_np_density_conditional_prepared_prepare(SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP);
+extern SEXP C_np_density_conditional_prepared_eval(SEXP, SEXP);
+extern SEXP C_np_density_conditional_prepared_eval_raw(SEXP, SEXP);
+extern SEXP C_np_density_conditional_prepared_native_search(SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP);
+extern SEXP C_np_density_conditional_prepared_fixed_native_search(SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP);
+extern SEXP C_np_density_conditional_prepared_destroy(void);
+extern SEXP C_np_density_conditional(SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP);
+extern SEXP C_np_density_conditional_projection(SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP);
+extern SEXP C_np_density_conditional_variance(SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP);
+extern SEXP C_np_conditional_count_levels(SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP);
+extern SEXP C_np_regression_lp_apply_conditional(SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP);
+extern SEXP C_np_regression_lp_apply_conditional_ctx(SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP);
+extern SEXP C_np_regression_lp_apply_conditional_ctx_literal(SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP);
+extern SEXP C_np_regression_lp_sigtest_conditional_ctx(SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP);
+extern SEXP C_np_lc_hat_normalize(SEXP, SEXP);
+extern SEXP C_np_lp_batch_project(SEXP, SEXP, SEXP, SEXP, SEXP);
+extern SEXP C_np_lp_batch_project_ranked(SEXP, SEXP, SEXP, SEXP, SEXP, SEXP);
+extern SEXP C_np_lp_adjoint_prepared(SEXP, SEXP, SEXP, SEXP);
+extern SEXP C_np_lp_adjoint_prepared_ridge(SEXP, SEXP, SEXP, SEXP);
+extern SEXP C_np_lp_support_rank(SEXP, SEXP, SEXP);
+extern SEXP C_np_lp_design_identity(SEXP);
+extern SEXP C_np_lp_design_support_rank(SEXP, SEXP, SEXP, SEXP);
+extern SEXP C_np_reghat_lp_matrix_fast(SEXP, SEXP, SEXP);
+extern SEXP C_np_conditional_lp_pair_se(SEXP, SEXP, SEXP, SEXP, SEXP);
+extern SEXP C_np_reghat_lp_matrix_norm(SEXP, SEXP, SEXP);
+extern SEXP C_np_reghat_lp_matrix_external(SEXP, SEXP, SEXP, SEXP);
+extern SEXP C_np_reghat_row_norm(SEXP);
+extern SEXP C_np_npscoef_batch_zero_solve(SEXP, SEXP);
+extern SEXP C_np_npscoef_batch_project(SEXP, SEXP);
+extern SEXP C_np_entropy_gaussian_integrand(SEXP, SEXP, SEXP, SEXP);
+extern SEXP C_np_entropy_symmetric_summation_counts(SEXP, SEXP, SEXP);
+extern SEXP C_np_entropy_bivariate_summation(SEXP, SEXP, SEXP);
+extern SEXP C_np_entropy_bivariate_summation_rows(SEXP, SEXP, SEXP, SEXP);
+extern SEXP C_np_entropy_bivariate_summation_xindex(SEXP, SEXP, SEXP, SEXP);
+extern SEXP C_np_entropy_univariate_summation_counts(SEXP, SEXP, SEXP, SEXP);
+extern SEXP C_np_categorical_profile_kernel_tile(SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP);
+extern SEXP C_np_density_conditional_bw(SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP);
+extern SEXP C_np_density_conditional_bw_eval(SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP);
+extern SEXP C_np_distribution_bw(SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP);
+extern SEXP C_np_distribution_bw_eval(SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP);
+extern SEXP C_np_distribution_nomad_native_search(SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP);
+extern SEXP C_np_distribution_conditional_bw(SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP);
+extern SEXP C_np_distribution_conditional_bw_eval(SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP);
+extern SEXP C_np_distribution_conditional_nomad_native_search(SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP);
 extern SEXP C_np_kernelsum(SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP);
+extern SEXP C_np_kernelsum_conditional_literal(SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP);
+extern SEXP C_np_regression_k1_geometry_validate(SEXP, SEXP, SEXP);
+extern SEXP C_np_kernelsum_power12(SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP);
 extern SEXP C_np_quantile_conditional(SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP);
-extern SEXP C_np_regression_bw(SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP);
-extern SEXP C_np_regression_bw_eval(SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP);
-extern SEXP C_np_regression_nomad_native_search(SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP);
+extern SEXP C_np_regression_bw(SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP);
+extern SEXP C_np_regression_bw_eval(SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP);
+extern SEXP C_np_regression_nomad_native_search(SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP);
 extern SEXP C_np_nomad_r_callback_native_search(SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP);
-extern SEXP C_np_lsqregression_bw(SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP);
-extern SEXP C_np_lsqregression_bw_eval(SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP);
+extern SEXP C_np_lsqregression_bw(SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP);
+extern SEXP C_np_lsqregression_bw_eval(SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP);
 extern SEXP C_np_regression(SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP);
+extern SEXP C_np_regression_conditional_literal(SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP);
 extern SEXP C_np_progress_signal(SEXP, SEXP, SEXP, SEXP);
 extern SEXP C_np_progress_fit_begin(SEXP);
 extern SEXP C_np_progress_fit_end(void);
-extern SEXP C_np_shadow_reset_state(void);
+extern SEXP C_np_reset_native_estimator_state(void);
 extern SEXP C_np_set_seed(SEXP);
-extern SEXP C_np_set_tgauss2(SEXP);
 extern SEXP C_np_release_static_buffers(void);
 
+extern SEXP C_np_plot_alllarge_derivative(SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP);
+extern SEXP C_np_plot_gate_dispatch(SEXP, SEXP, SEXP);
+extern SEXP C_np_plot_projection_apply(SEXP, SEXP, SEXP);
+
+extern SEXP C_np_plot_regression_gradient_projection(SEXP);
+extern SEXP C_np_plot_beta_moment_weights(SEXP);
+extern SEXP C_np_plot_lsq_precision_propagate(SEXP, SEXP);
+extern SEXP C_np_plot_ann_kernel_terms(SEXP, SEXP, SEXP, SEXP, SEXP, SEXP);
+extern SEXP C_np_plot_ann_cdf_terms(SEXP, SEXP, SEXP, SEXP, SEXP, SEXP);
+extern SEXP C_np_plot_nn_response_jet(SEXP,SEXP,SEXP,SEXP,SEXP,SEXP,SEXP);
+
+extern SEXP C_np_plot_ann_rank_decode(SEXP, SEXP);
+
 static const R_CallMethodDef CallEntries[] = {
-    {"C_gsl_bspline",                  (DL_FUNC) &C_gsl_bspline,                   7},
-    {"C_gsl_bspline_deriv",            (DL_FUNC) &C_gsl_bspline_deriv,             8},
+    {"C_np_plot_ann_rank_decode", (DL_FUNC) &C_np_plot_ann_rank_decode, 2},
+    {"C_np_plot_regression_gradient_projection", (DL_FUNC) &C_np_plot_regression_gradient_projection, 1},
+    {"C_np_plot_beta_moment_weights", (DL_FUNC) &C_np_plot_beta_moment_weights, 1},
+    {"C_np_plot_lsq_precision_propagate", (DL_FUNC) &C_np_plot_lsq_precision_propagate, 2},
+    {"C_np_plot_ann_kernel_terms", (DL_FUNC) &C_np_plot_ann_kernel_terms, 6},
+    {"C_np_plot_ann_cdf_terms", (DL_FUNC) &C_np_plot_ann_cdf_terms, 6},
+    {"C_np_plot_nn_response_jet", (DL_FUNC) &C_np_plot_nn_response_jet, 7},
+    {"C_np_plot_alllarge_derivative", (DL_FUNC) &C_np_plot_alllarge_derivative, 10},
+    {"C_np_plot_gate_dispatch", (DL_FUNC) &C_np_plot_gate_dispatch, 3},
+    {"C_np_plot_projection_apply", (DL_FUNC) &C_np_plot_projection_apply, 3},
+    {"C_np_nomad_condition_raise", (DL_FUNC) &C_np_nomad_condition_raise, 1},
+    {"C_np_ordered_rly_matrix", (DL_FUNC) &C_np_ordered_rly_matrix, 4},
     {"C_np_dim_basis",                 (DL_FUNC) &C_np_dim_basis,                  6},
-    {"C_np_density",                   (DL_FUNC) &C_np_density,                   16},
-    {"C_np_density_bw",                (DL_FUNC) &C_np_density_bw,                12},
-    {"C_np_density_bw_eval",           (DL_FUNC) &C_np_density_bw_eval,           12},
-    {"C_np_density_nomad_native_fixed_eval",(DL_FUNC) &C_np_density_nomad_native_fixed_eval,11},
-    {"C_np_density_nomad_native_search",(DL_FUNC) &C_np_density_nomad_native_search,19},
-    {"C_np_density_conditional_nomad_shadow_prepare",(DL_FUNC) &C_np_density_conditional_nomad_shadow_prepare,20},
-    {"C_np_density_conditional_nomad_shadow_eval",(DL_FUNC) &C_np_density_conditional_nomad_shadow_eval,2},
-    {"C_np_density_conditional_nomad_shadow_native_search",(DL_FUNC) &C_np_density_conditional_nomad_shadow_native_search,12},
-    {"C_np_density_conditional_nomad_shadow_fixed_native_search",(DL_FUNC) &C_np_density_conditional_nomad_shadow_fixed_native_search,12},
-    {"C_np_density_conditional_nomad_shadow_clear",(DL_FUNC) &C_np_density_conditional_nomad_shadow_clear,0},
-    {"C_np_density_conditional",       (DL_FUNC) &C_np_density_conditional,       31},
-    {"C_np_shadow_cv_density_conditional",(DL_FUNC) &C_np_shadow_cv_density_conditional,21},
-    {"C_np_shadow_cv_distribution_conditional",(DL_FUNC) &C_np_shadow_cv_distribution_conditional,24},
-    {"C_np_shadow_cv_xweights_conditional",(DL_FUNC) &C_np_shadow_cv_xweights_conditional,17},
-    {"C_np_shadow_cv_xweights_full_conditional",(DL_FUNC) &C_np_shadow_cv_xweights_full_conditional,17},
-    {"C_np_shadow_cv_yrow_conditional",(DL_FUNC) &C_np_shadow_cv_yrow_conditional,16},
-    {"C_np_regression_lp_apply_conditional",(DL_FUNC) &C_np_regression_lp_apply_conditional,17},
-    {"C_np_density_conditional_bw",    (DL_FUNC) &C_np_density_conditional_bw,    21},
-    {"C_np_density_conditional_bw_eval",(DL_FUNC) &C_np_density_conditional_bw_eval,21},
-    {"C_np_distribution_bw",           (DL_FUNC) &C_np_distribution_bw,           15},
-    {"C_np_distribution_bw_eval",      (DL_FUNC) &C_np_distribution_bw_eval,      15},
-    {"C_np_distribution_nomad_native_search",(DL_FUNC) &C_np_distribution_nomad_native_search,22},
-    {"C_np_distribution_conditional_bw",(DL_FUNC) &C_np_distribution_conditional_bw,24},
-    {"C_np_distribution_conditional_bw_eval",(DL_FUNC) &C_np_distribution_conditional_bw_eval,24},
-    {"C_np_distribution_conditional_nomad_native_search",(DL_FUNC) &C_np_distribution_conditional_nomad_native_search,31},
+    {"C_np_density",                   (DL_FUNC) &C_np_density,                   17},
+    {"C_np_density_bw",                (DL_FUNC) &C_np_density_bw,                13},
+    {"C_np_density_bw_eval",           (DL_FUNC) &C_np_density_bw_eval,           13},
+    {"C_np_density_nomad_native_search",(DL_FUNC) &C_np_density_nomad_native_search,20},
+    {"C_np_density_conditional_prepared_prepare",(DL_FUNC) &C_np_density_conditional_prepared_prepare,21},
+    {"C_np_density_conditional_prepared_eval",(DL_FUNC) &C_np_density_conditional_prepared_eval,2},
+    {"C_np_density_conditional_prepared_eval_raw",(DL_FUNC) &C_np_density_conditional_prepared_eval_raw,2},
+    {"C_np_density_conditional_prepared_native_search",(DL_FUNC) &C_np_density_conditional_prepared_native_search,12},
+    {"C_np_density_conditional_prepared_fixed_native_search",(DL_FUNC) &C_np_density_conditional_prepared_fixed_native_search,12},
+    {"C_np_density_conditional_prepared_destroy",(DL_FUNC) &C_np_density_conditional_prepared_destroy,0},
+    {"C_np_density_conditional",       (DL_FUNC) &C_np_density_conditional,       35},
+    {"C_np_density_conditional_projection",       (DL_FUNC) &C_np_density_conditional_projection,       36},
+    {"C_np_density_conditional_variance",(DL_FUNC) &C_np_density_conditional_variance,35},
+    {"C_np_conditional_count_levels",  (DL_FUNC) &C_np_conditional_count_levels,  22},
+    {"C_np_regression_lp_apply_conditional",(DL_FUNC) &C_np_regression_lp_apply_conditional,24},
+    {"C_np_regression_lp_apply_conditional_ctx",(DL_FUNC) &C_np_regression_lp_apply_conditional_ctx,27},
+    {"C_np_regression_lp_apply_conditional_ctx_literal",(DL_FUNC) &C_np_regression_lp_apply_conditional_ctx_literal,27},
+    {"C_np_regression_lp_sigtest_conditional_ctx",(DL_FUNC) &C_np_regression_lp_sigtest_conditional_ctx,32},
+    {"C_np_lc_hat_normalize",             (DL_FUNC) &C_np_lc_hat_normalize,              2},
+    {"C_np_lp_batch_project",             (DL_FUNC) &C_np_lp_batch_project,              5},
+    {"C_np_lp_batch_project_ranked", (DL_FUNC) &C_np_lp_batch_project_ranked, 6},
+    {"C_np_lp_adjoint_prepared", (DL_FUNC) &C_np_lp_adjoint_prepared, 4},
+    {"C_np_lp_adjoint_prepared_ridge", (DL_FUNC) &C_np_lp_adjoint_prepared_ridge, 4},
+    {"C_np_lp_support_rank", (DL_FUNC) &C_np_lp_support_rank, 3},
+    {"C_np_lp_design_identity", (DL_FUNC) &C_np_lp_design_identity, 1},
+    {"C_np_lp_design_support_rank", (DL_FUNC) &C_np_lp_design_support_rank, 4},
+    {"C_np_reghat_lp_matrix_fast",       (DL_FUNC) &C_np_reghat_lp_matrix_fast,        3},
+    {"C_np_conditional_lp_pair_se",      (DL_FUNC) &C_np_conditional_lp_pair_se,       5},
+    {"C_np_reghat_lp_matrix_norm",       (DL_FUNC) &C_np_reghat_lp_matrix_norm,        3},
+    {"C_np_reghat_lp_matrix_external",   (DL_FUNC) &C_np_reghat_lp_matrix_external,    4},
+    {"C_np_reghat_row_norm",             (DL_FUNC) &C_np_reghat_row_norm,              1},
+    {"C_np_npscoef_batch_zero_solve",    (DL_FUNC) &C_np_npscoef_batch_zero_solve,     2},
+    {"C_np_npscoef_batch_project",       (DL_FUNC) &C_np_npscoef_batch_project,        2},
+    {"C_np_entropy_gaussian_integrand",  (DL_FUNC) &C_np_entropy_gaussian_integrand,   4},
+    {"C_np_entropy_symmetric_summation_counts",(DL_FUNC) &C_np_entropy_symmetric_summation_counts,3},
+    {"C_np_entropy_bivariate_summation",(DL_FUNC) &C_np_entropy_bivariate_summation,3},
+    {"C_np_entropy_bivariate_summation_rows",(DL_FUNC) &C_np_entropy_bivariate_summation_rows,4},
+    {"C_np_entropy_bivariate_summation_xindex",(DL_FUNC) &C_np_entropy_bivariate_summation_xindex,4},
+    {"C_np_entropy_univariate_summation_counts",(DL_FUNC) &C_np_entropy_univariate_summation_counts,4},
+    {"C_np_categorical_profile_kernel_tile",(DL_FUNC) &C_np_categorical_profile_kernel_tile,12},
+    {"C_np_density_conditional_bw",    (DL_FUNC) &C_np_density_conditional_bw,    22},
+    {"C_np_density_conditional_bw_eval",(DL_FUNC) &C_np_density_conditional_bw_eval,22},
+    {"C_np_distribution_bw",           (DL_FUNC) &C_np_distribution_bw,            16},
+    {"C_np_distribution_bw_eval",      (DL_FUNC) &C_np_distribution_bw_eval,       16},
+    {"C_np_distribution_nomad_native_search",(DL_FUNC) &C_np_distribution_nomad_native_search, 23},
+    {"C_np_distribution_conditional_bw",(DL_FUNC) &C_np_distribution_conditional_bw,25},
+    {"C_np_distribution_conditional_bw_eval",(DL_FUNC) &C_np_distribution_conditional_bw_eval,25},
+    {"C_np_distribution_conditional_nomad_native_search",(DL_FUNC) &C_np_distribution_conditional_nomad_native_search,32},
     {"C_np_kernelsum",                 (DL_FUNC) &C_np_kernelsum,                 19},
+    {"C_np_kernelsum_conditional_literal",                 (DL_FUNC) &C_np_kernelsum_conditional_literal,                 19},
+    {"C_np_copula_density_se",          (DL_FUNC) &C_np_copula_density_se,           1},
+    {"C_np_ann_geometry",               (DL_FUNC) &C_np_ann_geometry,                2},
+    {"C_np_ann_variance",               (DL_FUNC) &C_np_ann_variance,                7},
+    {"C_np_ann_variance_faces",         (DL_FUNC) &C_np_ann_variance_faces,          8},
+    {"C_np_regression_k1_geometry_validate",(DL_FUNC) &C_np_regression_k1_geometry_validate,3},
+    {"C_np_kernelsum_power12",         (DL_FUNC) &C_np_kernelsum_power12,         19},
     {"C_np_progress_fit_begin",        (DL_FUNC) &C_np_progress_fit_begin,         1},
     {"C_np_progress_fit_end",          (DL_FUNC) &C_np_progress_fit_end,           0},
     {"C_np_progress_signal",           (DL_FUNC) &C_np_progress_signal,            4},
-    {"C_np_shadow_reset_state",        (DL_FUNC) &C_np_shadow_reset_state,         0},
+    {"C_np_reset_native_estimator_state",(DL_FUNC) &C_np_reset_native_estimator_state,0},
     {"C_np_quantile_conditional",      (DL_FUNC) &C_np_quantile_conditional,      19},
-    {"C_np_regression_bw",             (DL_FUNC) &C_np_regression_bw,             16},
-    {"C_np_regression_bw_eval",        (DL_FUNC) &C_np_regression_bw_eval,        16},
-    {"C_np_regression_nomad_native_search",(DL_FUNC) &C_np_regression_nomad_native_search,24},
+    {"C_np_regression_bw",             (DL_FUNC) &C_np_regression_bw,             17},
+    {"C_np_regression_bw_eval",        (DL_FUNC) &C_np_regression_bw_eval,        17},
+    {"C_np_regression_nomad_native_search",(DL_FUNC) &C_np_regression_nomad_native_search,25},
     {"C_np_nomad_r_callback_native_search",(DL_FUNC) &C_np_nomad_r_callback_native_search,11},
-    {"C_np_lsqregression_bw",          (DL_FUNC) &C_np_lsqregression_bw,          20},
-    {"C_np_lsqregression_bw_eval",     (DL_FUNC) &C_np_lsqregression_bw_eval,     20},
+    {"C_np_lsqregression_bw",          (DL_FUNC) &C_np_lsqregression_bw,          21},
+    {"C_np_lsqregression_bw_eval",     (DL_FUNC) &C_np_lsqregression_bw_eval,     21},
     {"C_np_regression",                (DL_FUNC) &C_np_regression,                24},
+    {"C_np_regression_conditional_literal",                (DL_FUNC) &C_np_regression_conditional_literal,                24},
     {"C_np_set_seed",                  (DL_FUNC) &C_np_set_seed,                   1},
-    {"C_np_set_tgauss2",               (DL_FUNC) &C_np_set_tgauss2,                1},
     {"C_np_release_static_buffers",    (DL_FUNC) &C_np_release_static_buffers,     0},
     {NULL, NULL, 0}
 };

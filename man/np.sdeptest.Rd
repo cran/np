@@ -13,7 +13,7 @@ npsdeptest(data = NULL,
            lag.num = 1,
            method = c("integration","summation"),
            bootstrap = TRUE,
-           boot.num = 399,
+           B = 399,
            random.seed = 42)
 
 }
@@ -25,7 +25,11 @@ These arguments identify the data series, lag count, and statistic variant.
 
   \item{data}{
     a vector containing the variable that can be of type
-    \code{\link{numeric}} or \code{\link{ts}}.
+    \code{\link{numeric}} or \code{\link{ts}}. The sequence must be
+    complete and regularly spaced. Missing values (including \code{NaN})
+    are rejected: omitting them would change the time lags. If necessary,
+    explicitly select a contiguous complete segment; do not delete interior
+    missing observations. For a numeric vector, its order defines time.
   }
 
 
@@ -47,7 +51,7 @@ These arguments identify the data series, lag count, and statistic variant.
 These arguments control bootstrap execution and reproducibility settings.
 }
 
-  \item{boot.num}{
+  \item{B}{
     an integer value specifying the number of bootstrap
     replications to use. Defaults to \code{399}.
   }
@@ -66,6 +70,13 @@ These arguments control bootstrap execution and reproducibility settings.
   }
 
 
+}
+\section{Bootstrap P-Values}{
+  The bootstrap upper-tail p-value is the proportion of bootstrap statistics
+  greater than or equal to the observed statistic. Ties count as at least as
+  extreme, giving the conservative tie convention for discrete statistics.
+  This is the ordinary bootstrap proportion, without an add-one correction;
+  a reported zero is possible with a finite number of replications.
 }
 \value{
   \code{npsdeptest} returns an object of type \code{deptest} with the
@@ -140,12 +151,20 @@ These arguments control bootstrap execution and reproducibility settings.
 
 \section{Usage Issues}{
 
-  The \code{integration} version of the statistic uses multidimensional
-  numerical methods from the \pkg{cubature} package. See
-  \pkg{adaptIntegrate} for details. The \code{integration}
-  version of the statistic will be substantially slower than the
-  \code{summation} version, however, it will likely be both more
-  accurate and powerful.
+  The \code{integration} version uses deterministic tensor-product,
+  corrected composite trapezoidal quadrature. Along each axis the domain
+  extends eight relevant bandwidths beyond the observed support and uses
+  two evaluation points per smallest relevant bandwidth. A registered
+  native callback evaluates the Gaussian marginal and joint densities in
+  bounded tiles, so package-owned working memory does not grow as a dense
+  sample-by-quadrature array. The integration version is generally more
+  computationally demanding than \code{summation}, but avoids the density
+  division that can make the summation statistic unstable.
+
+  The \code{summation} version fuses both marginal density sums and the
+  joint density sum in one registered native pass with constant auxiliary
+  storage. Bootstrap samples remain ordered index resamples: marginal
+  counts alone cannot represent the lag pairs used by the statistic.
 
 }
 
@@ -175,26 +194,26 @@ n <- 100
 ## Stationary persistent time-series
 
 yt <- ar.series(0.95,rnorm(n))
-npsdeptest(yt,lag.num=2,boot.num=99,method="summation")
+npsdeptest(yt,lag.num=2,B=99,method="summation")
 
 if (interactive()) Sys.sleep(5)
 
 ## Stationary independent time-series
 
 yt <- ar.series(0.0,rnorm(n))
-npsdeptest(yt,lag.num=2,boot.num=99,method="summation")
+npsdeptest(yt,lag.num=2,B=99,method="summation")
 
 ## Stationary persistent time-series
 
 yt <- ar.series(0.95,rnorm(n))
-npsdeptest(yt,lag.num=2,boot.num=99,method="integration")
+npsdeptest(yt,lag.num=2,B=99,method="integration")
 
 if (interactive()) Sys.sleep(5)
 
 ## Stationary independent time-series
 
 yt <- ar.series(0.0,rnorm(n))
-npsdeptest(yt,lag.num=2,boot.num=99,method="integration")
+npsdeptest(yt,lag.num=2,B=99,method="integration")
 
 } % enddontrun
 

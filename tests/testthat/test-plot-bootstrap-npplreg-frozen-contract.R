@@ -39,6 +39,7 @@ test_that("npplreg exact helper matches duplicate-row oracle and adaptive frozen
     bws = bw,
     B = ncol(counts),
     counts = counts,
+    ridge = 0,
     mode = "exact"
   )
   frozen.out <- boot.fun(
@@ -50,6 +51,7 @@ test_that("npplreg exact helper matches duplicate-row oracle and adaptive frozen
     bws = bw,
     B = ncol(counts),
     counts = counts,
+    ridge = 0,
     mode = "frozen"
   )
 
@@ -107,7 +109,7 @@ test_that("npplreg bootstrap plot payload stays finite across frozen nonfixed bw
         neval = 12,
         B = 61,
         band = "pointwise",
-        boot_control = np_boot_control(nonfixed = mode),
+        boot.control = np_boot_control(nonfixed = mode),
         output = "data"
       ))
 

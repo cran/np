@@ -1,16 +1,23 @@
-.npcdhat_make_xbw <- function(bws, txdat) {
-  regtype <- if (is.null(bws$regtype.engine)) bws$regtype else bws$regtype.engine
-  basis <- if (is.null(bws$basis.engine)) bws$basis else bws$basis.engine
-  degree <- if (is.null(bws$degree.engine)) bws$degree else bws$degree.engine
-  bernstein <- if (is.null(bws$bernstein.basis.engine)) bws$bernstein.basis else bws$bernstein.basis.engine
+.npcdhat_physical_bandwidth <- function(bws, role) {
+  .np_physical_bandwidth(bws, role)
+}
 
-  xbw.args <- list(
-    xdat = txdat,
-    ydat = rep.int(0.0, nrow(txdat)),
-    bws = bws$xbw,
-    regtype = regtype,
+.npcdhat_make_xbw <- function(bws, txdat) {
+  spec <- npConditionalRegEngineSpec(
+    bws,
+    where = "conditional hat"
+  )
+
+  # Keep the canonical metadata builder and finalizer, without re-entering the
+  # public search/argument/progress setup for every conditional bootstrap fit.
+  # Rebuild from this draw's actual X data; NN geometry is not cached or frozen.
+  ydat <- rep.int(0.0, nrow(txdat))
+  reg.args <- list(
+    regtype = spec$reg.engine,
+    basis = spec$basis.engine,
+    degree = spec$degree.engine,
+    bernstein.basis = spec$bernstein.engine,
     bwtype = bws$type,
-    bandwidth.compute = FALSE,
     ckertype = bws$cxkertype,
     ckerorder = bws$cxkerorder,
     ckerbound = bws$cxkerbound,
@@ -20,19 +27,29 @@
     okertype = bws$oxkertype
   )
 
-  if (!is.null(basis))
-    xbw.args$basis <- basis
-  if (!is.null(degree))
-    xbw.args$degree <- degree
-  if (!is.null(bernstein))
-    xbw.args$bernstein.basis <- bernstein
+  xbw <- .npregbw_build_rbandwidth(
+    xdat = txdat, ydat = ydat, bws = .npcdhat_physical_bandwidth(bws, "x"),
+    bandwidth.compute = FALSE, reg.args = reg.args, yname = "ydat"
+  )
+  npregbw.rbandwidth(
+    xdat = txdat, ydat = ydat, bws = xbw, bandwidth.compute = FALSE
+  )
+}
 
-  do.call(npregbw, xbw.args)
+.npcdhat_retained_kbandwidth <- function(ckertype, ...) {
+  # The supplied order is retained metadata, not a fresh explicit request.
+  withCallingHandlers(kbandwidth.numeric(ckertype = ckertype, ...),
+    warning = function(w) {
+      if (identical(ckertype, "uniform") &&
+          identical(conditionMessage(w), unname(.np_io_prefix_text(
+            "ignoring kernel order specified with uniform kernel type"))))
+        invokeRestart("muffleWarning")
+    })
 }
 
 .npcdhat_make_xkbw <- function(bws, txdat) {
-  kbandwidth.numeric(
-    bw = bws$xbw,
+  .npcdhat_retained_kbandwidth(
+    bw = .npcdhat_physical_bandwidth(bws, "x"),
     bwscaling = FALSE,
     bwtype = bws$type,
     ckertype = bws$cxkertype,
@@ -41,7 +58,7 @@
     ckerlb = bws$cxkerlb,
     ckerub = bws$cxkerub,
     ukertype = bws$uxkertype,
-    okertype = bws$oxkertype,
+    okertype = .np_density_okertype(bws$oxkertype),
     nobs = nrow(txdat),
     xdati = untangle(txdat),
     ydati = NULL,
@@ -51,8 +68,8 @@
 }
 
 .npcdhat_make_ybw <- function(bws, tydat) {
-  kbandwidth.numeric(
-    bw = bws$ybw,
+  .npcdhat_retained_kbandwidth(
+    bw = .npcdhat_physical_bandwidth(bws, "y"),
     bwscaling = FALSE,
     bwtype = bws$type,
     ckertype = bws$cykertype,
@@ -61,7 +78,7 @@
     ckerlb = bws$cykerlb,
     ckerub = bws$cykerub,
     ukertype = bws$uykertype,
-    okertype = bws$oykertype,
+    okertype = .np_density_okertype(bws$oykertype),
     nobs = nrow(tydat),
     xdati = untangle(tydat),
     ydati = NULL,
@@ -77,14 +94,6 @@
   txdat <- toFrame(txdat)
   ncon <- sum(bws$ixcon)
   con.names <- names(txdat)[bws$ixcon]
-  if (!is.null(s) && !is.null(names(s))) {
-    sout <- integer(ncon)
-    names(sout) <- con.names
-    keep <- intersect(names(s), con.names)
-    if (length(keep))
-      sout[keep] <- as.integer(s[keep])
-    s <- sout
-  }
   .npreghat_resolve_s(s = s, deriv = deriv, ncon = ncon, con.names = con.names)
 }
 
@@ -122,41 +131,59 @@
 }
 
 .npcdhat_use_adaptive_ratio <- function(bws, x.s = NULL) {
-  regtype <- if (is.null(bws$regtype.engine)) bws$regtype else bws$regtype.engine
+  spec <- npConditionalRegEngineSpec(
+    bws,
+    where = "conditional hat adaptive ratio"
+  )
   identical(bws$type, "adaptive_nn") &&
     !.npcdhat_has_x_derivative(x.s) &&
-    identical(as.character(regtype), "lc")
+    (identical(spec$reg.engine, "lc") ||
+       all(spec$degree.engine == 0L))
 }
 
-.npcdhat_make_xhat_matrix <- function(bws, txdat, exdat, s = NULL) {
+.npcdhat_make_xhat_matrix <- function(bws,
+                                      txdat,
+                                      exdat,
+                                      s = NULL,
+                                      train.is.eval = FALSE,
+                                      return.norm = FALSE,
+                                      allow.empty.rows = FALSE) {
+  train.is.eval <- npValidateScalarLogical(train.is.eval, "train.is.eval")
+  if (train.is.eval && nrow(exdat) != nrow(txdat))
+    stop("conditional X hat received inconsistent training-identity rows")
+  eval.arg <- if (train.is.eval) NULL else exdat
   xbw <- .npcdhat_make_xbw(bws = bws, txdat = txdat)
-  spec <- npCanonicalConditionalRegSpec(
-    regtype = if (is.null(xbw$regtype)) "lc" else as.character(xbw$regtype),
-    basis = if (is.null(xbw$basis)) "glp" else xbw$basis,
-    degree = xbw$degree,
-    bernstein.basis = isTRUE(xbw$bernstein.basis),
-    ncon = xbw$ncon,
-    where = "npcdhat"
+  spec <- npConditionalRegEngineSpec(
+    xbw,
+    where = "conditional hat regression bandwidth",
+    ncon.field = "ncon"
   )
-  regtype <- if (is.null(xbw$regtype.engine)) {
-    as.character(spec$regtype.engine)
-  } else {
-    as.character(xbw$regtype.engine)
-  }
-  basis <- if (is.null(xbw$basis.engine)) spec$basis.engine else xbw$basis.engine
-  degree <- if (is.null(xbw$degree.engine)) as.integer(spec$degree.engine) else as.integer(xbw$degree.engine)
-  bernstein <- if (is.null(xbw$bernstein.basis.engine)) {
-    isTRUE(spec$bernstein.basis.engine)
-  } else {
-    isTRUE(xbw$bernstein.basis.engine)
-  }
+  regtype <- spec$reg.engine
+  basis <- spec$basis.engine
+  degree <- spec$degree.engine
+  bernstein <- spec$bernstein.engine
 
-  if (identical(regtype, "lc")) {
+  if (npIsCanonicalLp0(
+        regtype.engine = regtype,
+        degree.engine = degree,
+        ncon = xbw$ncon
+      )) {
     if (.npcdhat_has_x_derivative(s)) {
+      if (!identical(xbw[["ckertype", exact = TRUE]], "beta")) {
+        return(.npreghat_exact_lp_matrix_from_regression_core(
+          bws = xbw,
+          txdat = txdat,
+          exdat = eval.arg,
+          s = s,
+          basis = basis,
+          degree = degree,
+          bernstein.basis = bernstein
+        ))
+      }
       return(.npreghat_exact_lc_derivative_matrix_from_npksum_chunked(
         bws = xbw,
         txdat = txdat,
-        exdat = exdat,
+        exdat = eval.arg,
         s = s
       ))
     }
@@ -164,16 +191,8 @@
     return(.npreghat_exact_lc_matrix_from_kernel_weights(
       bws = xbw,
       txdat = txdat,
-      exdat = exdat
-    ))
-  }
-
-  if (identical(regtype, "ll")) {
-    return(.npreghat_exact_ll_matrix_from_kernel_weights(
-      bws = xbw,
-      txdat = txdat,
-      exdat = exdat,
-      s = s
+      exdat = eval.arg,
+      allow.empty.rows = allow.empty.rows
     ))
   }
 
@@ -185,41 +204,72 @@
       where = "npcdhat"
     )
 
+    if (identical(xbw$type, "generalized_nn") &&
+        any(degree > 1L) && train.is.eval) {
+      return(.npreghat_exact_matrix_from_core(
+        bws = xbw,
+        txdat = txdat,
+        exdat = NULL,
+        s = s,
+        allow.empty.rows = allow.empty.rows
+      ))
+    }
+
     if (identical(xbw$type, "generalized_nn") && any(degree > 1L)) {
       H <- matrix(NA_real_, nrow = nrow(exdat), ncol = nrow(txdat))
+      empty.rows <- NULL
       for (i in seq_len(nrow(exdat))) {
-        H[i, ] <- .npreghat_exact_matrix_from_core(
+        row <- .npreghat_exact_matrix_from_core(
           bws = xbw,
           txdat = txdat,
           exdat = exdat[i, , drop = FALSE],
-          s = s
-        )[1L, ]
+          s = s,
+          allow.empty.rows = allow.empty.rows
+        )
+        H[i, ] <- row[1L, ]
+        flags <- attr(row, ".np.empty.rows", exact = TRUE)
+        if (!is.null(flags)) {
+          if (is.null(empty.rows)) empty.rows <- integer(nrow(exdat))
+          empty.rows[i] <- flags[1L]
+        }
       }
+      if (!is.null(empty.rows)) attr(H, ".np.empty.rows") <- empty.rows
       return(H)
     }
 
     return(.npreghat_exact_lp_matrix_from_kernel_weights(
       bws = xbw,
       txdat = txdat,
-      exdat = exdat,
+      exdat = eval.arg,
       s = s,
       basis = basis,
       degree = degree,
-      bernstein.basis = bernstein
+      bernstein.basis = bernstein,
+      return.norm = return.norm,
+      allow.empty.rows = allow.empty.rows
     ))
   }
 
   .npreghat_exact_matrix_from_core(
     bws = xbw,
     txdat = txdat,
-    exdat = exdat,
-    s = s
+    exdat = eval.arg,
+    s = s,
+    allow.empty.rows = allow.empty.rows
   )
 }
 
-.np_direct_operator_matrix <- function(kbw, txdat, exdat, operator, where) {
+.np_direct_operator_matrix <- function(kbw,
+                                       txdat,
+                                       exdat,
+                                       operator,
+                                       where,
+                                       train.is.eval = FALSE) {
   txdat <- toFrame(txdat)
   exdat <- toFrame(exdat)
+  train.is.eval <- npValidateScalarLogical(train.is.eval, "train.is.eval")
+  if (train.is.eval && nrow(exdat) != nrow(txdat))
+    stop(sprintf("%s received inconsistent training-identity rows", where))
   op.info <- .np_operator_kernel_weight_scale(
     bws = kbw,
     operator = operator,
@@ -229,8 +279,8 @@
   kw <- .np_kernel_weights_direct(
     bws = op.info$bws,
     txdat = txdat,
-    exdat = exdat,
-    bandwidth.divide = TRUE,
+    exdat = if (train.is.eval) NULL else exdat,
+    bandwidth.divide = op.info$bandwidth.divide,
     operator = op.info$operator
   )
 
@@ -242,9 +292,18 @@
   t(kw) / op.info$scale
 }
 
-.np_direct_operator_apply <- function(kbw, txdat, exdat, operator, rhs, where) {
+.np_direct_operator_apply <- function(kbw,
+                                      txdat,
+                                      exdat,
+                                      operator,
+                                      rhs,
+                                      where,
+                                      train.is.eval = FALSE) {
   txdat <- toFrame(txdat)
   exdat <- toFrame(exdat)
+  train.is.eval <- npValidateScalarLogical(train.is.eval, "train.is.eval")
+  if (train.is.eval && nrow(exdat) != nrow(txdat))
+    stop(sprintf("%s received inconsistent training-identity rows", where))
   rhs <- as.matrix(rhs)
   storage.mode(rhs) <- "double"
 
@@ -260,8 +319,8 @@
   kw <- .np_kernel_weights_direct(
     bws = op.info$bws,
     txdat = txdat,
-    exdat = exdat,
-    bandwidth.divide = TRUE,
+    exdat = if (train.is.eval) NULL else exdat,
+    bandwidth.divide = op.info$bandwidth.divide,
     operator = op.info$operator
   )
 
@@ -273,15 +332,33 @@
   crossprod(kw, rhs) / op.info$scale
 }
 
+.np_native_output_extent <- function(..., where) {
+  factors <- as.double(c(...))
+  extent <- prod(factors)
+
+  if (!length(factors) || any(!is.finite(factors)) ||
+      any(factors < 0.0) || any(factors != floor(factors)) ||
+      !is.finite(extent) || extent > .Machine$integer.max) {
+    stop(sprintf("%s exceeds the native output-size capacity", where),
+         call. = FALSE)
+  }
+
+  as.integer(extent)
+}
+
 .np_local_operator_ksum <- function(kbw,
                                     txdat,
                                     exdat,
                                     operator,
                                     rhs,
                                     return.kernel.weights = FALSE,
-                                    where) {
+                                    where,
+                                    train.is.eval = FALSE) {
   txdat <- toFrame(txdat)
   exdat <- toFrame(exdat)
+  train.is.eval <- npValidateScalarLogical(train.is.eval, "train.is.eval")
+  if (train.is.eval && nrow(exdat) != nrow(txdat))
+    stop(sprintf("%s received inconsistent training-identity rows", where))
   rhs <- as.matrix(rhs)
   storage.mode(rhs) <- "double"
 
@@ -301,17 +378,36 @@
   npKernelBoundsCheckEval(exdat, bws$icon, bws$ckerlb, bws$ckerub, argprefix = "cker")
 
   txm <- toMatrix(txdat)
-  exm <- toMatrix(exdat)
   tuno <- txm[, bws$iuno, drop = FALSE]
   tcon <- txm[, bws$icon, drop = FALSE]
   tord <- txm[, bws$iord, drop = FALSE]
-  euno <- exm[, bws$iuno, drop = FALSE]
-  econ <- exm[, bws$icon, drop = FALSE]
-  eord <- exm[, bws$iord, drop = FALSE]
+  if (train.is.eval) {
+    euno <- data.frame()
+    econ <- data.frame()
+    eord <- data.frame()
+  } else {
+    exm <- toMatrix(exdat)
+    euno <- exm[, bws$iuno, drop = FALSE]
+    econ <- exm[, bws$icon, drop = FALSE]
+    eord <- exm[, bws$iord, drop = FALSE]
+  }
 
   tnrow <- nrow(txdat)
-  enrow <- nrow(exdat)
-  nkw <- if (isTRUE(return.kernel.weights)) tnrow * enrow else 0L
+  enrow <- if (train.is.eval) tnrow else nrow(exdat)
+  nksum <- .np_native_output_extent(
+    enrow,
+    max(1L, ncol(rhs)),
+    where = sprintf("%s kernel-sum result", where)
+  )
+  nkw <- if (isTRUE(return.kernel.weights)) {
+    .np_native_output_extent(
+      tnrow,
+      enrow,
+      where = sprintf("%s kernel-weight result", where)
+    )
+  } else {
+    0L
+  }
 
   operator.num <- ALL_OPERATORS[op.info$operator]
   myopti <- list(
@@ -331,7 +427,7 @@
       gaussian = CKER_GAUSS + bws$ckerorder / 2 - 1,
       epanechnikov = CKER_EPAN + bws$ckerorder / 2 - 1,
       uniform = CKER_UNI,
-      "truncated gaussian" = CKER_TGAUSS
+      beta = CKER_COORDINATE
     ),
     ukerneval = switch(bws$ukertype,
       aitchisonaitken = UKER_AIT,
@@ -343,18 +439,32 @@
       nliracine = OKER_NLR,
       racineliyan = OKER_RLY
     ),
-    miss.ex = FALSE,
+    miss.ex = train.is.eval,
     leave.one.out = FALSE,
-    bandwidth.divide = TRUE,
+    bandwidth.divide = op.info$bandwidth.divide,
     mcv.numRow = attr(bws$xmcv, "num.row"),
     wncol = 0L,
     yncol = ncol(rhs),
-    int_do_tree = npDoTreeOrCategoricalCompress(ncon = bws$yncon + bws$xncon, ncat = bws$ynuno + bws$ynord + bws$xnuno + bws$xnord, bws = bws),
+    int_do_tree = if (identical(bws[["ckertype", exact = TRUE]], "beta")) {
+      DO_TREE_NO
+    } else {
+      npDoTreeOrCategoricalCompress(
+        ncon = bws$ncon,
+        ncat = bws$nuno + bws$nord,
+        bws = bws
+      )
+    },
     return.kernel.weights = isTRUE(return.kernel.weights),
     permutation.operator = PERMUTATION_OPERATORS[["none"]],
     compute.score = FALSE,
     compute.ocg = FALSE
   )
+  myopti <- c(myopti, npContinuousKernelDescriptorOptions(bws))
+  myopti <- c(myopti, list(
+    divide.returned.kernel.weights = identical(bws$type, "adaptive_nn"),
+    categorical.compress = npStrictLogicalOption("np.categorical.compress", TRUE),
+    tree.outer.blas = FALSE
+  ))
 
   cker.bounds.c <- npKernelBoundsMarshal(bws$ckerlb[bws$icon], bws$ckerub[bws$icon])
 
@@ -371,7 +481,7 @@
     as.double(bws$xmcv), as.double(attr(bws$xmcv, "pad.num")),
     as.integer(c(operator.num[bws$icon], operator.num[bws$iuno], operator.num[bws$iord])),
     as.integer(myopti), as.double(1.0),
-    as.integer(enrow),
+    nksum,
     as.integer(0L),
     as.integer(nkw),
     as.double(cker.bounds.c$lb),
@@ -380,8 +490,11 @@
   )
 
   out <- myout[["ksum"]]
-  if (!is.matrix(out))
-    out <- matrix(out, nrow = enrow, ncol = ncol(rhs))
+  if (ncol(rhs) == 1L) {
+    out <- matrix(out, nrow = enrow, ncol = 1L)
+  } else {
+    out <- t(matrix(out, nrow = ncol(rhs), ncol = enrow))
+  }
 
   kw <- NULL
   if (isTRUE(return.kernel.weights))
@@ -390,7 +503,13 @@
   list(ksum = out, kernel.weights = kw)
 }
 
-.np_exact_operator_apply <- function(kbw, txdat, exdat, operator, rhs, where) {
+.np_exact_operator_apply <- function(kbw,
+                                     txdat,
+                                     exdat,
+                                     operator,
+                                     rhs,
+                                     where,
+                                     train.is.eval = FALSE) {
   rhs <- as.matrix(rhs)
   storage.mode(rhs) <- "double"
 
@@ -401,7 +520,8 @@
     operator = operator,
     rhs = rhs,
     return.kernel.weights = FALSE,
-    where = where
+    where = where,
+    train.is.eval = train.is.eval
   )$ksum
 
   if (!is.matrix(out))
@@ -413,7 +533,12 @@
     out
 }
 
-.np_exact_operator_matrix <- function(kbw, txdat, exdat, operator, where) {
+.np_exact_operator_matrix <- function(kbw,
+                                      txdat,
+                                      exdat,
+                                      operator,
+                                      where,
+                                      train.is.eval = FALSE) {
   txdat <- toFrame(txdat)
   exdat <- toFrame(exdat)
 
@@ -424,7 +549,8 @@
     operator = operator,
     rhs = matrix(1.0, nrow = nrow(txdat), ncol = 1L),
     return.kernel.weights = TRUE,
-    where = where
+    where = where,
+    train.is.eval = train.is.eval
   )
 
   kw <- probe$kernel.weights
@@ -441,14 +567,19 @@
   sweep(H.raw, 1L, row.scale, "*")
 }
 
-.npcdhat_make_kernel_matrix <- function(kbw, txdat, exdat, operator) {
+.npcdhat_make_kernel_matrix <- function(kbw,
+                                        txdat,
+                                        exdat,
+                                        operator,
+                                        train.is.eval = FALSE) {
   if (!identical(kbw$type, "fixed")) {
     return(.np_exact_operator_matrix(
       kbw = kbw,
       txdat = txdat,
       exdat = exdat,
       operator = operator,
-      where = "conditional hat exact kernel matrix"
+      where = "conditional hat exact kernel matrix",
+      train.is.eval = train.is.eval
     ))
   }
 
@@ -457,31 +588,67 @@
     txdat = txdat,
     exdat = exdat,
     operator = operator,
-    where = "conditional hat direct kernel matrix"
+    where = "conditional hat direct kernel matrix",
+    train.is.eval = train.is.eval
   )
 }
 
-.npcdhat_ratio_matrix <- function(bws, txdat, tydat, exdat, eydat, operator) {
+.npcdhat_ratio_matrix <- function(bws,
+                                  txdat,
+                                  tydat,
+                                  exdat,
+                                  eydat,
+                                  operator,
+                                  train.is.eval = FALSE,
+                                  allow.empty.rows = FALSE) {
   xkbw <- .npcdhat_make_xkbw(bws = bws, txdat = txdat)
   ybw <- .npcdhat_make_ybw(bws = bws, tydat = tydat)
-  Kx <- .npcdhat_make_kernel_matrix(
+  Kx <- .np_conditional_literal_kernel_matrix(
     kbw = xkbw,
     txdat = txdat,
     exdat = exdat,
-    operator = rep.int("normal", ncol(txdat))
+    operator = rep.int("normal", ncol(txdat)),
+    train.is.eval = train.is.eval
   )
-  Ky <- .npcdhat_make_kernel_matrix(
+  Ky <- .np_conditional_literal_kernel_matrix(
     kbw = ybw,
     txdat = tydat,
     exdat = eydat,
-    operator = rep.int(operator, ncol(tydat))
+    operator = rep.int(operator, ncol(tydat)),
+    train.is.eval = train.is.eval
   )
 
   denom <- rowSums(Kx) / nrow(txdat)
-  sweep((Kx * Ky) / nrow(txdat), 1L, pmax(denom, .Machine$double.eps), "/")
+  if (length(denom) &&
+      !anyNA(denom) &&
+      min(denom) > -Inf &&
+      max(denom) < Inf &&
+      !any(denom == 0.0))
+    return(sweep((Kx * Ky) / nrow(txdat), 1L, denom, "/"))
+
+  divisor <- .np_normalization_denominator(
+    denom, "conditional hat", allow.empty.rows = allow.empty.rows,
+    zero.rows = rowSums(abs(Kx)) == 0.0)
+  .np_normalization_finish(
+    sweep((Kx * Ky) / nrow(txdat), 1L, divisor, "/"),
+    divisor, "conditional hat", TRUE)
 }
 
-.npcdhat_exact_matrix <- function(bws, txdat, tydat, exdat, eydat, operator, x.s = NULL) {
+.npcdhat_copy_empty_rows <- function(value, source) {
+  flags <- attr(source, ".np.empty.rows", exact = TRUE)
+  if (!is.null(flags)) attr(value, ".np.empty.rows") <- flags
+  value
+}
+
+.npcdhat_exact_matrix <- function(bws,
+                                  txdat,
+                                  tydat,
+                                  exdat,
+                                  eydat,
+                                  operator,
+                                  x.s = NULL,
+                                  train.is.eval = FALSE,
+                                  allow.empty.rows = FALSE) {
   if (.npcdhat_use_adaptive_ratio(bws = bws, x.s = x.s)) {
     return(.npcdhat_ratio_matrix(
       bws = bws,
@@ -489,28 +656,43 @@
       tydat = tydat,
       exdat = exdat,
       eydat = eydat,
-      operator = operator
+      operator = operator,
+      train.is.eval = train.is.eval,
+      allow.empty.rows = allow.empty.rows
     ))
   }
 
   ybw <- .npcdhat_make_ybw(bws = bws, tydat = tydat)
-  Hx <- .npcdhat_make_xhat_matrix(
+  Hx <- .np_conditional_literal_xhat_matrix(
     bws = bws,
     txdat = txdat,
     exdat = exdat,
-    s = x.s
+    s = x.s,
+    train.is.eval = train.is.eval,
+    allow.empty.rows = allow.empty.rows
   )
-  Gy <- .npcdhat_make_kernel_matrix(
+  Gy <- .np_conditional_literal_kernel_matrix(
     kbw = ybw,
     txdat = tydat,
     exdat = eydat,
-    operator = rep.int(operator, ncol(tydat))
+    operator = rep.int(operator, ncol(tydat)),
+    train.is.eval = train.is.eval
   )
 
-  Hx * Gy
+  .npcdhat_copy_empty_rows(Hx * Gy, Hx)
 }
 
-.npcdhat_exact_apply <- function(bws, txdat, tydat, exdat, eydat, rhs, operator, x.s = NULL) {
+.npcdhat_exact_apply <- function(bws,
+                                 txdat,
+                                 tydat,
+                                 exdat,
+                                 eydat,
+                                 rhs,
+                                 operator,
+                                 x.s = NULL,
+                                 train.is.eval = FALSE,
+                                 allow.empty.rows = FALSE,
+                                 return.norm = FALSE) {
   if (.npcdhat_use_adaptive_ratio(bws = bws, x.s = x.s)) {
     H <- .npcdhat_ratio_matrix(
       bws = bws,
@@ -518,26 +700,39 @@
       tydat = tydat,
       exdat = exdat,
       eydat = eydat,
-      operator = operator
+      operator = operator,
+      train.is.eval = train.is.eval,
+      allow.empty.rows = allow.empty.rows
     )
-    return(H %*% rhs)
+    out <- H %*% rhs
+    empty.rows <- attr(H, ".np.empty.rows", exact = TRUE)
+    if (!is.null(empty.rows))
+      attr(out, ".np.empty.rows") <- empty.rows
+    return(out)
   }
 
   ybw <- .npcdhat_make_ybw(bws = bws, tydat = tydat)
-  Hx <- .npcdhat_make_xhat_matrix(
+  Hx <- .np_conditional_literal_xhat_matrix(
     bws = bws,
     txdat = txdat,
     exdat = exdat,
-    s = x.s
+    s = x.s,
+    train.is.eval = train.is.eval,
+    return.norm = return.norm,
+    allow.empty.rows = allow.empty.rows
   )
-  Gy <- .npcdhat_make_kernel_matrix(
+  norms <- if (return.norm) Hx[["norm", exact = TRUE]] else NULL
+  if (return.norm) Hx <- Hx[["hat", exact = TRUE]]
+  Gy <- .np_conditional_literal_kernel_matrix(
     kbw = ybw,
     txdat = tydat,
     exdat = eydat,
-    operator = rep.int(operator, ncol(tydat))
+    operator = rep.int(operator, ncol(tydat)),
+    train.is.eval = train.is.eval
   )
 
-  (Hx * Gy) %*% rhs
+  out <- .npcdhat_copy_empty_rows((Hx * Gy) %*% rhs, Hx)
+  if (return.norm) list(value = out, norm = norms) else out
 }
 
 .npcdhat_core <- function(bws,
@@ -551,13 +746,19 @@
                           x.deriv = NULL,
                           x.s = NULL,
                           class_name,
-                          where) {
+                          where,
+                          return.norm = FALSE,
+                          allow.external = NULL,
+                          .np.defer.empty.rows = FALSE) {
   output <- match.arg(output, c("matrix", "apply"))
 
   if (xor(is.null(exdat), is.null(eydat)))
     stop("evaluation data must be supplied for both 'exdat' and 'eydat'")
 
   no.exy <- is.null(exdat)
+  if (is.null(allow.external)) allow.external <- !no.exy
+  allow.external <- npValidateScalarLogical(allow.external, "allow.external") && !no.exy
+  .np.defer.empty.rows <- npValidateScalarLogical(.np.defer.empty.rows, ".np.defer.empty.rows")
 
   txdat <- toFrame(txdat)
   tydat <- toFrame(tydat)
@@ -640,10 +841,23 @@
       eydat = eydat,
       rhs = y,
       operator = operator,
-      x.s = x.s
+      x.s = x.s,
+      train.is.eval = no.exy,
+      allow.empty.rows = allow.external,
+      return.norm = return.norm
     )
+    norms <- if (return.norm) out[["norm", exact = TRUE]] else NULL
+    if (return.norm) out <- out[["value", exact = TRUE]]
+    empty.rows <- attr(out, ".np.empty.rows", exact = TRUE)
+    if (!is.null(empty.rows)) {
+      attr(out, ".np.empty.rows") <- NULL
+      den <- rep.int(1.0, length(empty.rows))
+      den[empty.rows == 1L] <- NA_real_
+      out <- .np_normalization_finish(out, den, where, .np.defer.empty.rows)
+    }
     if (ncol(out) == 1L)
-      return(as.vector(out))
+      out <- .npcdhat_copy_empty_rows(as.vector(out), out)
+    if (return.norm) return(list(value = out, norm = norms))
     return(out)
   }
 
@@ -654,8 +868,17 @@
     exdat = exdat,
     eydat = eydat,
     operator = operator,
-    x.s = x.s
+    x.s = x.s,
+    train.is.eval = no.exy,
+    allow.empty.rows = allow.external
   )
+  empty.rows <- attr(H, ".np.empty.rows", exact = TRUE)
+  if (!is.null(empty.rows)) {
+    attr(H, ".np.empty.rows") <- NULL
+    den <- rep.int(1.0, length(empty.rows))
+    den[empty.rows == 1L] <- NA_real_
+    H <- .np_normalization_finish(H, den, where, .np.defer.empty.rows)
+  }
 
   class(H) <- c(class_name, "matrix")
   attr(H, "bws") <- bws
@@ -676,4 +899,90 @@
   }
 
   H
+}
+npConditionalCategoricalFirstDifferences <- function(hat.fun,
+                                                      bws,
+                                                      txdat,
+                                                      tydat,
+                                                      exdat = NULL,
+                                                      eydat = NULL,
+                                                      where,
+                                                      allow.external = NULL,
+                                                      base.rows = NULL,
+                                                      .np.defer.empty.rows = FALSE,
+                                                      gradient.target = NULL,
+                                                      se.demand = FALSE) {
+  if (!is.function(hat.fun))
+    stop(sprintf("%s received an invalid conditional hat evaluator", where),
+         call. = FALSE)
+
+  eval.x <- if (is.null(exdat)) txdat else exdat
+  eval.y <- if (is.null(eydat)) tydat else eydat
+  out <- matrix(NA_real_, nrow = nrow(eval.x), ncol = bws$xndim)
+  cat.idx <- which(bws$ixuno | bws$ixord)
+  se.idx <- cat.idx[.np_conditional_cat_se_demand(se.demand, length(cat.idx))]
+  errors <- if (length(se.idx)) out else NULL
+  unavailable <- 0L
+  if (!is.null(gradient.target)) {
+    gradient.target <- .np_plot_resolve_conditional_gradient_index(
+      bws, gradient.target, where)
+    if (!gradient.target %in% cat.idx)
+      stop(sprintf("%s requires a categorical gradient target", where),
+           call. = FALSE)
+    cat.idx <- gradient.target
+  }
+  if (!length(cat.idx))
+    return(out)
+
+  rhs <- rep.int(1.0, nrow(txdat))
+  empty.rows <- NULL
+  eval.hat <- function(z) {
+    if (!is.null(allow.external)) {
+      value <- .np_conditional_higher_hat(list(
+        bws = bws, txdat = txdat, tydat = tydat, exdat = z,
+        eydat = eval.y, y = rhs), cdf = identical(hat.fun, npcdisthat),
+        base.rows = base.rows, allow.external = allow.external, return.norm = FALSE)
+      flags <- attr(value, ".np.empty.rows", exact = TRUE)
+      if (!is.null(flags))
+        empty.rows <<- if (is.null(empty.rows)) flags else pmax(empty.rows, flags)
+      return(as.vector(value))
+    }
+    as.vector(hat.fun(
+      bws = bws,
+      txdat = txdat,
+      tydat = tydat,
+      exdat = z,
+      eydat = eval.y,
+      y = rhs,
+      output = "apply"
+    ))
+  }
+
+  for (jj in cat.idx) {
+    frames <- npCategoricalFirstDifferenceFrames(
+      exdat = eval.x,
+      index = jj,
+      where = where
+    )
+    upper <- eval.hat(frames$upper)
+    lower <- eval.hat(frames$lower)
+    out[, jj] <- upper - lower
+    if (jj %in% se.idx) {
+      keep <- which(is.finite(upper) & is.finite(lower))
+      if (length(keep)) {
+        pair <- .np_conditional_lp_pair_se(bws, txdat, tydat,
+          frames$upper[keep, , drop = FALSE], frames$lower[keep, , drop = FALSE],
+          eval.y[keep, , drop = FALSE], cdf = identical(hat.fun, npcdisthat))
+        errors[keep, jj] <- pair[, 1L]
+        unavailable <- unavailable + sum(pair[, 6L] != 0)
+      }
+    }
+  }
+  out <- .npreg_finish_empty_rows(out, empty.rows, defer = .np.defer.empty.rows, owner = where)
+  if (unavailable) .np_warning(paste0(where, ": categorical contrast standard errors ",
+    "are unavailable at ", unavailable, " endpoint pair(s): the accepted local ",
+    "fit has a nonsmooth or nonfinite influence. These standard errors are NA."),
+    call. = FALSE)
+  attr(out, ".np.categorical.se") <- errors
+  out
 }

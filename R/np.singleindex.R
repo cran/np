@@ -14,9 +14,26 @@
 # value they so desire.
 
 npindex <-
-  function(bws, ...){
-    args <- list(...)
+  function(bws, ..., B = 399){
+    mc <- match.call(expand.dots = FALSE)
+    .np_validate_public_dots(mc[["..."]], "npindex")
+    args <- .np_formula_dispatch_args(
+      NULL, substitute(list(...))[-1L], environment(),
+      data.roles = c("txdat", "tydat"),
+      call = sys.call(), caller = parent.frame())
+    npRejectLegacyBooleanErrors(args, "npindex")
+    npRejectLegacyBootstrapCount(names(args), "npindex")
     .np_singleindex_reject_higher_gradient_order(args, where = "npindex")
+
+    formula.input <- args[["formula", exact = TRUE]]
+    if (inherits(formula.input, "formula") && is.null(args$txdat)) {
+      args$formula <- NULL
+      if (!missing(bws)) args$.np_index_explicit_bws <- bws
+      args$B <- B
+      return(.np_formula_dispatch_call(npindex.formula,
+                     c(list(bws = formula.input), args),
+                     substitute(list(...))[-1L], envir = environment()))
+    }
 
     if (!missing(bws)){
       if (length(args) > 0L &&
@@ -25,9 +42,10 @@ npindex <-
         formula <- args[[1L]]
         args <- args[-1L]
         args$.np_index_explicit_bws <- bws
-        return(do.call(npindex.formula,
+        args$B <- B
+        return(.np_formula_dispatch_call(npindex.formula,
                        c(list(bws = formula), args),
-                       envir = parent.frame()))
+                       substitute(list(...))[-1L], envir = environment()))
       }
       if (inherits(bws, "formula") && is.null(args$txdat))
         UseMethod("npindex", bws)
@@ -49,18 +67,35 @@ npindex <-
   }
 
 npindex.formula <-
-    function(bws, data = NULL, newdata = NULL, y.eval = FALSE, ...){
+    function(bws, data = NULL, newdata = NULL, y.eval = NULL,
+             se = TRUE, ..., se.type = c("asymptotic", "bootstrap")){
+
+        if (!is.null(y.eval)) y.eval <- npValidateScalarLogical(y.eval, "y.eval")
+        raw.formula <- inherits(bws, "formula")
+        dots <- if (raw.formula)
+          .np_formula_dispatch_args(NULL, substitute(list(...))[-1L], environment())
+        else list(...)
+        # Preserve an explicit evaluation policy before training-response
+        # replacement consumes its control arguments. Retained training and
+        # native evaluation routes keep their existing separate owners.
+        has.eval <- !is.null(newdata) && !("exdat" %in% names(dots))
+        eval.na.action <- if (has.eval && "na.action" %in% names(dots))
+          dots["na.action"] else NULL
+        npRejectLegacyBooleanErrors(dots, "npindex")
+        se <- npValidateScalarLogical(se, "se")
+        se.type <- match.arg(se.type)
 
         mc <- match.call(expand.dots = FALSE)
-        tt <- terms(bws)
+        tt <- if (inherits(bws, "formula")) terms(bws, data = data) else terms(bws)
         tmf <- if (!is.null(bws$call)) {
           m <- match(c("formula", "data", "subset", "na.action"),
                      names(bws$call), nomatch = 0)
           bws$call[c(1, m)]
         } else {
+          frame.call <- match.call()
           m <- match(c("bws", "data", "subset", "na.action"),
-                     names(mc), nomatch = 0)
-          tmf <- mc[c(1, m)]
+                     names(frame.call), nomatch = 0)
+          tmf <- frame.call[c(1, m)]
           if ("bws" %in% names(tmf))
             names(tmf)[names(tmf) == "bws"] <- "formula"
           tmf
@@ -68,52 +103,60 @@ npindex.formula <-
         tmf[[1]] <- as.name("model.frame")
         tmf[["formula"]] <- tt
         if (!missing(data) && !is.null(data))
-          tmf[["data"]] <- substitute(data)
+          tmf[["data"]] <- data
         mf.args <- as.list(tmf)[-1L]
-        umf <- tmf <- do.call(stats::model.frame, mf.args, envir = environment(tt))
-
-        response.name <- attr(tmf, "names")[attr(attr(tmf, "terms"), "response")]
-        tydat <- model.response(tmf)
-        txdat <- tmf[, attr(attr(tmf, "terms"),"term.labels"), drop = FALSE]
-        has.eval <- !is.null(newdata)
-        if (has.eval) {
-          if (!y.eval){
-            npValidateNewdataFormula(newdata, tt, include.response = FALSE)
-            tt <- delete.response(tt)
-
-            orig.ts <- .np_terms_ts_mask(terms_obj = tt, data = newdata)
-            
-            ## delete.response clobbers predvars, which is used for timeseries objects
-            ## so we need to reconstruct it
-
-            if(all(orig.ts)){
-              args <- (as.list(attr(tt, "variables"))[-1])
-              attr(tt, "predvars") <- as.call(c(quote(as.data.frame),as.call(c(quote(ts.intersect), args))))
-            }else if(any(orig.ts)){
-              arguments <- (as.list(attr(tt, "variables"))[-1])
-              arguments.normal <- arguments[which(!orig.ts)]
-              arguments.timeseries <- arguments[which(orig.ts)]
-
-              ix <- sort(c(which(orig.ts),which(!orig.ts)),index.return = TRUE)$ix
-              attr(tt, "predvars") <- bquote(.(as.call(c(quote(cbind),as.call(c(quote(as.data.frame),as.call(c(quote(ts.intersect), arguments.timeseries)))),arguments.normal,check.rows = TRUE)))[,.(ix)])
-            }else{
-              attr(tt, "predvars") <- attr(tt, "variables")
-            }
+        if (raw.formula && "subset" %in% names(mf.args))
+          mf.args$.np.subset <- .np_formula_subset_inputs(
+            data, mf.args[["subset"]], parent.frame(), resolve.only = TRUE)
+        if (inherits(bws, "sibandwidth") &&
+            is.null(bws[[".np.formula.training", exact = TRUE]]) &&
+            (missing(data) || is.null(data)) &&
+            all(c("xdat", "ydat") %in% names(bws[["call"]])) &&
+            !("tydat" %in% names(dots))) {
+          # Historical formula fits without a retained frame may store only
+          # prepared native inputs. New snapshots use the canonical frame
+          # owner below so their omission map survives without re-evaluation.
+          txdat <- toFrame(.np_eval_bws_call_arg(bws, "xdat"))
+          tydat <- .np_eval_bws_call_arg(bws, "ydat")
+          response.name <- bws[["ynames"]]
+          umf <- tmf <- NULL
+          attr(tt, "predvars") <- .np_formula_unwrap_prediction(tt)$prediction
+        } else {
+          umf <- tmf <- .np_bws_formula_model_frame(bws, mf.args,
+            data.override = !missing(data) && !is.null(data), overrides = dots)
+          if ("tydat" %in% names(dots)) {
+            umf <- tmf <- .np_formula_replace_response(tmf, bws, dots[["tydat"]],
+                                                       dots, data.override = !is.null(data))
+            dots$tydat <- NULL
+            dots$na.action <- NULL
           }
-          
-          if (y.eval)
-            npValidateNewdataFormula(newdata, tt, include.response = TRUE)
-          umf.args <- list(formula = tt, data = newdata)
-          umf <- do.call(stats::model.frame, umf.args, envir = parent.frame())
+          tt <- attr(tmf, "terms")
+          if (!raw.formula) bws <- .np_bws_retain_fit_frame(bws, tmf)
+          response.name <- attr(tmf, "names")[attr(attr(tmf, "terms"), "response")]
+          tydat <- model.response(tmf)
+          txdat <- .np_index_formula_xdat(tmf)
+        }
+        if (has.eval) {
+          # Outcomes are optional scoring data, not part of the prediction frame.
+          response <- if (!identical(y.eval, FALSE) && !("eydat" %in% names(dots)))
+            .np_diagnostics_optional(
+              .np_diagnostics_response(newdata, tt = tt, required = isTRUE(y.eval)),
+              required = isTRUE(y.eval)) else NULL
+          eval.tt <- delete.response(tt)
+          npValidateNewdataFormula(newdata, eval.tt, include.response = FALSE)
+          umf <- if (is.null(eval.na.action))
+            .np_diagnostics_model_frame(eval.tt, newdata) else
+            .np_diagnostics_model_frame(eval.tt, newdata,
+                                        na.action = eval.na.action[[1L]])
           emf <- umf
-
-          if (y.eval)
-            eydat <- model.response(emf)
-          
-          exdat <- emf[, attr(attr(emf, "terms"),"term.labels"), drop = FALSE]
+          if ("eydat" %in% names(dots))
+            dots$eydat <- .np_diagnostics_align_response(dots$eydat, emf)
+          if (!is.null(response))
+            response <- .np_diagnostics_optional(
+              .np_diagnostics_align_response(response, emf), required = isTRUE(y.eval))
+          exdat <- emf[, .np_formula_term_names(attr(attr(emf, "terms"), "term.labels")), drop = FALSE]
         }
 
-        dots <- list(...)
         si.bws <- if (!is.null(dots$.np_index_explicit_bws)) {
             out <- dots$.np_index_explicit_bws
             dots$.np_index_explicit_bws <- NULL
@@ -126,27 +169,48 @@ npindex.formula <-
             bws
         }
 
-        si.args <- list(txdat = txdat, tydat = tydat)
+        si.args <- list(txdat = txdat, tydat = tydat, y.eval = y.eval)
         if (has.eval) {
+          response <- .np_index_diagnostics_response(response,
+            method = if (inherits(si.bws, "sibandwidth")) si.bws$method else
+              if (!is.null(dots$method)) dots$method else "ichimura",
+            required = isTRUE(y.eval),
+            training.info = if (inherits(si.bws, "sibandwidth")) si.bws$ydati
+              else untangle(data.frame(tydat)))
           si.args$exdat <- exdat
-          if (y.eval)
-            si.args$eydat <- eydat
+          if (!is.null(response))
+            si.args$eydat <- response
         }
-        si.args$bws <- si.bws
-        ev <- do.call(npindex, c(si.args, dots))
+        # Raw formula variables above are already prepared. Do not apply the
+        # formula again through the explicit-native formula reentry interface.
+        if (!inherits(si.bws, "formula"))
+          si.args$bws <- si.bws
+        ev <- do.call(npindex, c(si.args, list(se = se, se.type = se.type), dots))
         ev$call <- mc
-        environment(ev$call) <- parent.frame()
+        environment(ev$call) <- .np_call_owner_environment(
+          parent.frame(), replacement = environment(tt))
 
         if (length(response.name) == 1L && !is.na(response.name) && nzchar(response.name)) {
+            ev$ynames <- response.name
             if (!is.null(ev$bws))
-                ev$bws$ynames <- response.name
+                ev$bws <- updateBwNameMetadata(list(ynames = response.name), ev$bws)
         }
         if (!is.null(ev$bws) && inherits(bws, "formula")) {
+            # Preserve the existing materialized native call fields used by
+            # explicit plotting/replay consumers, and add formula provenance.
+            ev$bws$call["formula"] <- list(mc[["bws"]])
+            if ("data" %in% names(mc)) ev$bws$call["data"] <- list(mc[["data"]])
             ev$bws$formula <- bws
             ev$bws$terms <- attr(tmf, "terms")
+            ev$bws <- .np_bws_retain_fit_frame(ev$bws, tmf)
         }
 
-        ev$omit <- attr(umf,"na.action")
+        # A pass/NULL/custom policy can leave predictor NAs for the native
+        # owner to remove. Reconcile those rows in the original formula frame
+        # before deriving the public map; preserve omit versus exclude policy.
+        if (has.eval && length(ev[["eval.rows.omit", exact = TRUE]]))
+            umf <- .np_formula_complete_training_frame(umf)
+        ev$omit <- .np_formula_output_action(ev, umf, has.eval)
         ev$rows.omit <- as.vector(ev$omit)
         ev$nobs.omit <- length(ev$rows.omit)
 
@@ -159,16 +223,18 @@ npindex.formula <-
         }
 
         if(ev$residuals){
-            ev$resid <- naresid(ev$omit, ev$resid)
+            # Residuals always belong to training rows, not the evaluation grid.
+            ev$resid <- naresid(attr(tmf, "na.action"), ev$resid)
         }    
         return(ev)
     }
 
 npindex.call <-
   function(bws, ...) {
-    npindex(txdat = .np_eval_bws_call_arg(bws, "xdat"),
-            tydat = .np_eval_bws_call_arg(bws, "ydat"),
-            bws = bws, ...)
+  .np_reject_native_data(substitute(list(...))[-1L])
+
+    do.call(npindex, .np_retained_training_args(
+      bws, c(txdat = "xdat", tydat = "ydat"), list(...), npindex.sibandwidth))
   }
 
 .np_index_kernel_args <- function(bws) {
@@ -179,6 +245,10 @@ npindex.call <-
   )
   if (!is.null(bws$ckerbound))
     args$ckerbound <- bws$ckerbound
+  if (identical(bws$ckerbound, "fixed")) {
+    args$ckerlb <- bws$ckerlb
+    args$ckerub <- bws$ckerub
+  }
   args
 }
 
@@ -224,12 +294,11 @@ npindex.call <-
 }
 
 .np_index_formula_reentry_xdat <- function(mf) {
-  terms.obj <- attr(mf, "terms")
-  mf[, attr(terms.obj, "term.labels"), drop = FALSE]
+  .np_index_formula_xdat(mf)
 }
 
 .np_index_formula_reentry_rhs_terms <- function(formula, xdat) {
-  delete.response(terms(formula, data = toFrame(xdat)))
+  .np_formula_validate_terms(delete.response(terms(formula, data = toFrame(xdat))))
 }
 
 .np_index_formula_reentry_response_name <- function(formula) {
@@ -281,10 +350,17 @@ npindex.call <-
   .np_index_formula_reentry_xdat(mf)
 }
 
-npindex.default <- function(bws, txdat, tydat, nomad = FALSE, ...){
-  sc <- sys.call()
+npindex.default <- function(bws, txdat, tydat, nomad = FALSE,
+                            se = TRUE, ..., se.type = c("asymptotic", "bootstrap")){
+  sc <- .np_formula_default_call(sys.call(), sys.function(), parent.frame())
   sc.names <- names(sc)
   nomad <- npValidateNomadControl(nomad, "nomad")
+  dots <- if (!missing(bws) && inherits(bws, "formula"))
+    .np_formula_dispatch_args(NULL, substitute(list(...))[-1L], environment())
+  else list(...)
+  npRejectLegacyBooleanErrors(dots, "npindex")
+  se <- npValidateScalarLogical(se, "se")
+  se.type <- match.arg(se.type)
 
   ## here we check to see if the function was called with tdat =
   ## if it was, we need to catch that and map it to dat =
@@ -315,13 +391,15 @@ npindex.default <- function(bws, txdat, tydat, nomad = FALSE, ...){
       tydat <- model.response(mf)
     }
 
-    dots <- list(...)
     bw.dots <- dots
     bw.dots$.np_fit_progress_handoff <- NULL
     if (bws.formula)
       bw.dots[c("subset", "na.action")] <- NULL
     bw.args <- c(list(xdat = txdat, ydat = tydat, nomad = nomad), bw.dots)
-    tbw <- do.call(npindexbw, bw.args)
+    tbw <- do.call(
+      npindexbw,
+      .np_public_dots_filter_args(bw.args, "npindexbw")
+    )
 
     fit.args <- list(bws = tbw, txdat = txdat, tydat = tydat)
     fit.dots <- dots
@@ -335,17 +413,26 @@ npindex.default <- function(bws, txdat, tydat, nomad = FALSE, ...){
           caller_env = parent.frame()
         )
     }
-    return(do.call(npindex, c(fit.args, fit.dots)))
+    return(do.call(npindex, c(fit.args, list(se = se, se.type = se.type), fit.dots)))
   }
 
   ## if bws was passed in explicitly, do not compute bandwidths
 
-  if(txdat.named)
+  if(txdat.named) {
+    if ("data" %in% sc.names)
+      .np_data_argument_preflight(substitute(txdat), "txdat", sys.call(), parent.frame(), value = txdat)
+    # Preserve vector syntax before coercion gives it the formal's name.
+    original.name <- if (is.null(dim(txdat)))
+      paste(deparse(.np_formula_dot_expression(substitute(txdat), parent.frame())), collapse = "") else NULL
     txdat <- toFrame(txdat)
+    if (!is.null(original.name)) names(txdat) <- original.name
+  }
 
   sc.bw <- sc
   
   sc.bw[[1]] <- quote(npindexbw)
+  sc.bw$se <- NULL
+  sc.bw$se.type <- NULL
 
   if (bws.formula) {
     ib <- match("bws", names(sc.bw), nomatch = 0L)
@@ -367,6 +454,7 @@ npindex.default <- function(bws, txdat, tydat, nomad = FALSE, ...){
   if(!bws.formula && any(m.txy > 0)) {
     names(sc.bw)[m.txy] <- nstxy[m.txy > 0]
   }
+  sc.bw <- .np_public_dots_filter_call(sc.bw, "npindexbw")
     
   use.outer.bandwidth.progress <- !.np_bw_call_uses_nomad_degree_search(
     sc.bw,
@@ -377,10 +465,14 @@ npindex.default <- function(bws, txdat, tydat, nomad = FALSE, ...){
     if (use.outer.bandwidth.progress) {
       .np_progress_select_bandwidth_enhanced(
         "Selecting single-index bandwidth",
-        .np_eval_bw_call(sc.bw, caller_env = parent.frame())
+        .np_eval_bw_call(sc.bw, caller_env = parent.frame(),
+                        native.map = c(bws = "bws", xdat = "txdat", ydat = "tydat"), native.frame = environment(),
+                        formula.value = .np_formula_value(dots[["formula", exact = TRUE]], bws, txdat))
       )
     } else {
-      .np_eval_bw_call(sc.bw, caller_env = parent.frame())
+        .np_eval_bw_call(sc.bw, caller_env = parent.frame(),
+                        native.map = c(bws = "bws", xdat = "txdat", ydat = "tydat"), native.frame = environment(),
+                        formula.value = .np_formula_value(dots[["formula", exact = TRUE]], bws, txdat))
     }
   } else {
     bws
@@ -399,7 +491,7 @@ npindex.default <- function(bws, txdat, tydat, nomad = FALSE, ...){
   }
   if (no.bws || bws.formula || is.call(bws))
     call.args$.np_fit_progress_handoff <- TRUE
-  do.call(npindex, c(call.args, list(...)))
+  do.call(npindex, c(call.args, list(se = se, se.type = se.type), dots))
 }
 
 npindex.sibandwidth <-
@@ -408,25 +500,60 @@ npindex.sibandwidth <-
            tydat = stop("training data 'tydat' missing"),
            exdat,
            eydat,
-           boot.num = 399,
-           errors = FALSE,
+           B = 399,
+           se = TRUE,
            gradients = FALSE,
-           residuals = FALSE, ...) {
+           residuals = FALSE, ..., se.type = c("asymptotic", "bootstrap"),
+           y.eval = NULL) {
+  .np_reject_native_data(substitute(list(...))[-1L])
 
+
+    if (!is.null(y.eval)) y.eval <- npValidateScalarLogical(y.eval, "y.eval")
     fit.start <- proc.time()[3]
+    se.type <- match.arg(se.type)
+    asymptotic.se <- isTRUE(se) && identical(se.type, "asymptotic")
+    bootstrap.se <- isTRUE(se) && identical(se.type, "bootstrap")
     dots <- list(...)
+    npRejectLegacyBooleanErrors(dots, "npindex")
+    npRejectLegacyBootstrapCount(names(dots), "npindex")
     fit.progress.handoff <- isTRUE(dots$.np_fit_progress_handoff)
     fit.progress.allow <- isTRUE(.np_progress_enabled(domain = "bandwidth"))
     gradients <- npValidateScalarLogical(gradients, "gradients")
     residuals <- npValidateScalarLogical(residuals, "residuals")
-    errors <- npValidateScalarLogical(errors, "errors")
-    if (!is.numeric(boot.num) || length(boot.num) != 1L || is.na(boot.num) ||
-        !is.finite(boot.num) || boot.num < 1 || boot.num != floor(boot.num))
-      stop("'boot.num' must be a positive integer")
-    boot.num <- as.integer(boot.num)
+    se <- npValidateScalarLogical(se, "se")
+    if (!is.numeric(B) || length(B) != 1L || is.na(B) ||
+        !is.finite(B) || B < 1 || B != floor(B))
+      stop("'B' must be a positive integer")
+    B <- as.integer(B)
 
+    native.newdata <- dots[["newdata", exact = TRUE]]
+    if (missing(exdat) && !is.null(native.newdata)) {
+      native.eval <- .np_native_newdata_parts(
+        native.newdata, list(exdat = .np_index_predictor_names(bws)), "npindex")
+      exdat <- native.eval$exdat
+      if (missing(eydat) && !identical(y.eval, FALSE)) {
+        response <- .np_diagnostics_optional(
+          .np_diagnostics_response(native.newdata, ynames = bws$ynames,
+                                   required = isTRUE(y.eval)), required = isTRUE(y.eval))
+        response <- .np_index_diagnostics_response(response, bws$method,
+          required = isTRUE(y.eval), training.info = bws$ydati)
+        if (!is.null(response)) eydat <- response
+      }
+    }
+
+    design <- bws[["index.design", exact = TRUE]]
     no.ex = missing(exdat)
     no.ey = missing(eydat)
+    if (!no.ey)
+      eydat <- .np_index_diagnostics_response(eydat, bws$method,
+        required = TRUE, training.info = bws$ydati)
+    if (!no.ex && no.ey && isTRUE(y.eval))
+      stop("'y.eval = TRUE' requires evaluation outcomes in 'newdata' or 'eydat'",
+           call. = FALSE)
+
+    fit.activity <- .np_progress_activity_begin(
+      label = "Fitting single-index model", detail = "fitted values")
+    on.exit(.np_progress_activity_end(fit.activity), add = TRUE)
 
     ## if no.ex then if !no.ey then ey and tx must match, to get
     ## oos errors alternatively if no.ey you get is errors if
@@ -435,20 +562,29 @@ npindex.sibandwidth <-
     ## don't evaluate on the training data
 
     txdat = toFrame(txdat)
+    bws <- .np_bws_retain_native_training(bws, xdat = txdat, ydat = tydat)
 
     if (!(is.vector(tydat) || is.factor(tydat)))
       stop("'tydat' must be a vector or a factor")
 
-    tydat =
-      if (is.factor(tydat))
-        as.numeric(levels(tydat))[as.integer(tydat)]
+    .np_require_paired_rows(txdat, tydat, "txdat", "tydat")
+    if (bws$method == "kleinspady") {
+      .npindex_check_binary_response(tydat, "npindex() 'tydat'")
+      if (!no.ey)
+        .npindex_check_binary_response(eydat, "npindex() 'eydat'")
+    }
+
+    tydat <- if (is.factor(tydat)) {
+      if (any(bws$ydati$iord | bws$ydati$iuno))
+        .np_plreg_numeric_response(tydat, bws$ydati)
       else
-        as.double(tydat)
+        as.numeric(levels(tydat))[as.integer(tydat)]
+    } else as.double(tydat)
 
     if (!no.ex){
       exdat = toFrame(exdat)
 
-      if (! txdat %~% exdat )
+      if (is.null(design) && ! txdat %~% exdat )
         stop("'txdat' and 'exdat' are not similar data frames!")
 
       if (!no.ey){
@@ -472,12 +608,12 @@ npindex.sibandwidth <-
 
     txdat <- txdat[keep.rows,,drop = FALSE]
     tydat <- tydat[keep.rows]
+    if (no.ex && !no.ey)
+      eydat <- eydat[keep.rows]
 
     if (!no.ex){
       keep.eval <- rep_len(TRUE, nrow(exdat))
       eval.df <- data.frame(exdat)
-      if (!no.ey)
-        eval.df <- data.frame(eval.df, eydat)
       rows.omit <- attr(na.omit(eval.df), "na.action")
       if (length(rows.omit) > 0L)
         keep.eval[as.integer(rows.omit)] <- FALSE
@@ -490,21 +626,14 @@ npindex.sibandwidth <-
         eydat <- eydat[keep.eval]
     }
 
-    ## convert tydat, eydat to numeric, from a factor with levels from the y-data
+    ## Convert eydat to numeric, from a factor with levels from the y-data
     ## used during bandwidth selection.
-
-    if (is.factor(tydat)){
-      tydat <- adjustLevels(data.frame(tydat), bws$ydati)[,1]
-      tydat <- (bws$ydati$all.dlev[[1]])[as.integer(tydat)]
-    }
-    else
-      tydat <- as.double(tydat)
 
     if (no.ey)
       eydat <- double()
     else {
       if (is.factor(eydat)){
-        eydat <- adjustLevels(data.frame(eydat), bws$ydati)[,1]
+        eydat <- .np_regression_response_levels(data.frame(eydat), bws$ydati)[,1]
         eydat <- (bws$ydati$all.dlev[[1]])[as.integer(eydat)]
       }
       else
@@ -514,10 +643,11 @@ npindex.sibandwidth <-
     ## re-assign levels in training and evaluation data to ensure correct
     ## conversion to numeric type.
 
-    txdat <- adjustLevels(txdat, bws$xdati)
-
-    if (!no.ex)
-      exdat <- adjustLevels(exdat, bws$xdati)
+    if (is.null(design)) {
+      txdat <- adjustLevels(txdat, bws$xdati)
+      if (!no.ex)
+        exdat <- adjustLevels(exdat, bws$xdati)
+    }
 
     ## grab the evaluation data before it is converted to numeric
     if(no.ex)
@@ -528,6 +658,10 @@ npindex.sibandwidth <-
     ## put the unordered, ordered, and continuous data in their own objects
     ## data that is not a factor is continuous.
 
+    if (!is.null(design)) {
+      txdat <- .np_index_design_apply(design, txdat)
+      if (!no.ex) exdat <- .np_index_design_apply(design, exdat)
+    }
     txdat = toMatrix(txdat)
 
     if (!no.ex){
@@ -543,7 +677,8 @@ npindex.sibandwidth <-
     if(no.ex) {
       index.eval <- index
       exdat <- txdat
-      eydat <- tydat
+      if (no.ey)
+        eydat <- tydat
     } else {
       index.eval <- as.vector(exdat %*% bws$beta)
     }
@@ -556,7 +691,7 @@ npindex.sibandwidth <-
       identical(regtype, "lc") &&
       identical(bws$type, "fixed") &&
       !gradients &&
-      !errors &&
+      !se &&
       !residuals &&
       (no.ex || (!no.ex && no.ey)) &&
       (fit.progress.allow || fit.progress.handoff)
@@ -567,7 +702,8 @@ npindex.sibandwidth <-
       regtype = regtype,
       warn.glp.gradient = FALSE
     )
-    npreg.idx.args <- c(npreg.idx.args, .np_index_kernel_args(bws))
+    kernel.args <- .np_index_kernel_args(bws)
+    npreg.idx.args <- c(npreg.idx.args, kernel.args)
     if (identical(regtype, "lp")) {
       npreg.idx.args$basis <- spec$basis.engine
       npreg.idx.args$degree <- spec$degree.engine
@@ -583,7 +719,29 @@ npindex.sibandwidth <-
     } else {
       NULL
     }
-    next_npreg_fit_args <- function(exdat = NULL, gradients = FALSE) {
+    empty.state <- new.env(hash = FALSE, parent = emptyenv())
+    empty.state$rows <- NULL
+    empty.state$bootstrap <- NULL
+    record_empty_rows <- function(value, bootstrap = FALSE) {
+      key <- if (bootstrap) "bootstrap" else "rows"
+      empty.state[[key]] <- .npreg_merge_empty_rows(
+        empty.state[[key]], attr(value, ".np.empty.rows", exact = TRUE))
+      attr(value, ".np.empty.rows") <- NULL
+      value
+    }
+    run_npreg_fit <- function(args, bootstrap = FALSE) {
+      fit <- do.call(npreg, args)
+      fit <- .np_index_fit_rows(fit, args$txdat, args$exdat, bws,
+        allow.empty.rows = identical(args$.np.require.complete, FALSE))
+      record_empty_rows(fit, bootstrap)
+    }
+    next_npreg_fit_args <- function(exdat = NULL, gradients = FALSE, se = FALSE,
+                                   gradient.errors = NULL) {
+      require.complete <- no.ex || is.null(exdat)
+      # GNN training statistics must use the same evaluation-row convention
+      # whether or not the public call also requests external predictions.
+      if (is.null(exdat) && identical(bws$type, "generalized_nn"))
+        exdat <- index.df
       args <- if (identical(regtype, "lp") || lc.fixed.progress.route) {
         c(
           list(
@@ -606,13 +764,18 @@ npindex.sibandwidth <-
         args$.np_fit_progress_handoff <- TRUE
         fit.progress.handoff <<- FALSE
       }
+      args$se <- se
+      if (!is.null(gradient.errors))
+        args[[".np.gradient.errors"]] <- gradient.errors
+      args$.np.require.complete <- require.complete
+      args$.np.defer.empty.rows <- TRUE
       args
     }
 
     fast.largeh <- FALSE
     fast.largeh.eval.mean <- NULL
     fast.largeh.train.mean <- NULL
-    if (identical(regtype, "lc") && !gradients && !errors && !lc.fixed.progress.route &&
+    if (identical(regtype, "lc") && !gradients && !se && !lc.fixed.progress.route &&
         identical(bws$ckerbound, "none")) {
       gate.index <- if (no.ex) index else c(index, index.eval)
       fast.largeh <- .npindexbw_fast_eligible(
@@ -622,7 +785,7 @@ npindex.sibandwidth <-
       )
       if (fast.largeh) {
         fast.largeh.eval.mean <- {
-          tww.fast <- npksum(
+          tww.fast <- .np_retained_uniform_constructor(.np_index_kernel_sum,
             txdat = index.df,
             tydat = as.matrix(data.frame(tydat, 1)),
             weights = as.matrix(data.frame(tydat, 1)),
@@ -631,14 +794,17 @@ npindex.sibandwidth <-
             bwtype = bws$type,
             ckertype = bws$ckertype,
             ckerorder = bws$ckerorder,
-            ckerbound = bws$ckerbound
+            ckerbound = bws$ckerbound,
+            ckerlb = kernel.args$ckerlb,
+            ckerub = kernel.args$ckerub
           )$ksum
-          as.double(tww.fast[1, 2, 1L] / NZD(tww.fast[2, 2, 1L]))
+          as.double(.np_index_normalized_mean(
+            tww.fast, index.df, index.eval.df[1L, , drop = FALSE], bws))
         }
 
         if (!no.ex && (no.ey || residuals)) {
           fast.largeh.train.mean <- {
-            tww.fast <- npksum(
+            tww.fast <- .np_retained_uniform_constructor(.np_index_kernel_sum,
               txdat = index.df,
               tydat = as.matrix(data.frame(tydat, 1)),
               weights = as.matrix(data.frame(tydat, 1)),
@@ -647,9 +813,12 @@ npindex.sibandwidth <-
               bwtype = bws$type,
               ckertype = bws$ckertype,
               ckerorder = bws$ckerorder,
-              ckerbound = bws$ckerbound
+              ckerbound = bws$ckerbound,
+              ckerlb = kernel.args$ckerlb,
+              ckerub = kernel.args$ckerub
             )$ksum
-            as.double(tww.fast[1, 2, 1L] / NZD(tww.fast[2, 2, 1L]))
+            as.double(.np_index_normalized_mean(
+              tww.fast, index.df, index.df[1L, , drop = FALSE], bws))
           }
         }
       }
@@ -657,12 +826,34 @@ npindex.sibandwidth <-
 
     ## Next, if no gradients are requested, use (faster) npksum
 
-    if(gradients==FALSE) {
+    if (asymptotic.se) {
+      model <- run_npreg_fit(next_npreg_fit_args(
+        exdat = index.eval.df,
+        gradients = gradients || (no.ex && ncol(txdat) > 1L), se = TRUE,
+        gradient.errors = gradients
+      ))
+      index.mean <- model$mean
+      uncertainty <- .np_index_asymptotic_outputs(model, bws$beta, gradients)
+      index.merr <- uncertainty$merr
+      if (gradients) {
+        index.grad <- as.matrix(model$grad) %*% t(as.vector(bws$beta))
+        index.gerr <- uncertainty$gerr
+      }
+      if (no.ex) {
+        index.tgrad <- model$grad
+      } else if (ncol(txdat) > 1L || no.ey || residuals) {
+        training <- run_npreg_fit(next_npreg_fit_args(
+          gradients = ncol(txdat) > 1L
+        ))
+        index.tmean <- training$mean
+        index.tgrad <- training$grad
+      }
+    } else if(gradients==FALSE) {
       if (identical(regtype, "lc") && !lc.fixed.progress.route) {
         if (fast.largeh) {
           index.mean <- rep.int(fast.largeh.eval.mean, length(index.eval))
         } else {
-          tww <- npksum(txdat=index.df,
+          tww <- .np_retained_uniform_constructor(.np_index_kernel_sum,txdat=index.df,
                         tydat=as.matrix(data.frame(tydat,1)),
                         weights=as.matrix(data.frame(tydat,1)),
                         exdat=index.eval.df,
@@ -670,21 +861,24 @@ npindex.sibandwidth <-
                         bwtype = bws$type,
                         ckertype = bws$ckertype,
                         ckerorder = bws$ckerorder,
-                        ckerbound = bws$ckerbound)$ksum
+                        ckerbound = bws$ckerbound,
+                        ckerlb = kernel.args$ckerlb,
+                        ckerub = kernel.args$ckerub)$ksum
 
-          index.mean <- tww[1,2,]/NZD(tww[2,2,])
+          index.mean <- record_empty_rows(.np_index_normalized_mean(
+            tww, index.df, index.eval.df, bws, allow.empty.rows = !no.ex))
         }
 
         if (!no.ex && (no.ey || residuals)) {
 
-          ## want to evaluate on training data for in sample errors even
+          ## want to evaluate on training data for in sample se even
           ## if evaluation x's are different from training but no y's
           ## are specified
 
           if (fast.largeh) {
             index.tmean <- rep.int(fast.largeh.train.mean, length(tydat))
           } else {
-            tww <- npksum(txdat=index.df,
+            tww <- .np_retained_uniform_constructor(.np_index_kernel_sum,txdat=index.df,
                           tydat=as.matrix(data.frame(tydat,1)),
                           weights=as.matrix(data.frame(tydat,1)),
                           exdat=index.df,
@@ -692,21 +886,23 @@ npindex.sibandwidth <-
                           bwtype = bws$type,
                           ckertype = bws$ckertype,
                           ckerorder = bws$ckerorder,
-                          ckerbound = bws$ckerbound)$ksum
+                          ckerbound = bws$ckerbound,
+                          ckerlb = kernel.args$ckerlb,
+                          ckerub = kernel.args$ckerub)$ksum
 
-            index.tmean <- tww[1,2,]/NZD(tww[2,2,])
+            index.tmean <- .np_index_normalized_mean(tww, index.df, index.df, bws)
           }
 
         }
       } else {
-        model <- do.call(npreg, next_npreg_fit_args(
+        model <- run_npreg_fit(next_npreg_fit_args(
           exdat = index.eval.df,
           gradients = FALSE
         ))
         index.mean <- model$mean
 
         if (!no.ex && (no.ey || residuals)) {
-          model <- do.call(npreg, next_npreg_fit_args(
+          model <- run_npreg_fit(next_npreg_fit_args(
             gradients = FALSE
           ))
           index.tmean <- model$mean
@@ -714,7 +910,7 @@ npindex.sibandwidth <-
       }
 
     } else if(gradients==TRUE) {
-      model <- do.call(npreg, next_npreg_fit_args(
+      model <- run_npreg_fit(next_npreg_fit_args(
         exdat = index.eval.df,
         gradients = TRUE
       ))
@@ -729,12 +925,12 @@ npindex.sibandwidth <-
 
       if (!no.ex) {
 
-        ## Want to evaluate on training data for in sample errors even
+        ## Want to evaluate on training data for in sample se even
         ## if evaluation x's are different from training but no y's
         ## are specified. Also, needed for variance-covariance matrix
         ## (uses on ly the training data)
 
-        model <- do.call(npreg, next_npreg_fit_args(
+        model <- run_npreg_fit(next_npreg_fit_args(
           gradients = TRUE
         ))
 
@@ -757,19 +953,31 @@ npindex.sibandwidth <-
     ## 5/3/2010, jracine, added vcov methods... thanks to Juan Carlos
     ## Escanciano <jescanci@indiana.edu> for pushing me on this for
     ## the Klein and Spady estimator... use index.tmean, index.tgrad
-    ## (training X) - need gradients == TRUE in order for this to
-    ## work.
+    ## (training X). Coefficient inference needs the training derivative,
+    ## independently of whether public gradients are requested.
 
-    if (bws$method == "ichimura" && gradients) {
+    if (se && ncol(txdat) > 1L) {
+      .np_progress_activity_step(fit.activity, detail = "coefficient covariance")
+      if (!asymptotic.se && !gradients) {
+        training <- run_npreg_fit(next_npreg_fit_args(gradients = TRUE))
+        covariance.mean <- training$mean
+        covariance.grad <- as.matrix(training$grad)
+      } else {
+        covariance.mean <- index.tmean
+        covariance.grad <- as.matrix(index.tgrad)
+      }
+    }
+    if (se) {
+      Bvcov <- matrix(0, ncol(txdat), ncol(txdat),
+                      dimnames = list(bws$xnames, bws$xnames))
+    }
+
+    if (bws$method == "ichimura" && se && ncol(txdat) > 1L) {
 
       ## First row & column of covariance matrix `Bvcov' are zero due
       ## to identification condition that beta_1=1. Note the n n^{-1}
       ## n in V^{-1}\Sigma V^{-1} and the \sqrt{n} in the
       ## normalization of \hat\beta will cancel.
-
-      q <- ncol(txdat)
-      Bvcov <- matrix(0,q,q)
-      dimnames(Bvcov) <- list(bws$xnames,bws$xnames)
 
       ## Use the weight matrix so we can compute all expectations with
       ## only one call to npksum (the kernel arguments x\beta do not
@@ -777,21 +985,16 @@ npindex.sibandwidth <-
 
       W <- txdat[,-1,drop=FALSE]
 
-      tyindex <- npksum(txdat = index.df,
-                        tydat = rep(1,length(tydat)),
-                        weights = W,
+      moments <- .np_retained_uniform_constructor(.np_index_kernel_moments,y = W, txdat = index.df,
                         bws = bws$bw,
                         bwtype = bws$type,
                         ckertype = bws$ckertype,
                         ckerorder = bws$ckerorder,
-                        ckerbound = bws$ckerbound)$ksum
-
-      tindex <- npksum(txdat = index.df,
-                       bws = bws$bw,
-                       bwtype = bws$type,
-                       ckertype = bws$ckertype,
-                       ckerorder = bws$ckerorder,
-                       ckerbound = bws$ckerbound)$ksum
+                        ckerbound = bws$ckerbound,
+                        ckerlb = kernel.args$ckerlb,
+                        ckerub = kernel.args$ckerub)
+      tyindex <- moments$numerator
+      tindex <- moments$denominator
 
       ## Need to trap case where k-1=1... ksum will return a 1 D
       ## array, need a 1 x n matrix
@@ -808,11 +1011,11 @@ npindex.sibandwidth <-
         xmex <- matrix(xmex,nrow=1,ncol=length(xmex))
       }
 
-      dg.db.xmex <- sweep(xmex, 2L, index.tgrad[,1L], `*`)
+      dg.db.xmex <- sweep(xmex, 2L, covariance.grad[,1L], `*`)
 
-      uhat <- tydat - index.tmean ## Training y and training mean
+      uhat <- tydat - covariance.mean
 
-      Vinv <- chol2inv(chol(dg.db.xmex%*%t(dg.db.xmex)))
+      Vinv <- .np_index_covariance_inverse(dg.db.xmex%*%t(dg.db.xmex))
 
       weighted.score <- sweep(dg.db.xmex, 2L, uhat, `*`)
 
@@ -824,24 +1027,31 @@ npindex.sibandwidth <-
 
       ## Now export this in an S3 method...
 
-    } else if (bws$method == "kleinspady" && gradients) {
+    } else if (bws$method == "kleinspady" && se && ncol(txdat) > 1L) {
 
       ## We divide by P(1-P) so test for P=0 or 1...
 
-      keep <- which(index.tmean < 1 & index.tmean > 0)
-      dg.db <- txdat[,-1,drop=FALSE]*index.tgrad[,1]
+      keep <- which(covariance.mean < 1 & covariance.mean > 0)
+      # The unknown link absorbs the conditional covariate mean. Use the
+      # centered semiparametric score, including for numeric-only designs.
+      W <- txdat[, -1L, drop = FALSE]
+      moments <- .np_retained_uniform_constructor(.np_index_kernel_moments,
+        y = W, txdat = index.df, bws = bws$bw, bwtype = bws$type,
+        ckertype = bws$ckertype, ckerorder = bws$ckerorder,
+        ckerbound = bws$ckerbound, ckerlb = kernel.args$ckerlb,
+        ckerub = kernel.args$ckerub)
+      centered <- W - t(sweep(moments$numerator, 2L,
+                              moments$denominator, `/`))
+      dg.db <- centered * covariance.grad[, 1L]
 
       ## First row & column of covariance matrix are zero due to
       ## identification condition that beta_1=1. Note the n^{-1} in
       ## the E and the \sqrt{n} in the normalization of \hat\beta will
       ## cancel.
 
-      q <- ncol(txdat)
-      Bvcov <- matrix(0,q,q)
-      Bvcov[-1,-1] <- chol2inv(chol(t(dg.db[keep,])%*%(dg.db[keep,]/(index.tmean[keep]*
-        (1-index.tmean[keep])))))
-
-      dimnames(Bvcov) <- list(bws$xnames,bws$xnames)
+      score <- dg.db[keep, , drop = FALSE]
+      Bvcov[-1,-1] <- .np_index_covariance_inverse(
+        t(score) %*% (score / (covariance.mean[keep] * (1-covariance.mean[keep]))))
 
       ## Now export this in an S3 method...
 
@@ -849,7 +1059,7 @@ npindex.sibandwidth <-
 
     if (gradients){
       boofun = function(data, indices){
-        rindex <- txdat[indices,] %*% bws$beta
+        rindex <- index[indices]
         rindex.df <- data.frame(index = as.vector(rindex))
         boot.args <- list(
           txdat = rindex.df,
@@ -860,26 +1070,30 @@ npindex.sibandwidth <-
           ckertype = bws$ckertype,
           ckerorder = bws$ckerorder,
           ckerbound = bws$ckerbound,
+          ckerlb = kernel.args$ckerlb,
+          ckerub = kernel.args$ckerub,
           regtype = regtype,
           gradients = TRUE,
-          warn.glp.gradient = FALSE
+          warn.glp.gradient = FALSE,
+          .np.require.complete = FALSE,
+          .np.defer.empty.rows = TRUE
         )
         if (identical(regtype, "lp")) {
           boot.args$basis <- spec$basis.engine
           boot.args$degree <- spec$degree.engine
           boot.args$bernstein.basis <- spec$bernstein.basis.engine
         }
-        model <- do.call(npreg, boot.args)[c('mean','grad')]
+        model <- run_npreg_fit(boot.args, bootstrap = TRUE)[c('mean','grad')]
         
         c(model$mean, model$grad, mean(model$grad))
       }
 
     } else {
       boofun = function(data, indices){
-        rindex = txdat[indices,] %*% bws$beta
+        rindex <- index[indices]
         if (identical(regtype, "lc")) {
           rindex.df <- data.frame(index = as.vector(rindex))
-          tww <- npksum(txdat = rindex.df,
+          tww <- .np_retained_uniform_constructor(.np_index_kernel_sum,txdat = rindex.df,
                         tydat = cbind(tydat[indices],1),
                         weights = cbind(tydat[indices],1),
                         exdat = index.eval.df,
@@ -887,9 +1101,13 @@ npindex.sibandwidth <-
                         bwtype = bws$type,
                         ckertype = bws$ckertype,
                         ckerorder = bws$ckerorder,
-                        ckerbound = bws$ckerbound)$ksum
+                        ckerbound = bws$ckerbound,
+                        ckerlb = kernel.args$ckerlb,
+                        ckerub = kernel.args$ckerub)$ksum
 
-          tww[1,2,]/NZD(tww[2,2,])
+          record_empty_rows(.np_index_normalized_mean(
+            tww, rindex.df, index.eval.df, bws, allow.empty.rows = TRUE),
+            bootstrap = TRUE)
         } else {
           rindex.df <- data.frame(index = as.vector(rindex))
           boot.args <- list(
@@ -903,25 +1121,38 @@ npindex.sibandwidth <-
             ckerbound = bws$ckerbound,
             regtype = regtype,
             gradients = FALSE,
-            warn.glp.gradient = FALSE
+            ckerlb = kernel.args$ckerlb,
+            ckerub = kernel.args$ckerub,
+            warn.glp.gradient = FALSE,
+            .np.require.complete = FALSE,
+            .np.defer.empty.rows = TRUE
           )
           if (identical(regtype, "lp")) {
             boot.args$basis <- spec$basis.engine
             boot.args$degree <- spec$degree.engine
             boot.args$bernstein.basis <- spec$bernstein.basis.engine
           }
-          do.call(npreg, boot.args)$mean
+          run_npreg_fit(boot.args, bootstrap = TRUE)$mean
         }
         
       }
     }
 
-    if (errors){
+    .np_progress_activity_end(fit.activity, completed = TRUE)
 
-      boot.out = suppressWarnings(boot(data.frame(txdat,tydat), boofun, R = boot.num))
+    if (bootstrap.se){
+
+      progress <- .np_bootstrap_progress_begin(B, "Bootstrapping single-index fit")
+      on.exit(.np_progress_activity_end(progress), add = TRUE)
+      boot.out = suppressWarnings(boot(data.frame(txdat,tydat),
+        .np_bootstrap_progress_statistic(progress, boofun), R = B))
+      .np_progress_activity_step(progress, B, "computing bootstrap standard errors")
 
       index.merr = matrix(data = 0, ncol = 1, nrow = length(index.eval))
       index.merr[,] = .np_plot_bootstrap_col_sds(boot.out$t[, seq_len(length(index.eval)), drop = FALSE])
+      missing.bootstrap <- which(empty.state$bootstrap == 1L)
+      if (length(missing.bootstrap))
+        index.merr[missing.bootstrap, ] <- NA_real_
 
       if (gradients) {
         index.gerr = matrix(data = 0, ncol = ncol(txdat), nrow = length(index.eval))
@@ -931,54 +1162,52 @@ npindex.sibandwidth <-
 
         for (i in seq_len(ncol(txdat)))
           index.gerr[,i] = abs(bws$beta[i])*index.gerr[,i]
+        if (length(missing.bootstrap))
+          index.gerr[missing.bootstrap, ] <- NA_real_
 
         index.mgerr = sd(boot.out$t[,2*length(index.eval)+1])
         index.mgerr = abs(bws$beta)*index.mgerr
       }
+      .np_progress_activity_end(progress, completed = TRUE)
     }
-    ## goodness of fit
+    ## Diagnostics refer to one explicitly identified sample.
+    diagnostics.sample <- if (!no.ey) "evaluation" else if (no.ex || identical(y.eval, FALSE))
+      "training" else "unavailable"
+    score.y <- if (!no.ey) eydat else if (diagnostics.sample == "training") tydat else numeric(0)
+    score.mean <- if (!no.ey) index.mean else if (diagnostics.sample == "training") index.tmean else numeric(0)
+    score.keep <- !is.na(score.y) & !is.na(score.mean)
+    score.y <- score.y[score.keep]
+    score.mean <- score.mean[score.keep]
+    diagnostics.nobs <- length(score.y)
+    if (!diagnostics.nobs) diagnostics.sample <- "unavailable"
 
-    if(bws$method == "ichimura") {
-      if (!no.ey) {
-        RSQ = RSQfunc(eydat,index.mean)
-        MSE = MSEfunc(eydat,index.mean)
-        MAE = MAEfunc(eydat,index.mean)
-        MAPE = MAPEfunc(eydat,index.mean)
-        CORR = if (fast.largeh) suppressWarnings(CORRfunc(eydat,index.mean)) else CORRfunc(eydat,index.mean)
-        SIGN = SIGNfunc(eydat,index.mean)
-      } else {
-        RSQ = RSQfunc(tydat,index.tmean)
-        MSE = MSEfunc(tydat,index.tmean)
-        MAE = MAEfunc(tydat,index.tmean)
-        MAPE = MAPEfunc(tydat,index.tmean)
-        CORR = if (fast.largeh) suppressWarnings(CORRfunc(tydat,index.tmean)) else CORRfunc(tydat,index.tmean)
-        SIGN = SIGNfunc(tydat,index.tmean)
+    if (bws$method == "ichimura") {
+      RSQ <- MSE <- MAE <- MAPE <- CORR <- SIGN <- NA_real_
+      if (diagnostics.nobs) {
+        RSQ <- RSQfunc(score.y, score.mean)
+        MSE <- MSEfunc(score.y, score.mean)
+        MAE <- MAEfunc(score.y, score.mean)
+        MAPE <- MAPEfunc(score.y, score.mean)
+        CORR <- if (fast.largeh) suppressWarnings(CORRfunc(score.y, score.mean)) else CORRfunc(score.y, score.mean)
+        SIGN <- SIGNfunc(score.y, score.mean)
       }
-      strgof = "xtra=c(RSQ,MSE,MAE,MAPE,CORR,SIGN),"
-      strres = (if (residuals) "resid = tydat - index.tmean," else "")
-    } else if(bws$method == "kleinspady") {
-      index.pred <- .np_index_ks_prediction(
-        if (!no.ey) index.mean else index.tmean
-      )
-
-      confusion.matrix <- .np_index_ks_confusion_matrix(
-        actual = if (!no.ey) eydat else tydat,
-        pred = index.pred
-      )
-
-      CCR.overall <- sum(diag(confusion.matrix))/sum(confusion.matrix)
-      CCR.byoutcome <- diag(confusion.matrix)/rowSums(confusion.matrix)
-
-      fit.mcfadden <- confusion.matrix/sum(confusion.matrix)
-
-      fit.mcfadden <- sum(diag(fit.mcfadden)) -
-        (sum(fit.mcfadden^2)-sum(diag(fit.mcfadden)^2))
-
-      strgof = "confusion.matrix = confusion.matrix, CCR.overall = CCR.overall,
-           CCR.byoutcome =  CCR.byoutcome, fit.mcfadden = fit.mcfadden,"
-      strres = ""
+    } else if (bws$method == "kleinspady") {
+      confusion.matrix <- CCR.overall <- CCR.byoutcome <- fit.mcfadden <- NA
+      if (diagnostics.nobs) {
+        index.pred <- .np_index_ks_prediction(score.mean)
+        confusion.matrix <- .np_index_ks_confusion_matrix(score.y, index.pred)
+        CCR.overall <- sum(diag(confusion.matrix))/sum(confusion.matrix)
+        CCR.byoutcome <- diag(confusion.matrix)/rowSums(confusion.matrix)
+        fit.mcfadden <- confusion.matrix/sum(confusion.matrix)
+        fit.mcfadden <- sum(diag(fit.mcfadden)) -
+          (sum(fit.mcfadden^2)-sum(diag(fit.mcfadden)^2))
+      }
     }
 
+    if (!is.null(design) && gradients) {
+      colnames(index.grad) <- bws$xnames
+      if (se) colnames(index.gerr) <- bws$xnames
+    }
     ev.args <- list(
       bws = bws,
       index = index.eval,
@@ -986,18 +1215,22 @@ npindex.sibandwidth <-
       ntrain = nrow(txdat),
       trainiseval = no.ex,
       residuals = residuals,
-      gradients = gradients
+      gradients = gradients,
+      se = se,
+      se.type = if (se) se.type else NULL
     )
-    if (errors)
+    if (se)
       ev.args$merr <- index.merr
+    if (se)
+      ev.args$betavcov <- Bvcov
     if (gradients) {
       ev.args$grad <- index.grad
       ev.args$mean.grad <- colMeans(index.grad)
-      ev.args$betavcov <- Bvcov
     }
-    if (errors && gradients) {
+    if (se && gradients) {
       ev.args$gerr <- index.gerr
-      ev.args$mean.gerr <- index.mgerr
+      if (bootstrap.se)
+        ev.args$mean.gerr <- index.mgerr
     }
     if (bws$method == "ichimura") {
       if (residuals)
@@ -1010,6 +1243,13 @@ npindex.sibandwidth <-
       ev.args$fit.mcfadden <- fit.mcfadden
     }
     ev <- do.call(singleindex, ev.args)
+    # Retain the training quantity when already computed, without another fit.
+    ev$training.MSE <- if (identical(bws$method, "ichimura") &&
+                          exists("index.tmean", inherits = FALSE))
+      MSEfunc(tydat, index.tmean) else NA_real_
+    ev$diagnostics.sample <- diagnostics.sample
+    ev$diagnostics.nobs <- diagnostics.nobs
+    ev$eval.rows.omit <- if (no.ex) integer(0) else which(!keep.eval)
     fit.elapsed <- proc.time()[3] - fit.start
     optim.time <- if (!is.null(bws$total.time) && is.finite(bws$total.time)) as.double(bws$total.time) else NA_real_
     total.time <- fit.elapsed + (if (is.na(optim.time)) 0.0 else optim.time)
@@ -1019,5 +1259,10 @@ npindex.sibandwidth <-
     ev$fit.time <- fit.elapsed
     ev$nomad.time <- if (!is.null(bws$nomad.time) && is.finite(bws$nomad.time)) as.double(bws$nomad.time) else NA_real_
     ev$powell.time <- if (!is.null(bws$powell.time) && is.finite(bws$powell.time)) as.double(bws$powell.time) else NA_real_
-    ev
+    .npreg_finish_empty_rows(ev,
+      .npreg_merge_empty_rows(empty.state$rows, empty.state$bootstrap),
+      omitted = if(no.ex) integer(0) else which(!keep.eval),
+      owner = if (is.null(empty.state$bootstrap)) "npindex" else
+        "npindex (including bootstrap draws)",
+      row.labels = if(no.ex) NULL else row.names(exdat))
   }

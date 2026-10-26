@@ -6,25 +6,28 @@
 
 npsymtest <- function(data = NULL,
                       method = c("integration","summation"),
-                      boot.num = 399,
+                      B = 399,
                       bw = NULL,
                       boot.method = c("iid", "geom"),
                       random.seed = 42,
                       ...) {
 
+  if (...length())
+    npRejectLegacyBootstrapCount(names(list(...)), "npsymtest")
+
   if(is.data.frame(data)) stop(" you must enter a data vector (not data frame)")
   if(is.null(data)) stop(" you must enter a data vector")
   if(ncol(data.frame(data)) != 1) stop(" data must have one dimension only")
-  if(boot.num < 9) stop(" number of bootstrap replications must be >= 9")
+  if(B < 9) stop(" number of bootstrap replications must be >= 9")
 
   boot.method <- match.arg(boot.method)
   method <- match.arg(method)
+  entropy.fast.gaussian <- .np_entropy_uses_default_fixed_gaussian(list(...))
 
   ## Save seed prior to setting
 
   seed.state <- .np_seed_enter(random.seed)
   on.exit(.np_seed_exit(seed.state, remove_if_absent = TRUE), add = TRUE)
-  .np_progress_note("Computing bandwidths")
 
   ## If of type ts convert to numeric to handle time series data
 
@@ -32,7 +35,7 @@ npsymtest <- function(data = NULL,
 
   ## Remove NAs
 
-  data <- na.omit(data)
+  data <- .np_entropy_complete_sample(data)
 
   ## Note - this function accepts numeric and factors/ordered,
   ## however, factors must be integers.
@@ -42,34 +45,17 @@ npsymtest <- function(data = NULL,
     ## so standardize numeric data - this affects nothing else.
     data <- (data-mean(data))/sd(data)
     data.rotate <- -(data-mean(data))+mean(data)
-    if(is.null(bw)) bw <- bw.SJ(data)
+    if(is.null(bw)) bw <- .np_progress_activity_run("Computing bandwidths", bw.SJ(data))
   } else {
-    if(is.ordered(data)) {
-      ## Rotate around the median, ordered case.
-      data.levels <- levels(data)
-      tmp <- as.numeric(data.matrix(data))
-      location <- median(sort(unique(tmp)))
-      data.rotate <- ordered(-(tmp-location)+location,levels=data.levels)
-    } else {
-      ## unordered case.
-      data.levels <- levels(data)
-      tmp <- as.numeric(data.matrix(data))
-      location <- median(sort(unique(tmp)))
-      data.rotate <- factor(-(tmp-location)+location,levels=data.levels)
-    }
+    data.rotate <- .np_entropy_reflect_factor(data)
     ## Optimal bandwidth for factor (unordered) used for both
     ## (plug-in).
-    if(is.null(bw)) {
-      n <- length(data)
-      c <- length(unique(data))
-      if(c <= 1) stop("data must contain at least two distinct factor levels")
-      xeval <- unique(data)
-      p <- fitted(npudens(tdat=data,edat=xeval,bws=0,...))
-      sum.Lambda3 <- c/(c-1)*sum(p*(1-p))
-      sum.Lambda2.minus.Lambda1.sq <- c^2/((c-1)^2)*sum(p*(1-p))
-      n.sum.Lambda1.sq <- n*sum(((1-c*p)/(c-1))^2)
-      bw <- sum.Lambda3/(sum.Lambda2.minus.Lambda1.sq+n.sum.Lambda1.sq)
-    }
+    support <- .np_entropy_factor_support(data, data.rotate)
+    data <- support$x
+    data.rotate <- support$y
+    discrete.evaluation <- support$evaluation
+    if(is.null(bw))
+      bw <- .np_entropy_discrete_plugin_bw(data, "data", ...)
   }
 	
   ##  Impose the null and generate a data of resampled statistics
@@ -78,9 +64,11 @@ npsymtest <- function(data = NULL,
     data.null <- c(data,data.rotate)
   } else {
     if(is.ordered(data)) {
-      data.null <- ordered(c(as.character(data),as.character(data.rotate)))
+      data.null <- ordered(c(as.character(data),as.character(data.rotate)),
+                           levels = levels(data))
     } else {
-      data.null <- factor(c(as.character(data),as.character(data.rotate)))
+      data.null <- factor(c(as.character(data),as.character(data.rotate)),
+                          levels = levels(data))
     }
   }
 
@@ -103,6 +91,9 @@ npsymtest <- function(data = NULL,
         ##  the evaluation points. We could also combine both data and
         ##  data.rotate for the evaluation points if we chose (would
         ##  this improve power?).
+        if(entropy.fast.gaussian) {
+          return(.np_entropy_symmetric_gaussian_summation(data, bw))
+        }
         f.data <- fitted(npudens(tdat=data,edat=data,bws=bw,...))
         f.data.rotate <- fitted(npudens(tdat=data.rotate,edat=data,bws=bw,...))
         ## In summation version we divide densities which can lead to
@@ -118,28 +109,29 @@ npsymtest <- function(data = NULL,
         return(0.5*mean((1-sqrt(summand))**2))
       } else {
         ## Integration version
-        h <- function(x,data,data.rotate) {
-          f.data <- fitted(npudens(tdat=data,edat=x,bws=bw,...))
-          f.data.rotate <- fitted(npudens(tdat=data.rotate,edat=x,bws=bw,...))
-          return(0.5*(sqrt(f.data)-sqrt(f.data.rotate))**2)
+        if(entropy.fast.gaussian) {
+          return(.np_entropy_symmetric_gaussian_integral(data, bw))
+        } else {
+          h <- function(x,data,data.rotate) {
+            f.data <- fitted(npudens(tdat=data,edat=x,bws=bw,...))
+            f.data.rotate <- fitted(npudens(tdat=data.rotate,edat=x,bws=bw,...))
+            return(0.5*(sqrt(f.data)-sqrt(f.data.rotate))**2)
+          }
+          return.integrate <- integrate(h,-Inf,Inf,subdivisions=1e+05,stop.on.error=FALSE,data=data,data.rotate=data.rotate)
+          if(return.integrate$message != "OK") .np_warning(return.integrate$message)
+          return(return.integrate$value)
         }
-        return.integrate <- integrate(h,-Inf,Inf,subdivisions=1e+05,stop.on.error=FALSE,data=data,data.rotate=data.rotate)
-        if(return.integrate$message != "OK") .np_warning(return.integrate$message)
-        return(return.integrate$value)
       }
     } else {
-      xeval <- unique(data)
-      p.data <- fitted(npudens(tdat=data,edat=xeval,bws=bw,...))
-      p.data.rotate <- fitted(npudens(tdat=data.rotate,edat=xeval,bws=bw,...))   
-      ## Sum the information function over the unique probabilities and
-      ## return.
-      return(sum(0.5*(sqrt(p.data)-sqrt(p.data.rotate))**2))
+      return(.np_entropy_discrete_distance(
+        data, data.rotate, bw, bw, discrete.evaluation, ...))
     }
   }
   
   ## Compute the test statistic
 
-  test.stat <- Srho.sym(data,data.rotate,bw,method=method)
+  test.stat <- .np_progress_activity_run("Computing entropy statistic",
+    Srho.sym(data,data.rotate,bw,method=method))
 
   ## Function to be fed to boot - accepts data that gets
   ## permuted/rearranged to define resampled data. The sole difference
@@ -147,8 +139,9 @@ npsymtest <- function(data = NULL,
   ## arguments.
 
   boot.state <- new.env(parent = emptyenv())
-  boot.state$counter <- 0L
-  boot.state$progress <- .np_progress_begin("Bootstrap replications", total = boot.num, surface = "bootstrap")
+  boot.state$counter <- -1L
+  boot.state$progress <- .np_progress_activity_begin(B, "Bootstrap replications", detail = NULL)
+  on.exit(.np_progress_activity_end(boot.state$progress), add = TRUE)
 
   ## Function to be fed to tsboot - accepts a vector of integers
   ## corresponding to all observations in the sample (1,2,...) that
@@ -156,26 +149,15 @@ npsymtest <- function(data = NULL,
 
 	boot.fun <- function(ii,data.null,bw) {
     boot.state$counter <- boot.state$counter + 1L
-    boot.state$progress <- .np_progress_step(boot.state$progress, done = boot.state$counter)
     null.sample1 <- data.null[ii]
     if(is.numeric(data.null)) {
       null.sample2 <- -(null.sample1-mean(null.sample1))+mean(null.sample1)
     } else {
-      if(is.ordered(data)) {
-        ## Rotate around the median, ordered case
-        null.sample1.levels <- levels(null.sample1)
-        tmp <- as.numeric(data.matrix(null.sample1))
-        location <- median(sort(unique(tmp)))
-        null.sample2 <- ordered(-(tmp-location)+location,levels=data.levels)
-      } else {
-        ## unordered case
-        null.sample1.levels <- levels(null.sample1)
-        tmp <- as.numeric(data.matrix(null.sample1))
-        location <- median(sort(unique(tmp)))
-        null.sample2 <- factor(-(tmp-location)+location,levels=data.levels)
-      }
+      null.sample2 <- .np_entropy_reflect_factor(null.sample1)
     }
-    return(Srho.sym(null.sample1,null.sample2,bw,method=method))
+    value <- Srho.sym(null.sample1,null.sample2,bw,method=method)
+    .np_progress_activity_step(boot.state$progress, done = boot.state$counter)
+    value
 	}
 
   ## Need to bootstrap integers for data.null to accommodate both
@@ -191,14 +173,8 @@ npsymtest <- function(data = NULL,
     ## bootstrap with a block length of 1 which is presumed to
     ## generate an iid bootstrap.
 
-    resampled.stat <- tsboot(tseries = tseries.idx,
-                             statistic = boot.fun,
-                             R = boot.num,
-                             n.sim = length(data),
-                             l = 1,
-                             sim = "fixed",
-                             data.null = data.null,
-                             bw = bw)$t
+    boot.blocklen <- 1L
+    boot.sim <- "fixed"
 
   } else {
 
@@ -209,20 +185,37 @@ npsymtest <- function(data = NULL,
       boot.blocklen <- b.star(as.numeric(data.matrix(data)),round=TRUE)[1,1]
     }
 
-    resampled.stat <- tsboot(tseries = tseries.idx,
-                             statistic = boot.fun,
-                             R = boot.num,
-                             n.sim = length(data),
-                             l = boot.blocklen,
-                             sim = "geom",
-                             data.null = data.null,
-                             bw = bw)$t
+    boot.sim <- "geom"
 
   }
 
-  boot.state$progress <- .np_progress_end(boot.state$progress)
+  if (is.numeric(data) && method == "summation" &&
+      entropy.fast.gaussian) {
+    bootstrap.result <- .np_entropy_symmetric_summation_bootstrap(
+      data.null = data.null,
+      sample.size = length(data),
+      bandwidth = bw,
+      boot.num = B,
+      blocklen = boot.blocklen,
+      sim = boot.sim,
+      progress = boot.state$progress
+    )
+    resampled.stat <- matrix(bootstrap.result$values, ncol = 1L)
+    boot.state$progress <- bootstrap.result$progress
+  } else {
+    resampled.stat <- tsboot(tseries = tseries.idx,
+                             statistic = boot.fun,
+                             R = B,
+                             n.sim = length(data),
+                             l = boot.blocklen,
+                             sim = boot.sim,
+                             data.null = data.null,
+                             bw = bw)$t
+  }
 
-  p.value <- mean(resampled.stat > test.stat)
+  .np_progress_activity_end(boot.state$progress, completed = TRUE)
+
+  p.value <- .np_bootstrap_upper_tail_pvalue(resampled.stat, test.stat)
 
   ## Restore seed
 
@@ -231,7 +224,7 @@ npsymtest <- function(data = NULL,
   symtest(Srho = test.stat,
           Srho.bootstrap = resampled.stat,
           P = p.value,
-          boot.num = boot.num,
+          boot.num = B,
           data.rotate = data.rotate,
           bw = bw)
 

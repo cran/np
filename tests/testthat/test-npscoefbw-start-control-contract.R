@@ -3,6 +3,13 @@ npscoefbw_scbandwidth <- getFromNamespace("npscoefbw.scbandwidth", "np")
 npscoefbw_start_controls <- getFromNamespace(".npscoefbw_start_controls", "np")
 npscoef_default_start_bandwidth <- getFromNamespace(".npscoef_default_start_bandwidth", "np")
 npscoef_random_start_bandwidth <- getFromNamespace(".npscoef_random_start_bandwidth", "np")
+npscoef_nn_candidate_bandwidth <- getFromNamespace(".npscoef_nn_candidate_bandwidth", "np")
+npscoef_candidate_is_admissible <- getFromNamespace(".npscoef_candidate_is_admissible", "np")
+np_round_half_to_even <- getFromNamespace(".np_round_half_to_even", "np")
+validate_bandwidth <- getFromNamespace("validateBandwidthTF", "np")
+npscoef_raw_objective_valid <- getFromNamespace(".npscoefbw_raw_objective_valid", "np")
+npscoef_assert_training_radius <- getFromNamespace(".npscoef_nn_assert_training_radius", "np")
+semihat_regbw_args <- getFromNamespace(".np_semihat_make_regbw_args", "np")
 
 test_that("npscoefbw surfaces fixed-start controls as formal arguments", {
   expect_true(all(c("scale.factor.init.lower", "scale.factor.init.upper", "scale.factor.init", "lbd.init", "hbd.init", "dfac.init") %in%
@@ -126,4 +133,286 @@ test_that("npscoefbw nearest-neighbor start helpers ignore fixed-start controls"
   )
   set.seed(20260405)
   expect_equal(got, npscoef_random_start_bandwidth(param = param, bwtype = "generalized_nn", nobs = 80L))
+})
+
+test_that("npscoefbw nearest-neighbor helpers preserve categorical coordinates", {
+  param <- c(0.25, 8, 0.4)
+  icon <- c(FALSE, TRUE, FALSE)
+  iord <- c(FALSE, FALSE, TRUE)
+  iuno <- c(TRUE, FALSE, FALSE)
+  controls <- npscoefbw_start_controls()
+
+  expect_equal(
+    npscoef_nn_candidate_bandwidth(
+      param = c(0.25, 11.6, 0.4),
+      bwtype = "generalized_nn",
+      nobs = 80L,
+      icon = icon
+    ),
+    c(0.25, 12, 0.4)
+  )
+  expect_equal(
+    npscoef_default_start_bandwidth(
+      param = param,
+      bwtype = "generalized_nn",
+      nobs = 80L,
+      start.controls = controls,
+      icon = icon,
+      iord = iord,
+      iuno = iuno
+    ),
+    c(0.25, 9, 0.4)
+  )
+
+  set.seed(20260902L)
+  got <- npscoef_random_start_bandwidth(
+    param = param,
+    bwtype = "adaptive_nn",
+    nobs = 80L,
+    start.controls = controls,
+    icon = icon,
+    iord = iord,
+    iuno = iuno
+  )
+  set.seed(20260902L)
+  continuous <- np_round_half_to_even(runif(1L, min = 2, max = 79))
+  categorical <- c(0.25, 0.4) *
+    runif(2L, min = controls$lbd.init, max = controls$hbd.init)
+  expect_equal(got, c(categorical[1L], continuous, categorical[2L]))
+
+  expect_false(npscoef_candidate_is_admissible(
+    param = c(0.6, 12, 0.4),
+    bwtype = "generalized_nn",
+    nobs = 80L,
+    upper = c(0.5, Inf, 0.5),
+    icon = icon
+  ))
+
+  zdat <- data.frame(
+    u = factor(rep(c("a", "b"), 40L)),
+    x = seq_len(80L),
+    o = ordered(rep(c("low", "high"), each = 40L))
+  )
+  manual <- npscoefbw(
+    xdat = data.frame(w = seq_len(80L)),
+    ydat = seq_len(80L),
+    zdat = zdat,
+    bws = c(0.25, 12, 0.4),
+    bandwidth.compute = FALSE,
+    bwtype = "generalized_nn"
+  )
+  expect_equal(manual$bw, c(0.25, 12, 0.4))
+  helper.args <- semihat_regbw_args(
+    source = manual,
+    xdat = zdat,
+    ydat = seq_len(80L),
+    bw = manual$bw
+  )
+  expect_length(helper.args$ckerlb, ncol(zdat))
+  expect_length(helper.args$ckerub, ncol(zdat))
+})
+
+test_that("npscoefbw NN radius admission uses exact training multiplicities", {
+  zdat <- data.frame(x = c(0, 0, 0, 1, 2), u = factor(c("a", "b", "a", "b", "a")))
+  invalid <- list(type = "generalized_nn", icon = c(TRUE, FALSE), bw = c(2, 0.25))
+  valid <- invalid
+  valid$bw[[1L]] <- 3
+
+  condition <- tryCatch(
+    npscoef_assert_training_radius(invalid, zdat, "synthetic npscoef owner"),
+    np_nn_candidate_invalid = identity
+  )
+  expect_s3_class(condition, "np_nn_candidate_invalid")
+  expect_identical(condition$owner, "synthetic npscoef owner")
+  expect_true(npscoef_assert_training_radius(valid, zdat, "synthetic npscoef owner"))
+
+  penalty <- sqrt(.Machine$double.xmax)
+  expect_true(npscoef_raw_objective_valid(1, penalty))
+  expect_false(npscoef_raw_objective_valid(penalty, penalty))
+  expect_false(npscoef_raw_objective_valid(Inf, penalty))
+})
+
+test_that("npscoefbw mixed generalized-NN search crosses a zero-radius plateau", {
+  old <- options(np.messages = FALSE)
+  on.exit(options(old), add = TRUE)
+  data("wage1", package = "np")
+
+  bw <- npscoefbw(
+    lwage ~ numdep + smsa |
+      married + female + nonwhite + educ + exper + tenure,
+    data = wage1,
+    bwtype = "generalized_nn",
+    regtype = "lc",
+    nmulti = 1L,
+    optim.maxattempts = 1L,
+    optim.maxit = 120L,
+    powell.remin = FALSE,
+    random.seed = 2026090201L
+  )
+
+  expect_true(is.finite(bw$fval) && bw$fval < sqrt(.Machine$double.xmax))
+  expect_true(all(bw$bw[bw$icon] >= 2L))
+  expect_identical(bw$bw[bw$icon], as.double(as.integer(bw$bw[bw$icon])))
+  expect_true(validate_bandwidth(bw))
+})
+
+test_that("npscoefbw NN NOMAD recovery preserves the actual configured start", {
+  skip_if_not_installed("crs")
+  old <- options(np.messages = FALSE,
+                 np.nomad.degree.start.policy = "low_first_full_random")
+  on.exit(options(old), add = TRUE)
+
+  n <- 24L
+  xdat <- data.frame(x = seq_len(n) / n)
+  zdat <- data.frame(
+    u = factor(rep(c("a", "b"), n / 2L)),
+    z = c(rep(0, 16L), seq_len(8L))
+  )
+  y <- 1 + xdat$x + 0.2 * zdat$z + sin(seq_len(n)) / 10
+  original.search <- getFromNamespace(".np_nomad_search", "np")
+
+  for (bwtype in c("generalized_nn", "adaptive_nn"))
+    for (engine in c("nomad", "nomad+powell")) {
+    expect_error(
+      npscoefbw(
+        xdat = xdat,
+        ydat = y,
+        zdat = zdat,
+        bws = c(0.25, 5),
+        bwtype = bwtype,
+        nomad = TRUE,
+        search.engine = engine,
+        degree.max = 1L,
+        nmulti = 1L,
+        nomad.opts = list(MAX_BB_EVAL = 1L)
+      ),
+      "npscoefbw NOMAD degree search did not return a raw-valid solution",
+      fixed = TRUE
+    )
+    bw <- testthat::with_mocked_bindings(
+      npscoefbw(
+        xdat = xdat,
+        ydat = y,
+        zdat = zdat,
+        bwtype = bwtype,
+        nomad = TRUE,
+        search.engine = engine,
+        degree.max = 1L,
+        nmulti = 1L,
+        nomad.opts = list(MAX_BB_EVAL = 1L)
+      ),
+      .np_nomad_search = function(...) {
+        search.args <- list(...)
+        expect_true(search.args$handoff_before_build)
+        invalid.point <- search.args$x0
+        invalid.point[1L] <- 1
+        condition <- tryCatch(
+          search.args$eval_fun(invalid.point),
+          error = identity
+        )
+        expect_s3_class(condition, "np_nn_candidate_invalid")
+        do.call(original.search, search.args)
+      },
+      .package = "np"
+    )
+    starts <- bw$degree.search$restart.starts
+    expect_length(starts, 2L)
+    expect_gt(starts[[2L]][1L], starts[[1L]][1L])
+    expect_identical(starts[[2L]][-1L], starts[[1L]][-1L])
+    expect_identical(bw$degree.search$restart.degree.starts[[1L]], 0L)
+    expect_identical(bw$degree.search$restart.degree.starts[[2L]], 0L)
+    expect_false(bw$degree.search$restart.start.info$user_supplied_start)
+    expect_false(bw$degree.search$certified)
+    expect_true(npscoef_raw_objective_valid(bw$fval))
+
+    ctx <- np:::.npscoefbw_nomad_context_prepare(xdat, y, zdat)
+    raw <- np:::.npscoefbw_nomad_eval_direct(ctx, bw)
+    expect_true(raw$raw.valid)
+    if (identical(engine, "nomad")) {
+      expect_identical(raw$objective, as.numeric(bw$fval))
+    } else {
+      expect_true(is.finite(bw$degree.search$powell.time))
+    }
+  }
+})
+
+test_that("npscoefbw invalid NN handoffs do not announce or enter Powell", {
+  skip_if_not_installed("crs")
+  old <- options(np.messages = TRUE)
+  on.exit(options(old), add = TRUE)
+  n <- 24L
+  xdat <- data.frame(x = seq_len(n) / n)
+  zdat <- data.frame(u = factor(rep(c("a", "b"), n / 2L)),
+                    z = c(rep(0, 16L), seq_len(8L)))
+  y <- 1 + xdat$x + 0.2 * zdat$z + sin(seq_len(n)) / 10
+  announced <- entered <- 0L
+  original.stage <- getFromNamespace(".np_nomad_progress_enter_powell", "np")
+  original.fixed <- getFromNamespace(".npscoefbw_run_fixed_degree", "np")
+  expect_error(testthat::with_mocked_bindings(
+    npscoefbw(xdat = xdat, ydat = y, zdat = zdat, bws = c(0.25, 5),
+               bwtype = "generalized_nn", nomad = TRUE,
+               search.engine = "nomad+powell", degree.max = 1L,
+               nmulti = 1L, nomad.opts = list(MAX_BB_EVAL = 1L)),
+    .np_progress_is_interactive = function() TRUE,
+    .np_nomad_progress_enter_powell = function(...) {
+      announced <<- announced + 1L
+      original.stage(...)
+    },
+    .npscoefbw_run_fixed_degree = function(...) {
+      entered <<- entered + 1L
+      original.fixed(...)
+    },
+    .package = "np"
+  ), "npscoefbw NOMAD degree search did not return a raw-valid solution", fixed = TRUE)
+  expect_identical(announced, 0L)
+  expect_identical(entered, 0L)
+})
+
+test_that("npscoefbw NOMAD raw evaluation propagates unrelated errors", {
+  skip_if_not_installed("crs")
+  old <- options(np.messages = FALSE)
+  on.exit(options(old), add = TRUE)
+  xdat <- data.frame(x = seq_len(12L))
+  zdat <- data.frame(z = seq_len(12L))
+  y <- xdat$x + sin(xdat$x)
+  bw <- npscoefbw(
+    xdat = xdat,
+    ydat = y,
+    zdat = zdat,
+    bws = 6,
+    bwtype = "generalized_nn",
+    regtype = "lp",
+    degree = 0L,
+    bandwidth.compute = FALSE
+  )
+  ctx <- np:::.npscoefbw_nomad_context_prepare(xdat, y, zdat)
+  expect_error(
+    testthat::with_mocked_bindings(
+      np:::.npscoefbw_nomad_eval_direct(ctx, bw),
+      .npscoef_npksum = function(...) stop("synthetic unrelated failure"),
+      .package = "np"
+    ),
+    "synthetic unrelated failure",
+    fixed = TRUE
+  )
+  expect_error(
+    testthat::with_mocked_bindings(
+      npscoefbw(
+        xdat = xdat,
+        ydat = y,
+        zdat = zdat,
+        bws = 6,
+        bwtype = "generalized_nn",
+        nomad = TRUE,
+        search.engine = "nomad",
+        degree.max = 1L,
+        nmulti = 1L,
+        nomad.opts = list(MAX_BB_EVAL = 1L)
+      ),
+      .npscoef_npksum = function(...) stop("synthetic unrelated failure"),
+      .package = "np"
+    ),
+    "synthetic unrelated failure",
+    fixed = TRUE
+  )
 })

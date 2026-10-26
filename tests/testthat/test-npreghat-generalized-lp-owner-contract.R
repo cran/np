@@ -337,3 +337,197 @@ test_that("tree-disabled higher-degree lp scalar apply routes through exact matr
   check_scalar_apply_contract(degree = c(2L, 2L), s = c(0L, 0L))
   check_scalar_apply_contract(degree = c(2L, 2L), s = c(1L, 0L))
 })
+
+test_that("public LP mean matrices use the typed native capability", {
+  candidate <- getFromNamespace(".npreghat_native_matrix_candidate", "np")
+  has_extended_nn <- getFromNamespace("npRegressionHasExtendedNn", "np")
+  native_matrix <- getFromNamespace(
+    ".npreghat_exact_lp_matrix_from_regression_core", "np"
+  )
+
+  set.seed(20260816)
+  n <- 42L
+  x <- data.frame(x = sort(runif(n, -1, 1)))
+  y <- sin(pi * x$x) + seq_len(n) / 1000
+
+  make_bw <- function(type, bws, degree = 2L, kernel = "gaussian") {
+    npregbw(
+      xdat = x, ydat = y, bws = bws,
+      bandwidth.compute = FALSE, bwmethod = "cv.ls",
+      bwtype = type, bwscaling = FALSE,
+      regtype = "lp", degree = degree, degree.select = "manual",
+      basis = "glp", bernstein.basis = FALSE,
+      ckertype = kernel, ckerorder = 2L
+    )
+  }
+
+  bw.fixed <- make_bw("fixed", 0.32)
+  bw.gnn <- make_bw("generalized_nn", 9L)
+  bw.ann <- make_bw("adaptive_nn", 9L)
+
+  candidate_args <- function(bw, output = "matrix", s = 0L) list(
+    bws = bw, output = output, regtype.engine = "lp", degree = 2L,
+    basis = "glp", bernstein.basis = FALSE, s = as.integer(s),
+    leave.one.out = FALSE
+  )
+  expect_true(do.call(candidate, candidate_args(bw.fixed)))
+  expect_true(do.call(candidate, candidate_args(bw.gnn)))
+  expect_false(do.call(candidate, candidate_args(bw.ann)))
+
+  bw.extended <- bw.gnn
+  bw.extended$bw[bw.extended$icon] <- bw.extended$nobs + 1L
+  expect_true(has_extended_nn(bw.extended))
+  expect_false(do.call(candidate, candidate_args(bw.extended)))
+
+  expect_true(do.call(candidate, candidate_args(bw.fixed, output = "constraint")))
+  expect_false(do.call(candidate, candidate_args(bw.fixed, s = 1L)))
+
+  for (bw in list(bw.fixed, bw.gnn)) {
+    public <- npreghat(bws = bw, txdat = x, output = "matrix")
+    native <- native_matrix(
+      bw, txdat = x, degree = 2L, basis = "glp",
+      bernstein.basis = FALSE, s = 0L
+    )
+    expect_identical(as.vector(public), as.vector(native))
+    expect_identical(
+      attr(public, "ridge.used", exact = TRUE),
+      attr(native, "ridge.used", exact = TRUE)
+    )
+    expect_s3_class(public, "npreghat")
+    expect_identical(attr(public, "trainiseval", exact = TRUE), TRUE)
+    public.with.y <- npreghat(
+      bws = bw, txdat = x, y = y, output = "matrix"
+    )
+    expect_equal(
+      attr(public.with.y, "Hy", exact = TRUE),
+      as.vector(public.with.y %*% y),
+      tolerance = 0
+    )
+    constraint <- npreghat(
+      bws = bw, txdat = x, y = y, output = "constraint"
+    )
+    expect_identical(as.vector(constraint), as.vector(t(public) * y))
+  }
+
+  bw.low.rank <- make_bw(
+    "fixed", 0.04, degree = 3L, kernel = "epanechnikov"
+  )
+  H.low.rank <- npreghat(
+    bws = bw.low.rank, txdat = x, output = "matrix"
+  )
+  ridge.used <- attr(H.low.rank, "ridge.used", exact = TRUE)
+  expect_true(is.double(ridge.used))
+  expect_length(ridge.used, nrow(H.low.rank))
+  expect_true(all(is.finite(ridge.used)))
+  expect_true(all(ridge.used >= 0))
+  expect_gt(sum(ridge.used > 0), 0L)
+})
+
+test_that("public LP mean apply uses one canonical response owner for every RHS width", {
+  candidate <- getFromNamespace(
+    ".npreghat_native_lp_mean_apply_candidate", "np"
+  )
+  has_extended_nn <- getFromNamespace("npRegressionHasExtendedNn", "np")
+  native_apply <- getFromNamespace(
+    ".npreghat_exact_lp_apply_from_regression_core", "np"
+  )
+
+  set.seed(20260817)
+  n <- 42L
+  x <- data.frame(
+    x1 = runif(n, -1, 1),
+    x2 = runif(n, -1, 1),
+    u = factor(rep(c("a", "b", "c"), length.out = n))
+  )
+  y1 <- sin(pi * x$x1) + 0.2 * x$x2 + 0.1 * (x$u == "b")
+  y2 <- cos(pi * x$x2) - 0.3 * x$x1 + seq_len(n) / 1000
+  Y <- cbind(y1, y2)
+
+  make_bw <- function(type, bws) {
+    npregbw(
+      xdat = x, ydat = y1, bws = bws,
+      bandwidth.compute = FALSE, bwmethod = "cv.ls",
+      bwtype = type, bwscaling = FALSE,
+      regtype = "lp", degree = c(2L, 1L), degree.select = "manual",
+      basis = "glp", bernstein.basis = FALSE,
+      ckertype = "gaussian", ckerorder = 2L
+    )
+  }
+
+  bw.fixed <- make_bw("fixed", c(0.48, 0.52, 0.35))
+  bw.gnn <- make_bw("generalized_nn", c(11L, 11L, 0.35))
+  bw.ann <- make_bw("adaptive_nn", c(11L, 11L, 0.35))
+  candidate_args <- function(bw, y = Y, s = c(0L, 0L)) list(
+    bws = bw, output = "apply", y = y, regtype.engine = "lp",
+    degree = c(2L, 1L), basis = "glp", bernstein.basis = FALSE,
+    s = as.integer(s), leave.one.out = FALSE
+  )
+
+  expect_true(do.call(candidate, candidate_args(bw.fixed)))
+  expect_true(do.call(candidate, candidate_args(bw.gnn)))
+  expect_false(do.call(candidate, candidate_args(bw.ann)))
+  expect_true(do.call(
+    candidate,
+    candidate_args(bw.fixed, y = Y[, 1L, drop = FALSE])
+  ))
+  expect_false(do.call(candidate, candidate_args(bw.fixed, s = c(1L, 0L))))
+
+  bw.extended <- bw.gnn
+  bw.extended$bw[bw.extended$icon] <- bw.extended$nobs + 1L
+  expect_true(has_extended_nn(bw.extended))
+  expect_false(do.call(candidate, candidate_args(bw.extended)))
+
+  old.threshold <- getOption("np.npreghat.apply.memory.threshold.mb")
+  on.exit(
+    options(np.npreghat.apply.memory.threshold.mb = old.threshold),
+    add = TRUE
+  )
+  for (bw in list(bw.fixed, bw.gnn)) {
+    options(np.npreghat.apply.memory.threshold.mb = Inf)
+    public.inf <- npreghat(bws = bw, txdat = x, y = Y, output = "apply")
+    options(np.npreghat.apply.memory.threshold.mb = 0)
+    public.zero <- npreghat(bws = bw, txdat = x, y = Y, output = "apply")
+    native <- native_apply(
+      bw, txdat = x, y = Y, degree = c(2L, 1L), basis = "glp",
+      bernstein.basis = FALSE, s = c(0L, 0L), return.hat = FALSE
+    )
+
+    expect_identical(unname(public.inf), unname(native))
+    expect_identical(unname(public.zero), unname(native))
+    for (column in seq_len(ncol(Y))) {
+      fit <- npreg(
+        bws = bw, txdat = x, tydat = Y[, column],
+        warn.glp.gradient = FALSE
+      )$mean
+      expect_equal(public.inf[, column], fit, tolerance = 1e-10)
+    }
+  }
+
+  x.low <- data.frame(x = sort(runif(n, -1, 1)))
+  y.low <- sin(pi * x.low$x) + seq_len(n) / 1000
+  Y.low <- cbind(y.low, y.low + 0.25)
+  bw.low <- npregbw(
+    xdat = x.low, ydat = y.low, bws = 0.04,
+    bandwidth.compute = FALSE, bwmethod = "cv.ls",
+    bwtype = "fixed", bwscaling = FALSE,
+    regtype = "lp", degree = 3L, degree.select = "manual",
+    basis = "glp", bernstein.basis = FALSE,
+    ckertype = "epanechnikov", ckerorder = 2L
+  )
+  H.low <- npreghat(bws = bw.low, txdat = x.low, output = "matrix")
+  scalar.low <- npreghat(
+    bws = bw.low, txdat = x.low, y = y.low, output = "apply"
+  )
+  multi.low <- npreghat(
+    bws = bw.low, txdat = x.low, y = Y.low, output = "apply"
+  )
+  fit.low <- npreg(
+    bws = bw.low, txdat = x.low, tydat = y.low,
+    warn.glp.gradient = FALSE
+  )$mean
+  expect_gt(sum(attr(H.low, "ridge.used", exact = TRUE) > 0), 0L)
+  expect_identical(as.vector(scalar.low), as.vector(multi.low[, 1L]))
+  expect_equal(as.vector(scalar.low), as.vector(H.low %*% y.low),
+               tolerance = 1e-8)
+  expect_equal(as.vector(scalar.low), as.vector(fit.low), tolerance = 1e-8)
+})

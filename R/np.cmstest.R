@@ -1,3 +1,113 @@
+.np_cms_validate_model <- function(model, quantile = FALSE) {
+  if (is.null(model[["x", exact = TRUE]]) || is.null(model[["y", exact = TRUE]]) ||
+      (isTRUE(quantile) && is.null(model[["model", exact = TRUE]])))
+    stop(if (quantile)
+      "'model' must retain x, y and model components; fit rq with model = TRUE" else
+      "'model' must retain x and y components; fit lm or glm with x = TRUE and y = TRUE",
+      call. = FALSE)
+  invisible(NULL)
+}
+
+# Model methods restore excluded rows for user display. Kernel statistics and
+# bootstrap refits instead share the model's compact design/response sample.
+.np_cms_compact_model <- function(model, xdat, ydat) {
+  # Weighted rq retains a weighted x/y pair, but raw residuals/fitted values.
+  # Its retained frame owns the raw sample (division by weights loses zero rows).
+  if (inherits(model, "rq") && length(model[["weights", exact = TRUE]])) {
+    frame <- model[["model", exact = TRUE]]
+    model[["y"]] <- model.response(frame)
+    model[["x"]] <- model.matrix(model[["terms", exact = TRUE]], frame,
+                                contrasts.arg = model[["contrasts", exact = TRUE]])
+  }
+  n <- nrow(xdat)
+  if (NROW(model[["x", exact = TRUE]]) != n ||
+      length(model[["y", exact = TRUE]]) != n || length(ydat) != n ||
+      !isTRUE(all.equal(as.numeric(model[["y", exact = TRUE]]),
+                        as.numeric(ydat), tolerance = 0, check.attributes = FALSE)))
+    stop("model and test data must contain the same complete observations in the same order",
+         call. = FALSE)
+  # Copy-on-modify: never change the caller's object or independently omit
+  # elements from a residual vector. Keep the original na.action for reporting.
+  model[["na.action"]] <- NULL
+  if (length(residuals(model, type = "response")) != n || length(fitted(model)) != n)
+    stop("model residuals and fitted values must match its retained compact sample",
+         call. = FALSE)
+  model
+}
+
+# One refit owner for serial and collective bootstrap callers. GLM working
+# weights are not observation weights; only its retained prior weights apply.
+.np_cms_refit_residuals <- function(model, y.star, tau = NULL) {
+  if (!is.null(tau))
+    return(residuals(rq(y.star ~ model$x - 1, tau = tau,
+                        weights = model[["weights", exact = TRUE]]),
+                     type = "response"))
+  family <- model[["family", exact = TRUE]]
+  weights <- if (is.null(family)) model[["weights", exact = TRUE]] else
+    model[["prior.weights", exact = TRUE]]
+  residuals(glm(y.star ~ model$x - 1,
+                family = if (is.null(family)) gaussian() else family,
+                weights = weights, offset = model[["offset", exact = TRUE]]),
+            type = "response")
+}
+
+.np_cms_bootstrap_chunk_size <- function(n,
+                                         boot.num,
+                                         pivot,
+                                         byte.budget = 16 * 1024^2,
+                                         progress.cap = 16L) {
+  n <- as.double(n)[1L]
+  boot.num <- as.integer(boot.num)[1L]
+  matrices <- if (isTRUE(pivot)) 6 else 4
+  by.memory <- floor(byte.budget / (8 * n * matrices))
+  as.integer(max(1, min(boot.num, progress.cap, by.memory)))
+}
+
+.np_cms_statistics_batch <- function(xdat,
+                                     score,
+                                     bw,
+                                     fhat,
+                                     prodh,
+                                     pivot,
+                                     kernel.args = list()) {
+  score <- as.matrix(score)
+  n <- nrow(score)
+  fhat <- as.numeric(fhat)
+
+  ksum <- do.call(
+    npksum,
+    c(list(txdat = xdat,
+           tydat = score,
+           bws = if (inherits(bw, "kbandwidth")) bw else bw[["bw", exact = TRUE]],
+           leave.one.out = TRUE,
+           bandwidth.divide = TRUE),
+      kernel.args)
+  )[["ksum", exact = TRUE]]
+  dim(ksum) <- dim(score)
+  In <- colSums(score * ksum / fhat) / n^2
+
+  if (!isTRUE(pivot))
+    return(list(In = In))
+
+  score2 <- score^2
+  ksum2 <- do.call(
+    npksum,
+    c(list(txdat = xdat,
+           tydat = score2,
+           bws = if (inherits(bw, "kbandwidth")) bw else bw[["bw", exact = TRUE]],
+           leave.one.out = TRUE,
+           kernel.pow = 2,
+           bandwidth.divide = TRUE),
+      kernel.args)
+  )[["ksum", exact = TRUE]]
+  dim(ksum2) <- dim(score2)
+  Omega.hat <- 2 * prodh * colSums(score2 * ksum2 / fhat^2) / n^2
+
+  list(In = In,
+       Omega.hat = Omega.hat,
+       Jn = n * sqrt(prodh) * In / sqrt(Omega.hat))
+}
+
 npcmstest <- function(formula,
                       data = NULL,
                       subset,
@@ -6,21 +116,22 @@ npcmstest <- function(formula,
                       model = stop(paste(sQuote("model")," has not been provided")),
                       distribution = c("bootstrap", "asymptotic"),
                       boot.method=c("iid","wild","wild-rademacher"),
-                      boot.num = 399,
+                      B = 399,
                       pivot = TRUE,
                       density.weighted = TRUE,
                       random.seed = 42,
                       ...) {
-  
-  pcall = paste(deparse(model$call),collapse="")
-  if(length(grep("x = (T|TRUE)[ ,)]", pcall)) == 0 || length(grep("y = (T|TRUE)[ ,)]", pcall)) == 0)
-    stop(paste(sQuote("model")," is missing components ", sQuote("x"), " and ",
-               sQuote("y"), ".\nTo fix this please invoke ", sQuote("lm"),
-               " or ", sQuote("glm"),
-               " with ", sQuote("x=TRUE"), " and ", sQuote("y=TRUE"),
-               ".\nSee help for further info.", sep=""))
+  if (missing(formula) && !missing(xdat) && !missing(ydat) &&
+      .np_data_formal_supplied(sys.call(), sys.function()))
+    .np_native_data_error()
 
-  if(boot.num < 9) stop("number of bootstrap replications must be >= 9")
+
+  if (...length())
+    npRejectLegacyBootstrapCount(names(list(...)), "npcmstest")
+  
+  .np_cms_validate_model(model, quantile = FALSE)
+
+  if(B < 9) stop("number of bootstrap replications must be >= 9")
 
   ## checking for consistent interface usage
   miss.xy = c(missing(xdat),missing(ydat))
@@ -33,13 +144,14 @@ npcmstest <- function(formula,
   else if(all(miss.xy) & !miss.f){
     mf.args <- list(formula = formula, data = data, na.action = na.omit)
     if (!missing(subset))
-      mf.args$subset <- subset
+      mf.args[c("data", "subset")] <- .np_formula_subset_inputs(
+        data, match.call()[["subset"]], parent.frame())
     mf <- do.call(model.frame, mf.args)
     
     ydat <- model.response(mf)
-    xdat <- mf[, attr(attr(mf, "terms"),"term.labels"), drop = FALSE]
+    xdat <- mf[, .np_formula_term_names(attr(attr(mf, "terms"),"term.labels")), drop = FALSE]
 
-    na.index <- unclass(attr(xdat,"na.action"))
+    na.index <- unclass(attr(mf,"na.action"))
   } else if(!miss.f){
     stop(paste("A formula was specified along with xdat and ydat.\n",
                "Please see the documentation on proper interface usage."))
@@ -61,6 +173,8 @@ npcmstest <- function(formula,
     na.index <- which(!keep.rows)
   }
 
+  model <- .np_cms_compact_model(model, xdat, ydat)
+
   ## Save seed prior to setting
 
   seed.state <- .np_seed_enter(random.seed)
@@ -80,10 +194,14 @@ npcmstest <- function(formula,
 
   ##  bw <- npregbw(xdat=xdat,ydat=model.resid)
 
-  .np_progress_note("Computing bandwidths")
-
-  bw <- .np_progress_with_legacy_suppressed(npregbw(xdat=xdat, ydat=model$y, ...))
+  bw <- .np_progress_select_bandwidth_enhanced(
+    "Computing bandwidths",
+    npregbw(xdat=xdat, ydat=model$y, ...))
   
+  # Selection owns its dots. Every contraction uses its resolved kernel,
+  # including manual bandwidths, scaling, nondefault kernels and bounds.
+  kernel.bw <- kbandwidth(bw)
+
   ## Now define the Jn test statistic that takes arguments xdat, the
   ## residual vector, the bandwidth object, and the number of bootstrap
   ## replications
@@ -92,12 +210,12 @@ npcmstest <- function(formula,
 
   prodh <- if (bw$ncon == 0) 1.0
   else
-    prod(bw$bw[bw$icon])
+    prod(kernel.bw$bw[kernel.bw$icon])
 
   if (!density.weighted)
     fhat <- npksum(txdat = xdat,
-                   bws = bw$bw, leave.one.out = TRUE,
-                   bandwidth.divide = TRUE, ...)$ksum/n
+                   bws = kernel.bw, leave.one.out = TRUE,
+                   bandwidth.divide = TRUE)$ksum/n
 
 
   if(min(fhat) == 0)
@@ -114,9 +232,9 @@ npcmstest <- function(formula,
 
     return( sum(model.resid*npksum(txdat=xdat,
                                    tydat=model.resid,
-                                   bws=bw$bw,
+                                   bws=kernel.bw,
                                    leave.one.out=TRUE,
-                                   bandwidth.divide=TRUE, ...)$ksum/fhat)/n^2 )
+                                   bandwidth.divide=TRUE)$ksum/fhat)/n^2 )
   }
 
   Omega.hat <- function(xdat, model.resid, bw) {
@@ -129,10 +247,10 @@ npcmstest <- function(formula,
            sum(model.resid^2*
                npksum(txdat=xdat,
                       tydat=model.resid^2,
-                      bws=bw$bw,
+                      bws=kernel.bw,
                       leave.one.out=TRUE,
                       kernel.pow=2,
-                      bandwidth.divide=TRUE, ...)$ksum/fhat^2)/n^2 )
+                      bandwidth.divide=TRUE)$ksum/fhat^2)/n^2 )
   }
 
   Jn <- function(xdat, model.resid, bw) {
@@ -159,7 +277,7 @@ npcmstest <- function(formula,
     mult
   }
 
-  boot.wild <- function(model.resid) {
+  resid.wild <- function(model.resid) {
 
     a <- -0.6180339887499 # (1-sqrt(5))/2
     P.a <-0.72360679774998 # (1+sqrt(5))/(2*sqrt(5))
@@ -173,17 +291,12 @@ npcmstest <- function(formula,
 
     y.star <- yhat + model.resid * draw.wild.mult(length(model.resid), a, b, P.a)
     resid <-
-      if(is.null(model$family)) {
-        residuals(glm(y.star~ model$x - 1), type = "response")
-      } else {
-        residuals(glm(y.star~ model$x - 1,family=model$family), type = "response")
-      }
+      .np_cms_refit_residuals(model, y.star)
     
-    return(if (pivot) Jn(xdat, resid, bw)
-           else In(xdat, resid, bw))
+    resid
   }
 
-  boot.wild.rademacher <- function(model.resid) {
+  resid.wild.rademacher <- function(model.resid) {
 
     a <- -1
     P.a <- 0.5
@@ -196,43 +309,57 @@ npcmstest <- function(formula,
 
     y.star <- yhat + model.resid * draw.wild.mult(length(model.resid), a, b, P.a)
     resid <-
-      if(is.null(model$family)) {
-        residuals(glm(y.star~ model$x - 1), type = "response")
-      } else {
-        residuals(glm(y.star~ model$x - 1,family=model$family), type = "response")
-      }
+      .np_cms_refit_residuals(model, y.star)
     
-    return(if (pivot) Jn(xdat, resid, bw)
-           else In(xdat, resid, bw))
+    resid
   }
 
-  boot.iid <- function(model.resid) {
+  resid.iid <- function(model.resid) {
 
     y.star <- yhat + model.resid[sample.int(length(model.resid), replace = TRUE)]
     resid <-
-      if(is.null(model$family)) {
-        residuals(glm(y.star~ model$x - 1), type = "response")
-      } else {
-        residuals(glm(y.star~ model$x - 1,family=model$family), type = "response")
-      }
+      .np_cms_refit_residuals(model, y.star)
     
-    return(if (pivot) Jn(xdat, resid, bw)
-           else In(xdat, resid, bw))
+    resid
   }
 
   if(distribution == "bootstrap"){
-    Sn.bootstrap <- numeric(boot.num)
-    progress <- .np_progress_begin("Bootstrap replications", total = boot.num, surface = "bootstrap")
+    Sn.bootstrap <- numeric(B)
+    progress <- .np_progress_begin("Bootstrap replications", total = B, surface = "bootstrap")
 
-    for (ii in seq_len(boot.num)) {
-       if(boot.method == "iid"){
-        Sn.bootstrap[ii] <- boot.iid(model.resid)
-      } else if(boot.method == "wild"){
-        Sn.bootstrap[ii] <- boot.wild(model.resid)
-      } else if(boot.method == "wild-rademacher"){
-        Sn.bootstrap[ii] <- boot.wild.rademacher(model.resid)
+    chunk.size <- .np_cms_bootstrap_chunk_size(
+      n = n,
+      boot.num = B,
+      pivot = pivot
+    )
+    for (start in seq.int(1L, B, by = chunk.size)) {
+      stopi <- min(B, start + chunk.size - 1L)
+      idx <- seq.int(start, stopi)
+      residuals.chunk <- matrix(NA_real_, nrow = n, ncol = length(idx))
+
+      for (jj in seq_along(idx)) {
+        ii <- idx[[jj]]
+        residuals.chunk[, jj] <- if(boot.method == "iid") {
+          resid.iid(model.resid)
+        } else if(boot.method == "wild") {
+          resid.wild(model.resid)
+        } else {
+          resid.wild.rademacher(model.resid)
+        }
+        progress <- .np_progress_step(progress)
       }
-      progress <- .np_progress_step(progress, done = ii)
+
+      statistic <- .np_cms_statistics_batch(
+        xdat = xdat,
+        score = residuals.chunk,
+        bw = kernel.bw,
+        fhat = fhat,
+        prodh = prodh,
+        pivot = pivot,
+        kernel.args = list()
+      )
+     Sn.bootstrap[idx] <- if (pivot) statistic[["Jn"]] else statistic[["In"]]
+      progress <- .np_progress_step(progress, done = max(idx))
     }
     progress <- .np_progress_end(progress)
     Sn.bootstrap <- sort(Sn.bootstrap)
@@ -272,9 +399,9 @@ npcmstest <- function(formula,
       Jn = n*sqrt(prodh)*tIn/sqrt(to.h),
       In = tIn,
       Omega.hat = to.h,
-      q.90=Sn.bootstrap[ceiling(0.90*boot.num)],
-      q.95=Sn.bootstrap[ceiling(0.95*boot.num)],
-      q.99=Sn.bootstrap[ceiling(0.99*boot.num)],
+      q.90=Sn.bootstrap[ceiling(0.90*B)],
+      q.95=Sn.bootstrap[ceiling(0.95*B)],
+      q.99=Sn.bootstrap[ceiling(0.99*B)],
       bw=bw,
       Jn.bootstrap = if(pivot) Sn.bootstrap else NA,
       In.bootstrap = if(pivot) NA else Sn.bootstrap,
@@ -283,7 +410,7 @@ npcmstest <- function(formula,
 
     Sn = if (pivot) tJn$Jn else tIn
 
-    tJn$P <- mean(Sn.bootstrap > Sn)
+    tJn$P <- .np_bootstrap_upper_tail_pvalue(Sn.bootstrap, Sn)
 
     
   }
@@ -307,6 +434,6 @@ npcmstest <- function(formula,
           pivot = pivot,
           model = model,
           boot.method = boot.method,
-          boot.num = boot.num,
+          boot.num = B,
           na.index = na.index)
 }

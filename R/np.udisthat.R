@@ -31,7 +31,7 @@ npudisthat <- function(bws,
   }
 
   keep.rows <- rep_len(TRUE, nrow(tdat))
-  rows.omit.train <- attr(stats::na.omit(tdat), "na.action")
+  rows.omit.train <- .np_current_rows_omit(tdat)
   if (!is.null(y))
     rows.omit.train <- union(rows.omit.train, attr(stats::na.omit(as.data.frame(y)), "na.action"))
 
@@ -47,7 +47,7 @@ npudisthat <- function(bws,
 
   if (!no.e) {
     keep.eval <- rep_len(TRUE, nrow(edat))
-    rows.omit.eval <- attr(stats::na.omit(edat), "na.action")
+    rows.omit.eval <- .np_current_rows_omit(edat)
     if (length(rows.omit.eval) > 0L)
       keep.eval[as.integer(rows.omit.eval)] <- FALSE
     if (!any(keep.eval))
@@ -56,11 +56,11 @@ npudisthat <- function(bws,
   }
 
   n.train <- nrow(tdat)
-  target.dist <- fitted(npudist(
-    bws = bws,
-    tdat = tdat,
-    edat = if (no.e) tdat else edat
-  ))
+  target.dist <- fitted(if (no.e) {
+    npudist(bws = bws, tdat = tdat)
+  } else {
+    npudist(bws = bws, tdat = tdat, edat = edat)
+  })
 
   scale_rows <- function(x, probe.sum) {
     x <- as.matrix(x)
@@ -92,7 +92,8 @@ npudisthat <- function(bws,
           exdat = if (no.e) tdat else edat,
           operator = "integral",
           rhs = rhs.col,
-          where = "npudisthat direct operator apply"
+          where = "npudisthat direct operator apply",
+          train.is.eval = no.e
         ) / n.train
         probe.sum <- .np_direct_operator_apply(
           kbw = bws,
@@ -100,7 +101,8 @@ npudisthat <- function(bws,
           exdat = if (no.e) tdat else edat,
           operator = "integral",
           rhs = matrix(1.0, nrow = n.train, ncol = 1L),
-          where = "npudisthat direct operator probe"
+          where = "npudisthat direct operator probe",
+          train.is.eval = no.e
         ) / n.train
       } else {
         out <- .np_exact_operator_apply(
@@ -109,7 +111,8 @@ npudisthat <- function(bws,
           exdat = if (no.e) tdat else edat,
           operator = "integral",
           rhs = rhs.col,
-          where = "npudisthat exact operator apply"
+          where = "npudisthat exact operator apply",
+          train.is.eval = no.e
         ) / n.train
         probe.sum <- .np_exact_operator_apply(
           kbw = bws,
@@ -117,7 +120,8 @@ npudisthat <- function(bws,
           exdat = if (no.e) tdat else edat,
           operator = "integral",
           rhs = matrix(1.0, nrow = n.train, ncol = 1L),
-          where = "npudisthat exact operator probe"
+          where = "npudisthat exact operator probe",
+          train.is.eval = no.e
         ) / n.train
       }
 
@@ -141,7 +145,8 @@ npudisthat <- function(bws,
       txdat = tdat,
       exdat = if (no.e) tdat else edat,
       operator = "integral",
-      where = "npudisthat direct operator"
+      where = "npudisthat direct operator",
+      train.is.eval = no.e
     ) / n.train
   } else {
     H <- .np_exact_operator_matrix(
@@ -149,7 +154,8 @@ npudisthat <- function(bws,
       txdat = tdat,
       exdat = if (no.e) tdat else edat,
       operator = "integral",
-      where = "npudisthat exact operator"
+      where = "npudisthat exact operator",
+      train.is.eval = no.e
     ) / n.train
   }
 

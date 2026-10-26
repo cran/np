@@ -8,7 +8,7 @@
 \usage{
 npsymtest(data = NULL,
           method = c("integration","summation"),
-          boot.num = 399,
+          B = 399,
           bw = NULL,
           boot.method = c("iid", "geom"),
           random.seed = 42,
@@ -48,7 +48,7 @@ These arguments control bootstrap execution and reproducibility settings.
   }
 
 
-  \item{boot.num}{
+  \item{B}{
     an integer value specifying the number of bootstrap
     replications to use. Defaults to \code{399}.
   }
@@ -73,6 +73,13 @@ Further arguments are passed to the bandwidth-selection routines used by the tes
     \code{okertype}.}
 
 
+}
+\section{Bootstrap P-Values}{
+  The bootstrap upper-tail p-value is the proportion of bootstrap statistics
+  greater than or equal to the observed statistic. Ties count as at least as
+  extreme, giving the conservative tie convention for discrete statistics.
+  This is the ordinary bootstrap proportion, without an add-one correction;
+  a reported zero is possible with a finite number of replications.
 }
 \value{
   \code{npsymtest} returns an object of type \code{symtest} with the
@@ -132,6 +139,18 @@ Further arguments are passed to the bandwidth-selection routines used by the tes
    plug-in variety (\code{\link{bw.SJ}} for continuous variables and
    direct plug-in for discrete variables).
 
+   Missing observations are omitted before computing the statistic. For
+   categorical data, declared levels, including unused levels, are retained
+   in the pooled null sample and every bootstrap draw. The discrete entropy
+   sum uses the full declared domain and the plug-in selector uses its
+   category count. Kernel normalization and the existing reflection rule are
+   unchanged; this does not define a new reflection for arbitrary nominal
+   labels.
+   If an observed or bootstrap reflection produces a category outside the
+   declared domain, the call stops rather than discarding that observation.
+   Numeric factor levels must therefore accommodate the existing reflection
+   rule. No p-value is returned from incomplete bootstrap statistics.
+
   For bootstrapping the null distribution of the statistic, \code{iid}
   conducts simple random resampling, while \code{geom} conducts Politis
   and Romano's (1994) stationary bootstrap using automatic block length
@@ -144,6 +163,27 @@ Further arguments are passed to the bandwidth-selection routines used by the tes
   densities while the integration version involves differences). Warning
   messages are produced should this occur (\sQuote{integration recommended})
   and should be heeded.
+
+  For numeric data using the fixed second-order Gaussian density
+  estimator, the integration
+  statistic uses deterministic corrected composite trapezoidal
+  quadrature with four evaluation points per bandwidth and a domain
+  extending eight bandwidths beyond the observed support. The density
+  of each reflected bootstrap sample is obtained by reversing the
+  density values on a grid symmetric about that sample's mean; the same
+  reflection identity also avoids fitting a second density on the
+  summation route. For summation, the selected iid or stationary
+  bootstrap plan is generated once with the \pkg{boot} sampling law,
+  converted to bounded chunks of multiplicities, and evaluated by a
+  registered native routine without a sample-by-sample kernel matrix.
+
+  The accelerated route is also used when \code{...} contains only
+  \code{bwtype="fixed"}, \code{ckertype="gaussian"}, and
+  \code{ckerorder=2}. Other density options retain the general
+  kernel-specific route. Generalized and adaptive nearest-neighbour
+  bandwidths therefore continue to use the ordered, duplicate-preserving
+  bootstrap sample and recompute realized neighbour radii rather than
+  treating multiplicities as fixed-bandwidth weights.
 
 }
 
@@ -172,28 +212,28 @@ n <- 100
 ## Asymmetric discrete probability distribution function
 
 x <- factor(rbinom(n,2,.8))
-npsymtest(x,boot.num=99)
+npsymtest(x,B=99)
 
 if (interactive()) Sys.sleep(5)
 
 ## Symmetric discrete probability distribution function
 
 x <- factor(rbinom(n,2,.5))
-npsymtest(x,boot.num=99)
+npsymtest(x,B=99)
 
 if (interactive()) Sys.sleep(5)
 
 ## Asymmetric continuous distribution function
 
 y <- rchisq(n,df=2)
-npsymtest(y,boot.num=99)
+npsymtest(y,B=99)
 
 if (interactive()) Sys.sleep(5)
 
 ## Symmetric continuous distribution function
 
 y <- rnorm(n)
-npsymtest(y,boot.num=99)
+npsymtest(y,B=99)
 
 ## Time-series bootstrap
 
@@ -210,12 +250,12 @@ ar.series <- function(phi,epsilon) {
 ## Asymmetric time-series
 
 yt <- ar.series(0.5,rchisq(n,df=3))
-npsymtest(yt,boot.num=99,boot.method="geom")
+npsymtest(yt,B=99,boot.method="geom")
 
 ## Symmetric time-series
 
 yt <- ar.series(0.5,rnorm(n))
-npsymtest(yt,boot.num=99,boot.method="geom")
+npsymtest(yt,B=99,boot.method="geom")
 
 } % enddontrun
 

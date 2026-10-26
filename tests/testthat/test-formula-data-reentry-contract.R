@@ -120,21 +120,21 @@ test_that("stored formula reentry honors explicit data override", {
     bandwidth.compute = FALSE
   )
   .formula_reentry_expect(
-    npscoef(bws = bw.sc, data = data_b, errors = FALSE)$mean,
+    npscoef(bws = bw.sc, data = data_b, se = FALSE)$mean,
     npscoef(bws = bw.sc, txdat = data_b["x"], tzdat = data_b["z"],
-            tydat = data_b$y, errors = FALSE)$mean,
-    npscoef(bws = bw.sc, errors = FALSE)$mean,
-    npscoef(bws = bw.sc, data = NULL, errors = FALSE)$mean
+            tydat = data_b$y, se = FALSE)$mean,
+    npscoef(bws = bw.sc, se = FALSE)$mean,
+    npscoef(bws = bw.sc, data = NULL, se = FALSE)$mean
   )
   .formula_reentry_expect(
     npscoef(bws = bw.sc, data = data_b, newdata = eval_b,
-            errors = FALSE)$mean,
+            se = FALSE)$mean,
     npscoef(bws = bw.sc, txdat = data_b["x"], tzdat = data_b["z"],
             tydat = data_b$y, exdat = eval_b["x"], ezdat = eval_b["z"],
-            errors = FALSE)$mean,
-    npscoef(bws = bw.sc, newdata = eval_b, errors = FALSE)$mean,
+            se = FALSE)$mean,
+    npscoef(bws = bw.sc, newdata = eval_b, se = FALSE)$mean,
     npscoef(bws = bw.sc, data = NULL, newdata = eval_b,
-            errors = FALSE)$mean
+            se = FALSE)$mean
   )
 
   bw.pl <- npplregbw(
@@ -166,12 +166,12 @@ test_that("stored formula reentry honors explicit data override", {
     bandwidth.compute = FALSE
   )
   .formula_reentry_expect(
-    npsigtest(bws = bw.sig, data = data_b, boot.num = 9L,
+    npsigtest(bws = bw.sig, data = data_b, B = 9L,
               random.seed = 20260703L)$In,
     npsigtest(bws = bw.sig, xdat = data_b[c("x", "z")], ydat = data_b$y,
-              boot.num = 9L, random.seed = 20260703L)$In,
-    npsigtest(bws = bw.sig, boot.num = 9L, random.seed = 20260703L)$In,
-    npsigtest(bws = bw.sig, data = NULL, boot.num = 9L,
+              B = 9L, random.seed = 20260703L)$In,
+    npsigtest(bws = bw.sig, B = 9L, random.seed = 20260703L)$In,
+    npsigtest(bws = bw.sig, data = NULL, B = 9L,
               random.seed = 20260703L)$In
   )
 })

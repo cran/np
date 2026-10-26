@@ -7,7 +7,7 @@ npdeptest <- function(data.x = NULL,
                       data.y = NULL,
                       method=c("integration","summation"),
                       bootstrap = TRUE,
-                      boot.num = 399,
+                      B = 399,
                       random.seed = 42) {
   
   ## Trap fatal errors
@@ -17,7 +17,7 @@ npdeptest <- function(data.x = NULL,
   if(is.null(data.x)||is.null(data.y)) stop(" you must enter x and y data vectors")
   if(ncol(data.frame(data.x)) != 1) stop(" data must have one dimension only")
   if(length(data.x)!=length(data.y)) stop(" data vectors must be of equal length")
-  if(boot.num < 9) stop(" number of bootstrap replications must be >= 9")
+  if(B < 9) stop(" number of bootstrap replications must be >= 9")
 
   method <- match.arg(method)
 
@@ -26,7 +26,6 @@ npdeptest <- function(data.x = NULL,
   seed.state <- .np_seed_enter(random.seed)
   on.exit(.np_seed_exit(seed.state, remove_if_absent = TRUE), add = TRUE)
 
-  .np_progress_note("Computing bandwidths")
 
   ## If the variable is a time series convert to type numeric
 
@@ -55,60 +54,32 @@ npdeptest <- function(data.x = NULL,
     
     if(method=="summation") {
       
-      ## Summation version: \sum_i(1-sqrt(f(x_i)f(y_i)/f(x_i,y_i)))^2
-      ## We could code this by hand per below, however, there is no
-      ## performance penalty imposed by sum() so no need.
+      ## Summation version: \sum_i(1-sqrt(f(x_i)f(y_i)/f(x_i,y_i)))^2.
+      ## The fixed Gaussian marginal and joint sums share one native,
+      ## constant-workspace traversal.
       
-      f.x <- fitted(npudens(tdat=x.dat,bws=bw.x))
-      f.y <- fitted(npudens(tdat=y.dat,bws=bw.y))
-      f.xy <- fitted(npudens(tdat=cbind(x.dat,y.dat),bws=bw.joint))
-      summand <- f.x*f.y/f.xy
-      
-      ## In summation version we divide densities which can lead to
-      ## numerical instability issues not present in the integrand
-      ## version (which uses differences instead). We check for this
-      ## case, remove offending points, and warn. This traps -Inf,
-      ## Inf, and NaN.  
-
-      if(!all(is.finite(summand))) {
-        .np_warning(" non-finite value in summation-based statistic: integration recommended")
-        summand <- summand[is.finite(summand)]
-      }
-
-      return(0.5*mean((1-sqrt(summand))**2))
+      return(.np_entropy_bivariate_gaussian_summation(
+        x.dat, y.dat, bw.x, bw.y, bw.joint
+      ))
       
     } else {
       
       ## Integration version:
       ## \int\int (sqrt(f(x,y))-sqrt(f(x))sqrt(f(y)))^2 dx dy
       
-      lo.default <- c(min(x.dat)-10.0*IQR(x.dat),min(y.dat)-10.0*IQR(y.dat))
-      up.default <- c(max(x.dat)+10.0*IQR(x.dat),max(y.dat)+10.0*IQR(y.dat))
+      domain <- .np_entropy_bivariate_domain(
+        x.dat, y.dat, bw.x, bw.y, bw.joint
+      )
       
-      Srho.integrand <- function(xy) {
-        
-        ## We code this up by hand using a second order gaussian
-        ## kernel. The multidimensional integration routines for some
-        ## reason crawl to almost a halt if we call the functions in the
-        ## np package. Good to have noticed this at this juncture, bad
-        ## to not have general code though could branch at this point?
-        
-        ##      f.x <- fitted(npudens(tdat=x.dat,edat=xy[1],bws=bw.x))
-        ##      f.y <- fitted(npudens(tdat=y.dat,edat=xy[2],bws=bw.y))
-        ##      f.xy <- fitted(npudens(tdat=cbind(x.dat,y.dat),edat=cbind(xy[1],xy[2]),bws=bw.joint))
-        
-        f.x <- mean(dnorm((xy[1]-x.dat)/bw.x))/bw.x
-        f.y <- mean(dnorm((xy[2]-y.dat)/bw.y))/bw.y
-        f.xy <- mean(dnorm((xy[1]-x.dat)/bw.joint[1])*dnorm((xy[2]-y.dat)/bw.joint[2])
-                    / (bw.joint[1]*bw.joint[2]))
-        
-        return((sqrt(f.xy)-sqrt(f.x)*sqrt(f.y))**2)
-        
-      }
-      
-      return(0.5*adaptIntegrate(Srho.integrand,
-                                lowerLimit=lo.default,
-                                upperLimit=up.default)$integral)
+      return(.np_entropy_bivariate_integral(
+        x.dat = x.dat,
+        y.dat = y.dat,
+        bw.x = bw.x,
+        bw.y = bw.y,
+        bw.joint = bw.joint,
+        lower = domain$lower,
+        upper = domain$upper
+      ))
       
     }
 
@@ -116,37 +87,62 @@ npdeptest <- function(data.x = NULL,
   
   ## Compute and save bandwidths (save for bootstrapping if requested)
 
-  bw.data.x <- .np_progress_with_legacy_suppressed(npudensbw(~data.x))$bw
-  bw.data.y <- .np_progress_with_legacy_suppressed(npudensbw(~data.y))$bw
-  bw.joint <- .np_progress_with_legacy_suppressed(npudensbw(~data.x+data.y))$bw
+  bw.data.x <- .np_progress_select_bandwidth_enhanced("Computing bandwidths", npudensbw(~data.x))$bw
+  bw.data.y <- .np_progress_select_bandwidth_enhanced("Computing bandwidths", npudensbw(~data.y))$bw
+  bw.joint <- .np_progress_select_bandwidth_enhanced("Computing bandwidths", npudensbw(~data.x+data.y))$bw
 
-  .np_progress_note("Constructing metric entropy")
   
-  Srho.vec <- Srho.bivar(data.x,data.y,bw.data.x,bw.data.y,bw.joint,method=method)
+  Srho.vec <- .np_progress_activity_run("Computing entropy statistic",
+    Srho.bivar(data.x,data.y,bw.data.x,bw.data.y,bw.joint,method=method))
 
   ## Bootstrap if requested - null is independence so simple iid
   ## index resampling under replacement is sufficient
 
   if(bootstrap) {
 
-    Srho.vec.boot <- numeric()
-    progress <- .np_progress_begin("Bootstrap replications", total = boot.num, surface = "bootstrap")
+    Srho.vec.boot <- numeric(B)
+    progress <- .np_progress_activity_begin(B, "Bootstrap replications", detail = NULL)
+    on.exit(.np_progress_activity_end(progress), add = TRUE)
 
-    for (b in seq_len(boot.num)) {
-      ## Break systematic relationship between x and y (null)
-      
-      data.x.boot <- data.x[sample.int(length(data.x), replace = TRUE)]
-      
-      Srho.vec.boot[b] <- Srho.bivar(data.x.boot,data.y,bw.data.x,bw.data.y,bw.joint,method=method)
-      progress <- .np_progress_step(progress, done = b)
+    if (method == "summation") {
+      sample.size <- length(data.x)
+      chunk.size <- .np_entropy_count_chunk_size(
+        sample.size, bytes.per.support = 4, max.chunk = 16L
+      )
+      for (start in seq.int(1L, B, by = chunk.size)) {
+        index <- start:min(B, start + chunk.size - 1L)
+        bootstrap.index <- matrix(
+          NA_integer_, nrow = length(index), ncol = sample.size
+        )
+        for (row in seq_along(index)) {
+          bootstrap.index[row, ] <- sample.int(
+            sample.size, replace = TRUE
+          )
+        }
+        Srho.vec.boot[index] <-
+          .np_entropy_bivariate_gaussian_summation_xindex(
+            data.x, data.y, bootstrap.index,
+            bw.data.x, bw.data.y, bw.joint
+          )
+        for (done in index)
+          .np_progress_activity_step(progress, done = done)
+      }
+    } else {
+      for (b in seq_len(B)) {
+        ## Break systematic relationship between x and y (null)
 
+        data.x.boot <- data.x[sample.int(length(data.x), replace = TRUE)]
+
+        Srho.vec.boot[b] <- Srho.bivar(data.x.boot,data.y,bw.data.x,bw.data.y,bw.joint,method=method)
+        .np_progress_activity_step(progress, done = b)
+      }
     }
 
-    progress <- .np_progress_end(progress)
+    .np_progress_activity_end(progress, completed = TRUE)
 
     ## Compute P-values
 
-    P <- mean(Srho.vec.boot > Srho.vec)
+    P <- .np_bootstrap_upper_tail_pvalue(Srho.vec.boot, Srho.vec)
 
   }
 
@@ -160,7 +156,7 @@ npdeptest <- function(data.x = NULL,
             Srho.bootstrap.vec = Srho.vec.boot,
             P = P,
             bootstrap = bootstrap,
-            boot.num = boot.num,
+            boot.num = B,
             bw.data.x = bw.data.x,
             bw.data.y = bw.data.y,
             bw.joint = bw.joint)

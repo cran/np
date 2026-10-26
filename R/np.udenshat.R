@@ -31,7 +31,7 @@ npudenshat <- function(bws,
   }
 
   keep.rows <- rep_len(TRUE, nrow(tdat))
-  rows.omit.train <- attr(stats::na.omit(tdat), "na.action")
+  rows.omit.train <- .np_current_rows_omit(tdat)
   if (!is.null(y))
     rows.omit.train <- union(rows.omit.train, attr(stats::na.omit(as.data.frame(y)), "na.action"))
 
@@ -47,7 +47,7 @@ npudenshat <- function(bws,
 
   if (!no.e) {
     keep.eval <- rep_len(TRUE, nrow(edat))
-    rows.omit.eval <- attr(stats::na.omit(edat), "na.action")
+    rows.omit.eval <- .np_current_rows_omit(edat)
     if (length(rows.omit.eval) > 0L)
       keep.eval[as.integer(rows.omit.eval)] <- FALSE
     if (!any(keep.eval))
@@ -74,7 +74,8 @@ npudenshat <- function(bws,
           exdat = if (no.e) tdat else edat,
           operator = "normal",
           rhs = rhs.col,
-          where = "npudenshat direct operator apply"
+          where = "npudenshat direct operator apply",
+          train.is.eval = no.e
         ) / n.train
       } else {
         .np_exact_operator_apply(
@@ -83,7 +84,8 @@ npudenshat <- function(bws,
           exdat = if (no.e) tdat else edat,
           operator = "normal",
           rhs = rhs.col,
-          where = "npudenshat exact operator apply"
+          where = "npudenshat exact operator apply",
+          train.is.eval = no.e
         ) / n.train
       }
     }
@@ -105,7 +107,8 @@ npudenshat <- function(bws,
       txdat = tdat,
       exdat = if (no.e) tdat else edat,
       operator = "normal",
-      where = "npudenshat direct operator"
+      where = "npudenshat direct operator",
+      train.is.eval = no.e
     ) / n.train
   } else {
     H <- .np_exact_operator_matrix(
@@ -113,7 +116,8 @@ npudenshat <- function(bws,
       txdat = tdat,
       exdat = if (no.e) tdat else edat,
       operator = "normal",
-      where = "npudenshat exact operator"
+      where = "npudenshat exact operator",
+      train.is.eval = no.e
     ) / n.train
   }
 

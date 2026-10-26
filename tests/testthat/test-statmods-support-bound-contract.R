@@ -40,7 +40,13 @@ test_that("explicit k may exceed empirical support size when observation count a
   )
 
   expect_no_error(
+    npreg(bws = bw.gen)
+  )
+
+  expect_error(
     npreg(bws = bw.gen, exdat = data.frame(x = x)),
+    "zero literal radius",
+    fixed = TRUE
   )
 })
 
@@ -62,5 +68,11 @@ test_that("nonfixed conditional bandwidth search fails fast for constant respons
       npcdensbw(ydat = y, xdat = x, bwtype = "adaptive_nn")
     ),
     "at least two distinct continuous variable values per dimension"
+  )
+
+  expect_no_error(
+    suppressWarnings(
+      npcdensbw(ydat = rep(1:5, 8), xdat = x, bwtype = "adaptive_nn")
+    )
   )
 })

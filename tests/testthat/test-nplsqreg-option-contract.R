@@ -217,6 +217,23 @@ test_that("nplsqreg NOMAD vector tau summary reports per-tau degrees", {
   expect_true(any(grepl("tau=0.50", out.fit, fixed = TRUE)))
   expect_true(any(grepl("x1", out.fit, fixed = TRUE)))
   expect_true(any(grepl("x2", out.fit, fixed = TRUE)))
+  expect_true(all(vapply(
+    fit$bws$tau.bws,
+    function(bw) {
+      reg.bw <- bw$reg.bws
+      spec <- np:::npValidatedConditionalRegSpec(
+        reg.bw,
+        where = "nplsqreg test",
+        ncon.field = "ncon"
+      )
+      identical(spec$regtype.engine, "lp") &&
+        identical(
+          as.integer(spec$degree.engine),
+          as.integer(reg.bw$degree)
+        )
+    },
+    logical(1L)
+  )))
 })
 
 test_that("nplsqreg residuals accessor exposes requested residuals", {
@@ -270,6 +287,10 @@ test_that("nplsqreg plot uses quantile plot contract for multiple slices", {
   fit <- nplsqreg(y ~ x + z, data = dat, tau = c(0.25, 0.5),
                   tau.search = "full", scale = scale0, nmulti = 1L,
                   optim.control = list(maxit = 2L))
+  expect_identical(fit$bws$regtype.engine, "lc")
+  expect_identical(fit$bws$basis.engine, "glp")
+  expect_identical(fit$bws$degree.engine, 0L)
+  expect_false(fit$bws$bernstein.basis.engine)
 
   out <- plot(fit, output = "data", perspective = FALSE, neval = 6L)
   expect_identical(names(out), c("cd1", "cd2"))

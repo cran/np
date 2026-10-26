@@ -15,6 +15,7 @@
 }
 
 .onLoad <- function (lib, pkg) {
+  .np_conditional_literal_initialize(pkg)
   if (is.null(getOption("np.messages")))
     options(np.messages = TRUE)
   if (is.null(getOption("np.tree")))
@@ -93,17 +94,6 @@ npTreeMode <- function(value = getOption("np.tree", "auto")) {
   stop("option 'np.tree' must be TRUE, FALSE, or \"auto\"", call. = FALSE)
 }
 
-npMacMseriesAccelerateMode <- function(value = getOption("np.macMseries.accelerate", "auto")) {
-  if (isTRUE(value))
-    return("on")
-  if (identical(value, FALSE))
-    return("off")
-  if (is.character(value) && length(value) == 1L &&
-      identical(unname(tolower(value)), "auto"))
-    return("auto")
-  stop("option 'np.macMseries.accelerate' must be TRUE, FALSE, or \"auto\"", call. = FALSE)
-}
-
 npTreeContinuousKernelTypes <- function(bws = NULL, ckertype = NULL) {
   if (!is.null(ckertype))
     return(as.character(ckertype))
@@ -143,10 +133,26 @@ npUseContinuousTree <- function(ncon = 0L, bws = NULL, ckertype = NULL) {
   npTreeAutoKernelEligible(bws = bws, ckertype = ckertype)
 }
 
+npStrictLogicalOption <- function(name, default) {
+  value <- getOption(name, default)
+  if (!is.logical(value) || length(value) != 1L || is.na(value)) {
+    stop(
+      sprintf(
+        "option '%s' must be a single non-missing logical value",
+        name
+      ),
+      call. = FALSE
+    )
+  }
+  value
+}
+
 npUseCategoricalCompress <- function(ncon = 0L, ncat = 0L) {
-  isTRUE(getOption("np.categorical.compress", TRUE)) &&
-    isTRUE(npCountVars(ncon) == 0L) &&
-    isTRUE(npCountVars(ncat) > 0L)
+  if (!isTRUE(npCountVars(ncon) == 0L) ||
+      !isTRUE(npCountVars(ncat) > 0L))
+    return(FALSE)
+
+  npStrictLogicalOption("np.categorical.compress", TRUE)
 }
 
 npUseKernelAccelerationFlag <- function(ncon = 0L, ncat = 0L,

@@ -11,7 +11,9 @@ test_that("nonfixed unconditional exact bootstrap matches duplicate-row oracle",
   storage.mode(counts) <- "double"
 
   for (bt in c("generalized_nn", "adaptive_nn")) {
-    bw.val <- if (identical(bt, "adaptive_nn")) 2 else 1
+    # Generalized evaluation at zero sees both coincident training rows; the
+    # third order statistic is the first strictly positive literal radius.
+    bw.val <- if (identical(bt, "adaptive_nn")) 2 else 3
     bw <- npudensbw(
       dat = xdat,
       bwtype = bt,
@@ -84,7 +86,7 @@ test_that("nonfixed unconditional exact helper matches direct kbandwidth precomp
   active <- counts > 0
 
   for (bt in c("generalized_nn", "adaptive_nn")) {
-    bw.val <- if (identical(bt, "adaptive_nn")) 2 else 1
+    bw.val <- if (identical(bt, "adaptive_nn")) 2 else 3
     bw <- npudensbw(
       dat = xdat,
       bwtype = bt,
@@ -141,6 +143,23 @@ test_that("nonfixed conditional exact bootstrap matches duplicate-row oracle", {
       bandwidth.compute = FALSE
     )
 
+    if (identical(bt, "generalized_nn")) {
+      expect_error(
+        np:::.np_inid_boot_from_ksum_conditional_exact(
+          xdat = xdat,
+          ydat = ydat,
+          exdat = exdat,
+          eydat = eydat,
+          bws = bw,
+          B = ncol(counts),
+          cdf = FALSE,
+          counts = counts
+        ),
+        "zero literal radius"
+      )
+      next
+    }
+
     helper <- np:::.np_inid_boot_from_ksum_conditional_exact(
       xdat = xdat,
       ydat = ydat,
@@ -153,7 +172,9 @@ test_that("nonfixed conditional exact bootstrap matches duplicate-row oracle", {
     )
 
     kbx <- np:::.np_con_make_kbandwidth_x(bws = bw, xdat = xdat)
-    kbxy <- np:::.np_con_make_kbandwidth_xy(bws = bw, xdat = xdat, ydat = ydat)
+    kbxy <- np:::.np_con_make_kbandwidth_xy(
+      bws = bw, xdat = xdat, ydat = ydat
+    )
 
     manual <- vapply(seq_len(ncol(counts)), function(j) {
       idx <- np:::.np_counts_to_indices(counts[, j])
@@ -181,71 +202,6 @@ test_that("nonfixed conditional exact bootstrap matches duplicate-row oracle", {
   }
 })
 
-test_that("generalized conditional exact state apply matches weighted active-support oracle", {
-  old_opts <- options(np.messages = FALSE, np.tree = FALSE)
-  on.exit(options(old_opts), add = TRUE)
-
-  xdat <- data.frame(x = c(0, 0, 1, 3, 3, 10))
-  ydat <- data.frame(y = c(0, 0, 1, 2, 2, 4))
-  exdat <- data.frame(x = c(0, 2, 5, 9))
-  eydat <- data.frame(y = c(0, 1, 2, 4))
-  counts <- c(1, 0, 1, 2, 0, 2)
-  active <- counts > 0
-
-  bw <- npcdensbw(
-    xdat = xdat,
-    ydat = ydat,
-    bwtype = "generalized_nn",
-    bws = c(1, 1),
-    bandwidth.compute = FALSE
-  )
-
-  den.state <- np:::.np_ksum_exact_state_build(
-    bws = np:::.np_con_make_kbandwidth_x(bws = bw, xdat = xdat),
-    exdat = exdat,
-    operator = "normal"
-  )
-  num.state <- np:::.np_ksum_exact_state_build(
-    bws = np:::.np_con_make_kbandwidth_xy(bws = bw, xdat = xdat, ydat = ydat),
-    exdat = np:::.np_bind_data_frames_fast(exdat, eydat),
-    operator = c("normal", "normal")
-  )
-
-  sample <- np:::.np_active_boot_sample_matrix(
-    xmat = data.matrix(xdat),
-    ymat = cbind(data.matrix(xdat), data.matrix(ydat)),
-    counts.col = counts
-  )
-
-  den <- as.numeric(np:::.np_ksum_eval_exact_state(
-    state = den.state,
-    txdat = sample$xmat,
-    weights = sample$weights
-  )) / sample$n.total
-
-  num <- as.numeric(np:::.np_ksum_eval_exact_state(
-    state = num.state,
-    txdat = sample$ymat,
-    weights = sample$weights
-  )) / sample$n.total
-
-  expect_equal(
-    num / pmax(den, .Machine$double.eps),
-    np:::.np_ksum_conditional_eval_exact(
-      xdat = xdat[active, , drop = FALSE],
-      ydat = ydat[active, , drop = FALSE],
-      exdat = exdat,
-      eydat = eydat,
-      kbx = np:::.np_con_make_kbandwidth_x(bws = bw, xdat = xdat),
-      kbxy = np:::.np_con_make_kbandwidth_xy(bws = bw, xdat = xdat, ydat = ydat),
-      cdf = FALSE,
-      weights = counts[active],
-      n.total = sum(counts)
-    ),
-    tolerance = 0
-  )
-})
-
 test_that("adaptive conditional exact handles tiny-support resamples consistently", {
   old_opts <- options(np.messages = FALSE, np.tree = FALSE)
   on.exit(options(old_opts), add = TRUE)
@@ -256,12 +212,13 @@ test_that("adaptive conditional exact handles tiny-support resamples consistentl
   eydat <- data.frame(y = c(0, 1, 2, 4))
   counts <- matrix(c(0, 2, 1, 0, 3, 0), ncol = 1L)
   storage.mode(counts) <- "double"
+  positive.occurrence <- max(counts)
 
   bw <- npcdensbw(
     xdat = xdat,
     ydat = ydat,
     bwtype = "adaptive_nn",
-    bws = c(2, 2),
+    bws = rep.int(positive.occurrence, 2L),
     bandwidth.compute = FALSE
   )
 
@@ -275,7 +232,7 @@ test_that("adaptive conditional exact handles tiny-support resamples consistentl
       xdat = xdat[idx, , drop = FALSE],
       ydat = ydat[idx, , drop = FALSE],
       bwtype = "adaptive_nn",
-      bws = c(2, 2),
+      bws = rep.int(positive.occurrence, 2L),
       bandwidth.compute = FALSE
     )
   )

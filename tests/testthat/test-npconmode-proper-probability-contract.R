@@ -50,12 +50,20 @@ test_that("npconmode rejects non-categorical responses before modal fitting", {
 
 test_that("npconmode proper defaults follow the canonical regression type", {
   effective <- getFromNamespace(".npConmodeEffectiveProper", "np")
+  state <- function(regtype.engine, degree.engine) {
+    list(
+      regtype.engine = regtype.engine,
+      basis.engine = "glp",
+      degree.engine = degree.engine,
+      bernstein.basis.engine = FALSE,
+      xncon = 1L
+    )
+  }
 
-  expect_false(effective(list(regtype = "lc"), NULL))
-  expect_true(effective(list(regtype = "ll"), NULL))
-  expect_true(effective(list(regtype = "lp"), NULL))
-  expect_false(effective(list(regtype = "lp", regtype.engine = "lc"), NULL))
-  expect_true(effective(list(regtype = "lc", regtype.engine = "lp"), NULL))
+  expect_false(effective(state("lc", 0L), NULL))
+  expect_true(effective(state("lp", 1L), NULL))
+  expect_false(effective(state("lc", 0L), NULL))
+  expect_true(effective(state("lp", 2L), NULL))
   expect_false(effective(list(regtype = "lp"), FALSE))
   expect_true(effective(list(regtype = "lc"), TRUE))
 })
@@ -206,7 +214,8 @@ test_that("npconmode binary class-probability gradients are stored and plotted",
       bwmethod = "cv.ls",
       nmulti = 1L,
       probabilities = TRUE,
-      gradients = TRUE
+      gradients = TRUE,
+      se = TRUE
     )
   )
 
@@ -231,7 +240,7 @@ test_that("npconmode binary class-probability gradients are stored and plotted",
     gradients = TRUE
   )
   expect_equal(as.vector(gout), as.vector(direct$congrad), tolerance = 1e-10)
-  expect_error(gradients(fit, errors = TRUE), "standard errors")
+  expect_error(gradients(fit, se = TRUE), "standard errors")
   expect_error(gradients(fit, level = "1"), "stored class-probability gradients")
 
   pdata <- plot(fit, output = "data")
@@ -303,8 +312,34 @@ test_that("npconmode binary class-probability gradients are stored and plotted",
   expect_silent(plot(fit, gradients = TRUE, col = "blue", lwd = 2, lty = 3,
                      type = "l"))
   expect_silent(plot(fit, errors = "bootstrap", B = 39L))
-  expect_error(plot(fit, gradients = TRUE, errors = "asymptotic"),
-               "not probability gradients")
+  # Asymptotic gradient intervals are supported; their center retains the
+  # underlying conditional-density derivative, even with proper=TRUE.
+  grad.alpha <- 0.1
+  grad.intervals <- plot(fit, gradients = TRUE, errors = "asymptotic",
+                         band = "pointwise", alpha = grad.alpha, output = "data")
+  expect_named(grad.intervals, "x")
+  expect_true(all(c("effect", "center", "stderr", "lower", "upper") %in%
+                    names(grad.intervals$x)))
+  expect_identical(grad.intervals$x$x, grdata$x$x)
+  expect_equal(grad.intervals$x$effect, as.vector(direct$congrad),
+               tolerance = 1e-10)
+  expect_identical(grad.intervals$x$effect, grdata$x$effect)
+  expect_identical(grad.intervals$x$center, grad.intervals$x$effect)
+  expect_true(all(is.finite(grad.intervals$x$stderr)))
+  expect_true(all(grad.intervals$x$stderr >= 0))
+  expect_true(any(grad.intervals$x$stderr > 0))
+  normal.width <- qnorm(1 - grad.alpha / 2) * grad.intervals$x$stderr
+  expect_equal(grad.intervals$x$lower,
+               grad.intervals$x$effect - normal.width, tolerance = 1e-12)
+  expect_equal(grad.intervals$x$upper,
+               grad.intervals$x$effect + normal.width, tolerance = 1e-12)
+  expect_equal(plot(fit, gradients = TRUE, errors = "asymptotic",
+                    band = "pointwise", alpha = grad.alpha, output = "both"),
+               grad.intervals)
+  # The new asymptotic route does not admit bootstrap gradient intervals.
+  expect_error(plot(fit, gradients = TRUE, errors = "bootstrap", output = "data"),
+               'gradient/effect intervals currently require errors="asymptotic"',
+               fixed = TRUE)
   expect_error(plot(fit, renderer = "rgl"),
                "renderer='rgl' is supported only")
   grDevices::dev.off()
@@ -350,9 +385,14 @@ test_that("npconmode fixed surface payload is object-fed and predict-aligned", {
                    errors = "asymptotic", level = surf$level)
   expect_true(all(c("stderr", "lower", "upper") %in% names(surf.err$surface)))
   expect_true(any(is.finite(surf.err$surface$stderr)))
-  expect_error(plot(fit, view = "fixed", perspective = TRUE,
-                    neval = 5L, errors = "asymptotic"),
-               "output=\"data\" only", fixed = TRUE)
+  surface.device <- tempfile(fileext = ".pdf")
+  grDevices::pdf(surface.device)
+  surf.drawn <- tryCatch(
+    plot(fit, view = "fixed", perspective = TRUE, neval = 5L,
+         errors = "asymptotic", level = surf$level, output = "plot-data"),
+    finally = { grDevices::dev.off(); unlink(surface.device) }
+  )
+  expect_identical(surf.drawn, surf.err)
   expect_error(plot(fit, view = "fixed", perspective = TRUE,
                     neval = 5L, errors = "bootstrap", output = "data",
                     B = 39L),

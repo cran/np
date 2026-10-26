@@ -11,6 +11,28 @@
   Documentation guide: see \code{\link{np.kernels}} for kernels,
   \code{\link{np.options}} for global options, and
   \code{\link{plot}} for plotting options.
+
+  For \code{distribution = "bootstrap"}, each bootstrap model is still
+  refitted separately using the selected bootstrap law. The resulting
+  residual vectors are collected in bounded groups, and the fixed-design
+  kernel contractions for \eqn{I_n} and, when requested, \eqn{\hat\Omega}
+  are evaluated as multi-response kernel sums. This reuses kernel geometry
+  without forming a dense observation-by-observation weight matrix or
+  changing residual order, pivoting, density weighting, or random draws.
+  The selected bandwidth's effective kernel metadata are shared by the observed
+  and bootstrap statistics. Manual bandwidth inputs and selection controls are
+  not forwarded a second time as kernel-sum arguments.
+
+  Bootstrap refits preserve the model's observation weights and offsets
+  (GLM prior weights, not iterative working weights).
+
+  Model residuals, fitted values, response and design use the model's compact
+  complete-observation sample, including when it was fitted with
+  \code{na.exclude}. The supplied test data must represent those same complete
+  observations in the same order. Row counts and response values are checked;
+  when those agree, the caller remains responsible for supplying the matching
+  covariate rows. The test does not infer a new pairing or reorder observations.
+  The original model and its missing-value restoration policy are not modified.
 }
 \usage{
 npcmstest(formula,
@@ -21,7 +43,7 @@ npcmstest(formula,
           model = stop(paste(sQuote("model")," has not been provided")),
           distribution = c("bootstrap", "asymptotic"),
           boot.method = c("iid","wild","wild-rademacher"),
-          boot.num = 399,
+          B = 399,
           pivot = TRUE,
           density.weighted = TRUE,
           random.seed = 42,
@@ -34,6 +56,13 @@ These arguments identify the model formula/data interface and explicit data inpu
 }
 
   \item{data}{
+    This argument belongs to the formula interface (including supported
+    formula-bearing bandwidth-object refits). Native calls must supply their
+    vectors, matrices or data frames directly, or use \code{with(data, ...)}.
+    Supplying \code{data}, including explicit \code{data = NULL}, to a native
+    route that does not consume it is an error; see
+    \code{\link{np-data-interfaces}}.
+
     an optional data frame, list or environment (or object
     coercible to a data frame by \code{\link{as.data.frame}}) containing the variables
     in the model. If not found in data, the variables are taken from
@@ -51,9 +80,9 @@ These arguments identify the model formula/data interface and explicit data inpu
   \item{model}{
     a model object obtained from a call to \code{\link{lm}} (or
     \code{\link{glm}}). Important: the
-    call to either \code{\link{glm}} or \code{\link{lm}} must have the arguments
-    \code{x=TRUE} and
-    \code{y=TRUE} or \code{npcmstest} will not work. Also, the test is
+    model must retain its design and response components, normally requested
+    with \code{x=TRUE} and \code{y=TRUE}. The values, not the spelling of the
+    original call, determine availability. Also, the test is
     based on residual bootstrapping hence the outcome must be continuous
     (which rules out Logit, Probit, and Count models).
   }
@@ -90,7 +119,7 @@ These arguments control the test statistic, bootstrap procedure, and reproducibi
   }
 
 
-  \item{boot.num}{
+  \item{B}{
     an integer value specifying the number of bootstrap replications to
     use. Defaults to \code{399}.
   }
@@ -138,6 +167,13 @@ Further arguments are passed to the bandwidth-selection routines used by the tes
   }
 
 
+}
+\section{Bootstrap P-Values}{
+  The bootstrap upper-tail p-value is the proportion of bootstrap statistics
+  greater than or equal to the observed statistic. Ties count as at least as
+  extreme, giving the conservative tie convention for discrete statistics.
+  This is the ordinary bootstrap proportion, without an add-one correction;
+  a reported zero is possible with a finite number of replications.
 }
 \value{
   \code{npcmstest} returns an object of type \code{cmstest} with the
@@ -241,7 +277,7 @@ lines(age, fitted(model))
 # Note - this may take a few minutes depending on the speed of your
 # computer...
 
-npcmstest(model = model, xdat = age, ydat = logwage, boot.num=9, nmulti = 1)
+npcmstest(model = model, xdat = age, ydat = logwage, B=9, nmulti = 1)
 
 # Next try Murphy & Welch's (1990) suggested quintic specification.
 
@@ -255,7 +291,7 @@ X <- data.frame(age)
 # Note - this may take a few minutes depending on the speed of your
 # computer...
 
-npcmstest(model = model, xdat = age, ydat = logwage, boot.num=9, nmulti = 1)
+npcmstest(model = model, xdat = age, ydat = logwage, B=9, nmulti = 1)
 
 # Note - you can pass in multiple arguments to this function. For
 # instance, to use local linear rather than local constant regression,
@@ -290,7 +326,7 @@ model <- lm(growth ~ oecd +
 
 X <- data.frame(factor(oecd), factor(year), initgdp, popgro, inv, humancap)
 
-npcmstest(model = model, xdat = X, ydat = growth, boot.num=9, nmulti = 1)
+npcmstest(model = model, xdat = X, ydat = growth, B=9, nmulti = 1)
 
 })
 } % enddontrun

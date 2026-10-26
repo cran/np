@@ -1,5 +1,13 @@
 \name{npregiv}
 \alias{npregiv}
+\alias{npregiv.default}
+\alias{npregiv.formula}
+\alias{summary.npregiv}
+\alias{print.summary.npregiv}
+\alias{fitted.npregiv}
+\alias{gradients.npregiv}
+\alias{residuals.npregiv}
+\alias{plot.npregiv}
 
 \title{
 Nonparametric Instrumental Regression
@@ -22,7 +30,9 @@ below for details). When \code{method="Landweber-Fridman"},
 polynomial kernel regression (Horowitz uses B-spline weighting).
 }
 \usage{
-npregiv(y,
+npregiv(y, \dots)
+
+\method{npregiv}{default}(y,
         z,
         w,
         x = NULL,
@@ -56,12 +66,54 @@ npregiv(y,
         start.from = c("Eyz","EEywz"),
         starting.values  = NULL,
         stop.on.increase = TRUE,
+        regtype = NULL,
+        degree = NULL,
+        nomad = FALSE,
         \dots)
+
+\method{npregiv}{formula}(y,
+        data = NULL,
+        subset,
+        na.action,
+        newdata = NULL,
+        zeval = NULL,
+        xeval = NULL,
+        \dots)
+
+\method{plot}{npregiv}(x, gradients = FALSE,
+        data.overlay = TRUE, data.rug = FALSE, \dots)
 }
 \arguments{
 \subsection{Data, Bandwidth Inputs And Formula Interface}{
 These arguments identify the response, endogenous variables, instruments, exogenous covariates, and evaluation data.
 }
+
+  \item{data}{
+    This argument belongs to the formula interface (including supported
+    formula-bearing bandwidth-object refits). Native calls must supply their
+    vectors, matrices or data frames directly, or use \code{with(data, ...)}.
+    Supplying \code{data}, including explicit \code{data = NULL}, to a native
+    route that does not consume it is an error; see
+    \code{\link{np-data-interfaces}}.
+
+    an optional data frame used with the formula interface. Formula roles are
+    written explicitly as \code{y ~ z | w} or \code{y ~ z | w | x}.
+  }
+
+  \item{subset}{
+    an optional expression selecting training rows in the formula interface.
+  }
+
+  \item{na.action}{
+    a function specifying missing-value handling for the formula model frame.
+  }
+
+  \item{newdata}{
+    an optional data frame supplying fit-time evaluation values for the
+    formula \code{z} and, when present, \code{x} partitions. Explicit
+    \code{zeval} and \code{xeval} take precedence. This is fit-time evaluation,
+    not a post-fit \code{predict()} method.
+  }
 
   \item{w}{
     a \eqn{q}-variate data frame of instruments. The data types may be
@@ -71,9 +123,10 @@ These arguments identify the response, endogenous variables, instruments, exogen
 
 
   \item{x}{
-    an \eqn{r}-variate data frame of exogenous regressors. The data
+    for \code{npregiv.default}, an \eqn{r}-variate data frame of exogenous regressors. The data
     types may be continuous, discrete (unordered and ordered factors),
-    or some combination thereof.
+    or some combination thereof. For \code{plot.npregiv}, an
+    \code{npregiv} object.
   }
 
 
@@ -86,9 +139,9 @@ These arguments identify the response, endogenous variables, instruments, exogen
 
 
   \item{y}{
-    a one (1) dimensional numeric or integer vector of dependent data, each
-    element \eqn{i} corresponding to each observation (row) \eqn{i} of
-    \code{z}.
+    a one (1) dimensional numeric or integer vector of dependent data, or a
+    formula using the explicit IV grammar described under \code{data}. Each
+    response element \eqn{i} corresponds to row \eqn{i} of \code{z}.
   }
 
 
@@ -104,6 +157,26 @@ These arguments identify the response, endogenous variables, instruments, exogen
     a \eqn{p}-variate data frame of endogenous regressors on which the
     regression will be estimated (evaluation data). By default, evaluation
     takes place on the data provided by \code{z}.
+  }
+
+  \item{gradients}{
+    logical; display the stored first partial derivative instead of the
+    structural function. The current plot method supports one endogenous
+    coordinate. The default is \code{FALSE}.
+  }
+
+  \item{data.overlay}{
+    logical; overlay the training response on a structural-function display.
+    The default is \code{TRUE}, as for \code{plot.npregression}. It is ignored
+    for derivative displays because response values and derivatives do not
+    share a common vertical scale. When limits are not supplied, the structural
+    curve and response are both included in the displayed range.
+  }
+
+  \item{data.rug}{
+    logical; add a rug showing the training \code{z} support. The default is
+    \code{FALSE}. A rug may accompany either structural-function or derivative
+    displays; categorical endogenous coordinates omit the numerical rug.
   }
 
 
@@ -130,14 +203,16 @@ These arguments control the Landweber-Fridman iteration path.
 
 
   \item{iterate.Tikhonov}{
-    a logical value indicating whether to use iterated Tikhonov (one
-    iteration) or not when using \code{method="Tikhonov"}.
+    a logical value controlling whether \code{alpha} is reselected after the
+    first response-adaptive bandwidth/operator refinement. It does not change
+    the order of the fixed order-two criterion used to select \code{alpha}.
   }
 
 
   \item{iterate.Tikhonov.num}{
-    an integer indicating the number of iterations to conduct when using
-    \code{method="Tikhonov"}.
+    a positive integer giving the number of outer response-adaptive
+    bandwidth/operator refinement cycles. It is not the order of iterated
+    Tikhonov regularization.
   }
 
 
@@ -170,7 +245,7 @@ These arguments control numerical optimization for the inverse problem.
 
   \item{optim.maxattempts}{
     maximum number of attempts taken trying to achieve successful
-    convergence in \code{\link{optim}}. Defaults to \code{100}.
+    convergence in \code{\link{optim}}. Defaults to \code{10}.
   }
 
 
@@ -214,7 +289,27 @@ These arguments control numerical optimization for the inverse problem.
 
   \item{p}{
     the order of the local polynomial regression (defaults to
-    \code{p=1}, i.e. local linear).
+    \code{p=1}, i.e. local linear). This legacy argument is retained. If it is
+    supplied together with modern smoothing controls, the specifications must
+    be equivalent.
+  }
+
+  \item{regtype}{
+    an optional modern fixed-degree spelling: \code{"lc"}, \code{"ll"}, or
+    \code{"lp"}. Omitting both \code{regtype} and \code{degree} preserves the
+    historical \code{p=1} default exactly.
+  }
+
+  \item{degree}{
+    one nonnegative integer supplied with \code{regtype="lp"}. The scalar
+    controls the existing local-polynomial \code{p} engine; vectors are not
+    recycled across IV stages.
+  }
+
+  \item{nomad}{
+    logical or \code{"auto"}. Only \code{FALSE} is currently supported by the
+    bespoke \code{npregiv} objective. \code{TRUE} and \code{"auto"} fail
+    explicitly rather than being silently ignored.
   }
 
 
@@ -246,7 +341,9 @@ These arguments control returned kernel weights, starting values, residual smoot
     a logical value (defaults to \code{FALSE}) indicating whether to
     return the weight matrix which when postmultiplied by the response
     \eqn{y} delivers the first partial derivative of the instrumental
-    regression with respect to \eqn{z}
+    regression with respect to \eqn{z}. For more than one continuous
+    coordinate, the returned component is a named list containing one weight
+    matrix per pure coordinate partial.
   }
 
 
@@ -254,7 +351,9 @@ These arguments control returned kernel weights, starting values, residual smoot
     a logical value (defaults to \code{FALSE}) indicating whether to
     return the weight matrix which when postmultiplied by the response
     \eqn{y} delivers the second partial derivative of the instrumental
-    regression with respect to \eqn{z}
+    regression with respect to \eqn{z}. For more than one continuous
+    coordinate, the returned component is a named list containing one weight
+    matrix per pure coordinate partial.
   }
 
 
@@ -267,16 +366,16 @@ These arguments control returned kernel weights, starting values, residual smoot
 
 
   \item{start.from}{ a character string indicating whether to start from
-    \eqn{E(Y|z)} (default, \code{"Eyz"}) or from \eqn{E(E(Y|z)|z)} (this can
+    \eqn{E(Y|z)} (default, \code{"Eyz"}) or from \eqn{E(E(Y|w)|z)} (this can
     be overridden by providing \code{starting.values} below)
   }  
 
 
-  \item{starting.values}{ a value indicating whether to commence
-    Landweber-Fridman assuming
-    \eqn{\varphi_{-1}=starting.values}{phi[-1]=starting.values} (proper
-    Landweber-Fridman) or instead begin from \eqn{E(y|z)} (defaults to
-    \code{NULL}, see details below)
+  \item{starting.values}{ an optional finite numeric vector supplying the
+    training-row structural initialization. Its derivative state is estimated
+    from the corresponding local-polynomial interpolant using the selected
+    smoothing contract; it is not set to zero. When weights are requested,
+    this supplied initialization is treated as fixed with respect to \eqn{y}.
   }
 
 
@@ -300,9 +399,9 @@ These arguments control Tikhonov regularization and its bandwidth.
 
 
   \item{alpha.iter}{
-    a numeric scalar that, if supplied, is used for iterated Tikhonov
-    rather than numerically solving for \code{alpha}, when using
-    \code{method="Tikhonov"}.
+    a positive numeric scalar that, if supplied, is used for the ordinary
+    Tikhonov solve after the outer bandwidth/operator refinement rather than
+    selecting a refined regularization parameter numerically.
   }
 
 
@@ -330,7 +429,10 @@ These arguments control Tikhonov regularization and its bandwidth.
     (obtained from a previous invocation of \code{npregiv}) required to
     re-compute the estimator without having to re-run cross-validation
     and/or numerical optimization which is particularly costly in this
-    setting (see details below for an illustration of its use)
+    setting (see details below for an illustration of its use). A
+    Landweber-Fridman replay returns the recomputed stopping diagnostics and
+    uses \code{convergence="BANDWIDTH_REPLAY"}, including when
+    \code{norm.index=1}.
   }
 
 
@@ -340,13 +442,67 @@ Further arguments are passed to lower-level kernel-sum and estimation routines.
 }
 
   \item{\dots}{
-    additional arguments supplied to \code{\link{npksum}}.
+    Only fixed bandwidths are currently supported. Supplying
+    \code{bwtype="generalized_nn"} or \code{bwtype="adaptive_nn"} raises an
+    informative error; use \code{bwtype="fixed"} (the default).
+    Additional kernel and bandwidth-scaling arguments supplied to the private
+    IV regression and kernel-sum stages. In particular,
+    \code{bandwidth.divide}, \code{ukertype}, and \code{okertype} retain their
+    ordinary lower-level meanings and are owned once per call, avoiding
+    duplicate-argument collisions. Categorical bandwidth searches use the
+    valid upper bound for the selected categorical kernel. For the plot
+    method, graphical arguments control the fitted curve and base-graphics
+    frame as applicable. Explicit \code{xlim} and \code{ylim} are honored;
+    automatic limits include every active curve, overlay, and rug layer.
   }
 
 
 }
 \details{
+  Formula variables of class \code{ts}, including lagged variables, are
+  aligned on their common time support before fitting. Other variables
+  must already have the length of that intersection. Supply explicitly
+  aligned rows when using native data arguments instead of a formula.
+
+  Local-polynomial nuisance fits may use numerical diagonal ridging.
+  For its Seifert--Gasser motivation, see \code{\link{npreg}}.
+  This is distinct from regularization of the instrumental-variable
+  inverse problem and does not apply the ordinary-regression residual
+  uncertainty correction to IV inference.
+
   Documentation guide: see \code{\link{np.kernels}} for kernels, \code{\link{np.options}} for global options, and \code{\link{plot}} for plotting options.
+
+  The formula interface uses explicit role order:
+  \code{y ~ z | w} and \code{y ~ z | w | x}. Additive transformations and
+  factors are retained through \code{model.frame}. Dot expansion and formula
+  interaction operators are rejected because they do not identify a unique
+  mixed-data kernel role; create an explicit transformed variable (for example
+  with \code{I(a * b)}) instead. Native vector/data-frame calls remain
+  supported unchanged.
+
+  For Landweber-Fridman regularization, state \eqn{N}{N} means the complete
+  state after exactly \eqn{N}{N} residual-correction updates. Column
+  \eqn{N}{N} of \code{phi.mat}, \code{norm.stop[N]}, \code{norm.index}, the
+  returned structural curve, derivatives, and optional weights therefore all
+  refer to that same state. With \code{penalize.iteration=TRUE}, the stopping
+  value is \eqn{N}{N} times the normalized squared conditional-residual norm
+  evaluated at state \eqn{N}{N}.
+
+  Multivariate derivative components are pure coordinate partials in the
+  order of the continuous columns in the augmented structural block
+  \code{data.frame(z, x)}. Thus the first-derivative matrix has one named
+  column per continuous endogenous or appended exogenous coordinate; it does
+  not contain a mixed derivative.
+
+  The Tikhonov route solves the Darolles et al. operator equation with
+  \eqn{r=E[Y|W]}{r=E[Y|W]} and right-hand side \eqn{T^*r}{T* r}. Its default
+  data-driven \eqn{\alpha}{alpha} selector is the fixed order-two criterion of
+  Feve and Florens (2010), Equation (3.10); the returned curve is the ordinary
+  Tikhonov solution. \code{iterate.Tikhonov.num} counts outer bandwidth and
+  operator refinements. The current implementation selects \code{alpha.iter}
+  during the first outer cycle and reuses it in later cycles; it does not
+  implement a per-cycle alpha policy or the alternative Darolles extended-
+  residual selector.
 
   Tikhonov regularization requires computation of weight matrices of
   dimension \eqn{n\times n}{n x n} which can be computationally costly
@@ -454,13 +610,35 @@ Further arguments are passed to lower-level kernel-sum and estimation routines.
 \value{
 
   \code{npregiv} returns a \code{npregiv} object.  The generic
-    functions \code{\link{print}}, \code{\link{summary}}, and
-    \code{\link{plot}} support objects of this type.
+    functions \code{\link{print}}, \code{\link{summary}},
+    \code{\link{plot}}, \code{\link{fitted}}, \code{\link{residuals}}, and
+    \code{\link{gradients}} support objects of this type. \code{fitted}
+    returns the selected structural function and \code{gradients} returns its
+    stored first derivatives. Both are training-row accessors even when
+    fit-time evaluation data were supplied; evaluation results remain in the
+    \code{phi.eval} and \code{phi.deriv.eval.*} fields. Residuals use the
+    aligned training structural curve. For formula fits using an exclusion-style \code{na.action},
+    these accessors restore omitted rows. \code{summary} returns a structured
+    \code{summary.npregiv} object with a dedicated print method. The printed
+    smoothing description reports the effective continuous-stage policy using
+    the same \code{Kernel Regression Estimator:} labels as \code{npreg}:
+    \code{Local-Constant}, \code{Local-Linear}, or, for
+    \code{regtype="lp"}, the local-polynomial degree and basis details. The
+    retained legacy \code{p} field is not printed separately.
+
+    The plot method displays the structural level by default, uses a separate
+    fit-time evaluation grid when \code{phi.eval} is available, and overlays
+    the training response by default without replacing that evaluation curve.
+    Set \code{gradients=TRUE} for the first derivative and
+    \code{data.rug=TRUE} for the training-support rug.
 
   \code{npregiv} returns a list with components \code{phi},
   \code{phi.mat} and either \code{alpha} when \code{method="Tikhonov"}
   or \code{norm.index}, \code{norm.stop} and \code{convergence} when
-  \code{method="Landweber-Fridman"}, among others.
+  \code{method="Landweber-Fridman"}, among others. The compact
+  \code{bws}, \code{smoothing.spec}, and \code{stage.specs} components record
+  stage bandwidth payloads and requested/effective fixed-degree smoothing
+  state without replacing the legacy bandwidth fields.
 
   In addition, if any of \code{return.weights.*} are invoked
   (\code{*=1,2}), then \code{phi.weights} and \code{phi.deriv.*.weights}
@@ -540,88 +718,62 @@ This function should be considered to be in \sQuote{beta test} status until furt
 
 set.seed(42)
 n <- 500
+trim <- 0.005
 
-## The DGP is as follows:
+## Endogenous-regressor DGP:
+##
+## y = phi(z) + u
+## E(u | z) != 0
+## z = 0.2 w + v
+## E(u | w) = 0
 
-## 1) y = phi(z) + u
+v <- rnorm(n, mean = 0, sd = 0.27)
+eps <- rnorm(n, mean = 0, sd = 0.05)
+u <- -0.5 * v + eps
+w <- rnorm(n)
 
-## 2) E(u|z) != 0 (endogeneity present)
+phi <- function(z) z^2
 
-## 3) Suppose there exists an instrument w such that z = f(w) + v and
-## E(u|w) = 0
+z <- 0.2 * w + v
+y <- phi(z) + u
 
-## 4) We generate v, w, and generate u such that u and z are
-## correlated. To achieve this we express u as a function of v (i.e. u =
-## gamma v + eps)
+ivdata <- data.frame(y, z, w)
+ivdata <- ivdata[order(ivdata$z), ]
 
-v <- rnorm(n,mean=0,sd=0.27)
-eps <- rnorm(n,mean=0,sd=0.05)
-u <- -0.5*v + eps
-w <- rnorm(n,mean=0,sd=1)
+model.iv <- npregiv(y ~ z | w, data = ivdata, regtype = "ll")
+phi.iv <- fitted(model.iv)
 
-## In Darolles et al (2011) there exist two DGPs. The first is
-## phi(z)=z^2 and the second is phi(z)=exp(-abs(z)) (which is
-## discontinuous and has a kink at zero).
+## Compare with the non-IV local-linear estimator of E(y | z).
 
-fun1 <- function(z) { z^2 }
-fun2 <- function(z) { exp(-abs(z)) }
+model.noniv <- npreg(y ~ z, data = ivdata, regtype = "ll")
+mean.noniv <- fitted(model.noniv)
 
-z <- 0.2*w + v
+## Restrict the display to the central 99 percent of the z observations.
 
-## Generate two y vectors for each function.
+zlim <- quantile(ivdata$z, c(trim, 1 - trim))
+keep <- ivdata$z >= zlim[1L] & ivdata$z <= zlim[2L]
+ylim <- range(ivdata$y[keep], phi.iv[keep], mean.noniv[keep])
 
-y1 <- fun1(z) + u
-y2 <- fun2(z) + u
+plot(ivdata$z[keep], phi(ivdata$z[keep]),
+     ylim = ylim,
+     ylab = "Y",
+     xlab = "Z",
+     main = "Nonparametric Instrumental Kernel Regression",
+     type = "l",
+     lwd = 2)
 
-## You set y to be either y1 or y2 (ditto for phi) depending on which
-## DGP you are considering:
-
-y <- y1
-phi <- fun1
-
-## Sort on z (for plotting)
-
-ivdata <- data.frame(y,z,w)
-ivdata <- ivdata[order(ivdata$z),]
-rm(y,z,w)
-with(ivdata, {
-
-model.iv <- npregiv(y=y,z=z,w=w)
-phi.iv <- model.iv$phi
-
-## Now the non-iv local linear estimator of E(y|z)
-
-ll.mean <- fitted(npreg(y~z,regtype="ll"))
-
-## For the plots, restrict focal attention to the bulk of the data
-## (i.e. for the plotting area trim out 1/4 of one percent from each
-## tail of y and z)
-
-trim <- 0.0025
-
-curve(phi,min(z),max(z),
-      xlim=quantile(z,c(trim,1-trim)),
-      ylim=quantile(y,c(trim,1-trim)),
-      ylab="Y",
-      xlab="Z",
-      main="Nonparametric Instrumental Kernel Regression",
-      lwd=2,lty=1)
-
-points(z,y,type="p",cex=.25,col="grey")
-
-lines(z,phi.iv,col="blue",lwd=2,lty=2)
-
-lines(z,ll.mean,col="red",lwd=2,lty=4)
+points(ivdata$z[keep], ivdata$y[keep], cex = 0.25, col = "grey")
+lines(ivdata$z[keep], phi.iv[keep], col = "blue", lwd = 2, lty = 2)
+lines(ivdata$z[keep], mean.noniv[keep], col = "red", lwd = 2, lty = 4)
 
 legend("topright",
-       c(expression(paste(varphi(z))),
-         expression(paste("Nonparametric ",hat(varphi)(z))),
-         "Nonparametric E(y|z)"),
-       lty=c(1,2,4),
-       col=c("black","blue","red"),
-       lwd=c(2,2,2),
-       bty="n")
-})
+       c(expression(varphi(z)),
+         expression(paste("Nonparametric ", hat(varphi)(z))),
+         "Nonparametric E(y | z)"),
+       lty = c(1, 2, 4),
+       col = c("black", "blue", "red"),
+       lwd = c(2, 2, 2),
+       bty = "n")
 } % enddontrun
 }
 \keyword{ instrument }

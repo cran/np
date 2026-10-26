@@ -21,7 +21,8 @@
     vv <- as.double(v)
     if (ncon.target <= 0L)
       return(NULL)
-    if (length(vv) <= 1L || length(vv) == ncon.target)
+    if (length(vv) <= 1L || length(vv) == ncon.target ||
+        length(vv) == ncol(xdat))
       return(vv)
     if (ncon.target == 1L) {
       uu <- unique(vv)
@@ -97,7 +98,7 @@
   bwtype <- resolve_choice(if (!is.null(args$bwtype)) args$bwtype else source$type,
                            c("fixed", "generalized_nn", "adaptive_nn"))
   ckertype <- resolve_choice(if (!is.null(args$ckertype)) args$ckertype else source$ckertype,
-                             c("gaussian", "truncated gaussian", "epanechnikov", "uniform"))
+                             c("gaussian", "epanechnikov", "uniform"))
   ckerorder <- if (!is.null(args$ckerorder)) args$ckerorder else source$ckerorder
   ckerbound <- resolve_choice(if (!is.null(args$ckerbound)) args$ckerbound else source$ckerbound,
                               c("none", "range", "fixed"))
@@ -128,7 +129,8 @@
     }
   }
 
-  if (ncon > 0L) {
+  # Continuous NN coordinates remain counts in both metadata fields.
+  if (ncon > 0L && bwtype == "fixed") {
     dfactor <- sdev * nconfac
     if (scaling) {
       bandwidth[xdati$icon] <- bandwidth[xdati$icon] * dfactor
@@ -191,6 +193,18 @@
   )
 }
 
+.np_estimator_loo_ksum <- function(..., bws,
+                                   bandwidth.divide = identical(bws$type, "adaptive_nn")) {
+  # ANN scales vary by donor, so unlike fixed/GNN they cannot be cancelled
+  # from a local moment system. Keep explicit caller scaling for other roles.
+  do.call(npksum, c(list(...), list(bws = bws,
+    bandwidth.divide = bandwidth.divide, .np.internal.fold.geometry = TRUE)))
+}
+
+.npscoef_npksum <- function(...) {
+  .np_estimator_loo_ksum(..., .np.internal.tree.outer.blas = TRUE)
+}
+
 .np_indexhat_scalar_source <- function(bws) {
   source <- bws
   if (identical(as.character(source$ckerbound)[1L], "range")) {
@@ -208,25 +222,6 @@
     xdat = idx.train,
     ydat = rep.int(0.0, nrow(idx.train)),
     bw = bws$bw
-  )
-}
-
-.np_indexhat_ll_owner_rbw <- function(bws, idx.train) {
-  base <- .np_indexhat_rbw(bws = bws, idx.train = idx.train)
-  npregbw(
-    xdat = idx.train,
-    ydat = rep.int(0.0, nrow(idx.train)),
-    bws = base$bw,
-    regtype = "ll",
-    bwtype = base$type,
-    bandwidth.compute = FALSE,
-    ckertype = base$ckertype,
-    ckerorder = base$ckerorder,
-    ckerbound = base$ckerbound,
-    ckerlb = base$ckerlb,
-    ckerub = base$ckerub,
-    ukertype = base$ukertype,
-    okertype = base$okertype
   )
 }
 
@@ -262,7 +257,7 @@
   }
 
   bwtype <- resolve_choice(bws$type, c("fixed", "generalized_nn", "adaptive_nn"))
-  ckertype <- resolve_choice(bws$ckertype, c("gaussian", "truncated gaussian", "epanechnikov", "uniform"))
+  ckertype <- resolve_choice(bws$ckertype, c("gaussian", "epanechnikov", "uniform"))
   ckerbound <- resolve_choice(bws$ckerbound, c("none", "range", "fixed"))
   ukertype <- resolve_choice(bws$ukertype, c("aitchisonaitken", "liracine"))
   okertype <- resolve_choice(bws$okertype, c("liracine", "wangvanryzin", "racineliyan", "nliracine"))
@@ -273,7 +268,7 @@
     list(ckerlb = NULL, ckerub = NULL)
   }
 
-  kbandwidth.numeric(
+  .np_retained_uniform_constructor(kbandwidth.numeric,
     bw = c(bws$bw),
     bwtype = bwtype,
     bwscaling = FALSE,
@@ -298,11 +293,23 @@
                               idx.eval,
                               y = NULL,
                               output = c("matrix", "apply"),
-                              ridge = 0.0) {
+                              ridge = 0.0, allow.empty.rows = FALSE) {
   output <- match.arg(output)
   kbw <- .np_indexhat_kbw(bws = bws, idx.train = idx.train)
   spec <- .npindex_resolve_spec(bws, where = "npindexhat")
   regtype <- spec$regtype.engine
+
+  if (identical(regtype, "lc") && identical(output, "apply") && !is.null(y)) {
+    y <- .np_indexhat_numeric_y(y)
+    if (nrow(y) != nrow(idx.train))
+      stop("number of rows in 'y' must equal number of training rows")
+    if (.np_indexhat_lc_moment_candidate(y, idx.train, idx.eval)) {
+      args <- .np_indexhat_lc_kernel_args(bws, idx.train, idx.eval, kernel.bws = kbw)
+      # The core/plot matrix owner divides fixed-bandwidth weights too.
+      args$bandwidth.divide <- TRUE
+      return(.np_indexhat_lc_moment_apply(y, args, allow.empty.rows))
+    }
+  }
 
   kw <- .np_kernel_weights_direct(
     bws = kbw,
@@ -327,19 +334,19 @@
   }
 
   if (identical(regtype, "lc")) {
-    den <- pmax(colSums(kw), .Machine$double.eps)
+    den <- .np_normalization_denominator(
+      colSums(kw), "single-index hat", allow.empty.rows = allow.empty.rows,
+      zero.rows = colSums(abs(kw)) == 0.0)
     if (identical(output, "matrix"))
-      return(sweep(t(kw), 1L, den, "/", check.margin = FALSE))
+      return(.np_normalization_finish(.np_lc_hat_normalize(kw, den), den,
+                                      "single-index hat", TRUE))
 
-    out <- sweep(t(kw), 1L, den, "/", check.margin = FALSE) %*% y
-    return(if (ncol(out) == 1L) as.vector(out) else out)
+    out <- .np_lc_hat_normalize(kw, den) %*% y
+    return(.np_normalization_finish(
+      if (ncol(out) == 1L) as.vector(out) else out, den, "single-index hat", TRUE))
   }
 
-  degree <- if (identical(regtype, "ll")) {
-    1L
-  } else {
-    spec$degree.engine
-  }
+  degree <- spec$degree.engine
 
   W <- W.lp(
     xdat = idx.train,
@@ -397,7 +404,7 @@
     out
 }
 
-.np_indexhat_lc_kernel_weights <- function(bws, idx.train, idx.eval) {
+.np_indexhat_lc_kernel_args <- function(bws, idx.train, idx.eval, kernel.bws = NULL) {
   collapse_bound <- function(v, nm) {
     if (is.null(v))
       return(NULL)
@@ -412,10 +419,11 @@
          call. = FALSE)
   }
 
-  kw <- npksum(
+  list(
     txdat = idx.train,
     exdat = idx.eval,
-    bws = bws$bw,
+    bws = if (!is.null(kernel.bws)) kernel.bws else if (identical(bws$type, "adaptive_nn"))
+      .np_indexhat_kbw(bws, idx.train) else bws$bw,
     bwtype = bws$type,
     ckertype = bws$ckertype,
     ckerorder = bws$ckerorder,
@@ -423,50 +431,94 @@
     ckerlb = if (identical(bws$ckerbound, "fixed"))
       collapse_bound(bws$ckerlb, "ckerlb") else NULL,
     ckerub = if (identical(bws$ckerbound, "fixed"))
-      collapse_bound(bws$ckerub, "ckerub") else NULL,
-    return.kernel.weights = TRUE
-  )$kw
+      collapse_bound(bws$ckerub, "ckerub") else NULL
+  )
+}
+
+.np_indexhat_lc_kernel_weights <- function(bws, idx.train, idx.eval) {
+  args <- .np_indexhat_lc_kernel_args(bws, idx.train, idx.eval)
+  args$.np.internal.bandwidth.divide.weights <- identical(bws$type, "adaptive_nn")
+  args$return.kernel.weights <- TRUE
+  kw <- do.call(.np_retained_uniform_constructor,
+    c(list(constructor = .np_index_kernel_sum), args))$kw
 
   if (!is.matrix(kw))
     kw <- matrix(kw, nrow = nrow(idx.train))
-
   if (nrow(kw) != nrow(idx.train) || ncol(kw) != nrow(idx.eval))
     stop("single-index lc kernel-weight matrix shape mismatch", call. = FALSE)
-
   kw
+}
+
+.np_indexhat_lc_moment_candidate <- function(y, idx.train, idx.eval) {
+  # Keep matrix/BLAS semantics for non-finite inputs: npksum omits NA rows.
+  is.numeric(y) && all(is.finite(y)) &&
+    all(is.finite(as.matrix(idx.train))) && all(is.finite(as.matrix(idx.eval)))
+}
+
+.np_indexhat_zero_moment_rows <- function(args, denominator) {
+  # Exceptional rows only: preserve the lean healthy owner and O(n) workspace.
+  empty <- rep.int(FALSE, length(denominator))
+  rows <- which(is.finite(denominator) & denominator == 0.0)
+  nonnegative <- args$ckertype %in% c("uniform", "beta") ||
+    (identical(as.integer(args$ckerorder), 2L) &&
+       args$ckertype %in% c("gaussian", "epanechnikov", "truncated gaussian"))
+  if (nonnegative) {
+    # A finite zero sum of nonnegative computed weights certifies all-zero
+    # arithmetic, not geometric absence. No diagnostic kernel pass is needed.
+    empty[rows] <- TRUE
+    return(empty)
+  }
+  for (i in rows) {
+    probe <- args
+    probe$exdat <- args$exdat[i, , drop = FALSE]
+    probe$return.kernel.weights <- TRUE
+    kw <- do.call(.np_index_kernel_sum, probe)$kw
+    empty[i] <- length(kw) > 0L && all(is.finite(kw)) && all(kw == 0.0)
+  }
+  empty
+}
+
+.np_indexhat_lc_moment_apply <- function(y, args, allow.empty.rows = FALSE) {
+  moments <- do.call(.np_retained_uniform_constructor,
+    c(list(constructor = .np_index_kernel_moments, y = y), args))
+  den <- .np_normalization_denominator(
+    moments$denominator, "single-index hat", allow.empty.rows = allow.empty.rows,
+    zero.rows = .np_indexhat_zero_moment_rows(args, moments$denominator))
+  out <- t(sweep(moments$numerator, 2L,
+                 den, "/"))
+  colnames(out) <- colnames(y)
+  .np_normalization_finish(if (ncol(out) == 1L) as.vector(out) else out,
+                            den, "single-index hat", TRUE)
 }
 
 .np_indexhat_lc_mean <- function(bws,
                                  idx.train,
                                  idx.eval,
                                  y = NULL,
-                                 output = c("matrix", "apply")) {
+                                 output = c("matrix", "apply"),
+                                 allow.empty.rows = FALSE) {
   output <- match.arg(output)
-  kw <- .np_indexhat_lc_kernel_weights(
-    bws = bws,
-    idx.train = idx.train,
-    idx.eval = idx.eval
-  )
-  H <- sweep(
-    t(kw),
-    1L,
-    pmax(colSums(kw), .Machine$double.eps),
-    "/",
-    check.margin = FALSE
-  )
+  if (identical(output, "apply")) {
+    if (is.null(y))
+      stop("argument 'y' is required when output='apply'")
+    y <- .np_indexhat_numeric_y(y)
+    if (nrow(y) != nrow(idx.train))
+      stop("number of rows in 'y' must equal number of training rows")
+    if (.np_indexhat_lc_moment_candidate(y, idx.train, idx.eval))
+      return(.np_indexhat_lc_moment_apply(
+        y, .np_indexhat_lc_kernel_args(bws, idx.train, idx.eval), allow.empty.rows))
+  }
 
+  kw <- .np_indexhat_lc_kernel_weights(bws, idx.train, idx.eval)
+  den <- .np_normalization_denominator(
+    colSums(kw), "single-index hat", allow.empty.rows = allow.empty.rows,
+    zero.rows = colSums(abs(kw)) == 0.0)
+  H <- .np_lc_hat_normalize(kw, den)
   if (identical(output, "matrix"))
-    return(H)
-
-  if (is.null(y))
-    stop("argument 'y' is required when output='apply'")
-
-  y <- .np_indexhat_numeric_y(y)
-  if (nrow(y) != nrow(idx.train))
-    stop("number of rows in 'y' must equal number of training rows")
-
+    return(.np_normalization_finish(H, den, "single-index hat", TRUE))
   out <- H %*% y
-  if (ncol(out) == 1L) as.vector(out) else out
+  .np_normalization_finish(if (ncol(out) == 1L) as.vector(out) else out,
+                            den, "single-index hat", TRUE)
 }
 
 .np_indexhat_lc_derivative <- function(bws,
@@ -475,7 +527,7 @@
                                        y = NULL,
                                        output = c("matrix", "apply")) {
   output <- match.arg(output)
-  out <- npreghat(
+  out <- .npreghat_complete(
     bws = .np_indexhat_rbw(bws = bws, idx.train = idx.train),
     txdat = idx.train,
     exdat = idx.eval,
@@ -496,7 +548,7 @@
 }
 
 .np_indexhat_lp_mean_matrix <- function(bws, idx.train, idx.eval) {
-  out <- npreghat(
+  out <- .npreghat_complete(
     bws = .np_indexhat_rbw(bws = bws, idx.train = idx.train),
     txdat = idx.train,
     exdat = idx.eval,
@@ -513,15 +565,8 @@
 }
 
 .np_indexhat_gradient_matrix <- function(bws, idx.train, idx.eval) {
-  regtype <- if (!is.null(bws$regtype)) as.character(bws$regtype)[1L] else "lc"
-  owner.bw <- if (identical(regtype, "ll")) {
-    .np_indexhat_ll_owner_rbw(bws = bws, idx.train = idx.train)
-  } else {
-    .np_indexhat_rbw(bws = bws, idx.train = idx.train)
-  }
-
-  out <- npreghat(
-    bws = owner.bw,
+  out <- .npreghat_complete(
+    bws = .np_indexhat_rbw(bws = bws, idx.train = idx.train),
     txdat = idx.train,
     exdat = idx.eval,
     output = "matrix",
@@ -541,33 +586,12 @@
                                idx.eval,
                                y = NULL,
                                output = c("matrix", "apply"),
-                               s = 0L) {
+                               s = 0L, allow.empty.rows = FALSE) {
   output <- match.arg(output)
   spec <- .npindex_resolve_spec(bws, where = "npindexhat")
-  regtype <- if (!is.null(bws$regtype)) as.character(bws$regtype)[1L] else spec$regtype.engine
   regtype.engine <- spec$regtype.engine
-  if (identical(regtype, "ll")) {
-    out <- npreghat(
-      bws = .np_indexhat_ll_owner_rbw(bws = bws, idx.train = idx.train),
-      txdat = idx.train,
-      exdat = idx.eval,
-      y = y,
-      output = output,
-      s = s
-    )
 
-    if (!identical(output, "matrix"))
-      return(out)
-
-    return(matrix(
-      as.double(out),
-      nrow = nrow(out),
-      ncol = ncol(out),
-      dimnames = dimnames(out)
-    ))
-  }
-
-  if (identical(regtype.engine, "lc")) {
+  if (npIsCanonicalLp0Spec(spec, ncon = 1L)) {
     if (s == 1L) {
       return(.np_indexhat_lc_derivative(
         bws = bws,
@@ -583,7 +607,8 @@
       idx.train = idx.train,
       idx.eval = idx.eval,
       y = y,
-      output = output
+      output = output,
+      allow.empty.rows = allow.empty.rows
     ))
   }
 
@@ -612,18 +637,13 @@
 
   lp.grad.owner.safe <- identical(output, "matrix") &&
     s == 1L &&
-    (
-      identical(regtype, "ll") ||
+    identical(regtype.engine, "lp") &&
+    !(
+      identical(bws$type, "generalized_nn") &&
+        all(as.integer(spec$degree.engine) == 1L) &&
         (
-          identical(regtype.engine, "lp") &&
-            !(
-              identical(bws$type, "generalized_nn") &&
-                all(as.integer(spec$degree.engine) == 1L) &&
-                (
-                  !identical(spec$basis.engine, "glp") ||
-                    isTRUE(spec$bernstein.basis.engine)
-                )
-            )
+          !identical(spec$basis.engine, "glp") ||
+            isTRUE(spec$bernstein.basis.engine)
         )
     )
 
@@ -661,9 +681,7 @@
         function(j) fit_one(y[, j]),
         numeric(nrow(idx.eval))
       )
-
-      if (is.null(dim(out)))
-        return(as.vector(out))
+      dim(out) <- c(nrow(idx.eval), ncol(y))
       if (ncol(out) == 1L)
         return(as.vector(out[, 1L]))
       return(out)
@@ -684,14 +702,17 @@
     if (is.null(y))
       stop("argument 'y' is required when output='apply'")
 
-    fit <- .np_regression_direct(
-      bws = rbw,
-      txdat = idx.train,
-      tydat = y,
-      exdat = idx.eval,
-      gradients = FALSE
-    )
-    return(fit$mean)
+    y <- .np_indexhat_numeric_y(y)
+    if (nrow(y) != nrow(idx.train))
+      stop("number of rows in 'y' must equal number of training rows")
+    fits <- lapply(seq_len(ncol(y)), function(j) .np_regression_direct(
+      bws = rbw, txdat = idx.train, tydat = y[, j], exdat = idx.eval,
+      gradients = FALSE, allow.empty.rows = allow.empty.rows))
+    out <- if (ncol(y) == 1L) fits[[1L]]$mean else
+      do.call(cbind, lapply(fits, function(fit) fit$mean))
+    flags <- attr(fits[[1L]], ".np.empty.rows", exact = TRUE)
+    if(!is.null(flags)) attr(out, ".np.empty.rows") <- flags
+    return(out)
   }
 
   fit_one <- function(ycol) {
@@ -740,6 +761,24 @@
   )
 }
 
+.npscoef_batch_zero_solve <- function(tyw, tww) {
+  .Call(
+    "C_np_npscoef_batch_zero_solve",
+    tww,
+    tyw,
+    PACKAGE = "np"
+  )
+}
+
+.npscoef_batch_project <- function(theta, Wz.eval) {
+  .Call(
+    "C_np_npscoef_batch_project",
+    theta,
+    Wz.eval,
+    PACKAGE = "np"
+  )
+}
+
 .npscoef_lp_state <- function(bws, tzdat, ezdat, leave.one.out = FALSE, where = "npscoef") {
   tzdat <- toFrame(tzdat)
   ezdat <- toFrame(ezdat)
@@ -758,9 +797,12 @@
     leave.one.out = leave.one.out
   )
 
-  if (identical(spec$regtype.engine, "lc")) {
-    state$z.train <- adjustLevels(tzdat, bws$zdati)
-    state$z.eval <- if (leave.one.out) state$z.train else adjustLevels(ezdat, bws$zdati, allowNewCells = TRUE)
+  if (npIsCanonicalLp0Spec(spec, ncon = bws$ncon)) {
+    # With omitted z the public model smooths on x and retains x metadata.
+    dati <- bws[["zdati", exact = TRUE]]
+    if (is.null(dati)) dati <- bws[["xdati", exact = TRUE]]
+    state$z.train <- adjustLevels(tzdat, dati)
+    state$z.eval <- if (leave.one.out) state$z.train else adjustLevels(ezdat, dati, allowNewCells = TRUE)
     return(state)
   }
 
@@ -834,7 +876,7 @@
   z.eval.one <- lp_state$z.eval[1L, , drop = FALSE]
 
   ytensor <- cbind(tydat, tensor.train)
-  main.ks <- npksum(
+  main.ks <- .npscoef_npksum(
     txdat = lp_state$z.train,
     tydat = ytensor,
     weights = ytensor,
@@ -857,11 +899,12 @@
     coef = coef,
     theta = theta,
     ridge = solve.out$ridge,
+    invalid = solve.out[["invalid"]],
     tww = tww
   )
 
   if (!is.null(u2)) {
-    out$s <- npksum(
+    out$s <- .npscoef_npksum(
       txdat = lp_state$z.train,
       tydat = tensor.train,
       weights = tensor.train * as.double(u2),
@@ -877,6 +920,45 @@
   out
 }
 
+.npscoef_coefficient_projection_block <- function(state, first, last) {
+  rows <- seq.int(first, last)
+  # Unlike generic returned kernel weights, these share the normalized moment
+  # units for fixed, generalized-NN and adaptive-NN bandwidths. This matters
+  # whenever the accepted solve has a positive ridge.
+  eval.rows <- if (state$global) 1L else rows
+  # Borrow the actual moment producer's units, including compressed categorical
+  # moments. Reconstructing via native kernel sums can normalize LR differently.
+  kw <- if (isTRUE(state$profile.weights)) {
+    profile.kw <- .np_regression_cat_profile_kernel_matrix(
+      .np_cat_profile_code_matrix(state$z.eval[eval.rows, , drop = FALSE]),
+      state$profile$train.profile.codes, state$profile$train.profile.dat,
+      state$bws)
+    t(profile.kw[, state$profile$train.id, drop = FALSE])
+  } else .npscoef_npksum(bws = state$bws, txdat = state$z.train,
+    exdat = state$z.eval[eval.rows, , drop = FALSE],
+    bandwidth.divide = TRUE, return.kernel.weights = TRUE,
+    .np.internal.bandwidth.divide.weights = TRUE)$kw
+  H <- matrix(NA_real_, length(rows), nrow(state$design))
+  q <- ncol(state$basis.eval)
+  p <- ncol(state$design)
+  for (ii in seq_along(rows)) {
+    row <- rows[ii]
+    if (row %in% state$invalid)
+      next
+    a <- state$tww[, , if (state$global) 1L else row]
+    ridge <- state$ridge[row]
+    projection <- numeric(p)
+    projection[state$index * q + seq_len(q)] <- state$basis.eval[row, ]
+    v <- as.vector(solve(t(a + diag(ridge, p)), projection))
+    # Transpose the fitter's intercept RHS correction as well as its solve.
+    if (ridge > 0)
+      v[1L] <- v[1L] + npRidgeInterceptCorrection(ridge, v[1L], a[1L, 1L])
+    H[ii, ] <- kw[, if (state$global) 1L else ii] *
+      as.vector(state$design %*% v)
+  }
+  H
+}
+
 .npscoef_effective_weight_state <- function(bws, tzdat, ezdat, leave.one.out = FALSE) {
   state <- .npscoef_lp_state(
     bws = bws,
@@ -886,12 +968,11 @@
     where = "npscoefhat"
   )
   state$bws <- bws
-  state$regtype <- state$spec$regtype.engine
+  state$regtype <- if (npIsCanonicalLp0Spec(state$spec, ncon = bws$ncon))
+    "lc"
+  else
+    state$spec$regtype.engine
   state
-}
-
-.npscoef_effective_weight_one <- function(state, eval.index) {
-  .npscoef_effective_weight_chunk(state = state, eval.indices = eval.index)[, 1L]
 }
 
 .npscoef_effective_weight_chunk_size <- function(ntrain, neval) {
@@ -925,6 +1006,7 @@
     txdat = state$z.train,
     exdat = eval.rows,
     bws = bw.use,
+    fold.rows = if (isTRUE(state$leave.one.out)) eval.indices else NULL,
     bandwidth.divide = TRUE,
     kernel.pow = 1.0
   )
@@ -962,21 +1044,6 @@
   ans
 }
 
-.npscoef_weight_matrix <- function(bws, tzdat, ezdat, leave.one.out = FALSE) {
-  state <- .npscoef_effective_weight_state(
-    bws = bws,
-    tzdat = tzdat,
-    ezdat = ezdat,
-    leave.one.out = leave.one.out
-  )
-  neval <- nrow(state$z.eval)
-  ntrain <- nrow(state$z.train)
-  H <- matrix(0.0, nrow = ntrain, ncol = neval)
-  for (ii in seq_len(neval))
-    H[, ii] <- .npscoef_effective_weight_one(state = state, eval.index = ii)
-  H
-}
-
 npindexhat <-
   function(bws,
            txdat = stop("training data 'txdat' missing"),
@@ -988,15 +1055,18 @@ npindexhat <-
            ...){
 
     .np_reject_unused_dots(list(...), "npindexhat")
+    allow.empty.rows <- !missing(exdat)
     output <- match.arg(output)
     constraint.output <- identical(output, "constraint")
     operator.output <- if (constraint.output) "matrix" else output
     .np_semihat_require_class(bws, "sibandwidth", "npindexhat")
+    if (!identical(output, "matrix"))
+      y <- .np_hat_response(y, bws$ydati)
     if (is.null(y) && constraint.output)
       stop("argument 'y' is required when output='constraint'")
-    s <- as.integer(s)
-    if (length(s) != 1L || is.na(s) || !(s %in% c(0L, 1L)))
+    if (!is.numeric(s) || length(s) != 1L || is.na(s) || !(s %in% c(0L, 1L)))
       stop("argument 's' must be 0 (fit) or 1 (index derivative)")
+    s <- as.integer(s)
     if (!is.null(fd.step)) {
       fd.step <- as.double(fd.step)
       if (length(fd.step) != 1L || is.na(fd.step) || !is.finite(fd.step) || fd.step <= 0)
@@ -1021,15 +1091,22 @@ npindexhat <-
     idx.eval <- data.frame(index = index.eval)
     spec <- .npindex_resolve_spec(bws, where = "npindexhat")
 
-    if (identical(spec$regtype.engine, "lc")) {
+    if (npIsCanonicalLp0Spec(spec, ncon = 1L)) {
       H <- .np_indexhat_exact(
         bws = bws,
         idx.train = idx.train,
         idx.eval = idx.eval,
         y = y,
         output = operator.output,
-        s = s
+        s = s, allow.empty.rows = allow.empty.rows && s == 0L
       )
+      empty.rows <- attr(H, ".np.empty.rows", exact = TRUE)
+      if (!is.null(empty.rows)) {
+        attr(H, ".np.empty.rows") <- NULL
+        den <- rep.int(1.0, length(empty.rows))
+        den[empty.rows == 1L] <- NA_real_
+        H <- .np_normalization_finish(H, den, "npindexhat")
+      }
       if (constraint.output)
         return(.np_hat_constraint_from_matrix(H, y, "npindexhat"))
       return(H)
@@ -1158,6 +1235,8 @@ npplreghat <-
     constraint.output <- identical(output, "constraint")
     matrix.output <- identical(output, "matrix") || constraint.output
     .np_semihat_require_class(bws, "plbandwidth", "npplreghat")
+    if (!identical(output, "matrix"))
+      y <- .np_hat_response(y, bws$ydati)
     txdat <- toFrame(txdat)
     tzdat <- toFrame(tzdat)
     exdat <- toFrame(exdat)
@@ -1188,8 +1267,8 @@ npplreghat <-
     for (j in seq_len(ncol(txdat))) {
       bw.xj <- bws$bw[[j + 1L]]
       if (is.factor(txdat[[j]])) {
-        trj <- adjustLevels(txdat[, j, drop = FALSE], bw.xj$ydati)
-        evj <- adjustLevels(exdat[, j, drop = FALSE], bw.xj$ydati, allowNewCells = TRUE)
+        trj <- .np_regression_response_levels(txdat[, j, drop = FALSE], bw.xj$ydati)
+        evj <- .np_regression_response_levels(exdat[, j, drop = FALSE], bw.xj$ydati, allowNewCells = TRUE)
         lev <- bws$bw[[j + 1L]]$ydati$all.dlev[[1L]]
         x.train.num[, j] <- lev[as.integer(trj[, 1L])]
         x.eval.num[, j] <- lev[as.integer(evj[, 1L])]
@@ -1205,9 +1284,10 @@ npplreghat <-
 
     resx.train <- matrix(0.0, nrow = n, ncol = p)
     resx.eval <- matrix(0.0, nrow = m, ncol = p)
+    formation.error <- numeric(p)
 
     if (matrix.output) {
-      H.y.eval <- npreghat(
+      H.y.eval <- .npreghat_complete(
         bws = bws$bw$yzbw,
         txdat = tzdat,
         exdat = ezdat,
@@ -1215,13 +1295,13 @@ npplreghat <-
       )
 
       for (j in seq_len(p)) {
-        xhat.train <- as.vector(npreghat(
+        xhat.train <- as.vector(.npreghat_complete(
           bws = bws$bw[[j + 1L]],
           txdat = tzdat,
           y = x.train.num[, j],
           output = "apply"
         ))
-        xhat.eval <- as.vector(npreghat(
+        xhat.eval <- as.vector(.npreghat_complete(
           bws = bws$bw[[j + 1L]],
           txdat = tzdat,
           exdat = ezdat,
@@ -1231,10 +1311,12 @@ npplreghat <-
 
         resx.train[, j] <- x.train.num[, j] - xhat.train
         resx.eval[, j] <- x.eval.num[, j] - xhat.eval
+        formation.error[j] <- .np_plreg_residual_formation_error(x.train.num[, j], xhat.train)
       }
 
       qrR <- qr(resx.train, tol = .Machine$double.eps)
-      H.y.train <- npreghat(
+      .np_plreg_check_residualized_rank(qrR, p, "npplreghat", formation.error)
+      H.y.train <- .npreghat_complete(
         bws = bws$bw$yzbw,
         txdat = tzdat,
         output = "matrix"
@@ -1242,7 +1324,6 @@ npplreghat <-
       H.y.train[] <- -H.y.train
       diag(H.y.train) <- diag(H.y.train) + 1.0
       A <- qr.coef(qrR, H.y.train)
-      A[is.na(A)] <- 0.0
       H <- H.y.eval + resx.eval %*% A
       if (constraint.output)
         return(.np_hat_constraint_from_matrix(H, y, "npplreghat"))
@@ -1254,13 +1335,13 @@ npplreghat <-
       stop("number of rows in 'y' must equal number of training rows")
 
     for (j in seq_len(p)) {
-      xhat.train <- npreghat(
+      xhat.train <- .npreghat_complete(
         bws = bws$bw[[j + 1L]],
         txdat = tzdat,
         y = x.train.num[, j],
         output = "apply"
       )
-      xhat.eval <- npreghat(
+      xhat.eval <- .npreghat_complete(
         bws = bws$bw[[j + 1L]],
         txdat = tzdat,
         exdat = ezdat,
@@ -1269,11 +1350,13 @@ npplreghat <-
       )
       resx.train[, j] <- x.train.num[, j] - as.vector(xhat.train)
       resx.eval[, j] <- x.eval.num[, j] - as.vector(xhat.eval)
+      formation.error[j] <- .np_plreg_residual_formation_error(x.train.num[, j], xhat.train)
     }
 
     qrR <- qr(resx.train, tol = .Machine$double.eps)
+    .np_plreg_check_residualized_rank(qrR, p, "npplreghat", formation.error)
 
-    Hy.eval <- npreghat(
+    Hy.eval <- .npreghat_complete(
       bws = bws$bw$yzbw,
       txdat = tzdat,
       exdat = ezdat,
@@ -1283,7 +1366,7 @@ npplreghat <-
     if (!is.matrix(Hy.eval))
       Hy.eval <- matrix(Hy.eval, ncol = ncol(yy))
 
-    Hy.train <- npreghat(
+    Hy.train <- .npreghat_complete(
       bws = bws$bw$yzbw,
       txdat = tzdat,
       y = yy,
@@ -1293,7 +1376,6 @@ npplreghat <-
       Hy.train <- matrix(Hy.train, ncol = ncol(yy))
 
     B <- qr.coef(qrR, yy - Hy.train)
-    B[is.na(B)] <- 0.0
 
     out <- Hy.eval + resx.eval %*% B
     if (ncol(out) == 1L) as.vector(out) else out
@@ -1316,6 +1398,8 @@ npscoefhat <-
     output <- match.arg(output)
     constraint.output <- identical(output, "constraint")
     .np_semihat_require_class(bws, "scbandwidth", "npscoefhat")
+    if (!identical(output, "matrix"))
+      y <- .np_hat_response(y, bws$ydati)
     iterate <- npValidateScalarLogical(iterate, "iterate")
     leave.one.out <- npValidateScalarLogical(leave.one.out, "leave.one.out")
     ridge <- as.double(ridge)
@@ -1368,7 +1452,7 @@ npscoefhat <-
       stop("argument 'y' is required when output='constraint'")
 
     cat.profile.apply.eligible <- identical(output, "apply") &&
-      identical(spec$regtype.engine, "lc") &&
+      npIsCanonicalLp0Spec(spec, ncon = bws$ncon) &&
       !leave.one.out &&
       identical(bws$type, "fixed") &&
       npUseCategoricalCompress(ncon = bws$ncon,
@@ -1420,6 +1504,10 @@ npscoefhat <-
         ridge.base = max(0.0, as.double(ridge)),
         cap = 1.0
       )
+      # Profile moments retain unnormalised Li--Racine unordered weights while
+      # the ordinary hat owner uses their normalised counterpart.  Convert the
+      # additive ridge, not the fitted result, so both solve the same system.
+      ridge.scale <- .np_regression_cat_profile_ridge_scale(tzdat, bws)
       for (ii in seq_len(m)) {
         XtWX <- matrix(sww.eval[ii, ], nrow = p, ncol = p, byrow = TRUE)
         rhs <- matrix(wy.eval[ii, ], nrow = p, ncol = q, byrow = TRUE)
@@ -1429,12 +1517,15 @@ npscoefhat <-
         for (ridge.try in ridge.grid) {
           A <- XtWX
           if (ridge.try > 0)
-            A[diag.loc] <- XtWX.diag + ridge.try
+            A[diag.loc] <- XtWX.diag + ridge.try * ridge.scale
           v <- tryCatch(
             solve(t(A), matrix(W.eval[ii, ], ncol = 1L)),
             error = function(e) NULL
           )
           if (!is.null(v) && all(is.finite(v))) {
+            if (ridge.try > 0)
+              v[1L] <- v[1L] + npRidgeInterceptCorrection(
+                ridge.try * ridge.scale, v[1L], XtWX.diag[1L])
             out[ii, ] <- drop(t(v) %*% rhs)
             solved <- TRUE
             break
@@ -1459,7 +1550,7 @@ npscoefhat <-
       }
       out <- matrix(0.0, nrow = m, ncol = ncol(yy))
 
-      if (identical(spec$regtype.engine, "lc")) {
+      if (npIsCanonicalLp0Spec(spec, ncon = bws$ncon)) {
         state <- .npscoef_effective_weight_state(
           bws = bws,
           tzdat = tzdat,
@@ -1480,7 +1571,8 @@ npscoefhat <-
                 W = W.train,
                 w.eval = W.eval[ii, ],
                 k = kw.chunk[, jj],
-                ridge.base = ridge
+                ridge.base = ridge,
+                intercept.correction = TRUE
               )
               if (is.null(solve.out))
                 stop(sprintf("failed to solve local hat system at evaluation row %d", ii))
@@ -1494,7 +1586,8 @@ npscoefhat <-
                 W = W.train,
                 w.eval = W.eval[ii, ],
                 k = kw.chunk[, jj],
-                ridge.base = ridge
+                ridge.base = ridge,
+                intercept.correction = TRUE
               )
               if (is.null(solve.out))
                 stop(sprintf("failed to solve local hat system at evaluation row %d", ii))
@@ -1522,6 +1615,7 @@ npscoefhat <-
             txdat = lp_state$z.train,
             exdat = lp_state$z.eval[idx, , drop = FALSE],
             bws = lp_state$rbw,
+            fold.rows = if (leave.one.out) idx else NULL,
             bandwidth.divide = TRUE,
             kernel.pow = 1.0
           )
@@ -1538,7 +1632,8 @@ npscoefhat <-
                 W = tensor.train,
                 w.eval = tensor.eval[ii, ],
                 k = kw.chunk[, jj],
-                ridge.base = ridge
+                ridge.base = ridge,
+                intercept.correction = TRUE
               )
               if (is.null(solve.out))
                 stop(sprintf("failed to solve smooth-coefficient local hat system at evaluation row %d", ii))
@@ -1552,7 +1647,8 @@ npscoefhat <-
                 W = tensor.train,
                 w.eval = tensor.eval[ii, ],
                 k = kw.chunk[, jj],
-                ridge.base = ridge
+                ridge.base = ridge,
+                intercept.correction = TRUE
               )
               if (is.null(solve.out))
                 stop(sprintf("failed to solve smooth-coefficient local hat system at evaluation row %d", ii))
@@ -1569,7 +1665,7 @@ npscoefhat <-
 
     H <- matrix(0.0, nrow = m, ncol = n)
 
-    if (identical(spec$regtype.engine, "lc")) {
+    if (npIsCanonicalLp0Spec(spec, ncon = bws$ncon)) {
       state <- .npscoef_effective_weight_state(
         bws = bws,
         tzdat = tzdat,
@@ -1589,7 +1685,8 @@ npscoefhat <-
             W = W.train,
             w.eval = W.eval[ii, ],
             k = kw.chunk[, jj],
-            ridge.base = ridge
+            ridge.base = ridge,
+            intercept.correction = TRUE
           )
           if (is.null(solve.out))
             stop(sprintf("failed to solve local hat system at evaluation row %d", ii))
@@ -1615,6 +1712,7 @@ npscoefhat <-
           txdat = lp_state$z.train,
           exdat = lp_state$z.eval[idx, , drop = FALSE],
           bws = lp_state$rbw,
+          fold.rows = if (leave.one.out) idx else NULL,
           bandwidth.divide = TRUE,
           kernel.pow = 1.0
         )
@@ -1630,7 +1728,8 @@ npscoefhat <-
             W = tensor.train,
             w.eval = tensor.eval[ii, ],
             k = kw.chunk[, jj],
-            ridge.base = ridge
+            ridge.base = ridge,
+            intercept.correction = TRUE
           )
           if (is.null(solve.out))
             stop(sprintf("failed to solve smooth-coefficient local hat system at evaluation row %d", ii))

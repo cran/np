@@ -160,7 +160,7 @@ test_that("npreghat lp bernstein path matches predict semantics", {
     bws = 0.18,
     regtype = "lp",
     degree = 3L,
-    bernstein = FALSE,
+    bernstein.basis = FALSE,
     bandwidth.compute = FALSE
   )
   bw.bern <- npregbw(
@@ -169,7 +169,7 @@ test_that("npreghat lp bernstein path matches predict semantics", {
     bws = 0.18,
     regtype = "lp",
     degree = 3L,
-    bernstein = TRUE,
+    bernstein.basis = TRUE,
     bandwidth.compute = FALSE
   )
 
@@ -351,7 +351,7 @@ test_that("npreghat nonfixed higher-order lp operator matches npreg and matrix a
     expect_equal(as.vector(case$H %*% case$y), as.vector(case$fit$mean), tolerance = 1e-8)
     expect_equal(as.vector(case$a.vec), as.vector(case$fit$mean), tolerance = 1e-8)
     expect_equal(as.vector(case$H %*% case$y), as.vector(case$a.vec), tolerance = 1e-10)
-    expect_equal(case$H %*% case$Y, case$a.mat, tolerance = 1e-10, ignore_attr = TRUE)
+    expect_equal(case$H %*% case$Y, case$a.mat, tolerance = 1e-10)
   }
 })
 

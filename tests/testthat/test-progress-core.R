@@ -93,6 +93,59 @@ capture_single_line_output <- function(pkg, bindings, code) {
   readChar(path, nchars = file.info(path)$size, useBytes = TRUE)
 }
 
+test_that("progress presentation retains atomic counters and respects display columns", {
+  fit <- getFromNamespace(".np_progress_fit_single_line", "np")
+  wide <- paste0("[np] Fitting ", strrep("\\u6e29\\u5ea6", 20L),
+                 " 123/999 (12.3%, elapsed 12.3s, eta 87.7s)")
+  for (width in c(20L, 40L, 60L, 80L, 120L)) {
+    line <- fit(wide, width)
+    expect_lte(nchar(line, type = "width"), width)
+    expect_match(line, "123/999", fixed = TRUE)
+  }
+  line <- fit(paste0("[np] Plot bootstrap (target 18/42, rep 64/99, ",
+                    "elapsed 15.2s, eta 21.0s)"), 60L)
+  expect_match(line, "18/42.*64/99.*elap.*eta")
+  expect_lte(nchar(line, type = "width"), 60L)
+})
+
+test_that("one-off progress phases retain scope, visibility and the outer owner", {
+  run <- getFromNamespace(".np_progress_activity_run", "np")
+  runtime <- getFromNamespace(".np_progress_runtime", "np")
+  registry <- getFromNamespace(".np_progress_registry", "np")
+  old <- options(np.messages = TRUE)
+  on.exit(options(old), add = TRUE)
+  x <- 0L
+  trace <- capture_progress_shadow_trace({
+    value <- withVisible(run("Outer phase", {
+      owner <- registry$active_id
+      forward <- runtime$fit_forward
+      run("Inner phase", {
+        expect_identical(registry$active_id, owner)
+        expect_identical(runtime$fit_forward, forward)
+        x <- 17L
+      })
+      invisible(9L)
+    }))
+    expect_identical(x, 17L)
+    expect_identical(value, list(value = 9L, visible = FALSE))
+    expect_null(registry$active_id)
+    expect_null(runtime$fit_forward)
+    expect_error(run("Failed phase", stop("retained phase error")),
+                 "retained phase error")
+    expect_null(registry$active_id)
+    expect_null(runtime$fit_forward)
+  }, force_renderer = "single_line")
+  expect_false(any(vapply(trace$trace, function(x)
+    grepl("Inner phase", x$line, fixed = TRUE), TRUE)))
+})
+
+test_that("ANN SE fit surface uses the shared single-line renderer", {
+  renderer <- getFromNamespace(".np_progress_renderer_for_surface", "np")
+  expect_identical(renderer("fit", list(single_line_viable = TRUE)), "single_line")
+  expect_identical(renderer("fit", list(single_line_viable = FALSE)), "legacy")
+  expect_identical(renderer("general", list(single_line_viable = TRUE)), "legacy")
+})
+
 test_that("progress begin returns disabled state when messages are off", {
   begin <- getFromNamespace(".np_progress_begin", "np")
 
@@ -502,7 +555,7 @@ test_that("compiled progress bridge feeds fit updates on the bandwidth surface",
   lines <- vapply(actual$trace, `[[`, character(1L), "line")
 
   expect_true(any(grepl(
-    "^\\[np\\] Fitting density 0/3 \\(0\\.0%, elapsed 0\\.0s, eta 0\\.0s\\): starting$",
+    "^\\[np\\] Fitting density 0/3 \\(0\\.0%, elapsed 0\\.0s, eta estimating\\): starting$",
     lines
   )))
   expect_true(any(grepl(
@@ -518,12 +571,12 @@ test_that("compiled progress bridge feeds fit updates on the bandwidth surface",
 test_that("single-line fit drops detail before truncating", {
   fit <- getFromNamespace(".np_progress_fit_single_line", "np")
 
-  line <- "[np] Constructing metric entropy by lag 1/2 (50.0%, elapsed 7.2s, eta 7.2s): lag 1"
+  line <- "[np] Computing entropy statistics by lag 1/2 (50.0%, elapsed 7.2s, eta 7.2s): lag 1"
   fitted <- fit(line, max_width = 78)
 
   expect_identical(
     fitted,
-    "[np] Constructing metric entropy by lag 1/2 (50.0%, elapsed 7.2s, eta 7.2s)"
+    "[np] Computing entropy statistics by lag 1/2 (50.0%, elapsed 7.2s, eta 7.2s)"
   )
 })
 
@@ -556,26 +609,26 @@ test_that("single-line fit keeps smooth coefficient bandwidth lines readable at 
 test_that("single-line fit preserves readable bandwidth fields at 80 columns", {
   fit <- getFromNamespace(".np_progress_fit_single_line", "np")
 
-  line <- "[np] Bandwidth selection (multistart 2/2, iteration 31, elapsed 10.6s, 62.4%, eta 6.4s)"
+  line <- "[np] Bandwidth selection (multistart 2/2, iteration 31, 62.4%, elapsed 10.6s, eta 6.4s)"
   fitted <- fit(line, max_width = 80)
 
   expect_lte(nchar(fitted, type = "width"), 80L)
   expect_identical(
     fitted,
-    "[np] Bandwidth selection (2/2, iter 31, elapsed 10.6s, 62.4%, eta 6.4s)"
+    "[np] Bandwidth selection (ms 2/2, iter 31, 62.4%, elap 10.6s, eta 6.4s)"
   )
 })
 
 test_that("single-line fit preserves readable coordinator bandwidth fields at 80 columns", {
   fit <- getFromNamespace(".np_progress_fit_single_line", "np")
 
-  line <- "[np] Bandwidth selection (y~z, multistart 2/2, iteration 31, elapsed 10.6s, 62.4%, eta 6.4s)"
+  line <- "[np] Bandwidth selection (y~z, multistart 2/2, iteration 31, 62.4%, elapsed 10.6s, eta 6.4s)"
   fitted <- fit(line, max_width = 80)
 
   expect_lte(nchar(fitted, type = "width"), 80L)
   expect_identical(
     fitted,
-    "[np] Bandwidth selection (y~z, 2/2, iter 31, elapsed 10.6s, 62.4%, eta 6.4s)"
+    "[np] Bandwidth selection (y~z, ms 2/2, iter 31, 62.4%, elap 10.6s, eta 6.4s)"
   )
 })
 
@@ -588,7 +641,7 @@ test_that("single-line fit preserves restart and cumulative iteration in NOMAD l
   expect_lte(nchar(fitted, type = "width"), 80L)
   expect_identical(
     fitted,
-    "[np] Bandwidth selection (2/2, iter 31 (128), elapsed 10.6s, deg (1), best (0))"
+    "[np] Bandwidth selection (ms 2/2, iter 31 (128), elap 10.6s, deg (1), best (0))"
   )
 })
 
@@ -614,11 +667,11 @@ test_that("single-line fit preserves readable plot bootstrap counters at 80 colu
   expect_lte(nchar(fitted, type = "width"), 80L)
   expect_identical(
     fitted,
-    "[np] Plot bootstrap (grad idx 1/1) 12345/80000 (15.4%, elapsed 8.7s, eta 44.9s)"
+    "[np] Plot bootstrap (grad index 1/1) 12345/80000 (15.4%, elap 8.7s, eta 44.9s)"
   )
 })
 
-test_that("single-line fit preserves both ends when truncation is still required", {
+test_that("narrow known-total output preserves whole counters before optional ETA", {
   fit <- getFromNamespace(".np_progress_fit_single_line", "np")
 
   line <- "[np] Bootstrap replications 123/999 (12.3%, elapsed 12.3s, eta 87.7s)"
@@ -626,8 +679,8 @@ test_that("single-line fit preserves both ends when truncation is still required
 
   expect_lte(nchar(fitted, type = "width"), 40L)
   expect_true(startsWith(fitted, "[np]"))
-  expect_true(endsWith(fitted, "eta 87.7s)"))
-  expect_true(grepl("\\.\\.\\.", fitted))
+  expect_true(grepl("123/999", fitted, fixed = TRUE))
+  expect_false(grepl("...", fitted, fixed = TRUE))
 })
 
 test_that("RStudio capability keeps single-line viable at the boundary", {
@@ -815,6 +868,7 @@ test_that("plot progress default cadence matches bandwidth heartbeat", {
   begin <- getFromNamespace(".np_progress_begin", "np")
 
   old_opts <- options(
+    np.progress.interval.sec = NULL,
     np.plot.progress.interval.sec = NULL,
     np.progress.interval.unknown.sec = NULL,
     np.progress.interval.known.sec = NULL
@@ -823,7 +877,12 @@ test_that("plot progress default cadence matches bandwidth heartbeat", {
 
   expect_identical(plot_interval(), 2.0)
   expect_identical(begin("Bandwidth selection")$throttle_sec, 2.0)
-  expect_identical(begin("Bootstrap replications", total = 10L)$throttle_sec, 0.5)
+  expect_identical(begin("Bootstrap replications", total = 10L)$throttle_sec, 2.0)
+
+  options(np.progress.interval.sec = 1.25)
+  expect_identical(plot_interval(), 1.25)
+  expect_identical(begin("Bandwidth selection")$throttle_sec, 1.25)
+  expect_identical(begin("Bootstrap replications", total = 10L)$throttle_sec, 1.25)
 })
 
 test_that("interactive bootstrap chunk sizes leave room for intermediate progress", {

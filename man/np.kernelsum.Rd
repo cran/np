@@ -64,6 +64,13 @@ response, and evaluation points for the generalized product kernel sum.
   }
 
   \item{data}{
+    This argument belongs to the formula interface (including supported
+    formula-bearing bandwidth-object refits). Native calls must supply their
+    vectors, matrices or data frames directly, or use \code{with(data, ...)}.
+    Supplying \code{data}, including explicit \code{data = NULL}, to a native
+    route that does not consume it is an error; see
+    \code{\link{np-data-interfaces}}.
+
     an optional data frame, list or environment (or object
     coercible to a data frame by \code{\link{as.data.frame}}) containing the variables
     in the model. If not found in data, the variables are taken from
@@ -111,6 +118,10 @@ response, and evaluation points for the generalized product kernel sum.
   \item{weights}{
     a \eqn{n} by \eqn{q}  matrix of weights which can optionally be
     applied to \code{tydat} in the sum. See details.
+    In formula calls, full-length weights follow the same time alignment,
+    \code{subset} and missing-value selection as the formula variables.
+    Weights already having the selected sample length are also accepted when
+    that length differs from the original sample length.
   }
   
 \subsection{Kernel-Sum Operators And Output}{
@@ -119,35 +130,37 @@ evaluation, operator variants, and returned kernel weights.
 }
 
   \item{bandwidth.divide}{
-    a logical specifying whether or not to divide continuous kernel
-    weights by their bandwidths. Use this with nearest-neighbor
-    methods. Defaults to \code{FALSE}.
+    a single, non-missing logical specifying whether or not to divide
+    continuous kernel weights by their bandwidths. Use this with
+    nearest-neighbor methods. Defaults to \code{FALSE}.
   }
 
   \item{compute.ocg}{
-    a logical specifying whether or not to return a separate result for
-    each unordered and ordered dimension, where the product kernel term
-    for that dimension is evaluated at an appropriate reference
-    category. This is used primarily in \code{np} to compute ordered and
-    unordered categorical gradients. See details.
+    a single, non-missing logical specifying whether or not to return a
+    separate result for each unordered and ordered dimension, where the
+    product kernel term for that dimension is evaluated at an appropriate
+    reference category. This is used primarily in \code{np} to compute
+    ordered and unordered categorical gradients. See details.
   }
 
   \item{compute.score}{
-    a logical specifying whether or not to return the score
-    (the \sQuote{grad h} terms) for each dimension in addition to the kernel
-    sum. Cannot be \code{TRUE} if a permutation operator other than
-    \code{"none"} is selected. 
+    a single, non-missing logical specifying whether or not to return the
+    score (the \sQuote{grad h} terms) for each dimension in addition to the
+    kernel sum. Cannot be \code{TRUE} if a permutation operator other
+    than \code{"none"} is selected.
   }
 
   \item{kernel.pow}{
-    an integer specifying the power to which the kernels will be raised
-    in the sum. Defaults to \code{1}.
+    a single, finite integer specifying the power to which the kernels
+    will be raised in the sum. Defaults to \code{1}.
   }
 
   \item{leave.one.out}{
-    a logical value to specify whether or not to compute the leave one
-    out sums. Will not work if \code{exdat} is specified. Defaults to
-    \code{FALSE}.
+    a single, non-missing logical value specifying whether or not to
+    compute the leave one out sums. The matching contribution is omitted;
+    nearest-neighbor radii retain the full-sample geometry. This flag alone
+    is not a literal deleted-sample estimator refit. Will not work if \code{exdat} is
+    specified. Defaults to \code{FALSE}.
   }
 
   \item{operator}{
@@ -168,9 +181,9 @@ evaluation, operator variants, and returned kernel weights.
   }
 
   \item{return.kernel.weights}{
-    a logical specifying whether or not to return the matrix of
-    generalized product kernel weights. Defaults to \code{FALSE}. See
-    details.
+    a single, non-missing logical specifying whether or not to return the
+    matrix of generalized product kernel weights. Defaults to
+    \code{FALSE}. See details.
   }
 
 
@@ -184,6 +197,11 @@ Further arguments passed to the default kernel-sum method.
   }
 }
 \details{
+  Formula variables of class \code{ts}, including lagged variables, are
+  aligned on their common time support before fitting. Other variables
+  must already have the length of that intersection. Supply explicitly
+  aligned rows when using native data arguments instead of a formula.
+
   Documentation guide: see \code{\link{np.kernels}} for kernels, \code{\link{np.options}} for global options, and \code{\link{plot}} for plotting options.
 
   \code{npksum}
@@ -217,6 +235,10 @@ Further arguments passed to the default kernel-sum method.
   bandwidths change with the point at which the sum is computed,
   \eqn{x}. Fixed bandwidths are constant over the support of \eqn{x}.
 
+  Exact ties can make the literal \eqn{k}th continuous nearest-neighbor
+  radius zero. Such a bandwidth is undefined and is rejected; see
+  \code{\link{np.kernels}} for the precise contract and remedies.
+
   \code{npksum} computes \eqn{\sum_{j=1}^{n}{W_j^\prime Y_j
   K(X_j)}}{sum(t(W[j]) \%*\% Y[j] * K(X[j]))}, where \eqn{W_j}{W[j]}
   represents a row vector extracted from \eqn{W}.  That is, it computes
@@ -249,11 +271,85 @@ Further arguments passed to the default kernel-sum method.
 
   A variety of kernels may be specified by the user. Kernels implemented
   for continuous data types include the second, fourth, sixth, and
-  eighth order Gaussian and Epanechnikov kernels, and the uniform
-  kernel. Unordered discrete data types use a variation on Aitchison and
+  eighth order Gaussian, Epanechnikov, and beta associated kernels, and the
+  uniform kernel. The beta family uses finite-support coordinate-aware routes
+  described below. Unordered discrete data types use a variation on Aitchison and
   Aitken's (1976) kernel, while ordered data types use a variation of
   the Wang and van Ryzin (1981) kernel (see \code{\link{np}} for
   details).
+
+  For \code{ckertype="beta"}, \code{npksum} uses Chen's second-order
+  associated PDF kernel as the base contribution on each declared interval.
+  If \eqn{L=b-a}, its
+  per-observation contribution is
+  \deqn{\frac{1}{L}\,\mathrm{BetaPDF}\left(
+    \frac{x_i-a}{L};
+    1+\frac{x-a}{L}\left(\frac{L}{h}\right)^2,
+    1+\frac{b-x}{L}\left(\frac{L}{h}\right)^2\right).}
+  The complete density scaling \eqn{1/L} is part of this contribution.
+  Consequently, a univariate beta density estimate is
+  \code{npksum(...)$ksum/n}, not \code{npksum(...)$ksum/(n*h)}.
+  Local-constant regression uses the ordinary ratio of beta-weighted response
+  and unit sums.  Do not set \code{bandwidth.divide=TRUE}; that legacy
+  normalization is intentionally rejected for beta kernels.
+
+  For order \eqn{2m}, the PDF and CDF operators use
+  \eqn{\sum_{s=1}^m(-1)^{s+1}{m\choose s}K_2(h\sqrt{s})}. Thus the coefficient
+  vectors for orders 2, 4, 6, and 8 are \eqn{(1)}, \eqn{(2,-1)},
+  \eqn{(3,-3,1)}, and \eqn{(4,-6,4,-1)}. Higher-order PDF and CDF
+  contributions are signed and are returned without clipping.
+
+  For \code{operator="integral"}, the univariate beta contribution is
+  \deqn{I_{(x-a)/L}\left(1+\frac{x_i-a}{L}\left(\frac{L}{h}\right)^2,
+    1+\frac{b-x_i}{L}\left(\frac{L}{h}\right)^2\right).}
+  This observation-centered analytic CDF is not the integral of the
+  evaluation-centered PDF contribution with respect to \eqn{x}. It is exactly
+  zero and one at the declared endpoints, is monotone for order 2, and has the
+  uniform-CDF limit as \eqn{h} diverges. In several dimensions,
+  \code{operator} may mix \code{"normal"}, \code{"integral"}, and
+  \code{"convolution"} beta factors coordinate by coordinate.
+
+  For \code{operator="convolution"}, the training and evaluation values are
+  interpreted as the centers of two associated beta weights in the common
+  observation coordinate. If their shapes are
+  \eqn{(\alpha_1,\beta_1)} and \eqn{(\alpha_2,\beta_2)}, the returned factor is
+  \deqn{\frac{1}{L}\frac{B(\alpha_1+\alpha_2-1,
+                                  \beta_1+\beta_2-1)}
+                             {B(\alpha_1,\beta_1)B(\alpha_2,\beta_2)}.}
+  This symmetric analytic \eqn{L^2} overlap includes its complete
+  original-scale \eqn{1/L} normalization. Its diagonal is the local beta
+  roughness. It is neither a translation convolution nor the
+  target-coordinate integrated-square term used by bounded density
+  \code{cv.ls}; those objectives retain their existing quadrature of the
+  actual estimator. Beta PDF, CDF, and overlap factors may be mixed across
+  dimensions.
+
+  This beta surface requires continuous \code{txdat},
+  \code{ckerorder} in \code{c(2,4,6,8)},
+  \code{ckerbound="fixed"} or \code{"range"}, finite lower and upper bounds for every
+  dimension, \code{operator="normal"}, \code{operator="integral"}, and/or
+  \code{operator="convolution"}, and \code{kernel.pow=1}. It supports
+  multiple continuous dimensions, response and case-weight columns,
+  leave-one-out sums, and returned kernel weights. All three operators support
+  \code{bwtype="fixed"}. The PDF, CDF, and convolution operators additionally support
+  \code{bwtype="generalized_nn"} and \code{bwtype="adaptive_nn"}; their
+  evaluation-specific and observation-specific metric bandwidths are the
+  distances returned by the existing observation-support nearest-neighbor
+  implementation, including its tie and extended-NN policy. Generalized
+  overlap evaluates generalized-NN distances at both centers. Adaptive
+  overlap keeps adaptive bandwidths attached to training centers; a genuinely
+  new evaluation center uses the established generalized-NN auxiliary
+  bandwidth. Fixed and adaptive order-2 CDF factors are monotone in their
+  target. Generalized-NN CDF factors remain in \eqn{[0,1]} with exact
+  endpoints, but their target-varying bandwidth can produce local
+  nonmonotonicity. Orders 4, 6, and 8 may additionally leave \eqn{[0,1]} or
+  be locally nonmonotone in every bandwidth mode; no clipping or monotone
+  repair is applied. One-coordinate analytic first derivatives and their
+  continuous-coordinate permutations are available as documented below.
+  Higher and mixed derivatives, categorical-product, score, OCG, and other
+  unsupported beta operations fail with an explicit condition. See
+  \code{\link{np.kernels}}
+  for the bandwidth convention, orientation, and references.
 
   The option \code{operator=} can be used to \sQuote{mix and match}
   operator strings to create a \sQuote{hybrid} kernel provided they
@@ -276,11 +372,31 @@ Further arguments passed to the default kernel-sum method.
   \code{operator = c("normal","derivative")}. This makes the computation
   of gradients much easier.
 
+  For \code{ckertype="beta"}, \code{operator="derivative"} is the analytic
+  first derivative of the associated PDF contribution with respect to its
+  evaluation coordinate. A direct operator vector may contain one derivative
+  coordinate, while \code{permutation.operator="derivative"} returns one
+  derivative product per continuous coordinate. Set
+  \code{bandwidth.divide=FALSE}; beta contributions already carry their
+  original-scale units. Generalized- and adaptive-NN bandwidths are held fixed
+  during differentiation. Exact matching support endpoints can produce signed
+  infinite scalar derivatives; see \code{\link{np.kernels}} for the endpoint
+  and ratio-cancellation conventions. Signed infinities are returned as
+  \code{-Inf}/\code{Inf}, not recoded as missing values; \code{NA_real_} is
+  reserved for unavailable or indeterminate results.
+
   The option \code{compute.score=} can be used to compute the gradients
   with respect to \eqn{h} in addition to the normal kernel sum. Like
   permutations, the additional results are returned in the
   \code{p.ksum}. This option does not work in conjunction with
   \code{permutation.operator}.
+
+  For categorical variables with \code{kernel.pow=1}, the score differentiates
+  the requested operator with respect to its categorical bandwidth: ordinary
+  weights for \code{"normal"}, overlap weights for \code{"convolution"},
+  and ordered cumulative weights for \code{"integral"}. An unordered
+  \code{"integral"} retains its ordinary-weight convention. Convolution
+  scores include both factors and, where applicable, both normalizers.
 
   The option \code{compute.ocg=} works much like \code{permutation.operator},
   but for discrete variables. The kernel is evaluated at a reference
@@ -290,18 +406,32 @@ Further arguments passed to the default kernel-sum method.
   category is selected. These additional data are returned in the
   \code{p.ksum} member. This option can be set simultaneously with
   \code{permutation.operator}.
+
+  Ordered evaluation values used with \code{compute.ocg=TRUE} must belong
+  to the bandwidth object's retained category table, because this operation
+  requires an adjacent reference category. Other ordered kernel evaluations
+  retain their usual numeric extrapolation behavior.
+
+  When a permutation, score, or OCG operation selects only a subset of
+  variables, the corresponding blocks in \code{p.ksum} and, when requested
+  internally, derivative kernel weights are packed without empty coordinates
+  and follow the original data-column order among the selected variables.
   
   The option \code{return.kernel.weights=TRUE} returns a matrix of
   dimension \sQuote{number of training observations} by \sQuote{number
-  of evaluation observations} and contains only the generalized product
-  kernel weights ignoring all other objects and options that may be
-  provided to \code{npksum} (e.g. \code{bandwidth.divide=TRUE} will be
-  ignored, etc.). Summing the columns of the weight matrix and dividing
-  by \sQuote{number of training observations} times the product of the
-  bandwidths (i.e. \code{\link{colMeans}(foo$kw)/prod(h)}) would produce
-  the kernel estimator of a (multivariate) density
-  (\code{operator="normal"}) or multivariate cumulative distribution
-  (\code{operator="integral"}).
+  of evaluation observations} containing generalized product kernel weights,
+  not response- or observation-weighted sums. The \code{bandwidth.divide}
+  flag controls normalization of \code{ksum}, not this raw \code{kw} export.
+  For purely continuous data with fixed physical bandwidths
+  \code{h} and unbounded ordinary location kernels,
+  \code{\link{colMeans}(foo$kw)/prod(h)} gives a density estimate
+  when every operator is \code{"normal"}. With every operator
+  \code{"integral"}, the corresponding distribution estimate is
+  \code{colMeans(foo$kw)}, without division by the bandwidth product.
+  Mixed operators require their coordinate-specific normalizations.
+  Nearest-neighbor and associated beta kernels must use their own
+  bandwidth/normalization conventions; one global bandwidth product is
+  not a general reconstruction rule.
 
 }
 \value{
@@ -312,6 +442,7 @@ Further arguments passed to the default kernel-sum method.
   \item{ksum}{ the sum at the evaluation points }
   \item{kw}{ the kernel weights (when \code{return.kernel.weights=TRUE}
   is specified)}
+  \item{p.ksum}{ packed permutation, score, or OCG sums, when requested }
 }
 \references{
   Aitchison, J. and C.G.G. Aitken (1976), \dQuote{ Multivariate binary
@@ -334,7 +465,11 @@ Further arguments passed to the default kernel-sum method.
   Hall.
 
   Wang, M.C. and J. van Ryzin (1981), \dQuote{A class of smooth
-  estimators for discrete distributions,} Biometrika, 68, 301-309.  }
+  estimators for discrete distributions,} Biometrika, 68, 301-309.
+
+  Chen, S.X. (1999), \dQuote{Beta kernel estimators for density functions,}
+  Computational Statistics & Data Analysis, 31(2), 131-145.
+  doi:10.1016/S0167-9473(99)00010-9.  }
 
 \author{
   Tristen Hayfield \email{tristen.hayfield@gmail.com}, Jeffrey S. Racine
@@ -475,7 +610,7 @@ fit.lc
 })
 
 # EXAMPLE 4: For this example, we conduct least-squares cross-validation
-# for the local-constant regression estimator. We first write an R
+# for the fixed-bandwidth local-constant regression estimator. We first write an R
 # function `ss' that computes the leave-one-out sum of squares using the
 # npksum() function, and then feed this function, along with
 # random starting values for the bandwidth vector, to the nlm() routine
@@ -525,11 +660,11 @@ ss <- function(h) {
 
     mean <-  npksum(txdat, 
                     tydat, 
-                    leave.one.out=TRUE, 
+                    leave.one.out=TRUE, bwtype="fixed",
                     bandwidth.divide=TRUE, 
                     bws=h)$ksum/
              npksum(txdat, 
-                    leave.one.out=TRUE, 
+                    leave.one.out=TRUE, bwtype="fixed",
                     bandwidth.divide=TRUE, 
                     bws=h)$ksum
   
@@ -544,7 +679,7 @@ ss <- function(h) {
 
 nlm.return <- nlm(ss, runif(length(txdat)))
 
-bw <- npregbw(xdat=txdat, ydat=tydat)
+bw <- npregbw(xdat=txdat, ydat=tydat, bwtype="fixed")
 
 # Bandwidths from nlm()
 
@@ -582,6 +717,38 @@ kernel <- npksum(txdat=x,exdat=x.eval,bws=1,
 
 plot(x.eval,kernel,type="l",xlab="X",ylab="Kernel Function") 
 abline(0,0)
+
+# EXAMPLE 6: The beta associated kernel for bounded data.  Its complete
+# original-scale normalization is already included, so divide the sum by n,
+# not by n*h.  The same weights can be used directly in a local-constant
+# numerator/denominator ratio.
+
+x <- c(0, 0.01, 0.04, 0.15, 0.4, 0.75, 1)
+x.eval <- seq(0, 1, length.out=101)
+h <- 0.12
+
+beta.args <- list(txdat=data.frame(x=x),
+                  exdat=data.frame(x=x.eval),
+                  bws=h,
+                  ckertype="beta",
+                  ckerorder=2,
+                  ckerbound="fixed",
+                  ckerlb=0,
+                  ckerub=1)
+
+beta.density <- do.call(npksum, beta.args)$ksum/length(x)
+
+y <- sqrt(x)
+beta.mean <- do.call(npksum, c(beta.args, list(tydat=y)))$ksum/
+             do.call(npksum, beta.args)$ksum
+
+beta.cdf <- do.call(npksum,
+                    c(beta.args,
+                      list(operator="integral")))$ksum/length(x)
+
+beta.overlap <- do.call(npksum,
+                        c(beta.args,
+                          list(operator="convolution")))$ksum
 } % enddontrun
 }
 \keyword{ nonparametric }

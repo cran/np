@@ -22,12 +22,18 @@ test_that("npreg.rbandwidth validates gradient flags as logical scalars", {
   expect_match(fn.body, "residuals <- npValidateScalarLogical\\(residuals, \"residuals\"\\)")
 })
 
-test_that("lp regtype remains lp internally for degree 0/1", {
+test_that("public lc and explicit lp degree 0 share the scalar LP0 engine", {
   npRegtypeToC <- getFromNamespace("npRegtypeToC", "np")
+  REGTYPE_LP0 <- getFromNamespace("REGTYPE_LP0", "np")
   REGTYPE_LP <- getFromNamespace("REGTYPE_LP", "np")
 
-  expect_identical(npRegtypeToC(regtype = "lp", degree = 0L, ncon = 1L)$code, REGTYPE_LP)
+  expect_identical(npRegtypeToC(regtype = "lc", degree = NULL, ncon = 2L),
+                   list(code = REGTYPE_LP0, degree = c(0L, 0L)))
+  expect_identical(npRegtypeToC(regtype = "lp", degree = 0L, ncon = 1L),
+                   list(code = REGTYPE_LP0, degree = 0L))
   expect_identical(npRegtypeToC(regtype = "lp", degree = 1L, ncon = 1L)$code, REGTYPE_LP)
+  expect_identical(npRegtypeToC(regtype = "ll", degree = NULL, ncon = 2L),
+                   list(code = REGTYPE_LP, degree = c(1L, 1L)))
 })
 
 test_that("lp degree-0 gradients allow first derivatives and reject higher orders", {
@@ -83,7 +89,7 @@ test_that("lc gradients reject higher-order derivative requests", {
   grDevices::pdf(NULL)
   on.exit(grDevices::dev.off(), add = TRUE)
   expect_error(
-    plot(fit, gradients = TRUE, gradient_order = 2L, output = "data"),
+    plot(fit, gradients = TRUE, gradient.order = 2L, output = "data"),
     "supports only first derivatives for regtype='lc'"
   )
 })

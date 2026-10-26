@@ -2,6 +2,8 @@
 ## return columns while the public wrapper adds formula routing and S3 metadata.
 
 npcopula <- function(bws, ...) {
+  mc <- match.call(expand.dots = FALSE)
+  .np_validate_public_dots(mc[["..."]], "npcopula")
   if (!missing(bws)) {
     UseMethod("npcopula", bws)
   } else {
@@ -108,21 +110,56 @@ npcopula <- function(bws, ...) {
   num.var + 2L
 }
 
+.npcopula_warn_zero_marginal_rows <- function(zero.marginal.rows) {
+  rows <- which(zero.marginal.rows)
+  if (!length(rows))
+    return(invisible(NULL))
+
+  shown <- utils::head(rows, 8L)
+  omitted <- length(rows) - length(shown)
+  row.text <- paste(shown, collapse = ", ")
+  if (omitted > 0L)
+    row.text <- sprintf("%s, and %d others", row.text, omitted)
+
+  .np_warning(sprintf(
+    paste0(
+      "%d of %d external evaluation rows are undefined under the supplied ",
+      "sample, kernel, and bandwidth. At least one estimated marginal ",
+      "density is zero for rows %s, so the copula density ratio is ",
+      "undefined. The corresponding copula density estimates were returned ",
+      "as NA. This finite-sample result does not by itself imply that the ",
+      "points lie outside the population support."
+    ),
+    length(rows), length(zero.marginal.rows), row.text
+  ), call. = FALSE)
+  invisible(NULL)
+}
+
 .npcopula_eval_expanded_grid <- function(bws, data, x.u, density) {
   if (!isTRUE(density))
     return(fitted(npudist(bws = bws, tdat = data, edat = x.u)))
 
   copula <- fitted(npudens(bws = bws, tdat = data, edat = x.u))
+  zero.marginal.rows <- NULL
   for (j in seq_len(length(bws$xnames))) {
     bws.f.marginal <- .npcopula_marginal_bw(bws, data, j, target = "density")
     tdat <- .npcopula_marginal_data(bws, data, j)
     xeval <- .npcopula_marginal_eval_data(bws, x.u, j)
-    copula <- copula / NZD(fitted(npudens(
+    marginal <- fitted(npudens(
       bws = bws.f.marginal,
       tdat = tdat,
       edat = xeval
-    )))
+    ))
+    copula <- copula / NZD(marginal)
+    zero.now <- !is.na(marginal) & marginal == 0
+    if (any(zero.now)) {
+      copula[zero.now] <- NA_real_
+      zero.marginal.rows <- if (is.null(zero.marginal.rows))
+        zero.now else zero.marginal.rows | zero.now
+    }
   }
+  if (!is.null(zero.marginal.rows))
+    .npcopula_warn_zero_marginal_rows(zero.marginal.rows)
   copula
 }
 
@@ -159,7 +196,7 @@ npcopula <- function(bws, ...) {
   d$data <- data
   d$target <- target
   d$density <- identical(target, "density")
-  d$ntrain <- bws$nobs
+  d$ntrain <- nrow(data)
   d$trainiseval <- identical(evaluation, "sample")
   d$u.provided <- isTRUE(u.provided)
   d$u.auto <- isTRUE(u.auto)
@@ -185,33 +222,32 @@ npcopula <- function(bws, ...) {
   out
 }
 
-.npcopula_continuous_slot <- function(bws, j) {
-  if (is.null(bws$icon) || j > length(bws$icon) || !isTRUE(bws$icon[j]))
-    return(NA_integer_)
-  as.integer(sum(bws$icon[seq_len(j)]))
-}
-
 .npcopula_marginal_bw_args <- function(bws, data, j, target = c("distribution", "density")) {
   target <- match.arg(target)
   dat <- .npcopula_marginal_data(bws, data, j)
-  continuous.slot <- .npcopula_continuous_slot(bws, j)
+  continuous <- isTRUE(bws$icon[j])
   out <- list(
     dat = dat,
-    bws = bws$bw[j],
+    bws = .np_physical_bandwidth(bws)[j],
     bandwidth.compute = FALSE,
     bwtype = bws$type,
-    ckerorder = bws$ckerorder,
-    ckertype = bws$ckertype,
     okertype = bws$okertype
   )
+  # A categorical-only child has no continuous kernel to inherit. In
+  # particular, a joint beta kernel must not impose bounds on that child.
+  if (continuous) {
+    out$ckerorder <- bws$ckerorder
+    out$ckertype <- bws$ckertype
+  }
   if (identical(target, "density"))
     out$ukertype <- bws$ukertype
-  if (!is.na(continuous.slot) && !is.null(bws$ckerbound))
+  if (continuous && !is.null(bws$ckerbound))
     out$ckerbound <- bws$ckerbound
-  if (!is.null(bws$ckerlb) && !is.na(continuous.slot))
-    out$ckerlb <- bws$ckerlb[continuous.slot]
-  if (!is.null(bws$ckerub) && !is.na(continuous.slot))
-    out$ckerub <- bws$ckerub[continuous.slot]
+  # Bounds, like bandwidths, retain original-column indexing.
+  if (continuous && !is.null(bws$ckerlb))
+    out$ckerlb <- bws$ckerlb[j]
+  if (continuous && !is.null(bws$ckerub))
+    out$ckerub <- bws$ckerub[j]
   out
 }
 
@@ -219,8 +255,10 @@ npcopula <- function(bws, ...) {
   marginal <- list(
     bw = args$bws,
     type = args$bwtype,
-    ckerorder = args$ckerorder,
-    ckertype = args$ckertype,
+    # The kbandwidth adapter supplies these slots explicitly; use the
+    # constructor defaults only for inactive (categorical-only) slots.
+    ckerorder = if (is.null(args$ckerorder)) 2L else args$ckerorder,
+    ckertype = if (is.null(args$ckertype)) "gaussian" else args$ckertype,
     ckerbound = args$ckerbound,
     ckerlb = args$ckerlb,
     ckerub = args$ckerub,
@@ -242,6 +280,27 @@ npcopula <- function(bws, ...) {
   do.call(if (identical(target, "density")) npudensbw else npudistbw, args)
 }
 
+.npcopula_display_values <- function(values, grid) {
+  if (length(values) != length(grid$row.order))
+    stop("npcopula surface values are incompatible with the rendering grid")
+  selected <- values[grid$display.rows]
+  if (!identical(unname(values), unname(selected[grid$display.cell])))
+    stop("npcopula duplicate grid coordinates have conflicting surface values or interval endpoints",
+         call. = FALSE)
+  selected
+}
+
+.npcopula_grid_matrix <- function(values, grid) {
+  if (is.null(grid$display.rows)) {
+    if (length(values) != length(grid$row.order))
+      stop("npcopula surface values are incompatible with the rendering grid")
+    values <- values[grid$row.order]
+  } else {
+    values <- .npcopula_display_values(values, grid)
+  }
+  matrix(values, nrow = length(grid$u1), ncol = length(grid$u2))
+}
+
 .npcopula_grid_eval <- function(x) {
   dat <- as.data.frame(x)
   xnames <- x$xnames
@@ -255,21 +314,33 @@ npcopula <- function(bws, ...) {
     ugrid <- as.data.frame(x$u.grid)
     if (ncol(ugrid) != 2L || nrow(ugrid) != nrow(dat))
       stop("npcopula requested grid metadata is incompatible with the fitted surface")
-    u1 <- sort(unique(ugrid[[1L]]))
-    u2 <- sort(unique(ugrid[[2L]]))
   } else {
-    u1 <- sort(unique(dat$u1))
-    u2 <- sort(unique(dat$u2))
+    ugrid <- dat[, c("u1", "u2"), drop = FALSE]
   }
-  if (length(u1) != grid.dim[1L] || length(u2) != grid.dim[2L])
+  u1 <- sort(unique(ugrid[[1L]]))
+  u2 <- sort(unique(ugrid[[2L]]))
+  if (length(u1) > grid.dim[1L] || length(u2) > grid.dim[2L])
     stop("npcopula grid output is not rectangular")
-  xgrid <- as.data.frame(dat[, xnames, drop = FALSE])
-  list(
+  cell <- match(ugrid[[1L]], u1) + length(u1) * (match(ugrid[[2L]], u2) - 1L)
+  duplicated.cells <- anyDuplicated(cell) > 0L
+  if (length(unique(cell)) != length(u1) * length(u2))
+    stop("npcopula grid output is not rectangular")
+  xgrid <- .npcopula_eval_xgrid(x)
+  grid <- list(
     u1 = u1,
     u2 = u2,
     xgrid = xgrid,
-    z = matrix(dat$copula, nrow = length(u1), ncol = length(u2))
+    # Only display matrices change order; estimation and returned rows do not.
+    row.order = order(cell)
   )
+  if (duplicated.cells) {
+    # The statistical grid above retains every original row. Only the display
+    # selects representatives, after exact within-cell payload agreement.
+    grid$display.rows <- match(seq_len(length(u1) * length(u2)), cell)
+    grid$display.cell <- cell
+  }
+  grid$z <- .npcopula_grid_matrix(dat$copula, grid)
+  grid
 }
 
 .npcopula_empirical_eval <- function(x) {
@@ -339,7 +410,7 @@ npcopula <- function(bws, ...) {
   bws <- x$bws
   bw.args <- list(
     dat = data,
-    bws = bws$bw,
+    bws = .np_physical_bandwidth(bws),
     bandwidth.compute = FALSE,
     bwtype = bws$type,
     ckerorder = bws$ckerorder,
@@ -382,7 +453,7 @@ npcopula <- function(bws, ...) {
   z <- .npcopula_clip_z_for_display(grid$z, zlim)
   persp.col <- grDevices::adjustcolor(
     .np_plot_persp_surface_colors(z = z, col = col),
-    alpha.f = 0.5
+    alpha.f = .np_plot_surface_alpha("base")
   )
   persp.call <- list(x = grid$u1, y = grid$u2, z = z,
                      theta = theta, phi = phi,
@@ -391,7 +462,13 @@ npcopula <- function(bws, ...) {
                      main = main, col = persp.col, border = border)
   if (!is.null(zlim))
     persp.call$zlim <- zlim
-  do.call(graphics::persp, .np_plot_merge_user_args(persp.call, persp.args))
+  persp.call <- .np_plot_merge_user_args(persp.call, persp.args)
+  .np_plot_render_surface_base_frame(
+    persp.args = persp.call,
+    xlim = range(grid$u1, finite = TRUE),
+    ylim = range(grid$u2, finite = TRUE),
+    zlim = if (is.null(zlim)) range(z, finite = TRUE) else zlim
+  )
 }
 
 .npcopula_plot_all <- function(x,
@@ -480,27 +557,53 @@ npcopula <- function(bws, ...) {
   NZD(out)
 }
 
-.npcopula_asymptotic_se <- function(x, data, xgrid) {
+.npcopula_asymptotic_se <- function(x, data, xgrid, progress.context = NULL) {
   bws <- x$bws
   target <- x$target
   density <- identical(target, "density")
   if (density) {
-    joint <- npudens(tdat = data, edat = xgrid, bws = bws)
+    if (identical(bws[["type", exact = TRUE]], "fixed"))
+      return(.npcopula_density_se_fixed(bws, data, xgrid, progress.context))
+    joint <- npudens(tdat = data, edat = xgrid, bws = bws, se = TRUE)
     return(se(joint) / .npcopula_marginal_density_product(bws, data, xgrid))
   }
-  joint <- npudist(tdat = data, edat = xgrid, bws = bws)
+  joint <- npudist(tdat = data, edat = xgrid, bws = bws, se = TRUE)
   se(joint)
 }
 
 .npcopula_eval_xgrid <- function(x) {
   dat <- as.data.frame(x)
-  xnames <- x$xnames
-  if (length(xnames) && all(xnames %in% names(dat)))
-    return(as.data.frame(dat[, xnames, drop = FALSE]))
-  data <- .npcopula_training_data(x)
-  if (nrow(data) != length(x$copula))
-    stop("npcopula object does not retain evaluation coordinates needed for standard errors")
-  as.data.frame(data[, xnames, drop = FALSE])
+  xnames <- x[["xnames", exact = TRUE]]
+  p <- length(xnames)
+  invalid <- function() stop(
+    "npcopula object does not retain valid evaluation coordinates; refit with npcopula()",
+    call. = FALSE)
+  if (!p || !is.character(xnames) || anyNA(xnames) ||
+      nrow(dat) != length(x[["copula", exact = TRUE]]))
+    invalid()
+  evaluation <- x[["evaluation", exact = TRUE]]
+  if (identical(evaluation, "sample")) {
+    data <- .npcopula_training_data(x)
+    if (nrow(data) != nrow(dat) || !all(xnames %in% names(data)))
+      invalid()
+    return(data[, xnames, drop = FALSE])
+  }
+  if (!identical(evaluation, "grid"))
+    invalid()
+  grid.dim <- x[["grid.dim", exact = TRUE]]
+  prefix <- c("copula", paste0("u", seq_len(p)))
+  if (!is.numeric(grid.dim) || length(grid.dim) != p ||
+      anyNA(grid.dim) || any(!is.finite(grid.dim)) ||
+      any(grid.dim < 1 | grid.dim != floor(grid.dim)) ||
+      prod(grid.dim) != nrow(dat) || ncol(dat) != 1L + 2L * p ||
+      !identical(names(dat)[seq_along(prefix)], prefix))
+    invalid()
+  # .npcopula_eval publishes (copula, probability coordinates, physical
+  # coordinates). Public names may be sanitized or collide with the prefix;
+  # recover the physical block without confusing it with training geometry.
+  out <- dat[, 1L + p + seq_len(p), drop = FALSE]
+  names(out) <- xnames
+  out
 }
 
 .npcopula_boot_counts <- function(n, B, method, blocklen) {
@@ -614,7 +717,11 @@ npcopula <- function(bws, ...) {
                                        plot.errors.center,
                                        plot.errors.boot.method,
                                        plot.errors.boot.num,
-                                       plot.errors.boot.blocklen) {
+                                       plot.errors.boot.blocklen,
+                                       gaussian.draws = 9999L) {
+  .np_plot_progress_plan(1L)
+  progress.target <- .np_plot_progress_target_begin()
+  on.exit(.np_plot_progress_target_end(progress.target), add = TRUE)
   if (identical(plot.errors.method, "none"))
     return(NULL)
   if (!identical(x$evaluation, "grid"))
@@ -666,7 +773,7 @@ npcopula <- function(bws, ...) {
   } else {
     NULL
   }
-  .np_plot_interval_payload(
+  interval <- .np_plot_interval_payload(
     estimate = x$copula,
     se = se,
     plot.errors.method = plot.errors.method,
@@ -675,6 +782,11 @@ npcopula <- function(bws, ...) {
     plot.errors.center = plot.errors.center,
     bootstrap_raw = boot.raw
   )
+  if (identical(plot.errors.method, "asymptotic") &&
+      plot.errors.type %in% c("simultaneous", "all"))
+    interval <- .np_plot_copula_interval(interval, x, data, grid$xgrid, se,
+      plot.errors.alpha, plot.errors.type, gaussian.draws, grid = grid)
+  interval
 }
 
 .npcopula_add_interval_columns <- function(x, payload) {
@@ -690,6 +802,7 @@ npcopula <- function(bws, ...) {
       x[[paste0(nm, ".upper")]] <- payload$center + payload$all.err[[nm]][, 2L]
     }
   }
+  if (!is.null(payload$calibration)) attr(x, "band.calibration") <- payload$calibration
   x
 }
 
@@ -742,6 +855,17 @@ fitted.npcopula <- function(object, ...) {
   nd <- as.data.frame(newdata)
   xnames <- object$xnames
   unames <- paste0("u", seq_along(xnames))
+  if (!isTRUE(allow.xnames) &&
+      (is.data.frame(newdata) || !is.null(colnames(newdata)))) {
+    if (length(xnames) && all(xnames %in% names(nd)) &&
+        !all(unames %in% names(nd)))
+      stop("newdata with original variable names is ambiguous for npcopula; supply probability coordinates via 'u' or use newdata columns named u1, u2, ...",
+           call. = FALSE)
+    out <- .np_native_newdata_parts(
+      newdata, list(u = unames), "predict.npcopula")$u
+    names(out) <- xnames
+    return(out)
+  }
   if (length(unames) && all(unames %in% names(nd))) {
     out <- nd[, unames, drop = FALSE]
     names(out) <- xnames
@@ -766,6 +890,13 @@ predict.npcopula <- function(object,
   se.fit <- npValidateScalarLogical(se.fit, "se.fit")
   output <- match.arg(output)
   dots <- list(...)
+  if ("se" %in% names(dots)) {
+    requested.se <- npValidateScalarLogical(dots[["se"]], "se")
+    if (!identical(requested.se, se.fit))
+      stop("conflicting 'se' and 'se.fit' requests; use se.fit to request prediction standard errors",
+           call. = FALSE)
+    dots[["se"]] <- NULL
+  }
 
   if (is.null(u) && !is.null(newdata)) {
     u <- .npcopula_predict_newdata_to_u(object, newdata, allow.xnames = FALSE)
@@ -782,28 +913,34 @@ predict.npcopula <- function(object,
       data <- object$data
     if (is.null(data))
       stop("npcopula object does not retain the training data needed for prediction; refit with npcopula()")
-    args <- c(list(bws = object$bws, data = data),
+    for (control in c("n.quasi.inv", "er.quasi.inv")) {
+      if (!control %in% names(dots) && !is.null(object[[control, exact = TRUE]]))
+        dots[control] <- list(object[[control, exact = TRUE]])
+    }
+    args <- c(list(bws = object$bws, data = data, se = se.fit),
               if (is.null(u)) list() else list(u = u),
               dots)
     ev <- do.call(npcopula, args)
   }
 
+  prediction.se <- if (se.fit) se(ev) else NULL
   if (identical(output, "object"))
     return(ev)
   if (identical(output, "data"))
     return(as.data.frame(ev))
   if (se.fit)
-    return(list(fit = fitted(ev), se.fit = se(ev), df = ev$ntrain))
+    return(list(fit = fitted(ev), se.fit = prediction.se, df = ev$ntrain))
   fitted(ev)
 }
 
 se.npcopula <- function(x) {
-  if (!is.null(x$copulaerr) && length(x$copulaerr) == length(x$copula))
-    return(x$copulaerr)
-  .npcopula_asymptotic_se(
-    x = x,
-    data = .npcopula_training_data(x),
-    xgrid = .npcopula_eval_xgrid(x)
+  value <- x[["copulaerr", exact = TRUE]]
+  if (length(value) != length(x[["copula", exact = TRUE]]))
+    value <- NULL
+  .np_require_stored_se(
+    x, value, "npcopula", what = "copula standard errors",
+    expr = substitute(x),
+    data.hint = "data = training.data, u = evaluation.grid"
   )
 }
 
@@ -826,9 +963,9 @@ plot.npcopula <- function(x,
                                    "simultaneous", "all"),
                           alpha = 0.05,
                           bootstrap = c("inid", "fixed", "geom"),
-                          B = 1999,
+                          B = 9999,
                           center = c("estimate", "bias-corrected"),
-                          boot_control = np_boot_control(),
+                          boot.control = np_boot_control(),
                           output = c("plot", "data", "plot-data", "both"),
                           legend = TRUE,
                           theta = 0.0,
@@ -840,7 +977,14 @@ plot.npcopula <- function(x,
                           col = NULL,
                           border = .np_plot_color("surface_border"),
                           zlim = NULL,
+                          gaussian.draws = 9999L,
+                          random.seed = 42L,
                           ...) {
+  .np_plot_reject_retired_spelling(substitute(list(...))[-1L], "boot.control")
+  .np_plot_stop_unused_args(
+    intersect(.np_plot_dot_names(substitute(list(...))[-1L]), "neval"),
+    character()
+  )
   bootstrap.supplied <- !missing(bootstrap) || !missing(B) || !missing(center)
   interval.supplied <- !missing(band) || !missing(alpha)
   view <- match.arg(view)
@@ -849,6 +993,13 @@ plot.npcopula <- function(x,
   renderer <- .np_plot_match_renderer(renderer)
   errors <- match.arg(errors)
   band <- match.arg(band)
+  joint.request <- identical(errors, "asymptotic") && band %in% c("simultaneous", "all")
+  if ((!missing(gaussian.draws) || !missing(random.seed)) && !joint.request)
+    stop("Gaussian controls require asymptotic simultaneous or all bands", call. = FALSE)
+  if (joint.request) {
+    gaussian.draws <- .np_plot_gaussian_integer(gaussian.draws, "gaussian.draws")
+    npValidateNonNegativeInteger(random.seed, "random.seed")
+  }
   bootstrap <- match.arg(bootstrap)
   center <- match.arg(center)
   output <- match.arg(output)
@@ -860,8 +1011,8 @@ plot.npcopula <- function(x,
   if (!is.numeric(B) || length(B) != 1L || is.na(B) || B < 1L)
     stop("B must be a positive numeric scalar", call. = FALSE)
   zlim <- .npcopula_validate_zlim(zlim)
-  if (!inherits(boot_control, "np_boot_control"))
-    stop("boot_control must be created by np_boot_control()", call. = FALSE)
+  if (!inherits(boot.control, "np_boot_control"))
+    stop("boot.control must be created by np_boot_control()", call. = FALSE)
   if (!identical(errors, "bootstrap") && bootstrap.supplied)
     stop("bootstrap controls require errors = \"bootstrap\"", call. = FALSE)
   if (identical(errors, "none") && interval.supplied)
@@ -869,6 +1020,7 @@ plot.npcopula <- function(x,
   if (identical(errors, "bootstrap"))
     .np_plot_reject_wild_unsupervised(bootstrap, "copula estimators")
   dots <- list(...)
+  sub.supplied <- "sub" %in% names(dots)
   target <- x$target
   target.label <- if (identical(target, "density")) "Copula Density" else "Copula"
   main.supplied <- !missing(main) && !is.null(main)
@@ -954,9 +1106,12 @@ plot.npcopula <- function(x,
   grid <- .npcopula_grid_eval(x)
   u1 <- grid$u1
   u2 <- grid$u2
+  if (!identical(output, "data") && (length(u1) < 2L || length(u2) < 2L))
+    stop("npcopula surface displays require at least two distinct values on each probability axis; use output=\"data\" for a singleton axis",
+         call. = FALSE)
   z <- grid$z
   z.display <- .npcopula_clip_z_for_display(z, zlim)
-  payload <- .npcopula_interval_payload(
+  interval.compute <- function() .np_plot_progress_run(.npcopula_interval_payload(
     x = x,
     plot.errors.method = errors,
     plot.errors.alpha = alpha,
@@ -964,23 +1119,25 @@ plot.npcopula <- function(x,
     plot.errors.center = center,
     plot.errors.boot.method = bootstrap,
     plot.errors.boot.num = as.integer(B),
-    plot.errors.boot.blocklen = boot_control$blocklen
-  )
+    plot.errors.boot.blocklen = boot.control$blocklen,
+    gaussian.draws = gaussian.draws
+  ), enabled = identical(errors, "bootstrap"))
+  payload <- if (joint.request) .np_with_seed(random.seed, interval.compute()) else interval.compute()
   plot.data <- .npcopula_add_interval_columns(x, payload)
   if (identical(output, "data"))
     return(plot.data)
 
   lerr <- herr <- lerr.all <- herr.all <- NULL
   if (!is.null(payload)) {
-    lerr <- matrix(payload$center - payload$err[, 1L],
-                   nrow = length(u1), ncol = length(u2))
-    herr <- matrix(payload$center + payload$err[, 2L],
-                   nrow = length(u1), ncol = length(u2))
+    if (!is.null(grid$display.rows))
+      .npcopula_display_values(payload$center, grid)
+    lerr <- .npcopula_grid_matrix(payload$center - payload$err[, 1L], grid)
+    herr <- .npcopula_grid_matrix(payload$center + payload$err[, 2L], grid)
     if (identical(band, "all") && !is.null(payload$all.err)) {
       lerr.all <- lapply(payload$all.err, function(te)
-        matrix(payload$center - te[, 1L], nrow = length(u1), ncol = length(u2)))
+        .npcopula_grid_matrix(payload$center - te[, 1L], grid))
       herr.all <- lapply(payload$all.err, function(te)
-        matrix(payload$center + te[, 2L], nrow = length(u1), ncol = length(u2)))
+        .npcopula_grid_matrix(payload$center + te[, 2L], grid))
     }
   }
   if (is.null(zlim)) {
@@ -1011,6 +1168,7 @@ plot.npcopula <- function(x,
     )
     if (identical(renderer, "rgl")) {
       rgl.view <- .np_plot_rgl_view_angles(theta = theta, phi = phi)
+      rgl.controls <- .np_plot_rgl_controls(dots, legend = legend)
       rgl.out <- .np_plot_render_surface_rgl(
         x = u1,
         y = u2,
@@ -1024,26 +1182,24 @@ plot.npcopula <- function(x,
         col = col,
         border = border,
         zlim = zlim,
-        par3d.args = .np_plot_collect_rgl_args(dots, "rgl.par3d", "rgl.par3d."),
-        view3d.args = .np_plot_collect_rgl_args(dots, "rgl.view3d", "rgl.view3d."),
-        persp3d.args = .np_plot_collect_rgl_args(dots, "rgl.persp3d", "rgl.persp3d."),
-        grid3d.args = .np_plot_collect_rgl_args(dots, "rgl.grid3d", "rgl.grid3d."),
-        widget.args = .np_plot_collect_rgl_args(dots, "rgl.widget", "rgl.widget."),
+        par3d.args = rgl.controls$par3d,
+        view3d.args = rgl.controls$view3d,
+        persp3d.args = rgl.controls$persp3d,
+        grid3d.args = rgl.controls$grid3d,
+        widget.args = rgl.controls$widget,
         draw.extras = function() {
           if (!is.null(payload)) {
             .np_plot_error_surfaces_rgl(
               x = u1,
               y = u2,
               plot.errors.type = band,
+              plot.errors.method = errors,
               lerr = lerr,
               herr = herr,
               lerr.all = lerr.all,
               herr.all = herr.all,
-              surface3d.args = .np_plot_collect_rgl_args(dots, "rgl.persp3d", "rgl.persp3d."),
-              legend3d.args = .np_plot_merge_rgl_legend_control(
-                .np_plot_collect_rgl_args(dots, "rgl.legend3d", "rgl.legend3d."),
-                legend = legend
-              )
+              surface3d.args = rgl.controls$persp3d,
+              legend3d.args = rgl.controls$legend3d
             )
           }
         }
@@ -1057,8 +1213,9 @@ plot.npcopula <- function(x,
     persp.args <- .np_plot_user_args(dots, "persp")
     persp.col <- grDevices::adjustcolor(
       .np_plot_persp_surface_colors(z = z.display, col = col),
-      alpha.f = 0.5
+      alpha.f = .np_plot_surface_alpha("base")
     )
+    grid.zlim <- if (is.null(zlim)) range(z.display, finite = TRUE) else zlim
     rotate.defaults <- .np_plot_rotate_defaults()
     dtheta <- rotate.defaults$dtheta
     frame.theta <- if (rotate.surface) {
@@ -1078,7 +1235,13 @@ plot.npcopula <- function(x,
                          main = main, col = persp.col, border = border)
       if (!is.null(zlim))
         persp.call$zlim <- zlim
-      persp.mat <- do.call(graphics::persp, .np_plot_merge_user_args(persp.call, persp.args))
+      persp.call <- .np_plot_merge_user_args(persp.call, persp.args)
+      persp.mat <- .np_plot_render_surface_base_frame(
+        persp.args = persp.call,
+        xlim = range(u1, finite = TRUE),
+        ylim = range(u2, finite = TRUE),
+        zlim = grid.zlim
+      )
       if (!is.null(payload)) {
         .np_plot_draw_error_wireframes_persp(
           x = u1,
@@ -1090,11 +1253,27 @@ plot.npcopula <- function(x,
           lerr.all = lerr.all,
           herr.all = herr.all,
           border = .np_plot_color("context_wire"),
-          lwd = .np_plot_scalar_default(dots$lwd, par()$lwd)
+          lwd = .np_plot_scalar_default(dots$lwd, par()$lwd),
+          annotation = .np_plot_variability_annotation_spec(
+            plot.errors.method = errors,
+            plot.errors.type = band,
+            plot.errors.alpha = alpha,
+            plot.errors.center = center,
+            sub.supplied = sub.supplied,
+            plot.args = persp.call,
+            continuous = TRUE,
+            fixed = !rotate.surface
+          )
         )
         if (identical(band, "all") && !is.null(lerr.all) && !is.null(herr.all) &&
             isTRUE(legend)) {
-          .np_plot_draw_all_band_legend(legend = TRUE, x = "topright")
+          .np_plot_draw_all_band_legend(
+            legend = TRUE,
+            x = "topright",
+            plot.errors.method = errors,
+            lerr.all = lerr.all,
+            herr.all = herr.all
+          )
         }
       }
       rotation.progress <- .np_plot_rotation_progress_tick(rotation.progress, done = frame.idx)
@@ -1126,6 +1305,29 @@ plot.npcopula <- function(x,
   invisible(x)
 }
 
+.npcopula_formula_bandwidth <- function(bw.args, target, u, evaluation, neval,
+                                       expressions, envir) {
+  frame.state <- new.env(parent = emptyenv())
+  on.exit(rm(list = ls(frame.state, all.names = TRUE), envir = frame.state),
+          add = TRUE)
+  u.auto <- is.null(u) && identical(evaluation, "grid")
+  frame.state$validate.training <- function(frame) {
+    dat <- frame[, .np_formula_term_names(attr(attr(frame, "terms"), "term.labels")), drop = FALSE]
+    if (u.auto && ncol(dat) != 2L)
+      stop("automatic copula probability grids are supported only for two variables; supply 'u' or use evaluation='sample'")
+  }
+  bw.args$.np.formula.state <- frame.state
+  bw.fun <- if (identical(target, "density")) npudensbw else npudistbw
+  bw <- .np_progress_select_bandwidth_enhanced(
+    if (identical(target, "density")) "Selecting copula density bandwidth" else "Selecting copula distribution bandwidth",
+    .np_formula_dispatch_call(bw.fun, bw.args, expressions, envir)
+  )
+  mf <- .np_formula_frame_take(frame.state)
+  dat <- mf[, .np_formula_term_names(attr(attr(mf, "terms"), "term.labels")), drop = FALSE]
+  if (u.auto) u <- .npcopula_make_auto_u(names(dat), neval)
+  list(bws = bw, data = dat, u = u, u.auto = u.auto)
+}
+
 npcopula.formula <- function(bws,
                              data = NULL,
                              u = NULL,
@@ -1134,44 +1336,31 @@ npcopula.formula <- function(bws,
                              neval = 30,
                              n.quasi.inv = 1000,
                              er.quasi.inv = 1,
-                             ...) {
+                             ..., se = FALSE) {
+  se <- npValidateScalarLogical(se, "se")
   target <- .npcopula_validate_target(target)
   evaluation <- .npcopula_validate_evaluation(evaluation)
   neval <- .npcopula_validate_neval(neval)
 
-  mf <- stats::model.frame(bws, data = data)
-  dat <- mf[, attr(attr(mf, "terms"), "term.labels"), drop = FALSE]
-  num.var <- ncol(dat)
-
-  u.auto <- FALSE
-  if (is.null(u) && identical(evaluation, "grid")) {
-    if (num.var != 2L)
-      stop("automatic copula probability grids are supported only for two variables; supply 'u' or use evaluation='sample'")
-    u <- .npcopula_make_auto_u(names(dat), neval)
-    u.auto <- TRUE
-  }
-
-  bw.fun <- if (identical(target, "density")) npudensbw else npudistbw
   bw.args <- c(
     list(formula = bws),
     if (is.null(data)) list() else list(data = data),
-    list(...)
+    .np_formula_dispatch_args(NULL, substitute(list(...))[-1L], environment())
   )
-  bw <- .np_progress_select_bandwidth_enhanced(
-    if (identical(target, "density")) "Selecting copula density bandwidth" else "Selecting copula distribution bandwidth",
-    do.call(bw.fun, bw.args)
-  )
+  prepared <- .npcopula_formula_bandwidth(bw.args, target, u, evaluation, neval,
+    substitute(list(...))[-1L], environment())
 
   npcopula.default(
-    bws = bw,
-    data = dat,
-    u = u,
+    bws = prepared$bws,
+    data = prepared$data,
+    u = prepared$u,
     target = target,
-    evaluation = if (is.null(u)) "sample" else "grid",
+    evaluation = if (is.null(prepared$u)) "sample" else "grid",
     neval = neval,
     n.quasi.inv = n.quasi.inv,
     er.quasi.inv = er.quasi.inv,
-    u.auto = u.auto
+    u.auto = prepared$u.auto,
+    se = se
   )
 }
 
@@ -1183,8 +1372,10 @@ npcopula.default <- function(bws,
                              neval = 30,
                              n.quasi.inv = 1000,
                              er.quasi.inv = 1,
-                             ...) {
-  dots <- list(...)
+                             ..., se = FALSE) {
+  se <- npValidateScalarLogical(se, "se")
+  dots <- .np_formula_dispatch_args(
+    NULL, substitute(list(...))[-1L], environment())
   u.auto <- isTRUE(dots$u.auto)
   dots$u.auto <- NULL
   formula.from.target <- !missing(target) && inherits(target, "formula")
@@ -1218,45 +1409,33 @@ npcopula.default <- function(bws,
         c("grid", "sample")
     )
     neval.formula <- .npcopula_validate_neval(if (!missing(neval)) neval else 30)
-    mf <- if (missing(data)) {
-      stats::model.frame(formula.arg)
-    } else {
-      stats::model.frame(formula.arg, data = data)
-    }
-    dat <- mf[, attr(attr(mf, "terms"), "term.labels"), drop = FALSE]
     u.formula <- if (formula.from.u || missing(u)) NULL else u
-    auto.grid <- FALSE
-    if (is.null(u.formula) && identical(evaluation.formula, "grid")) {
-      if (ncol(dat) != 2L)
-        stop("automatic copula probability grids are supported only for two variables; supply 'u' or use evaluation='sample'")
-      u.formula <- .npcopula_make_auto_u(names(dat), neval.formula)
-      auto.grid <- TRUE
-    }
-    bw.fun <- if (identical(target.formula, "density")) npudensbw else npudistbw
     bw.args <- c(
       list(formula = formula.arg),
       if (missing(data)) list() else list(data = data),
       list(bws = bws),
       dots
     )
-    bw <- .np_progress_select_bandwidth_enhanced(
-      if (identical(target.formula, "density")) "Selecting copula density bandwidth" else "Selecting copula distribution bandwidth",
-      do.call(bw.fun, bw.args)
-    )
+    prepared <- .npcopula_formula_bandwidth(bw.args, target.formula,
+      u.formula, evaluation.formula, neval.formula,
+      substitute(list(...))[-1L], environment())
     args <- c(
-      list(bws = bw,
-           data = dat,
-           u = u.formula,
+      list(bws = prepared$bws,
+           data = prepared$data,
+           u = prepared$u,
            target = target.formula,
-           evaluation = if (is.null(u.formula)) "sample" else "grid",
+           evaluation = if (is.null(prepared$u)) "sample" else "grid",
            neval = neval.formula,
            n.quasi.inv = n.quasi.inv,
            er.quasi.inv = er.quasi.inv,
-           u.auto = auto.grid)
+           u.auto = prepared$u.auto,
+           se = se)
     )
     return(do.call(npcopula.default, args))
   }
 
+  # Preserve ordinary native-dot forcing when no formula owns subset.
+  list(...)
   evaluation <- .npcopula_validate_evaluation(evaluation)
   neval <- .npcopula_validate_neval(neval)
   start.time <- proc.time()[3]
@@ -1286,7 +1465,8 @@ npcopula.default <- function(bws,
     neval = neval,
     n.quasi.inv = n.quasi.inv,
     er.quasi.inv = er.quasi.inv,
-    u.auto = u.auto
+    u.auto = u.auto,
+    se = se
   )
   result$timing <- proc.time()[3] - start.time
   result
@@ -1300,9 +1480,16 @@ npcopula.default <- function(bws,
                            neval,
                            n.quasi.inv,
                            er.quasi.inv,
-                           u.auto = FALSE) {
+                           u.auto = FALSE,
+                           se = FALSE) {
   density <- identical(target, "density")
   num.var <- length(bws$xnames)
+  data <- toFrame(data)
+  if (anyDuplicated(names(data)) || anyDuplicated(bws$xnames) ||
+      !all(bws$xnames %in% names(data)) || ncol(data) != num.var)
+    stop("copula data columns must uniquely match the bandwidth variable names",
+         call. = FALSE)
+  data <- data[, bws$xnames, drop = FALSE]
   u <- .npcopula_validate_u(u, num.var)
   n.quasi.inv <- .npcopula_validate_n_quasi_inv(n.quasi.inv)
   er.quasi.inv <- .npcopula_validate_er_quasi_inv(er.quasi.inv)
@@ -1316,11 +1503,13 @@ npcopula.default <- function(bws,
 
   progress.total <- .npcopula_progress_total(density = density,
                                              u.provided = u.provided,
-                                             num.var = num.var)
+                                             num.var = num.var) + as.integer(se)
   progress <- .npcopula_progress_begin(target = target,
                                        evaluation = if (u.provided) "grid" else "sample",
                                        total = progress.total)
-  on.exit(.np_progress_end(progress), add = TRUE)
+  se.progress <- NULL
+  on.exit(.np_progress_end(if (is.null(se.progress)) progress else se.progress$state),
+          add = TRUE)
   stage <- 0L
 
   if(is.null(u)) {
@@ -1335,7 +1524,7 @@ npcopula.default <- function(bws,
       copula <- fitted(npudens(bws=bws,tdat=data))
     }
 
-    u <- matrix(NA,bws$nobs,num.var)
+    u <- matrix(NA,nrow(data),num.var)
     for (j in seq_len(num.var)) {
       stage <- stage + 1L
       progress <- .npcopula_progress_step(
@@ -1366,12 +1555,15 @@ npcopula.default <- function(bws,
       quantile.seq <- seq(0,1,length=round(n.quasi.inv/2))
       if(is.numeric(x.marginal)) {
         x.er <- extendrange(x.marginal,f=er.quasi.inv)
+        # Keep the inverse grid within the fitted marginal kernel domain.
+        if (!is.null(bws$ckerlb)) x.er[1L] <- max(x.er[1L], bws$ckerlb[j])
+        if (!is.null(bws$ckerub)) x.er[2L] <- min(x.er[2L], bws$ckerub[j])
         x.q <- quantile(x.marginal,quantile.seq)
         x.eval <- sort(c(seq(x.er[1],x.er[2],length=round(n.quasi.inv/2)),x.q))
       } else {
-        x.u[,j] <- ordered(x.u[,j],levels=levels(x.marginal))
+        x.u[,j] <- .np_factor_with_levels(x.u[,j],levels=levels(x.marginal),ordered=TRUE)
         x.q <- sapply(seq_len(round(n.quasi.inv/2)), function(i) { uocquantile(x.marginal, quantile.seq[i]) })
-        x.eval <- sort(ordered(c(as.character(x.q),as.character(x.q)),levels=levels(x.marginal)))
+        x.eval <- sort(.np_factor_with_levels(c(as.character(x.q),as.character(x.q)),levels=levels(x.marginal),ordered=TRUE))
       }
       tdat <- .npcopula_marginal_data(bws, data, j)
       edat <- .npcopula_marginal_eval_data(bws, data.frame(x.eval), 1L)
@@ -1393,7 +1585,7 @@ npcopula.default <- function(bws,
     progress <- .npcopula_progress_step(progress, stage, "expand u grid")
     x.u <- expand.grid(data.frame(x.u))
     for (k in seq_len(ncol(x.u))) {
-      if(is.ordered(data[,k])) x.u[,k] <- ordered(x.u[,k],levels=levels(data[,k]))
+      if(is.ordered(data[,k])) x.u[,k] <- .np_factor_with_levels(x.u[,k],levels=levels(data[,k]),ordered=TRUE)
     }
     if(!density) {
       stage <- stage + 1L
@@ -1430,7 +1622,7 @@ npcopula.default <- function(bws,
     out <- data.frame(copula,u,x.u)
   }
 
-  .npcopula_object(
+  result <- .npcopula_object(
     result = out,
     bws = bws,
     data = data,
@@ -1445,4 +1637,20 @@ npcopula.default <- function(bws,
     n.quasi.inv = n.quasi.inv,
     er.quasi.inv = er.quasi.inv
   )
+  result[["se"]] <- se
+  if (se) {
+    progress <- .npcopula_progress_step(
+      progress, stage + 1L, "asymptotic standard errors"
+    )
+    # Preserve the established external-query uncertainty geometry, which
+    # need not match the sample point fit's training-identity NN geometry.
+    se.progress <- new.env(parent = emptyenv())
+    se.progress$state <- progress
+    se.progress$done <- stage + 1L
+    result[["copulaerr"]] <- .npcopula_asymptotic_se(
+      result, data = data, xgrid = .npcopula_eval_xgrid(result),
+      progress.context = se.progress
+    )
+  }
+  result
 }

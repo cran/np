@@ -20,6 +20,20 @@ plot(cps71$age, cps71$logwage, cex = 0.25, col = "grey")
 lines(cps71$age, fitted(fit), col = 2, lwd = 2)
 
 ## -----------------------------------------------------------------------------
+new_points <- data.frame(age = c(25, 40, 55))
+predict(fit, newdata = new_points)
+
+# This refits at the existing bandwidth; it does not run bandwidth selection.
+fit_inference <- npreg(bws = fit$bws, gradients = TRUE, se = TRUE)
+head(se(fit_inference))
+head(gradients(fit_inference))
+head(gradients(fit_inference, se = TRUE))
+
+prediction <- predict(fit, newdata = new_points, se.fit = TRUE)
+prediction$fit
+prediction$se.fit
+
+## -----------------------------------------------------------------------------
 set.seed(42)
 mydat <- data.frame(
   y = rnorm(200),
@@ -34,7 +48,7 @@ summary(fit_mixed)
 
 ## -----------------------------------------------------------------------------
 if (requireNamespace("crs", quietly = TRUE) &&
-    utils::packageVersion("crs") >= package_version("0.15-41")) {
+    utils::packageVersion("crs") >= package_version("0.15-46")) {
   set.seed(7)
   n <- 120
   x <- runif(n, -1, 1)

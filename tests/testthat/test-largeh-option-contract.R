@@ -47,9 +47,9 @@ test_that("np.largeh continuous shortcut eligibility rejects unsafe kernels", {
   ydat <- sin(xdat$x) + rnorm(n, sd = 0.05)
   cases <- data.frame(
     ckertype = c("gaussian", "gaussian", "epanechnikov", "epanechnikov",
-                 "uniform", "truncated gaussian"),
-    ckerorder = c(2L, 4L, 2L, 4L, 2L, 2L),
-    expected.fast = c(1L, 0L, 1L, 0L, 1L, 0L),
+                 "uniform"),
+    ckerorder = c(2L, 4L, 2L, 4L, 2L),
+    expected.fast = c(1L, 0L, 1L, 0L, 1L),
     stringsAsFactors = FALSE
   )
 
@@ -176,7 +176,8 @@ test_that("np.largeh and np.largelambda both gate mixed fast objective rows", {
   npregbw <- getFromNamespace("npregbw", "np")
   npreg_eval_only <- getFromNamespace(".npregbw_eval_only", "np")
   npscoefbw <- getFromNamespace("npscoefbw", "np")
-  npscoef_eval_only <- getFromNamespace(".npscoefbw_eval_only", "np")
+  npscoef_prepare <- getFromNamespace(".npscoefbw_nomad_context_prepare", "np")
+  npscoef_eval <- getFromNamespace(".npscoefbw_nomad_eval_direct", "np")
 
   set.seed(107)
   n <- 80L
@@ -231,6 +232,8 @@ test_that("np.largeh and np.largelambda both gate mixed fast objective rows", {
     bandwidth.compute = FALSE,
     bws = c(1e8, 2 / 3)
   )
+  scoef.ctx <- npscoef_prepare(xdat = sxdat, zdat = szdat, ydat = sydat)
+  npscoef_eval_only <- function(...) npscoef_eval(ctx = scoef.ctx, bws = sbw)
 
   options(np.largeh = TRUE, np.largelambda = TRUE)
   sc.both <- npscoef_eval_only(xdat = sxdat, zdat = szdat, ydat = sydat, bws = sbw)
@@ -286,6 +289,56 @@ test_that("np.largeh toggles conditional density eval-only fast counts", {
   expect_equal(as.numeric(enabled$num.feval.fast[1L]), 1)
   expect_equal(as.numeric(disabled$num.feval.fast[1L]), 0)
   expect_equal(as.numeric(reenabled$num.feval.fast[1L]), 1)
+})
+
+test_that("np.largeh covers degree-zero conditional CVLS objectives", {
+  old.options <- options(np.messages = FALSE, np.tree = FALSE,
+                         np.largeh = TRUE, np.largelambda = TRUE)
+  on.exit(options(old.options), add = TRUE)
+
+  set.seed(106)
+  n <- 80L
+  xdat <- data.frame(x = runif(n))
+  ydat <- data.frame(y = 1 + 2 * xdat$x + rnorm(n, sd = 0.25))
+  npcdensbw <- getFromNamespace("npcdensbw", "np")
+  npcdistbw <- getFromNamespace("npcdistbw", "np")
+
+  evaluate_pair <- function(bw, evaluator, ...) {
+    options(np.largeh = TRUE)
+    enabled <- evaluator(xdat, ydat, bws = bw, ...)
+    options(np.largeh = FALSE)
+    disabled <- evaluator(xdat, ydat, bws = bw, ...)
+    options(np.largeh = TRUE)
+    reenabled <- evaluator(xdat, ydat, bws = bw, ...)
+
+    expect_equal(enabled$objective, disabled$objective, tolerance = 1e-10)
+    expect_equal(enabled$objective, reenabled$objective, tolerance = 1e-10)
+    expect_equal(as.numeric(enabled$num.feval.fast[1L]), 1)
+    expect_equal(as.numeric(disabled$num.feval.fast[1L]), 0)
+    expect_equal(as.numeric(reenabled$num.feval.fast[1L]), 1)
+  }
+
+  common <- list(
+    xdat = xdat,
+    ydat = ydat,
+    bws = c(0.24, 1e8),
+    regtype = "lc",
+    bwmethod = "cv.ls",
+    cxkertype = "epanechnikov",
+    cykertype = "epanechnikov",
+    bandwidth.compute = FALSE
+  )
+
+  density.bw <- do.call(npcdensbw, common)
+  distribution.bw <- do.call(npcdistbw, common)
+  for (use.tree in c(FALSE, TRUE)) {
+    options(np.tree = use.tree)
+    evaluate_pair(density.bw,
+                  getFromNamespace(".npcdensbw_eval_only", "np"))
+    evaluate_pair(distribution.bw,
+                  getFromNamespace(".npcdistbw_eval_only", "np"),
+                  do.full.integral = TRUE)
+  }
 })
 
 test_that("np.largeh toggles unconditional distribution bandwidth fast counts", {

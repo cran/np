@@ -13,8 +13,8 @@ test_that("npqreg basic functionality works", {
   expect_type(predict(model), "double")
   expect_equal(length(predict(model)), 50)
   expect_equal(model$tau, 0.5)
-  expect_error(gradients(model), "fit the model with gradients=TRUE", fixed = TRUE)
-  expect_error(gradients(model, errors = TRUE), "fit the model with gradients=TRUE", fixed = TRUE)
+  expect_error(gradients(model), "gradients = TRUE", fixed = TRUE)
+  expect_error(gradients(model, se = TRUE), "gradients = TRUE, se = TRUE", fixed = TRUE)
   
   expect_output(summary(model))
 })
@@ -197,7 +197,7 @@ test_that("npqreg gradients populate qregression objects", {
   )
 
   fit <- npqreg(bws = bw, txdat = xdat, tydat = ydat, exdat = exdat,
-                tau = 0.45, gradients = TRUE, tol = 1e-6, small = 1e-7)
+                tau = 0.45, gradients = TRUE, se = TRUE, tol = 1e-6, small = 1e-7)
   ref <- getFromNamespace(".np_plot_quantile_eval", "np")(
     bws = bw,
     txdat = xdat,
@@ -219,7 +219,7 @@ test_that("npqreg gradients populate qregression objects", {
   expect_true(all(se(fit) > 0))
   expect_equal(fit$quantgrad, ref$quantgrad, tolerance = 0)
   expect_equal(gradients(fit), fit$quantgrad, tolerance = 0)
-  expect_equal(gradients(fit, errors = TRUE), fit$quantgerr, tolerance = 0)
+  expect_equal(gradients(fit, se = TRUE), fit$quantgerr, tolerance = 0)
 
   qdelta <- getFromNamespace(".npqreg_quantile_delta_from_conditional", "np")(
     bws = bw,
@@ -260,7 +260,8 @@ test_that("npqreg gradient plots support asymptotic errors", {
     cxkerbound = "range",
     cykerbound = "range"
   )
-  fit <- npqreg(bws = bw, tau = c(0.25, 0.5, 0.75), gradients = TRUE)
+  fit <- npqreg(bws = bw, tau = c(0.25, 0.5, 0.75), gradients = TRUE,
+               se = TRUE)
 
   out <- plot(
     fit,
@@ -273,7 +274,7 @@ test_that("npqreg gradient plots support asymptotic errors", {
 
   expect_true(all(vapply(out, inherits, logical(1), "qregression")))
   grad <- gradients(fit)
-  gerr <- gradients(fit, errors = TRUE)
+  gerr <- gradients(fit, se = TRUE)
   expect_true(any(is.finite(grad)))
   expect_true(any(is.finite(gerr)))
   expect_identical(is.na(gerr), is.na(grad))

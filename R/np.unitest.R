@@ -7,26 +7,28 @@ npunitest <- function(data.x = NULL,
                       data.y = NULL,
                       method = c("integration","summation"),
                       bootstrap = TRUE,
-                      boot.num = 399,
+                      B = 399,
                       bw.x = NULL,
                       bw.y = NULL,                         
                       random.seed = 42,
                       ...) {
 
+  if (...length())
+    npRejectLegacyBootstrapCount(names(list(...)), "npunitest")
+
   if(is.null(data.x) || is.null(data.y)) stop(" you must enter data vectors for x and y")
   if(is.data.frame(data.x) || is.data.frame(data.y)) stop(" you must enter data vectors (not data frames)")
   if(!identical(class(data.x), class(data.y))) stop(" data vectors must be of same data type")
   if((ncol(data.frame(data.x)) != 1) ||( ncol(data.frame(data.y)) != 1)) stop(" data vectors must have one dimension only")
-  if(boot.num < 9) stop(" number of bootstrap replications must be >= 9")
-  if(is.numeric(data.x) && (max(data.x) < min(data.y) || max(data.y) < min(data.x))) .np_warning("non-overlapping empirical distributions (see `Details' in ?npunidist)")
+  if(B < 9) stop(" number of bootstrap replications must be >= 9")
 
   method <- match.arg(method)
+  entropy.fast.gaussian <- .np_entropy_uses_default_fixed_gaussian(list(...))
 
   ## Save seed prior to setting
 
   seed.state <- .np_seed_enter(random.seed)
   on.exit(.np_seed_exit(seed.state, remove_if_absent = TRUE), add = TRUE)
-  .np_progress_note("Computing bandwidths")
 
   ## If of type ts convert to numeric to handle time series data
 
@@ -35,40 +37,30 @@ npunitest <- function(data.x = NULL,
 
   ## Remove NAs
 
-  data.x <- na.omit(data.x)
-  data.y <- na.omit(data.y)
+  data.x <- .np_entropy_complete_sample(data.x)
+  data.y <- .np_entropy_complete_sample(data.y)
+  if(is.numeric(data.x) && (max(data.x) < min(data.y) || max(data.y) < min(data.x)))
+    .np_warning("non-overlapping empirical distributions (see `Details' in ?npunitest)")
+  if (is.factor(data.x)) {
+    support <- .np_entropy_factor_support(data.x, data.y)
+    data.x <- support$x
+    data.y <- support$y
+    discrete.evaluation <- support$evaluation
+  }
 
   ## Note - this function accepts numeric and factors/ordered,
   ## however, factors must be integers.
 
   if(is.numeric(data.x)) {
-    if(is.null(bw.x)) bw.x <- bw.SJ(data.x)
-    if(is.null(bw.y)) bw.y <- bw.SJ(data.y)
+    if(is.null(bw.x)) bw.x <- .np_progress_activity_run("Computing bandwidths", bw.SJ(data.x))
+    if(is.null(bw.y)) bw.y <- .np_progress_activity_run("Computing bandwidths", bw.SJ(data.y))
   } else {
     ## Optimal bandwidth for factor (unordered) used for both
     ## (plug-in).
-    if(is.null(bw.x)) {
-      n <- length(data.x)
-      c <- length(unique(data.x))
-      if(c <= 1) stop("data.x must contain at least two distinct factor levels")
-      xeval <- unique(data.x)
-      p <- fitted(npudens(tdat=data.x,edat=xeval,bws=0,...))
-      sum.Lambda3 <- c/(c-1)*sum(p*(1-p))
-      sum.Lambda2.minus.Lambda1.sq <- c^2/((c-1)^2)*sum(p*(1-p))
-      n.sum.Lambda1.sq <- n*sum(((1-c*p)/(c-1))^2)
-      bw.x <- sum.Lambda3/(sum.Lambda2.minus.Lambda1.sq+n.sum.Lambda1.sq)
-    }
-    if(is.null(bw.y)) {
-      n <- length(data.y)
-      c <- length(unique(data.y))
-      if(c <= 1) stop("data.y must contain at least two distinct factor levels")
-      yeval <- unique(data.y)
-      p <- fitted(npudens(tdat=data.y,edat=xeval,bws=0,...))
-      sum.Lambda3 <- c/(c-1)*sum(p*(1-p))
-      sum.Lambda2.minus.Lambda1.sq <- c^2/((c-1)^2)*sum(p*(1-p))
-      n.sum.Lambda1.sq <- n*sum(((1-c*p)/(c-1))^2)
-      bw.y <- sum.Lambda3/(sum.Lambda2.minus.Lambda1.sq+n.sum.Lambda1.sq)
-    }
+    if(is.null(bw.x))
+      bw.x <- .np_entropy_discrete_plugin_bw(data.x, "data.x", ...)
+    if(is.null(bw.y))
+      bw.y <- .np_entropy_discrete_plugin_bw(data.y, "data.y", ...)
   }
 	
   ## Hellinger distance (Srho) between the densities. This function
@@ -87,6 +79,11 @@ npunitest <- function(data.x = NULL,
         ## evaluating. This is proper and avoids division by
         ## zero. Note the difference between integration and summation
         ## in this case when the variables do not share common support.
+        if(entropy.fast.gaussian) {
+          return(.np_entropy_univariate_gaussian_summation(
+            data.x, data.y, bw.x, bw.y
+          ))
+        }
         f.data.x <- fitted(npudens(tdat=data.x,edat=data.x,bws=bw.x,...))
         f.data.y <- fitted(npudens(tdat=data.y,edat=data.x,bws=bw.y,...))
         summand <- f.data.y/f.data.x
@@ -104,31 +101,33 @@ npunitest <- function(data.x = NULL,
         return(Srho)
       } else {
         ## Integration
-        h <- function(x,data.x,data.y) {
-          f.data.x <- fitted(npudens(tdat=data.x,edat=x,bws=bw.x,...))
-          f.data.y <- fitted(npudens(tdat=data.y,edat=x,bws=bw.y,...))
-          return(0.5*(sqrt(f.data.x)-sqrt(f.data.y))**2)
+        if(entropy.fast.gaussian) {
+          return(.np_entropy_univariate_gaussian_integral(
+            data.x, data.y, bw.x, bw.y
+          ))
+        } else {
+          h <- function(x,data.x,data.y) {
+            f.data.x <- fitted(npudens(tdat=data.x,edat=x,bws=bw.x,...))
+            f.data.y <- fitted(npudens(tdat=data.y,edat=x,bws=bw.y,...))
+            return(0.5*(sqrt(f.data.x)-sqrt(f.data.y))**2)
+          }
+          return.integrate <- integrate(h,-Inf,Inf,subdivisions=1e+05,stop.on.error=FALSE,data.x=data.x,data.y=data.y)
+          if(return.integrate$message != "OK") .np_warning(return.integrate$message)
+          return(return.integrate$value)
         }
-        return.integrate <- integrate(h,-Inf,Inf,subdivisions=1e+05,stop.on.error=FALSE,data.x=data.x,data.y=data.y)      
-        if(return.integrate$message != "OK") .np_warning(return.integrate$message)
-        return(return.integrate$value)
       }
     } else {
-      xeval <- unique(data.x)
-      p.data.x <- fitted(npudens(tdat=data.x,edat=xeval,bws=bw.x,...))
-      p.data.y <- fitted(npudens(tdat=data.y,edat=xeval,bws=bw.y,...))   
-      ## Sum the information function over the unique probabilities and
-      ## return.
-      return(sum(0.5*(sqrt(p.data.x)-sqrt(p.data.y))**2))
+      return(.np_entropy_discrete_distance(
+        data.x, data.y, bw.x, bw.y, discrete.evaluation, ...))
     }
   }
 
   
   ## Compute the test statistic
 
-  .np_progress_note("Computing test statistic")
 
-  test.stat <- Srho.univar(data.x,data.y,bw.x,bw.y,method=method)
+  test.stat <- .np_progress_activity_run("Computing entropy statistic",
+    Srho.univar(data.x,data.y,bw.x,bw.y,method=method))
 
   if(bootstrap) {
     
@@ -148,35 +147,65 @@ npunitest <- function(data.x = NULL,
         data.null <- c(data.x,data.y)
       } else {
         if(is.ordered(data.x)) {
-          data.null <- ordered(c(as.character(data.x),as.character(data.y)))
+          data.null <- .np_factor_with_levels(c(as.character(data.x),as.character(data.y)),
+                               levels = levels(data.x), ordered = TRUE)
         } else {
-          data.null <- factor(c(as.character(data.x),as.character(data.y)))
+          data.null <- .np_factor_with_levels(c(as.character(data.x),as.character(data.y)),
+                              levels = levels(data.x))
         }
       }
       
     }
     
-    resampled.stat <- numeric(boot.num)
-    progress <- .np_progress_begin("Bootstrap replications", total = boot.num, surface = "bootstrap")
+    resampled.stat <- numeric(B)
+    progress <- .np_progress_activity_begin(B, "Bootstrap replications", detail = NULL)
+    on.exit(.np_progress_activity_end(progress), add = TRUE)
 
-    for (b in seq_len(boot.num)) {
-      progress <- .np_progress_step(progress, done = b)
+    if(method == "integration" && is.numeric(data.x) &&
+       entropy.fast.gaussian) {
+      bootstrap.result <- .np_entropy_univariate_iid_bootstrap(
+        data.null = data.null,
+        size.x = length(data.x),
+        size.y = length(data.y),
+        bw.x = bw.x,
+        bw.y = bw.y,
+        boot.num = B,
+        progress = progress
+      )
+      resampled.stat <- bootstrap.result$values
+      progress <- bootstrap.result$progress
+    } else if(method == "summation" && is.numeric(data.x) &&
+              entropy.fast.gaussian) {
+      bootstrap.result <- .np_entropy_univariate_iid_summation_bootstrap(
+        data.null = data.null,
+        size.x = length(data.x),
+        size.y = length(data.y),
+        bw.x = bw.x,
+        bw.y = bw.y,
+        boot.num = B,
+        progress = progress
+      )
+      resampled.stat <- bootstrap.result$values
+      progress <- bootstrap.result$progress
+    } else {
+      for (b in seq_len(B)) {
 
-      ## Need to think this through... is the null one density? If so
-      ## resample from that density for both x and y?
-      
-      ## Conduct simple iid bootstrap resamples
-      
-      data.null.x <- data.null[sample.int(length(data.null), size = length(data.x), replace = TRUE)]
-      data.null.y <- data.null[sample.int(length(data.null), size = length(data.y), replace = TRUE)]
+        ## Need to think this through... is the null one density? If so
+        ## resample from that density for both x and y?
 
-      resampled.stat[b] <- Srho.univar(data.null.x,data.null.y,bw.x,bw.y,method=method)
+        ## Conduct simple iid bootstrap resamples
 
+        data.null.x <- data.null[sample.int(length(data.null), size = length(data.x), replace = TRUE)]
+        data.null.y <- data.null[sample.int(length(data.null), size = length(data.y), replace = TRUE)]
+
+        resampled.stat[b] <- Srho.univar(data.null.x,data.null.y,bw.x,bw.y,method=method)
+        .np_progress_activity_step(progress, done = b)
+      }
     }
 
-    progress <- .np_progress_end(progress)
+    .np_progress_activity_end(progress, completed = TRUE)
     
-    p.value <- mean(resampled.stat > test.stat)
+    p.value <- .np_bootstrap_upper_tail_pvalue(resampled.stat, test.stat)
     
   }
 
@@ -189,7 +218,7 @@ npunitest <- function(data.x = NULL,
                Srho.bootstrap = resampled.stat,
                P = p.value,
                bootstrap = bootstrap,
-               boot.num = boot.num,
+               boot.num = B,
                bw.x = bw.x,
                bw.y = bw.y)
   } else {

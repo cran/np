@@ -53,6 +53,66 @@ plot(cps71$age, cps71$logwage, cex = 0.25, col = "grey")
 lines(cps71$age, fitted(fit), col = 2, lwd = 2)
 ```
 
+## Predict and request uncertainty without repeating search
+
+Use the retained bandwidth object when only the evaluation points or requested
+outputs change. Keep the original training data available to the fitted call.
+
+```{r}
+new_points <- data.frame(age = c(25, 40, 55))
+predict(fit, newdata = new_points)
+
+# This refits at the existing bandwidth; it does not run bandwidth selection.
+fit_inference <- npreg(bws = fit$bws, gradients = TRUE, se = TRUE)
+head(se(fit_inference))
+head(gradients(fit_inference))
+head(gradients(fit_inference, se = TRUE))
+
+prediction <- predict(fit, newdata = new_points, se.fit = TRUE)
+prediction$fit
+prediction$se.fit
+```
+
+The switches and extractors have different roles:
+
+| Request | Purpose |
+| --- | --- |
+| `se = TRUE` in an estimator call | Compute its supported fit-time uncertainty. |
+| `gradients = TRUE` in an estimator call | Compute supported derivatives or categorical contrasts. Add `se = TRUE` for their standard errors. |
+| `se(fit)` or `gradients(fit, se = TRUE)` | Read stored standard errors; do not refit or repeat search. |
+| `predict(fit, newdata = ..., se.fit = TRUE)` | Evaluate predictions and their supported standard errors. |
+| `vcov(fit)` | Read coefficient covariance for families such as `npindex` and `npplreg`, not a universal covariance of the fitted surface. |
+| `plot(fit, errors = "bootstrap")` or `errors = "asymptotic"` | Request plot-time uncertainty through that family's plot method. |
+
+Consult the estimator's help for supported kernels, bandwidth types and
+derivative orders. Uncertainty not requested at fitting produces an extractor
+error with a no-search refit hint. This differs from an unsupported inference
+configuration or an undefined evaluation row (for example, no compact-kernel
+support). Inspect warnings and `NA` results rather than treating them as zero
+uncertainty. Asymptotic results condition on the selected smoothing settings;
+they do not include bandwidth or polynomial-degree selection uncertainty.
+Supported plot targets provide asymptotic simultaneous variability bands over
+the finite evaluation grid within each panel, conditional on the selected
+smoothing settings. They do not provide joint coverage across separate panels.
+See `?np.plot` for supported targets, working-covariance assumptions and
+unavailability conditions.
+
+## Moving from 0.70-5 to 0.80-1
+
+Fit-time standard errors are now opt-in (`se = TRUE`) across the principal
+families. The intentional exception is `npindex`, whose default
+`se = TRUE, se.type = "asymptotic"` includes coefficient covariance;
+`se = FALSE` requests a point-only fit. Gradients remain a separate request.
+
+Use current dotted argument names such as `gradient.order`, `data.overlay`
+and `data.rug`, and `B` for bootstrap replication counts where documented.
+Unknown named arguments are rejected with a spelling hint where available;
+an old misspelling that was previously ignored can therefore surface now.
+The full package NEWS (`news(package = "np")`) lists the replacements and
+family-specific changes. The [Gallery FAQ](https://jeffreyracine.github.io/gallery/faq.html)
+provides further troubleshooting guidance. Refit using `fit$bws` as above when the missing
+piece is uncertainty or gradients, not a new bandwidth choice.
+
 ## Mixed data
 
 One important feature of `np` is that it handles mixed data directly. Variable
@@ -84,13 +144,12 @@ If you want the recommended route without spelling out all of the LP tuning
 arguments, use `nomad = TRUE`. This is a documented convenience preset, not a
 generic optimizer alias: it fills only missing values among the LP degree-search
 controls and leaves compatible explicit overrides in place. This route uses the
-optional NOMAD backend provided by the suggested package `crs`, so install
-`crs` first if you want to use `nomad = TRUE` or
-`search.engine = "nomad"`/`"nomad+powell"`.
+NOMAD backend supplied by the required `crs` dependency (version 0.15-46
+or later), installed with `np`.
 
 ```{r}
 if (requireNamespace("crs", quietly = TRUE) &&
-    utils::packageVersion("crs") >= package_version("0.15-41")) {
+    utils::packageVersion("crs") >= package_version("0.15-46")) {
   set.seed(7)
   n <- 120
   x <- runif(n, -1, 1)

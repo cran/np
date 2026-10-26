@@ -35,7 +35,7 @@ npscoef_cat_profile_case <- function(kind = c("uno", "ord", "mixed", "rly"),
     txdat = xdat,
     tydat = ydat,
     tzdat = zdat,
-    errors = TRUE,
+    se = TRUE,
     iterate = FALSE,
     betas = TRUE
   )
@@ -144,10 +144,10 @@ test_that("npscoef categorical compression option leaves mixed z dense", {
 
   options(np.tree = FALSE, np.categorical.compress = FALSE)
   dense <- npscoef(bws = bw, txdat = xdat, tydat = ydat, tzdat = zdat,
-                  errors = FALSE, iterate = FALSE)
+                  se = FALSE, iterate = FALSE)
   options(np.tree = FALSE, np.categorical.compress = TRUE)
   profile <- npscoef(bws = bw, txdat = xdat, tydat = ydat, tzdat = zdat,
-                    errors = FALSE, iterate = FALSE)
+                    se = FALSE, iterate = FALSE)
   expect_equal(profile$mean, dense$mean, tolerance = 1e-10)
 })
 
@@ -182,6 +182,61 @@ test_that("npscoefhat apply uses categorical profile route without changing outp
   profile <- npscoefhat(bws = bw, txdat = xdat, tzdat = zdat,
                        y = rhs, output = "apply")
   expect_equal(profile, dense, tolerance = 1e-8)
+})
+
+test_that("npscoefhat categorical profile ridge uses the canonical weight scale", {
+  old <- options(np.messages = FALSE, np.tree = FALSE,
+                 np.categorical.compress = TRUE)
+  on.exit(options(old), add = TRUE)
+
+  set.seed(20260917L)
+  n <- 48L
+  xdat <- data.frame(a = runif(n, -1, 1), b = runif(n, -1, 1))
+  zdat <- data.frame(
+    u = factor(rep(letters[1:3], length.out = n)),
+    v = factor(rep(LETTERS[1:2], length.out = n))
+  )
+  y <- xdat$a - 0.35 * xdat$b + rnorm(n, sd = 0.1)
+  exdat <- xdat[1:7, , drop = FALSE]
+  ezdat <- zdat[1:7, , drop = FALSE]
+  for (ukertype in c("liracine", "aitchisonaitken")) {
+    bw <- npscoefbw(
+      xdat = xdat, ydat = y, zdat = zdat, bws = c(0.4, 0.3),
+      bandwidth.compute = FALSE, ukertype = ukertype
+    )
+    args <- list(bws = bw, txdat = xdat, tzdat = zdat,
+                 exdat = exdat, ezdat = ezdat, ridge = 0.25)
+
+    H <- do.call(npscoefhat, c(args, list(output = "matrix")))
+    applied.profile <- do.call(npscoefhat, c(args, list(y = y, output = "apply")))
+    options(np.categorical.compress = FALSE)
+    applied.direct <- do.call(npscoefhat, c(args, list(y = y, output = "apply")))
+    options(np.categorical.compress = TRUE)
+
+    W <- cbind(1, as.matrix(xdat))
+    E <- cbind(1, as.matrix(exdat))
+    oracle <- vapply(seq_len(nrow(exdat)), function(i) {
+      weights <- rep(1, n)
+      for (j in seq_along(zdat)) {
+        same <- zdat[[j]] == ezdat[[j]][i]
+        lambda <- c(0.4, 0.3)[j]
+        nc <- nlevels(zdat[[j]])
+        weights <- weights * if (ukertype == "liracine")
+          ifelse(same, 1, lambda) / (1 + (nc - 1) * lambda) else
+          ifelse(same, 1 - lambda, lambda / (nc - 1))
+      }
+      moment <- crossprod(W, W * weights)
+      rhs <- crossprod(W, y * weights)
+      rhs[1L] <- rhs[1L] + 0.25 * rhs[1L] / moment[1L, 1L]
+      drop(E[i, , drop = FALSE] %*%
+             solve(moment + diag(0.25, ncol(W)), rhs))
+    }, numeric(1L))
+    expect_equal(as.vector(H %*% y), oracle, tolerance = 1e-11, info = ukertype)
+    expect_equal(as.vector(applied.profile), oracle, tolerance = 1e-11,
+                 info = ukertype)
+    expect_equal(as.vector(applied.direct), as.vector(H %*% y), tolerance = 1e-11,
+                 info = ukertype)
+  }
 })
 
 test_that("npscoef plot-bootstrap inid helper uses categorical profiles exactly", {

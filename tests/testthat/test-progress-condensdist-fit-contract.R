@@ -17,12 +17,12 @@ expect_condensdist_clean_powell_surface <- function(lines, pkg_pattern = "np", i
   expect_true(length(powell.lines) > 0L, info = detail.info)
   expect_true(
     any(grepl(
-      sprintf("^\\[%s\\] Refining bandwidth \\(elapsed [0-9]+\\.[0-9]s, degree \\([0-9]+\\)(, iter [0-9]+)?\\)$", pkg_pattern),
+      sprintf("^\\[%s\\] Refining bandwidth \\(iteration [0-9]+, elapsed [0-9]+\\.[0-9]s, deg \\([0-9]+\\), best \\([0-9]+\\)\\)$", pkg_pattern),
       powell.lines
     )),
     info = paste(c(detail.info, powell.lines), collapse = "\n")
   )
-  expect_false(any(grepl("best \\(", powell.lines)), info = paste(c(detail.info, powell.lines), collapse = "\n"))
+  expect_true(any(grepl("best \\(", powell.lines)), info = paste(c(detail.info, powell.lines), collapse = "\n"))
   expect_false(
     any(grepl(sprintf("^\\[%s\\] Bandwidth selection \\(Refining NOMAD solution", pkg_pattern), lines)),
     info = detail.info
@@ -115,7 +115,7 @@ test_that("npcdens bw to fit route hands off immediately into single-line fit pr
   lines <- condensdist_fit_progress_lines(actual)
   bandwidth.pos <- grep("^\\[np\\] Bandwidth selection \\(", lines)
   fit.start.pos <- grep(
-    sprintf("^\\[np\\] Fitting conditional density 0/%d \\(0\\.0%%, elapsed 0\\.0s, eta 0\\.0s\\): starting$", total),
+    sprintf("^\\[np\\] Fitting conditional density 0/%d \\(0\\.0%%, elapsed 0\\.0s, eta estimating\\): starting$", total),
     lines
   )
   fit.finish.pos <- grep(
@@ -158,7 +158,7 @@ test_that("npcdens nomad to powell to fit route preserves single-line fit handof
 
   lines <- condensdist_fit_progress_lines(actual)
   fit.start.pos <- grep(
-    sprintf("^\\[np\\] Fitting conditional density 0/%d \\(0\\.0%%, elapsed 0\\.0s, eta 0\\.0s\\): starting$", fixture$n),
+    sprintf("^\\[np\\] Fitting conditional density 0/%d \\(0\\.0%%, elapsed 0\\.0s, eta estimating\\): starting$", fixture$n),
     lines
   )
   fit.finish.pos <- grep(
@@ -237,7 +237,7 @@ test_that("npcdist bw to fit route hands off immediately into single-line fit pr
   lines <- condensdist_fit_progress_lines(actual)
   bandwidth.pos <- grep("^\\[np\\] Bandwidth selection \\(", lines)
   fit.start.pos <- grep(
-    sprintf("^\\[np\\] Fitting conditional distribution 0/%d \\(0\\.0%%, elapsed 0\\.0s, eta 0\\.0s\\): starting$", total),
+    sprintf("^\\[np\\] Fitting conditional distribution 0/%d \\(0\\.0%%, elapsed 0\\.0s, eta estimating\\): starting$", total),
     lines
   )
   fit.finish.pos <- grep(
@@ -280,7 +280,7 @@ test_that("npcdist nomad to powell to fit route preserves single-line fit handof
 
   lines <- condensdist_fit_progress_lines(actual)
   fit.start.pos <- grep(
-    sprintf("^\\[np\\] Fitting conditional distribution 0/%d \\(0\\.0%%, elapsed 0\\.0s, eta 0\\.0s\\): starting$", fixture$n),
+    sprintf("^\\[np\\] Fitting conditional distribution 0/%d \\(0\\.0%%, elapsed 0\\.0s, eta estimating\\): starting$", fixture$n),
     lines
   )
   fit.finish.pos <- grep(

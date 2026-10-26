@@ -34,7 +34,7 @@ test_that("npindex accepts only valid first-order gradient requests", {
   }
 
   expect_error(
-    plot(bw, xdat = x, ydat = y, output = "data", gradient_order = "2"),
+    plot(bw, xdat = x, ydat = y, output = "data", gradient.order = "2"),
     "positive numeric values|finite positive integers"
   )
 })
@@ -59,14 +59,15 @@ test_that("nplsqreg gradient accessors enforce the stored derivative order", {
     regtype = "lp",
     degree = c(3L, 2L)
   )
-  fit <- nplsqreg(bw, gradients = TRUE, gradient.order = c(2L, 1L))
+  fit <- nplsqreg(bw, gradients = TRUE, se = TRUE,
+                  gradient.order = c(2L, 1L))
 
   expect_identical(
     gradients(fit, gradient.order = c(2L, 1L)),
     fit$quantgrad
   )
   expect_identical(
-    gradients(fit, errors = TRUE, gradient.order = c(2L, 1L)),
+    gradients(fit, se = TRUE, gradient.order = c(2L, 1L)),
     fit$quantgerr
   )
   expect_error(
@@ -104,7 +105,7 @@ test_that("nplsqreg gradient accessors enforce the stored derivative order", {
   )
 })
 
-test_that("nplsqreg plot treats gradient_order as an order, not a flag", {
+test_that("nplsqreg plot treats gradient.order as an order, not a flag", {
   old.opts <- options(np.messages = FALSE)
   on.exit(options(old.opts), add = TRUE)
 
@@ -131,7 +132,7 @@ test_that("nplsqreg plot treats gradient_order as an order, not a flag", {
     output = "data",
     neval = 7L,
     gradients = TRUE,
-    gradient_order = c(2L, 1L),
+    gradient.order = c(2L, 1L),
     errors = "none",
     perspective = FALSE
   )

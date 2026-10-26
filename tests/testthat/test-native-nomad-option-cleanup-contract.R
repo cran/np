@@ -5,7 +5,7 @@ test_that("native NOMAD option builders reject cache-off solves before solver en
   builders <- list(
     np:::.np_nomad_native_option_vectors,
     np:::.npudensbw_nomad_native_option_vectors,
-    np:::.npcdensbw_nomad_shadow_native_option_vectors,
+    np:::.npcdensbw_prepared_native_option_vectors,
     np:::.npcdistbw_nomad_native_option_vectors,
     np:::.npregbw_nomad_native_option_vectors
   )
@@ -22,6 +22,25 @@ test_that("native NOMAD option builders reject cache-off solves before solver en
       fixed = TRUE
     )
     expect_no_error(builder(list(EVAL_USE_CACHE = TRUE, MAX_BB_EVAL = 1)))
+  }
+})
+
+test_that("native estimator callbacks reject parallel evaluation explicitly", {
+  builders <- list(
+    np:::.np_nomad_native_option_vectors,
+    np:::.npudensbw_nomad_native_option_vectors,
+    np:::.npcdensbw_prepared_native_option_vectors,
+    np:::.npcdistbw_nomad_native_option_vectors,
+    np:::.npregbw_nomad_native_option_vectors
+  )
+
+  for (builder in builders) {
+    expect_error(
+      builder(list(NB_THREADS_PARALLEL_EVAL = 2L)),
+      "requires NB_THREADS_PARALLEL_EVAL = 1",
+      fixed = TRUE
+    )
+    expect_no_error(builder(list(NB_THREADS_PARALLEL_EVAL = 1L)))
   }
 })
 
@@ -92,6 +111,34 @@ test_that("native npreg solver option failure does not poison the next serial so
 
   expect_true(is.finite(fit$fval))
   expect_false(is.null(attr(fit, "native.nomad.diagnostics")))
+})
+
+test_that("resident npudens state is released after a solver option failure", {
+  skip_if_not_installed("crs", minimum_version = "0.15.46")
+  old <- options(np.messages = FALSE, np.tree = TRUE)
+  on.exit(options(old), add = TRUE)
+
+  set.seed(20260805)
+  dat <- data.frame(x = runif(40L))
+  expect_error(
+    suppressWarnings(np::npudensbw(
+      dat = dat, bwsolver = "mads", nmulti = 1L,
+      nomad.opts = list(MAX_BB_EVAL = "invalid")
+    )),
+    "NOMAD route failed",
+    fixed = TRUE
+  )
+
+  first <- np::npudensbw(
+    dat = dat, bwsolver = "mads", nmulti = 1L,
+    nomad.opts = list(MAX_BB_EVAL = 12L)
+  )
+  second <- np::npudensbw(
+    dat = dat, bwsolver = "mads", nmulti = 1L,
+    nomad.opts = list(MAX_BB_EVAL = 12L)
+  )
+  expect_identical(first$bw, second$bw)
+  expect_identical(first$fval, second$fval)
 })
 
 test_that("native bandwidth constructors reject cache-off options before solver work", {
