@@ -1,9 +1,18 @@
+.np_regression_precision_scope <- function(bws) {
+  identical(bws[["type",exact=TRUE]],"fixed") &&
+    identical(bws[["ckertype",exact=TRUE]],"gaussian") &&
+    identical(as.integer(bws[["ckerorder",exact=TRUE]]),2L) &&
+    bws[["ncon",exact=TRUE]]>0L && bws[["nuno",exact=TRUE]]==0L && bws[["nord",exact=TRUE]]==0L &&
+    all(is.infinite(bws[["ckerlb",exact=TRUE]]) & bws[["ckerlb",exact=TRUE]]<0) &&
+    all(is.infinite(bws[["ckerub",exact=TRUE]]) & bws[["ckerub",exact=TRUE]]>0)
+}
+
 npreghat <-
   function(bws, ...){
     args <- .np_formula_dispatch_args(
       NULL, substitute(list(...))[-1L], environment(),
       data.roles = c("txdat", "y"), call = sys.call(), caller = parent.frame(),
-      omit.subset = FALSE)
+      omit.subset = TRUE)
 
     if (!missing(bws)){
       # A fitted model owns a registered method; its call is not a bandwidth
@@ -29,11 +38,20 @@ npreghat <-
     }
   }
 
-# Reuse fitted response coding at hat ingress; numeric payloads are untouched.
+# Reuse retained categorical coding only when the bandwidth owns that scale.
+# Numeric operators accept numeric RHS storage, never implicit response codes.
 .np_hat_response <- function(y, ydati) {
+  if (is.null(y)) return(y)
   if (is.factor(y) && any(ydati[["iord", exact = TRUE]] |
                           ydati[["iuno", exact = TRUE]]))
     return(.np_plreg_numeric_response(y, ydati))
+  numeric.storage <- is.numeric(y) && (is.integer(y) || is.double(y))
+  if (is.data.frame(y))
+    numeric.storage <- all(vapply(y, function(column)
+      is.numeric(column) && (is.integer(column) || is.double(column)), logical(1L)))
+  if (!numeric.storage)
+    stop("hat response 'y' must have numeric (integer or double) storage; supply a numeric vector, matrix or data frame",
+         call. = FALSE)
   y
 }
 
@@ -921,6 +939,8 @@ npreghat <-
     bernstein.basis = bernstein.basis
   )
 
+  precision.eligible <- .np_regression_precision_scope(bws)
+  if(precision.eligible) attr(kw,".np.precision.eligible") <- TRUE
   matprod.mode <- getOption("matprod")
   H.fast <- if (ncol(W.train) == 1L ||
                 identical(matprod.mode, "default") ||
@@ -954,11 +974,22 @@ npreghat <-
       empty.rows[j] <- 1L
       next
     }
+    if(precision.eligible && !all(w==w[1L])) attr(A.base,".np.precision.eligible") <- TRUE
     solved <- .Call("C_np_lp_adjoint_prepared", A.base, as.double(rhs),
                     as.integer(ntrain),
                     as.integer(min(ncol(W.train), sum(w != 0.0))),
                     PACKAGE = "np")
 
+    policy <- attr(solved,".np.fit.precision",exact=TRUE)
+    if(!is.null(policy)) {
+      direction <- matrix(solved,nrow=1L)
+      attr(direction,".np.fit.precision") <- policy
+      row <- drop(.Call("C_np_plot_projection_apply",as.matrix(W.train),direction,
+        matrix(w,ncol=1L),PACKAGE="np"))
+      H[j,] <- row
+      if(return.norm) norms[j,] <- .Call("C_np_reghat_row_norm",row,PACKAGE="np")
+      next
+    }
     if (return.norm) {
       row <- w * drop(W.train %*% solved)
       H[j, ] <- row
@@ -1422,8 +1453,12 @@ npreghat <-
                                   gradient.order = 1L,
                                   local.mode = FALSE, allow.empty.rows = FALSE,
                                   gradient.coordinate = NULL,
-                                  fit.projection = FALSE) {
+                                  fit.projection = FALSE, fit.inference = FALSE) {
   no.ex <- is.null(exdat)
+  inference.identity <- if (isTRUE(fit.inference))
+    list(bws=bws, xdat=toFrame(txdat),
+      ydat=.np_hat_response(tydat,bws[["ydati",exact=TRUE]]), exdat=toFrame(exdat),
+      gradients=gradients, gradient.order=gradient.order) else NULL
   se <- npValidateScalarLogical(se, "se")
   gradients <- npValidateScalarLogical(gradients, "gradients")
   local.mode <- npValidateScalarLogical(local.mode, "local.mode")
@@ -1675,6 +1710,17 @@ npreghat <-
     output.request <- c(output.request,
       as.integer(npLpBasisNcol(reg.spec$basis.engine, degree.c)))
   }
+  if (isTRUE(fit.inference)) {
+    if (!se || no.ex || isTRUE(fit.projection) || !is.null(gradient.coordinate) ||
+        !identical(bws[["type", exact=TRUE]], "fixed") ||
+        !identical(bws[["ckertype", exact=TRUE]], "gaussian") ||
+        bws[["ckerorder", exact=TRUE]] != 2L ||
+        !identical(bws[["ckerbound", exact=TRUE]], "none") || bws$ncon < 1L)
+      stop("compact regression inference requires an external fixed unbounded second-order Gaussian SE fit",call.=FALSE)
+    attr(output.request,".np.inference.width") <- as.integer(
+      if (npIsCanonicalLp0Spec(reg.spec,bws$ncon)) 1L else
+        npLpBasisNcol(reg.spec$basis.engine,degree.c))
+  }
   if (!is.null(gradient.coordinate))
     attr(output.request, ".np.gradient.coordinate") <- as.integer(match(
       gradient.coordinate, c(which(bws[["icon", exact = TRUE]]),
@@ -1703,8 +1749,12 @@ npreghat <-
 
   .npreg_report_variance_unavailable(myout)
   out <- list(mean = as.double(myout$mean))
-  if (isTRUE(fit.projection))
+  if (isTRUE(fit.projection) || isTRUE(fit.inference))
     out$fit.projection <- attr(myout, ".np.fit.projection", exact = TRUE)
+  if (isTRUE(fit.inference)) {
+    out$fit.inference <- attr(myout, ".np.fit.inference", exact=TRUE)
+    out$fit.request <- inference.identity
+  }
 
   if (se)
     out$merr <- as.double(myout$merr)
@@ -1750,6 +1800,8 @@ npreghat <-
 
 npreghat.formula <-
   function(bws, data = NULL, newdata = NULL, ...){
+    .np_reject_fit_subset(substitute(list(...))[-1L])
+
 
     dots <- list(...)
     tt <- terms(bws)
@@ -1794,6 +1846,8 @@ npreghat.formula <-
 
 npreghat.call <-
   function(bws, ...) {
+    .np_reject_fit_subset(substitute(list(...))[-1L])
+
   .np_reject_native_data(substitute(list(...))[-1L])
 
     dots <- list(...)
@@ -1807,6 +1861,8 @@ npreghat.call <-
 
 npreghat.npregression <-
   function(bws, txdat, y, ...){
+    .np_reject_fit_subset(substitute(list(...))[-1L])
+
   .np_reject_native_data(substitute(list(...))[-1L])
 
     model <- bws
@@ -1836,6 +1892,8 @@ npreghat.rbandwidth <-
            ridge = 0.0,
            s = NULL,
            ...){
+    .np_reject_fit_subset(substitute(list(...))[-1L])
+
   .np_reject_native_data(substitute(list(...))[-1L])
 
 

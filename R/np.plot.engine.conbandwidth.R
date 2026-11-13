@@ -40,6 +40,8 @@
            plot.errors.boot.nonfixed = c("exact", "frozen"),
            plot.errors.boot.blocklen = NULL,
            plot.errors.boot.num = 9999,
+           bias.control = NULL,
+           plot.errors.boot.calibration = "default",
            plot.errors.center = c("estimate", "bias-corrected"),
            plot.errors.type = c("pmzsd","pointwise","bonferroni","simultaneous","all"),
            plot.errors.alpha = 0.05,
@@ -58,6 +60,18 @@
 
     if (.np_data_formal_supplied(sys.call(), sys.function()))
       .np_plot_data_error()
+
+    saved.plot.style <- list(xlab = xlab, ylab = ylab,
+        main = main, sub = sub, xlim = xlim, ylim = ylim, col = col,
+        lty = lty, lwd = lwd, type = type,
+        theta = theta, phi = phi, zlab = zlab, zlim = zlim)
+    publish.plot <- function(value) .np_plot_data_publish_display(value,
+      coordinates = cbind(xdat, ydat), roles = c(rep("X", ncol(xdat)), rep("Y", ncol(ydat))), response = NULL,
+      overlay = FALSE, rug = plot.rug,
+      style = utils::modifyList(plot.user.args, saved.plot.style),
+      points_args = list(), boxplot = plot.bxp,
+      interval_style = list(style = plot.errors.style, bar = plot.errors.bar,
+        bar_num = plot.errors.bar.num, boxplot_outliers = plot.bxp.out))
 
     sub.supplied <- !missing(sub)
 
@@ -136,6 +150,7 @@
 
       ydat <- tmf[, bws$variableNames[["response"]], drop = FALSE]
       xdat <- tmf[, bws$variableNames[["terms"]], drop = FALSE]
+      .np_conditional_training_types(bws, xdat, ydat)
     } else {
       if(all(miss.xy) && !is.null(bws$call)){
         xdat <- data.frame(.np_eval_bws_call_arg(bws, "xdat"))
@@ -145,6 +160,7 @@
       ## catch and destroy NA's
       xdat = toFrame(xdat)
       ydat = toFrame(ydat)
+      .np_conditional_training_types(bws, xdat, ydat)
       
       keep.rows <- rep_len(TRUE, nrow(xdat))
       rows.omit <- attr(na.omit(data.frame(xdat, ydat)), "na.action")
@@ -165,7 +181,7 @@
     xq = double(bws$xndim)+xq
     yq = double(bws$yndim)+yq
     
-    xtrim = double(bws$xndim)+xtrim
+    xtrim = .np_plot_recycle_xtrim(xtrim, bws$xndim)
     ytrim = double(bws$yndim)+ytrim
 
     if (missing(plot.errors.method) &
@@ -180,11 +196,24 @@
     
     error.request <- .np_plot_normalize_error_request(plot.errors.method,
                                                       plot.errors.type)
+    new.conditional <- .np_conditional_control(bias.control, bws, cdf,
+      error.request$method, as.character(plot.errors.center)[1L],
+      plot.errors.boot.calibration, as.character(plot.errors.boot.method)[1L],
+      gradients, quantreg, proper)
+    if (new.conditional) {
+      if (!error.request$type %in% c("pointwise","simultaneous","bonferroni","all"))
+        stop('conditional inference requires an explicit pointwise, simultaneous, bonferroni or all band',call.=FALSE)
+      if (isTRUE(plot.bxp) || !is.null(plot.errors.boot.blocklen) ||
+          !identical(as.character(plot.errors.boot.nonfixed)[1L],"exact"))
+        stop("conditional inference does not admit boxplots, block lengths or frozen-nonfixed controls",call.=FALSE)
+      .np_plot_gaussian_integer(if(error.request$method=="bootstrap") plot.errors.boot.num else gaussian.draws,
+        "conditional inference draws", maximum=.Machine$integer.max)
+    }
     joint.request <- identical(error.request$method, "asymptotic") &&
       error.request$type %in% c("simultaneous", "all")
-    if (!missing(gaussian.draws) && !joint.request)
-      stop("gaussian.draws requires asymptotic simultaneous or all bands", call. = FALSE)
-    joint.eligible <- joint.request && !quantreg && !isTRUE(proper)
+    if (!missing(gaussian.draws) && !joint.request && !new.conditional)
+      stop("gaussian_draws requires asymptotic simultaneous or all bands", call. = FALSE)
+    joint.eligible <- joint.request && !quantreg && !isTRUE(proper) && !new.conditional
     quantile.joint <- joint.request && isTRUE(quantreg)
     if (joint.request)
       gaussian.draws <- .np_plot_gaussian_integer(gaussian.draws, "gaussian.draws")
@@ -202,7 +231,9 @@
       xdat = xdat,
       common.scale = common.scale,
       ylim = ylim,
-      allow_asymptotic_simultaneous = joint.eligible || quantile.joint,
+      allow_asymptotic_simultaneous = joint.eligible || quantile.joint || new.conditional,
+      allow_asymptotic_bias = new.conditional,
+      allow_conditional_pilot = new.conditional,
       error.request = error.request
     )
 
@@ -353,7 +384,22 @@
       lerr.all <- NULL
       herr.all <- NULL
       
-      if (plot.errors.method == "bootstrap"){
+      if (new.conditional) {
+        conditional.interval <- .np_conditional_plot_interval(bws,xdat,ydat,
+          x.eval[,1L,drop=FALSE],x.eval[,2L,drop=FALSE],cdf,plot.errors.method,
+          plot.errors.boot.calibration,
+          if(plot.errors.method=="bootstrap") plot.errors.boot.num else gaussian.draws,
+          plot.errors.alpha,plot.errors.type,construction=bias.control$construction)
+        terr <- conditional.interval$err; terr.all <- conditional.interval$all.err
+        center.val <- conditional.interval$inference$center
+        lerr <- matrix(center.val-terr[,1L],x1.neval,x2.neval)
+        herr <- matrix(center.val+terr[,2L],x1.neval,x2.neval)
+        if(plot.errors.type=="all") {
+          lerr.all <- lapply(terr.all,function(te)matrix(center.val-te[,1L],x1.neval,x2.neval))
+          herr.all <- lapply(terr.all,function(te)matrix(center.val+te[,2L],x1.neval,x2.neval))
+        }
+      } else if (plot.errors.method == "bootstrap"){
+
         terr.obj <- compute.bootstrap.errors(xdat = xdat, ydat = ydat,
           exdat = tex, eydat = tey,
           cdf = cdf,
@@ -437,9 +483,9 @@
                   else if ((joint.eligible || quantile.joint) && identical(plot.errors.type, "simultaneous"))
                     .np_plot_joint_panel_range(tcomp, terr)
                   else
-                    c(min(lerr), max(herr))
+                    .np_plot_finite_range(c(tcomp, lerr, herr))
               } else
-                c(min(tcomp),max(tcomp))
+                .np_plot_finite_range(tcomp)
       }
 
       if (plot.behavior != "plot"){
@@ -471,14 +517,20 @@
         cd1 <- do.call(ret.fun, ret.args)
         if (joint.eligible || quantile.joint)
           cd1 <- .np_plot_density_band_fields(cd1, terr.obj)
+        if (plot.errors && identical(plot.errors.type, "all"))
+          cd1[[".plot_band_widths"]] <- terr.all
+        cd1[[".plot_rows"]] <- list(estimate = tcomp,
+          corrected = terr[, 3L], widths = terr[, 1:2, drop = FALSE])
         cd1$bias = NA
         cd1$bias.corrected = NA
 
         if (.np_plot_center_is_bias_corrected(plot.errors.center))
           cd1 <- .np_plot_add_bias_fields(cd1, tcomp, terr[,3])
         
+        if(new.conditional)
+          cd1 <- .np_conditional_plot_fields(cd1,conditional.interval,plot.errors.type)
         if (plot.behavior == "data")
-          return ( list(cd1 = cd1) )
+          return(publish.plot(list(cd1 = cd1)))
       }
 
 
@@ -523,6 +575,7 @@
             }
             if (plot.errors) {
               .np_plot_error_surfaces_rgl(
+                  construction = if(new.conditional) "conditional-pilot" else NULL,
                 x = x1.eval,
                 y = x2.eval,
                 plot.errors.type = plot.errors.type,
@@ -541,7 +594,7 @@
         return(.np_plot_rgl_finalize(
           rgl.out = rgl.out,
           plot.behavior = plot.behavior,
-          plot.data = list(cd1 = cd1)
+          plot.data = publish.plot(list(cd1 = cd1))
         ))
       }
 
@@ -616,6 +669,7 @@
               border = scalar_default(border, .np_plot_color("context_border")),
               lwd = scalar_default(lwd, par()$lwd),
               annotation = .np_plot_variability_annotation_spec(
+                construction = if(new.conditional) "conditional-pilot" else NULL,
                 plot.errors.method = plot.errors.method,
                 plot.errors.type = plot.errors.type,
                 plot.errors.alpha = plot.errors.alpha,
@@ -633,6 +687,7 @@
             )
             if (plot.errors.type == "all" && !is.null(lerr.all) && !is.null(herr.all)) {
               .np_plot_draw_all_band_legend(
+                construction = if(new.conditional) "conditional-pilot" else NULL,
                 legend = plot.legend,
                 x = "topright",
                 lty = .np_plot_lty("solid"),
@@ -649,7 +704,7 @@
       }
 
       if (plot.behavior == "plot-data")
-        return ( list(cd1 = cd1) )
+        return(publish.plot(list(cd1 = cd1)))
     } else {
 
       dsf = if (gradients) bws$xndim else 1
@@ -821,7 +876,17 @@
           temp.dens[seq_len(xi.neval)] <- eval.extract(tobj, j)
           
           if (plot.errors && component.available){
-            if (plot.errors.method == "asymptotic") {
+            if (new.conditional) {
+              conditional.interval <- .np_conditional_plot_interval(bws,xdat,ydat,
+                subcol(exdat,ei,i)[seq_len(xi.neval),,drop=FALSE],eydat[seq_len(xi.neval),,drop=FALSE],cdf,plot.errors.method,
+                plot.errors.boot.calibration,
+                if(plot.errors.method=="bootstrap") plot.errors.boot.num else gaussian.draws,
+                plot.errors.alpha,plot.errors.type,construction=bias.control$construction)
+              temp.err[seq_len(xi.neval),] <- conditional.interval$err
+              temp.all.err <- conditional.interval$all.err
+              if(plot.behavior!="plot") plot.out[[plot.index]] <-
+                .np_conditional_plot_fields(plot.out[[plot.index]],conditional.interval,plot.errors.type)
+            } else if (plot.errors.method == "asymptotic") {
               terr.j <- err.extract(tobj, j)
               asym.obj <- .np_plot_asymptotic_error_from_se(
                 se = terr.j,
@@ -964,6 +1029,7 @@
             if (plot.errors && component.available &&
                 !(xi.factor && plot.bootstrap && plot.bxp)){
               panel.annotation <- .np_plot_variability_annotation_spec(
+                construction = if(new.conditional) "conditional-pilot" else NULL,
                 plot.errors.method = plot.errors.method,
                 plot.errors.type = plot.errors.type,
                 plot.errors.alpha = plot.errors.alpha,
@@ -975,6 +1041,7 @@
               )
               if (plot.errors.type == "all") {
                 .np_plot_draw_all_errors_with_gaps(
+                  construction = if(new.conditional) "conditional-pilot" else NULL,
                   ex = as.numeric(ei),
                   center = .np_plot_error_center(temp.dens, temp.err, plotOnEstimate),
                   all.err = temp.all.err,
@@ -1037,6 +1104,12 @@
               bias.name = bias.name,
               corrected.name = corrected.name)
             plot.out[[plot.index]]$bxp <- temp.boot
+            plot.out[[plot.index]] <- .np_plot_data_publish_target(
+              plot.out[[plot.index]], if (gradients) paste0("gradient", j) else "value",
+              corrected = temp.err[seq_len(xi.neval), 3L],
+              std_error = if (identical(plot.errors.method, "asymptotic")) err.extract(tobj, j) else NULL,
+              bands = if (identical(plot.errors.type, "all")) temp.all.err else NULL,
+              boxplot = temp.boot)
           }
         }
       }
@@ -1136,7 +1209,17 @@
             temp.dens[seq_len(xi.neval)] <- eval.extract(tobj, j)
             
             if (plot.errors && component.available){
-              if (plot.errors.method == "asymptotic") {
+              if (new.conditional) {
+              conditional.interval <- .np_conditional_plot_interval(bws,xdat,ydat,
+                exdat[seq_len(xi.neval),,drop=FALSE],subcol(eydat,ei,i)[seq_len(xi.neval),,drop=FALSE],cdf,plot.errors.method,
+                plot.errors.boot.calibration,
+                if(plot.errors.method=="bootstrap") plot.errors.boot.num else gaussian.draws,
+                plot.errors.alpha,plot.errors.type,construction=bias.control$construction)
+              temp.err[seq_len(xi.neval),] <- conditional.interval$err
+              temp.all.err <- conditional.interval$all.err
+              if(plot.behavior!="plot") plot.out[[plot.index]] <-
+                .np_conditional_plot_fields(plot.out[[plot.index]],conditional.interval,plot.errors.type)
+            } else if (plot.errors.method == "asymptotic") {
                 terr.j <- err.extract(tobj, j)
                 asym.obj <- .np_plot_asymptotic_error_from_se(
                   se = terr.j,
@@ -1271,6 +1354,7 @@
               if (plot.errors && component.available &&
                   !(xi.factor && plot.bootstrap && plot.bxp)){
                 panel.annotation <- .np_plot_variability_annotation_spec(
+                construction = if(new.conditional) "conditional-pilot" else NULL,
                   plot.errors.method = plot.errors.method,
                   plot.errors.type = plot.errors.type,
                   plot.errors.alpha = plot.errors.alpha,
@@ -1282,6 +1366,7 @@
                 )
                 if (plot.errors.type == "all") {
                   .np_plot_draw_all_errors_with_gaps(
+                  construction = if(new.conditional) "conditional-pilot" else NULL,
                     ex = as.numeric(ei),
                     center = .np_plot_error_center(temp.dens, temp.err, plotOnEstimate),
                     all.err = temp.all.err,
@@ -1344,6 +1429,12 @@
                 bias.name = bias.name,
                 corrected.name = corrected.name)
               plot.out[[plot.index]]$bxp <- temp.boot
+              plot.out[[plot.index]] <- .np_plot_data_publish_target(
+                plot.out[[plot.index]], if (gradients) paste0("gradient", j) else "value",
+                corrected = temp.err[seq_len(xi.neval), 3L],
+                std_error = if (identical(plot.errors.method, "asymptotic")) err.extract(tobj, j) else NULL,
+                bands = if (identical(plot.errors.type, "all")) temp.all.err else NULL,
+                boxplot = temp.boot)
             }
           }
         }
@@ -1458,6 +1549,7 @@
             if (plot.errors && !(xi.factor && plot.bootstrap && plot.bxp)){
               err.block <- data.err[, seq(3*idx - 2L, length.out = 3L), drop = FALSE]
               panel.annotation <- .np_plot_variability_annotation_spec(
+                construction = if(new.conditional) "conditional-pilot" else NULL,
                 plot.errors.method = plot.errors.method,
                 plot.errors.type = plot.errors.type,
                 plot.errors.alpha = plot.errors.alpha,
@@ -1469,6 +1561,7 @@
               )
               if (plot.errors.type == "all") {
                 .np_plot_draw_all_errors_with_gaps(
+                  construction = if(new.conditional) "conditional-pilot" else NULL,
                   ex = as.numeric(allei[,plot.index]),
                   center = .np_plot_error_center(data.eval[,idx], err.block, plotOnEstimate),
                   all.err = data.err.all[[idx]],
@@ -1519,7 +1612,7 @@
 
       if (plot.behavior != "plot"){
         names(plot.out) = paste("cd", seq_len(tot.dim), sep="")
-        return (plot.out)
+        return(publish.plot(plot.out))
       }
     }
   }

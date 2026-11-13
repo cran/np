@@ -623,6 +623,8 @@ These arguments control outer optimization behavior for the semiparametric searc
   }
 
   \item{random.seed}{
+    Temporary caller-state restoration requires a certifiable initialized
+    state; see \link{np_rng_scope}.
     an integer used to seed R's random number generator. This ensures
     replicability of the numerical search. Defaults to 42.
   }
@@ -641,6 +643,12 @@ These arguments collect remaining controls passed through S3 methods.
 }
 
 \details{
+  The primary response must be a one-dimensional numeric (integer or double)
+  vector. Factors and ordered factors are not accepted as primary responses,
+  including retained responses used in a new fit or bandwidth search.
+  Categorical predictors retain their existing support. Internal auxiliary
+  responses used to represent predictors retain their established encoding.
+
 Formula bandwidth objects retain the prepared training sample (after alignment,
 subsetting and missing-value handling) and the resolved missing-value policy.
 Later refits use that sample even if constructor variables are rebound.

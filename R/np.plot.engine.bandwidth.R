@@ -45,10 +45,23 @@
            plot.par.mfrow = TRUE,
            plot.rug = FALSE,
            ...,
-           random.seed, gaussian.draws = 9999L){
+           random.seed, gaussian.draws = 9999L, bias.control = NULL,
+           plot.errors.boot.calibration = NULL){
 
     if (.np_data_formal_supplied(sys.call(), sys.function()))
       .np_plot_data_error()
+
+    saved.plot.style <- list(xlab = xlab, ylab = ylab,
+        main = main, sub = sub, xlim = xlim, ylim = ylim, col = col,
+        lty = lty, lwd = lwd, type = type,
+        theta = theta, phi = phi, zlab = zlab, zlim = zlim)
+    publish.plot <- function(value) .np_plot_data_publish_display(value,
+      coordinates = xdat, roles = rep("X", ncol(xdat)), response = NULL,
+      overlay = FALSE, rug = plot.rug,
+      style = utils::modifyList(plot.user.args, saved.plot.style),
+      points_args = list(), boxplot = plot.bxp,
+      interval_style = list(style = plot.errors.style, bar = plot.errors.bar,
+        bar_num = plot.errors.bar.num, boxplot_outliers = plot.bxp.out))
 
     sub.supplied <- !missing(sub)
 
@@ -84,12 +97,13 @@
       if(miss.x && !is.null(bws$call)){
         xdat <- data.frame(.np_eval_bws_call_arg(bws, "dat"))
       }
-      xdat = toFrame(xdat)
+      xdat.was.vector <- is.atomic(xdat) && is.null(dim(xdat))
+      xdat = .np_native_vector_frame_names(toFrame(xdat), xdat.was.vector, bws)
       xdat = na.omit(xdat)
     }
 
     xq = double(bws$ndim)+xq
-    xtrim = double(bws$ndim)+xtrim
+    xtrim = .np_plot_recycle_xtrim(xtrim, bws$ndim)
 
     if (missing(plot.errors.method) &
         any(!missing(plot.errors.boot.num), !missing(plot.errors.boot.method),
@@ -105,10 +119,52 @@
     joint.request <- identical(error.request$method, "asymptotic") &&
       error.request$type %in% c("simultaneous", "all")
     if (!missing(gaussian.draws) && !joint.request)
-      stop("gaussian.draws requires asymptotic simultaneous or all bands", call. = FALSE)
+      stop("gaussian_draws requires asymptotic simultaneous or all bands", call. = FALSE)
     joint.eligible <- joint.request
     if (joint.request)
       gaussian.draws <- .np_plot_gaussian_integer(gaussian.draws, "gaussian.draws")
+    compact.sd.explicit <- !missing(plot.errors.boot.method) && !missing(plot.errors.type) &&
+      identical(as.character(plot.errors.boot.method)[1L], "inid") &&
+      error.request$type %in% c("pointwise", "simultaneous", "bonferroni", "all")
+    compact.state <- NULL
+    if (.np_udens_compact_normal_q2_request(bws, bias.control, plot.errors.center,
+        error.request$method, error.request$type, plot.errors.boot.calibration))
+      compact.state <- .np_udens_compact_normal_q2_public_prepare(bws, xdat,
+        plot.errors.alpha, if (missing(random.seed)) 42L else random.seed)
+    if (.np_udens_compact_request(bws, bias.control, plot.errors.center,
+        error.request$method, plot.errors.boot.calibration, compact.sd.explicit))
+      compact.state <- .np_udens_compact_public_prepare(bws, xdat,
+        error.request$method, as.character(plot.errors.boot.method)[1L],
+        error.request$type, plot.errors.boot.calibration, plot.errors.alpha,
+        if (missing(random.seed)) 42L else random.seed)
+    if (.np_udens_compact_q2_request(bws, bias.control, plot.errors.center,
+        error.request$method, error.request$type, plot.errors.boot.calibration, compact.sd.explicit))
+      compact.state <- .np_udens_compact_q2_public_prepare(bws, xdat,
+        error.request$method, as.character(plot.errors.boot.method)[1L],
+        error.request$type, plot.errors.boot.calibration, plot.errors.alpha,
+        if (missing(random.seed)) 42L else random.seed)
+    fgd.state <- NULL
+    if (.np_udens_fgd_request(bws, bias.control, plot.errors.center,
+        error.request$method, plot.errors.boot.calibration))
+      fgd.state <- .np_udens_fgd_public_prepare(bws, xdat,
+        error.request$method, as.character(plot.errors.boot.method)[1L],
+        error.request$type, plot.errors.boot.calibration, plot.errors.alpha,
+        if (missing(random.seed)) 42L else random.seed)
+    beta.state <- NULL
+    if (.np_udens_beta_request(bws, bias.control, plot.errors.center,
+        error.request$method))
+      beta.state <- .np_udens_beta_public_prepare(bws, xdat,
+        error.request$method, as.character(plot.errors.boot.method)[1L],
+        error.request$type, plot.errors.boot.calibration, plot.errors.alpha,
+        if (missing(random.seed)) 42L else random.seed)
+    density.block.automatic <- is.null(plot.errors.boot.blocklen)
+    if (density.block.automatic && identical(plot.errors.center, "bias-corrected") &&
+        identical(error.request$method, "bootstrap") &&
+        length(plot.errors.boot.method) == 1L && plot.errors.boot.method %in% c("fixed", "geom") &&
+        any(vapply(xdat, is.factor, logical(1L))) &&
+        (is.null(bias.control) || (is.list(bias.control) &&
+          identical(bias.control[["construction", exact = TRUE]], "joint-scale"))))
+      stop("corrected mixed density block bootstrap requires an explicit np_boot_control(blocklen=...); automatic mixed block selection is not qualified", call. = FALSE)
     normalized.opts <- .np_plot_normalize_common_options(
       plot.behavior = plot.behavior,
       plot.errors.method = plot.errors.method,
@@ -124,6 +180,8 @@
       common.scale = common.scale,
       ylim = ylim,
       allow_asymptotic_simultaneous = joint.eligible,
+      # Preserve the request for the density-specific admission check below.
+      allow_asymptotic_bias = TRUE,
       error.request = error.request
     )
 
@@ -142,6 +200,23 @@
     plot.errors.bar <- normalized.opts$plot.errors.bar
     common.scale <- normalized.opts$common.scale
     plot.errors <- normalized.opts$plot.errors
+    bias.state <- if (!is.null(compact.state)) compact.state else if (!is.null(fgd.state)) fgd.state else if (!is.null(beta.state)) beta.state else .np_udens_plot_prepare(bias.control, bws, xdat,
+      plot.errors.center, plot.errors.method, plot.errors.boot.method, plot.errors.type,
+      plot.errors.boot.calibration, blocklen = plot.errors.boot.blocklen,
+      block.automatic = density.block.automatic, alpha = plot.errors.alpha,
+      random.seed = if (missing(random.seed)) 42L else random.seed,
+      compact.sd.explicit = compact.sd.explicit)
+    new.bias <- !is.null(bias.state)
+    # Presentation only: percentile endpoints are not a maximum-root band.
+    annotation.construction <- if (new.bias) {
+      if (identical(bias.state[["normal.pmzsd", exact = TRUE]], TRUE)) NULL
+      else if (.np_udens_compact_active(bias.state) || .np_udens_beta_active(bias.state) || .np_udens_fgd_active(bias.state)) "guide-region"
+      else if (identical(bias.state[["plot.calibration", exact = TRUE]],
+                    "smoothed-percentile")) "smoothed-percentile" else "positive-covariance"
+    } else NULL
+    joint.eligible <- joint.eligible && !new.bias
+    if (new.bias && isTRUE(plot.bxp))
+      stop("positive-covariance density bounds require factor_boxplot=FALSE", call. = FALSE)
     first.render <- .np_plot_first_render_state()
     on.exit(.np_plot_activity_end(first.render$activity), add = TRUE)
     surface.supported <- isTRUE((bws$ncon + bws$nord == 2) &&
@@ -214,20 +289,27 @@
         exdat = x.eval,
         bws = bws,
         cdf = FALSE,
-        need.asymptotic = identical(plot.errors.method, "asymptotic")
+        need.asymptotic = identical(plot.errors.method, "asymptotic") && is.null(compact.state) && is.null(beta.state) && is.null(fgd.state)
       )
+
+      plot.se <- tobj$derr
+      if (!new.bias && identical(plot.errors.method, "asymptotic"))
+        plot.se <- .np_plot_density_marginal_se(bws, x.eval, tobj$dens, plot.se)
 
       tdens = matrix(data = tobj$dens,
         nrow = x1.neval, ncol = x2.neval, byrow = FALSE)
 
-      terr.payload <- .np_plot_interval_payload(
+      bias.raw <- if (new.bias) .np_udens_plot_errors(bias.state, x.eval,
+        plot.errors.alpha, if (identical(plot.errors.method, "asymptotic"))
+          gaussian.draws else plot.errors.boot.num, plot.errors.type, design = list(vary = seq_len(ncol(xdat)), xtrim = xtrim, xq = xq)) else NULL
+      terr.payload <- if (new.bias) .np_udens_plot_payload(bias.raw) else .np_plot_interval_payload(
         estimate = tobj$dens,
-        se = tobj$derr,
+        se = plot.se,
         plot.errors.method = plot.errors.method,
         plot.errors.alpha = plot.errors.alpha,
         plot.errors.type = plot.errors.type,
         plot.errors.center = plot.errors.center,
-        bootstrap_raw = if (identical(plot.errors.method, "bootstrap")) {
+        bootstrap_raw = if (new.bias) bias.raw else if (identical(plot.errors.method, "bootstrap")) {
           compute.bootstrap.errors(
             xdat = xdat,
             exdat = x.eval,
@@ -249,7 +331,7 @@
 
       if (joint.eligible)
         terr.payload <- .np_plot_density_interval(terr.payload,
-          bws, xdat, x.eval, tobj$derr, tobj$dens, cdf = FALSE,
+          bws, xdat, x.eval, plot.se, tobj$dens, cdf = FALSE,
           alpha = plot.errors.alpha, band.type = plot.errors.type,
           gaussian.draws = gaussian.draws)
 
@@ -283,6 +365,10 @@
                                              lerr.all, herr.all)
                   else if (joint.eligible && identical(plot.errors.type, "simultaneous"))
                       .np_plot_joint_panel_range(tobj$dens, terr)
+                  else if (identical(plot.errors.method, "asymptotic"))
+                      .np_plot_panel_error_range(tobj$dens, terr,
+                        plot.errors.type = plot.errors.type,
+                        plotOnEstimate = !.np_plot_center_is_bias_corrected(plot.errors.center))
                   else
                       c(min(lerr), max(herr))
               } else
@@ -291,9 +377,18 @@
 
       if (plot.behavior != "plot"){
         d1 <- npdensity(bws = bws, eval = x.eval, dens = tobj$dens,
-                        derr = terr[,1:2], ntrain = nrow(xdat), se = plot.errors)
+                        derr = if (new.bias && (.np_udens_compact_active(bias.state) || .np_udens_fgd_active(bias.state) || .np_udens_beta_active(bias.state) || .np_udens_d8_active(bias.state) || bias.state$plot.control.version %in% c(2L, 3L)))
+                          cbind(-terr[,1L], terr[,2L]) else terr[,1:2],
+                        ntrain = nrow(xdat), se = plot.errors)
         if (joint.eligible)
           d1 <- .np_plot_density_band_fields(d1, terr.payload)
+        if (new.bias) d1$inference <- bias.raw$inference
+        if (identical(plot.errors.method, "asymptotic"))
+          d1[[".plot_std_error"]] <- plot.se
+        if (plot.errors && identical(plot.errors.type, "all"))
+          d1[[".plot_band_widths"]] <- terr.all
+        d1[[".plot_rows"]] <- list(estimate = tobj$dens,
+          corrected = terr[, 3L], widths = terr[, 1:2, drop = FALSE])
         d1$bias = NA
         d1$bias.corrected = NA
 
@@ -301,7 +396,7 @@
           d1 <- .np_plot_add_bias_fields(d1, tobj$dens, terr[,3])
         
         if (plot.behavior == "data")
-          return ( list(d1 = d1) )
+          return(publish.plot(list(d1 = d1)))
       }
       
       # rows = constant x2
@@ -343,6 +438,7 @@
             }
             if (plot.errors) {
               .np_plot_error_surfaces_rgl(
+                construction = annotation.construction,
                 x = x1.eval,
                 y = x2.eval,
                 plot.errors.type = plot.errors.type,
@@ -361,7 +457,7 @@
         return(.np_plot_rgl_finalize(
           rgl.out = rgl.out,
           plot.behavior = plot.behavior,
-          plot.data = list(d1 = d1)
+          plot.data = publish.plot(list(d1 = d1))
         ))
       }
 
@@ -427,6 +523,7 @@
               border = scalar_default(border, .np_plot_color("context_border")),
               lwd = scalar_default(lwd, par()$lwd),
               annotation = .np_plot_variability_annotation_spec(
+                construction = annotation.construction,
                 plot.errors.method = plot.errors.method,
                 plot.errors.type = plot.errors.type,
                 plot.errors.alpha = plot.errors.alpha,
@@ -440,6 +537,7 @@
             )
             if (plot.errors.type == "all" && !is.null(lerr.all) && !is.null(herr.all)) {
               .np_plot_draw_all_band_legend(
+                construction = annotation.construction,
                 legend = plot.legend,
                 x = "topright",
                 lty = .np_plot_lty("solid"),
@@ -457,7 +555,7 @@
       
 
       if (plot.behavior == "plot-data")
-        return ( list(d1 = d1) )        
+        return(publish.plot(list(d1 = d1)))
 
     } else {
 
@@ -496,6 +594,28 @@
       plot.bootstrap <- plot.errors.method == "bootstrap"
       plotOnEstimate <- (plot.errors.center == "estimate")
 
+      beta.slices <- NULL
+      if (new.bias && (.np_udens_compact_active(bias.state) || .np_udens_beta_active(bias.state) || .np_udens_fgd_active(bias.state))) {
+        grids <- lapply(seq_len(bws$ndim), function(j) {
+          limits <- trim.quantiles(xdat[,j], xtrim[j])
+          subcol(exdat, seq(limits[1L], limits[2L], length.out = neval), j)[
+            seq_len(neval), , drop = FALSE]
+        })
+        beta.slices <- .np_udens_plot_errors(bias.state, do.call(rbind, grids),
+          plot.errors.alpha, if (identical(plot.errors.method, "asymptotic"))
+            gaussian.draws else plot.errors.boot.num, plot.errors.type)
+      }
+      d8.slices <- NULL
+      if (new.bias && .np_udens_d8_active(bias.state)) {
+        grids <- lapply(seq_len(bws$ndim), function(j) {
+          limits <- trim.quantiles(xdat[,j], xtrim[j])
+          subcol(exdat, seq(limits[1L], limits[2L], length.out = neval), j)[
+            seq_len(neval), , drop = FALSE]
+        })
+        d8.slices <- .np_udens_plot_errors(bias.state, do.call(rbind, grids),
+          plot.errors.alpha, gaussian.draws, plot.errors.type)
+      }
+
       ## density / distribution expressions
       for (i in seq_len(bws$ndim)){
         temp.err[,] = NA
@@ -525,19 +645,27 @@
           exdat = eval.slice,
           bws = bws,
           cdf = FALSE,
-          need.asymptotic = identical(plot.errors.method, "asymptotic")
+          need.asymptotic = identical(plot.errors.method, "asymptotic") && is.null(compact.state) && is.null(beta.state) && is.null(fgd.state)
         )
+        plot.se <- tobj$derr
+        if (!new.bias && identical(plot.errors.method, "asymptotic"))
+          plot.se <- .np_plot_density_marginal_se(bws, eval.slice, tobj$dens, plot.se)
         temp.dens[seq_len(xi.neval)] <- tobj$dens
 
         if (plot.errors){
-          temp.payload <- .np_plot_interval_payload(
+          bias.raw <- if (!is.null(beta.slices)) .np_udens_beta_plot_subset(beta.slices,
+            seq.int((i-1L)*neval+1L, i*neval)) else if (!is.null(d8.slices)) .np_udens_d8_plot_subset(d8.slices,
+            seq.int((i-1L)*neval+1L, i*neval)) else if (new.bias) .np_udens_plot_errors(bias.state, eval.slice,
+            plot.errors.alpha, if (identical(plot.errors.method, "asymptotic"))
+          gaussian.draws else plot.errors.boot.num, plot.errors.type, design = list(vary = i, xtrim = xtrim, xq = xq)) else NULL
+          temp.payload <- if (new.bias) .np_udens_plot_payload(bias.raw) else .np_plot_interval_payload(
             estimate = temp.dens[seq_len(xi.neval)],
-            se = tobj$derr,
+            se = plot.se,
             plot.errors.method = plot.errors.method,
             plot.errors.alpha = plot.errors.alpha,
             plot.errors.type = plot.errors.type,
             plot.errors.center = plot.errors.center,
-            bootstrap_raw = if (identical(plot.errors.method, "bootstrap")) {
+            bootstrap_raw = if (new.bias) bias.raw else if (identical(plot.errors.method, "bootstrap")) {
               compute.bootstrap.errors(
                 xdat = xdat,
                 exdat = subcol(exdat,ei,i)[seq_len(xi.neval),, drop = FALSE],
@@ -558,7 +686,7 @@
           )
           if (joint.eligible)
             temp.payload <- .np_plot_density_interval(temp.payload,
-              bws, xdat, eval.slice, tobj$derr, tobj$dens, cdf = FALSE,
+              bws, xdat, eval.slice, plot.se, tobj$dens, cdf = FALSE,
               alpha = plot.errors.alpha, band.type = plot.errors.type,
               gaussian.draws = gaussian.draws)
           temp.err[seq_len(xi.neval),] <- temp.payload$err
@@ -635,6 +763,7 @@
           ## error plotting evaluation
           if (plot.errors && !(xi.factor && plot.bootstrap && plot.bxp)){
             panel.annotation <- .np_plot_variability_annotation_spec(
+                construction = annotation.construction,
               plot.errors.method = plot.errors.method,
               plot.errors.type = plot.errors.type,
               plot.errors.alpha = plot.errors.alpha,
@@ -646,6 +775,7 @@
             )
             if (plot.errors.type == "all") {
               .np_plot_draw_all_errors_with_gaps(
+                construction = annotation.construction,
                 ex = as.numeric(ei),
                 center = .np_plot_error_center(temp.dens, temp.err, plotOnEstimate),
                 all.err = temp.all.err,
@@ -700,11 +830,14 @@
             bws = bws,
             eval = eval.slice,
             dens = na.omit(temp.dens),
-            derr = .np_plot_joint_interval_rows(
-              cbind(-temp.err[,1], temp.err[,2]), temp.dens,
-              joint.eligible, plot.errors.type),
+            derr = if (identical(plot.errors.method, "asymptotic"))
+              cbind(-temp.err[,1], temp.err[,2])[!is.na(temp.dens), , drop = FALSE]
+              else .np_plot_joint_interval_rows(
+                cbind(-temp.err[,1], temp.err[,2]), temp.dens,
+                joint.eligible, plot.errors.type),
             ntrain = bws$nobs, se = plot.errors
           )
+          if (new.bias) plot.out[[i]]$inference <- bias.raw$inference
           plot.out[[i]]$bias = NA
           plot.out[[i]]$bias.corrected = NA
           if (.np_plot_center_is_bias_corrected(plot.errors.center))
@@ -714,6 +847,13 @@
               temp.err[,3]
             )
           plot.out[[i]]$bxp = temp.boot
+          plot.out[[i]][[".plot_rows"]] <- list(estimate = temp.dens[seq_len(xi.neval)],
+            corrected = temp.err[seq_len(xi.neval), 3L],
+            widths = temp.err[seq_len(xi.neval), 1:2, drop = FALSE])
+          if (identical(plot.errors.method, "asymptotic"))
+            plot.out[[i]][[".plot_std_error"]] <- plot.se
+          if (identical(plot.errors.type, "all"))
+            plot.out[[i]][[".plot_band_widths"]] <- temp.all.err
           if (joint.eligible)
             plot.out[[i]] <- .np_plot_density_band_fields(plot.out[[i]], temp.payload)
         }
@@ -795,6 +935,7 @@
           if (plot.errors && !(xi.factor && plot.bootstrap && plot.bxp)){
             err.block <- data.err[, seq(3*i - 2L, length.out = 3L), drop = FALSE]
             panel.annotation <- .np_plot_variability_annotation_spec(
+                construction = annotation.construction,
               plot.errors.method = plot.errors.method,
               plot.errors.type = plot.errors.type,
               plot.errors.alpha = plot.errors.alpha,
@@ -806,6 +947,7 @@
             )
             if (plot.errors.type == "all") {
               .np_plot_draw_all_errors_with_gaps(
+                construction = annotation.construction,
                 ex = as.numeric(allei[,i]),
                 center = .np_plot_error_center(data.eval[,i], err.block, plotOnEstimate),
                 all.err = data.err.all[[i]],
@@ -860,7 +1002,7 @@
 
       if (plot.behavior != "plot"){
         names(plot.out) = paste("d",seq_len(bws$ndim),sep="")
-        return (plot.out)
+        return(publish.plot(plot.out))
       }
     }
   }

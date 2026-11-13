@@ -419,6 +419,22 @@
  .np_plot_conmode_joint_columns <- function(dat, object, x, y, ex, level,
                                             levels, se, alpha, band,
                                             gaussian.draws) {
+  # Retain padded plot positions while calibrating only defined targets.
+  if (anyNA(ex)) {
+    keep <- complete.cases(ex)
+    omit <- which(!keep)
+    if (length(omit)) {
+      out <- .np_plot_conmode_joint_columns(dat[keep, , drop = FALSE], object, x, y,
+        ex[keep, , drop = FALSE], level, levels, se[keep], alpha, band,
+        gaussian.draws)
+      for (nm in names(out)) {
+        if (!(nm %in% names(dat)) || !identical(out[[nm]], dat[[nm]][keep]))
+          dat[[nm]] <- .npConmodeNapredictRows(omit, out[[nm]])
+      }
+      attr(dat, "band.calibration") <- attr(out, "band.calibration", exact = TRUE)
+      return(dat)
+    }
+  }
   gradient <- if(isTRUE(dat$gradients[1L]))match(dat$variable[1L],names(x)) else NULL
   target <- if(is.null(gradient))dat$probability else dat$effect
   view <- if(identical(dat$view[1L],"fixed"))"fixed" else "sample"
@@ -584,7 +600,7 @@
       # Gaussian maximum. Evaluate once, before tile-dependent roundoff can
       # separate their influence rows. Keep the renderer's exact conflict gate.
       for (j in seq_len(ncol(ex)))
-        .npcopula_display_values(ex[[j]], grid)
+        .npcopula_display_values(ex[[j]], grid, exact = TRUE)
       object$copula <- .npcopula_display_values(object$copula, grid)
       se <- .npcopula_display_values(se, grid)
       ex <- ex[grid$display.rows, , drop = FALSE]
@@ -1082,13 +1098,20 @@
 
 # Whole-evaluation derivative maps preserve the native derivative owner and
 # ordering. In particular, this does not use public hat higher-order dispatch.
-.np_plot_lsq_gate_derivative <- function(bws,x,ex=NULL,s,package='np',max.bytes=128*1024^2) {
+.np_plot_lsq_gate_derivative <- function(bws,x,ex=NULL,s,package='np',max.bytes=128*1024^2,
+                                         .np.gate=NULL, .np.index=NULL) {
   geometry <- .np_plot_lsq_gate_geometry(bws,x,ex,max.bytes=max.bytes)
+  if (!is.null(.np.gate)) attr(geometry,".np.fit.gate") <- .np.gate
   t <- geometry$train; e <- geometry$eval
+  parent.rows <- nrow(e$con)
+  if (!is.null(.np.index)) {
+    geometry$eval.index <- .np_plot_lsq_gate_indices(.np.index, parent.rows)
+    e <- lapply(e, function(a) a[.np.index,,drop=FALSE])
+  }
   spec <- npValidatedConditionalRegSpec(bws,where='LSQ scoped derivative',ncon.field='ncon')
   width <- if(npIsCanonicalLp0Spec(spec,bws$ncon)) 1 else
     npLpBasisNcol(spec$basis.engine,spec$degree.engine)
-  .np_plot_lsq_gate_budget(nrow(t$con),nrow(e$con),length(bws$bw),nrow(e$con),max.bytes,width)
+  .np_plot_lsq_gate_budget(nrow(t$con),nrow(e$con),length(bws$bw),parent.rows,max.bytes,width)
   if (!is.integer(s) || length(s)!=bws$ncon || anyNA(s) || any(s<0L))
     stop('invalid LSQ derivative vector',call.=FALSE)
   npCheckRegressionDesignCondition(
@@ -1152,7 +1175,7 @@
     kw <- if(isTRUE(ingredients[[3L]])) NULL else
       .np_plot_lsq_gate_weights(bws,geometry,index,training=is.null(ex),package=package,max.bytes=max.bytes)
     .Call('C_np_plot_projection_apply',ingredients[[1L]],
-      ingredients[[2L]][index,,drop=FALSE],kw,PACKAGE=package)
+      .np_plot_projection_slice(ingredients[[2L]],index),kw,PACKAGE=package)
   }
 }
 

@@ -72,6 +72,7 @@ npindexbw.NULL <-
            ydat = stop("training data ydat missing"),
            bws, ...){
   .np_reject_native_data(substitute(list(...))[-1L])
+  .np_reject_native_frame_args(substitute(list(...))[-1L])
 
 
     xdat <- toFrame(xdat)
@@ -618,8 +619,9 @@ npindexbw.NULL <-
   start_matrix.raw[, degree.col] <- as.integer(degree.starts[, 1L])
 
   if (nmulti > 1L) {
-    seed.state <- .np_seed_enter(random.seed)
-    on.exit(.np_seed_exit(seed.state, remove_if_absent = TRUE), add = TRUE)
+    seed.state <- .np_rng_scope_capture()
+    on.exit(.np_rng_scope_restore(seed.state), add = TRUE)
+    .np_rng_scope_seed(seed.state, random.seed)
 
     for (j in 2:nmulti) {
       if (length(beta.free)) {
@@ -1857,6 +1859,7 @@ npindexbw.default <-
            ...,
            nomad.opts = list()){
   .np_reject_native_data(substitute(list(...))[-1L])
+  .np_reject_native_frame_args(substitute(list(...))[-1L])
 
 
     only.beta <- !missing(only.optimize.beta) &&
@@ -2034,6 +2037,8 @@ npindexbw.default <-
       match.arg(dots[["method", exact = TRUE]], c("ichimura", "kleinspady")) == "kleinspady"
     if (kleinspady)
       .npindex_check_binary_response(ydat, "npindexbw()")
+    else
+      .np_require_numeric_response(ydat, "npindexbw", "ydat")
     if (kleinspady && bandwidth.compute && !is.null(degree.search)) {
       # NOMAD bounds need a valid response before the first objective callback.
       # Use the same joint complete sample as the ordinary bandwidth owner.
@@ -2209,6 +2214,7 @@ npindexbw.sibandwidth <-
            ...,
            .fixed.h.lower = NULL){
   .np_reject_native_data(substitute(list(...))[-1L])
+  .np_reject_native_frame_args(substitute(list(...))[-1L])
 
 
     dots <- list(...)
@@ -2216,8 +2222,9 @@ npindexbw.sibandwidth <-
 
     ## Save seed prior to setting
 
-    seed.state <- .np_seed_enter(random.seed)
-    on.exit(.np_seed_exit(seed.state, remove_if_absent = TRUE), add = TRUE)
+    seed.state <- .np_rng_scope_capture()
+    on.exit(.np_rng_scope_restore(seed.state), add = TRUE)
+    .np_rng_scope_seed(seed.state, random.seed)
 
 
     xdat = toFrame(xdat)
@@ -2258,6 +2265,8 @@ npindexbw.sibandwidth <-
 
     if (bws$method == "kleinspady")
       .npindex_check_binary_response(ydat, "npindexbw()")
+    else
+      .np_require_numeric_response(ydat, "npindexbw", "ydat")
 
     if (ncol(xdat) < 2) {
       if (coarseclass(xdat[,1]) != "numeric")
@@ -2730,7 +2739,7 @@ npindexbw.sibandwidth <-
 
     ## Restore seed
 
-    .np_seed_exit(seed.state, remove_if_absent = TRUE)
+    .np_rng_scope_restore(seed.state)
     nn.cache <- bws$nn.cache
 
     bws <- sibandwidth(beta = bws$beta,

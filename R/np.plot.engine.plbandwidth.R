@@ -39,7 +39,7 @@
            plot.errors.method = c("none","bootstrap","asymptotic"),
            plot.errors.boot.method = c("wild", "inid", "fixed", "geom"),
            plot.errors.boot.nonfixed = c("exact", "frozen"),
-           plot.errors.boot.wild = c("rademacher", "mammen"),
+           plot.errors.boot.wild = c("mammen", "rademacher"),
            plot.errors.boot.blocklen = NULL,
            plot.errors.boot.num = 9999,
            plot.errors.center = c("estimate", "bias-corrected"),
@@ -60,6 +60,18 @@
         !(missing(xdat) && missing(ydat) && missing(zdat) &&
           !is.null(bws[["formula", exact = TRUE]])))
       .np_plot_data_error()
+
+    saved.plot.style <- list(xlab = xlab, ylab = ylab,
+        main = main, sub = sub, xlim = xlim, ylim = ylim, col = col,
+        lty = lty, lwd = lwd, type = type,
+        theta = theta, phi = phi, zlab = zlab, zlim = zlim)
+    publish.plot <- function(value) .np_plot_data_publish_display(value,
+      coordinates = cbind(xdat, zdat), roles = c(rep("X", ncol(xdat)), rep("Z", if (is.null(zdat)) 0L else ncol(zdat))), response = ydat,
+      overlay = isTRUE(plot.data.overlay) && !coef, rug = plot.rug,
+      style = utils::modifyList(plot.user.args, saved.plot.style),
+      points_args = points.user.args, boxplot = plot.bxp,
+      interval_style = list(style = plot.errors.style, bar = plot.errors.bar,
+        bar_num = plot.errors.bar.num, boxplot_outliers = plot.bxp.out))
 
     sub.supplied <- !missing(sub)
 
@@ -107,6 +119,7 @@
       training <- .np_plreg_formula_training(bws, data)
       xdat <- training$txdat
       ydat <- training$tydat
+      .np_plot_require_response(ydat, bws, "plot.plbandwidth")
       zdat <- training$tzdat
     } else {
       if(all(miss.xyz) && !is.null(bws$call)){
@@ -114,6 +127,7 @@
         ydat = .np_eval_bws_call_arg(bws, "ydat")
         zdat <- data.frame(.np_eval_bws_call_arg(bws, "zdat"), check.names = FALSE)
       }
+      .np_plot_require_response(ydat, bws, "plot.plbandwidth")
       xdat = toFrame(xdat)
       zdat = toFrame(zdat)
       
@@ -143,7 +157,7 @@
     xq = double(bws$xndim)+xq
     zq = double(bws$zndim)+zq
     
-    xtrim = double(bws$xndim)+xtrim
+    xtrim = .np_plot_recycle_xtrim(xtrim, bws$xndim)
     ztrim = double(bws$zndim)+ztrim
 
 
@@ -162,7 +176,7 @@
     joint.request <- identical(error.request$method, "asymptotic") &&
       error.request$type %in% c("simultaneous", "all")
     if (!missing(gaussian.draws) && !joint.request)
-      stop("gaussian.draws requires asymptotic simultaneous or all bands", call. = FALSE)
+      stop("gaussian_draws requires asymptotic simultaneous or all bands", call. = FALSE)
     joint.eligible <- FALSE
     joint.calibration <- NULL
     if (joint.request) {
@@ -484,6 +498,12 @@
           xtra=rep(NA_real_, 6L))
 
         r1$merr = NA
+        if (identical(plot.errors.method, "asymptotic"))
+          r1[[".plot_std_error"]] <- tobj$merr
+        if (plot.errors && identical(plot.errors.type, "all"))
+          r1[[".plot_band_widths"]] <- terr.all
+        r1[[".plot_rows"]] <- list(estimate = tobj$mean,
+          corrected = terr[, 3L], widths = terr[, 1:2, drop = FALSE])
         r1$bias = NA
         r1$bias.corrected = NA
 
@@ -497,7 +517,7 @@
           r1 <- .np_plot_joint_band_fields(r1, joint.calibration,
             if (identical(plot.errors.type, "all")) terr.all else NULL)
         if (plot.behavior == "data")
-          return ( list(r1 = r1) )
+          return(publish.plot(list(r1 = r1)))
 
       }
 
@@ -569,7 +589,7 @@
         return(.np_plot_rgl_finalize(
           rgl.out = rgl.out,
           plot.behavior = plot.behavior,
-          plot.data = list(r1 = r1)
+          plot.data = publish.plot(list(r1 = r1))
         ))
       }
 
@@ -681,7 +701,7 @@
       ##}
 
       if (plot.behavior == "plot-data")
-        return ( list(r1 = r1) )
+        return(publish.plot(list(r1 = r1)))
 
     } else {
       plot.layout <- .np_plot_layout_begin(
@@ -1051,6 +1071,13 @@
                 temp.err[eval.rows, 3]
               )
             plot.out[[plot.index]]$bxp = temp.boot
+            plot.out[[plot.index]][[".plot_rows"]] <- list(estimate = temp.mean[seq_len(xi.neval)],
+              corrected = temp.err[seq_len(xi.neval), 3L],
+              widths = temp.err[seq_len(xi.neval), 1:2, drop = FALSE])
+            if (identical(plot.errors.method, "asymptotic"))
+              plot.out[[plot.index]][[".plot_std_error"]] <- tobj$merr
+            if (identical(plot.errors.type, "all"))
+              plot.out[[plot.index]][[".plot_band_widths"]] <- temp.all.err
             if (joint.request)
               plot.out[[plot.index]] <- .np_plot_joint_band_fields(
                 plot.out[[plot.index]], joint.calibration,
@@ -1364,6 +1391,13 @@
                 temp.err[eval.rows, 3]
               )
             plot.out[[plot.index]]$bxp = temp.boot
+            plot.out[[plot.index]][[".plot_rows"]] <- list(estimate = temp.mean[seq_len(xi.neval)],
+              corrected = temp.err[seq_len(xi.neval), 3L],
+              widths = temp.err[seq_len(xi.neval), 1:2, drop = FALSE])
+            if (identical(plot.errors.method, "asymptotic"))
+              plot.out[[plot.index]][[".plot_std_error"]] <- tobj$merr
+            if (identical(plot.errors.type, "all"))
+              plot.out[[plot.index]][[".plot_band_widths"]] <- temp.all.err
             if (joint.request)
               plot.out[[plot.index]] <- .np_plot_joint_band_fields(
                 plot.out[[plot.index]], joint.calibration,
@@ -1611,7 +1645,7 @@
           else
             paste("plr", seq_len(bws$xndim + bws$zndim), sep = "")
         
-        return (plot.out)
+        return(publish.plot(plot.out))
       }
     }
   }

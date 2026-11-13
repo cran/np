@@ -255,6 +255,16 @@ Further arguments are passed to the bandwidth-selection counterpart when bandwid
   }
 }
 \details{
+  The primary response must be a one-dimensional numeric (integer or double)
+  vector. Factors and ordered factors are not accepted as primary responses,
+  including retained responses used in a new fit or bandwidth search.
+  The same requirement applies to explicitly selected evaluation responses.
+  Prediction without selected evaluation outcomes does not require a response
+  column. An explicit formula transformation that returns numeric values is
+  accepted; numerical scores are a modeling choice made by the user.
+  Categorical predictors retain their existing support. Internal auxiliary
+  responses used to represent predictors retain their established encoding.
+
   Prediction with \code{se.fit = TRUE} reports known training mean squared
   error in \code{residual.scale}, retaining MSE units, or \code{NA} when
   training provenance is unavailable. Evaluation outcomes do not replace this
@@ -441,6 +451,24 @@ Further arguments are passed to the bandwidth-selection counterpart when bandwid
   Support for backfitted bandwidths is experimental and is limited in
   functionality. The code does not support asymptotic standard errors
   or out of sample estimates with backfitting.
+}
+
+
+\section{Experimental status of bias-corrected inference}{
+\strong{All bias-corrected confidence intervals and bands are experimental
+(pre-beta research), incomplete, and not recommended for general-purpose
+inference.} This status remains in effect unless the documentation explicitly
+states otherwise for a particular method and scope. It applies wherever
+bias-corrected bounds are available: asymptotic and bootstrap constructions,
+including legacy methods, pointwise intervals, Bonferroni intervals and
+simultaneous bands, for levels and supported derivatives.
+
+These methods form an ongoing research project. Implementation support,
+numerical checks and favorable simulation results in selected settings do not
+establish generally valid coverage. Coverage can fail outside the studied
+settings, and available options do not constitute a general solution to
+bias-corrected inference. Method-specific assumptions, restrictions and known
+failures must be considered when experimenting with these bounds.
 }
 
 \seealso{

@@ -89,10 +89,8 @@ These arguments identify the bandwidth specification, formula/data interface, an
   \item{tydat}{
     a one (1) dimensional numeric or integer vector of dependent data, each
     element \eqn{i} corresponding to each observation (row) \eqn{i} of
-    \code{txdat}. A factor response is also supported when the bandwidth
-    object retains the fitted factor-response coding. A bandwidth object
-    fitted to a numeric response cannot supply that coding and is rejected
-    when reused with a factor response. Defaults to the corresponding
+    \code{txdat}. Factors and ordered factors are not supported, including
+    categorical child bandwidths extracted from a partially linear model. Defaults to the corresponding
     training data recoverable from the bandwidth object in the current
     session.
   }
@@ -150,6 +148,8 @@ These arguments control where the regression is evaluated and which fitted quant
     outcomes, goodness-of-fit scores (including \code{R2} and \code{MSE}) are
     unavailable and reported as \code{NA}; no additional training fit is
     performed for these diagnostics.
+    When supplied, this response must also be numeric; factors and ordered
+    factors are not supported.
   }
 
 
@@ -730,6 +730,24 @@ Further arguments are passed to \code{\link{npregbw}} when bandwidths are comput
   and missing-value policy details.
 }
 
+
+\section{Experimental status of bias-corrected inference}{
+\strong{All bias-corrected confidence intervals and bands are experimental
+(pre-beta research), incomplete, and not recommended for general-purpose
+inference.} This status remains in effect unless the documentation explicitly
+states otherwise for a particular method and scope. It applies wherever
+bias-corrected bounds are available: asymptotic and bootstrap constructions,
+including legacy methods, pointwise intervals, Bonferroni intervals and
+simultaneous bands, for levels and supported derivatives.
+
+These methods form an ongoing research project. Implementation support,
+numerical checks and favorable simulation results in selected settings do not
+establish generally valid coverage. Coverage can fail outside the studied
+settings, and available options do not constitute a general solution to
+bias-corrected inference. Method-specific assumptions, restrictions and known
+failures must be considered when experimenting with these bounds.
+}
+
 \seealso{
   \code{\link{np.kernels}}, \code{\link{np.options}}, \code{\link{plot}}, \code{\link{plot.np}}
   \code{\link{loess}}
@@ -827,7 +845,7 @@ if (interactive()) Sys.sleep(5)
 
 # Next, plot the derivative...
 
-if (interactive()) plot(bw, errors="asymptotic", gradient=TRUE)
+if (interactive()) plot(bw, errors="asymptotic", gradients=TRUE)
 
 # Sleep for 5 seconds so that we can examine the output...
 
@@ -852,7 +870,7 @@ if (interactive()) Sys.sleep(5)
 
 # Next, plot the derivative...
 
-if (interactive()) plot(bw, errors="asymptotic", gradient=TRUE)
+if (interactive()) plot(bw, errors="asymptotic", gradients=TRUE)
 
 # Sleep for 5 seconds so that we can examine the output...
 

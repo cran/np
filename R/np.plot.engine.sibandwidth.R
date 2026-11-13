@@ -21,11 +21,13 @@
            lwd = NULL,
            plot.behavior = c("plot","plot-data","data"),
            neval = 50,
+           xtrim = NULL,
+           xq = NULL,
            plot.errors.method = c("none","bootstrap","asymptotic"),
            plot.errors.boot.num = 9999,
            plot.errors.boot.method = c("wild", "inid", "fixed", "geom"),
            plot.errors.boot.nonfixed = c("exact", "frozen"),
-           plot.errors.boot.wild = c("rademacher", "mammen"),
+           plot.errors.boot.wild = c("mammen", "rademacher"),
            plot.errors.boot.blocklen = NULL,
            plot.errors.center = c("estimate", "bias-corrected"),
            plot.errors.type = c("pmzsd","pointwise","bonferroni","simultaneous","all"),
@@ -41,6 +43,20 @@
 
     if (.np_data_formal_supplied(sys.call(), sys.function()))
       .np_plot_data_error()
+
+    if (!is.null(xq))
+      stop("grid_control$xq is not applicable to a single-index plot", call. = FALSE)
+    if (!is.null(xtrim))
+      xtrim <- .np_plot_conmode_resolve_xtrim(xtrim)
+
+    saved.plot.style <- list(xlab = xlab, ylab = ylab,
+        main = main, sub = sub, xlim = xlim, ylim = ylim, col = col,
+        lty = lty, lwd = lwd, type = type)
+    publish.plot <- function(value) .np_plot_data_publish_display(value,
+      coordinates = data.frame(index = train.index), roles = "index", response = ydat,
+      overlay = isTRUE(plot.data.overlay) && !gradients, rug = plot.rug,
+      style = utils::modifyList(plot.user.args, saved.plot.style),
+      points_args = points.user.args, boxplot = FALSE)
 
     sub.supplied <- !missing(sub)
 
@@ -81,7 +97,7 @@
     joint.request <- identical(error.request$method, "asymptotic") &&
       error.request$type %in% c("simultaneous", "all")
     if (!missing(gaussian.draws) && !joint.request)
-      stop("gaussian.draws requires asymptotic simultaneous or all bands", call. = FALSE)
+      stop("gaussian_draws requires asymptotic simultaneous or all bands", call. = FALSE)
     joint.eligible <- FALSE
     joint.calibration <- NULL
     if (joint.request) {
@@ -197,7 +213,8 @@
       xdat = xdat,
       neval = neval,
       trim = 0.0,
-      where = "plot.sibandwidth"
+      where = "plot.sibandwidth",
+      probs = xtrim
     )
     maxneval <- nrow(eval.info$idx.eval)
 
@@ -504,9 +521,10 @@
           gradients.flag = FALSE,
           trainiseval = eval.info$trainiseval
         )
+        plot.out[[1]][[".plot_std_error"]] <- tobj$merr
         if (plot.errors) {
           plot.out[[1]]$merr <- cbind(-temp.err[,1], temp.err[,2])
-          if (!is.null(joint.calibration)) {
+          if (!is.null(joint.calibration) || identical(plot.errors.type, "all")) {
             plot.out[[1]]$band.calibration <- joint.calibration
             if (identical(plot.errors.type, "all"))
               plot.out[[1]]$band.errors <- temp.all.err
@@ -539,9 +557,11 @@
             gradients.flag = TRUE,
             trainiseval = eval.info$trainiseval
           )
+          plot.out[[1]][[".plot_std_error"]] <- if (is.null(tobj$gerr.index)) NULL else
+            outer(tobj$gerr.index[i.sort], abs(bws$beta))
           plot.out[[1]]$glerr = matrix(data=0,nrow = maxneval, ncol = ncol(xdat))
           plot.out[[1]]$gherr = matrix(data=0,nrow = maxneval, ncol = ncol(xdat))
-          if (!is.null(joint.calibration)) {
+          if (!is.null(joint.calibration) || identical(plot.errors.type, "all")) {
             plot.out[[1]]$band.calibration <- joint.calibration
             if (identical(plot.errors.type, "all"))
               plot.out[[1]]$band.errors <- lapply(temp.all.err, function(err) {
@@ -696,7 +716,7 @@
       }
       names(plot.out) = paste(if (gradients) "si.grad" else "si", seq_along(plot.out), sep = "")
       
-      return (plot.out)
+      return(publish.plot(plot.out))
     }
 
     

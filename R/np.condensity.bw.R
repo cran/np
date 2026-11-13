@@ -38,7 +38,7 @@ npcdensbw.formula <-
                                         varsPlus[[2]]),
                                   env = environment(formula))
     mf[["formula"]] <- terms(mf[["formula"]])
-    mf.args <- as.list(mf[-1L])
+    mf.args <- .np_formula_frame_promises(as.list(mf[-1L]), environment())
     capture <- new.env(parent = emptyenv())
     mf.args$.np.capture <- capture
     mf <- do.call(.np_formula_model_frame, mf.args, envir = parent.frame())
@@ -374,6 +374,8 @@ npcdensbw.conbandwidth <-
            transform.bounds = FALSE,
            ...,
            nomad.opts = list()){
+  .np_reject_native_frame_args(substitute(list(...))[-1L])
+
   .np_reject_native_data(substitute(list(...))[-1L])
 
     .np_density_bw_progress(bandwidth.compute, bwsolver, FALSE, {
@@ -1821,8 +1823,9 @@ npPreparedObjectiveSearchConditionalDensity <- function(template,
                                                       source = "explicit",
                                                       reason = NULL,
                                                       progress_label = NULL) {
-  seed.state <- .np_seed_enter(random.seed)
-  on.exit(.np_seed_exit(seed.state, remove_if_absent = TRUE), add = TRUE)
+  seed.state <- .np_rng_scope_capture()
+  on.exit(.np_rng_scope_restore(seed.state), add = TRUE)
+  .np_rng_scope_seed(seed.state, random.seed)
   .np_nomad_baseline_note(degree.search$start.degree)
 
   bwdim <- length(setup$cont_flat) + length(setup$cat_flat)

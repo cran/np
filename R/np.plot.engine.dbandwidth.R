@@ -45,10 +45,23 @@
            plot.par.mfrow = TRUE,
            plot.rug = FALSE,
            ...,
-           random.seed, gaussian.draws = 9999L){
+           random.seed, gaussian.draws = 9999L, bias.control = NULL,
+           plot.errors.boot.calibration = NULL){
 
     if (.np_data_formal_supplied(sys.call(), sys.function()))
       .np_plot_data_error()
+
+    saved.plot.style <- list(xlab = xlab, ylab = ylab,
+        main = main, sub = sub, xlim = xlim, ylim = ylim, col = col,
+        lty = lty, lwd = lwd, type = type,
+        theta = theta, phi = phi, zlab = zlab, zlim = zlim)
+    publish.plot <- function(value) .np_plot_data_publish_display(value,
+      coordinates = xdat, roles = rep("X", ncol(xdat)), response = NULL,
+      overlay = FALSE, rug = plot.rug,
+      style = utils::modifyList(plot.user.args, saved.plot.style),
+      points_args = list(), boxplot = plot.bxp,
+      interval_style = list(style = plot.errors.style, bar = plot.errors.bar,
+        bar_num = plot.errors.bar.num, boxplot_outliers = plot.bxp.out))
 
     sub.supplied <- !missing(sub)
 
@@ -82,14 +95,15 @@
       xdat <- tmf[, .np_formula_term_names(attr(attr(tmf, "terms"),"term.labels")), drop = FALSE]
     } else {
       if(miss.x && !is.null(bws$call)){
-        xdat <- data.frame(.np_eval_bws_call_arg(bws, "dat"))
+        xdat <- .np_eval_bws_call_arg(bws, "dat")
       }
-      xdat = toFrame(xdat)
+      xdat.was.vector <- is.atomic(xdat) && is.null(dim(xdat))
+      xdat = .np_native_vector_frame_names(toFrame(xdat), xdat.was.vector, bws)
       xdat = na.omit(xdat)
     }
 
     xq = double(bws$ndim)+xq
-    xtrim = double(bws$ndim)+xtrim
+    xtrim = .np_plot_recycle_xtrim(xtrim, bws$ndim)
 
     if (missing(plot.errors.method) &
         any(!missing(plot.errors.boot.num), !missing(plot.errors.boot.method),
@@ -105,10 +119,11 @@
     joint.request <- identical(error.request$method, "asymptotic") &&
       error.request$type %in% c("simultaneous", "all")
     if (!missing(gaussian.draws) && !joint.request)
-      stop("gaussian.draws requires asymptotic simultaneous or all bands", call. = FALSE)
+      stop("gaussian_draws requires asymptotic simultaneous or all bands", call. = FALSE)
     joint.eligible <- joint.request
     if (joint.request)
       gaussian.draws <- .np_plot_gaussian_integer(gaussian.draws, "gaussian.draws")
+    block.automatic <- is.null(plot.errors.boot.blocklen)
     normalized.opts <- .np_plot_normalize_common_options(
       plot.behavior = plot.behavior,
       plot.errors.method = plot.errors.method,
@@ -124,6 +139,7 @@
       common.scale = common.scale,
       ylim = ylim,
       allow_asymptotic_simultaneous = joint.eligible,
+      allow_asymptotic_bias = TRUE,
       error.request = error.request
     )
 
@@ -142,6 +158,13 @@
     plot.errors.bar <- normalized.opts$plot.errors.bar
     common.scale <- normalized.opts$common.scale
     plot.errors <- normalized.opts$plot.errors
+    bias.state <- .np_udist_plot_prepare(bias.control, bws, xdat,
+      plot.errors.center, plot.errors.method, plot.errors.boot.method, plot.errors.type,
+      plot.errors.boot.blocklen, block.automatic, plot.errors.boot.calibration)
+    new.bias <- !is.null(bias.state)
+    joint.eligible <- joint.eligible && !new.bias
+    if (new.bias && isTRUE(plot.bxp))
+      stop("new distribution bounds require factor_boxplot=FALSE", call. = FALSE)
     first.render <- .np_plot_first_render_state()
     on.exit(.np_plot_activity_end(first.render$activity), add = TRUE)
     surface.supported <- isTRUE((bws$ncon + bws$nord == 2) &&
@@ -220,7 +243,9 @@
       tdens = matrix(data = tobj$dist,
         nrow = x1.neval, ncol = x2.neval, byrow = FALSE)
 
-      terr.payload <- .np_plot_interval_payload(
+      terr.payload <- if (new.bias) .np_udist_plot_errors(bias.state, x.eval,
+         plot.errors.alpha, if (plot.errors.method == "asymptotic") gaussian.draws else plot.errors.boot.num,
+         plot.errors.type) else .np_plot_interval_payload(
         estimate = tobj$dist,
         se = tobj$derr,
         plot.errors.method = plot.errors.method,
@@ -290,10 +315,18 @@
 
       if (plot.behavior != "plot"){
         d1 <- npdistribution(bws = bws, eval = x.eval,
-                             dist = tobj$dist, derr = terr[,1:2],
+                             dist = tobj$dist,
+                             derr = if (new.bias) cbind(-terr[,1], terr[,2]) else terr[,1:2],
                              ntrain = nrow(xdat), se = plot.errors)
         if (joint.eligible)
           d1 <- .np_plot_density_band_fields(d1, terr.payload)
+        if (new.bias) d1$inference <- terr.payload$inference
+        if (identical(plot.errors.method, "asymptotic"))
+          d1[[".plot_std_error"]] <- tobj$derr
+        if (plot.errors && identical(plot.errors.type, "all"))
+          d1[[".plot_band_widths"]] <- terr.all
+        d1[[".plot_rows"]] <- list(estimate = tobj$dist,
+          corrected = terr[, 3L], widths = terr[, 1:2, drop = FALSE])
         d1$bias = NA
         d1$bias.corrected = NA
 
@@ -301,7 +334,7 @@
           d1 <- .np_plot_add_bias_fields(d1, tobj$dist, terr[,3])
         
         if (plot.behavior == "data")
-          return ( list(d1 = d1) )
+          return(publish.plot(list(d1 = d1)))
       }
       
       # rows = constant x2
@@ -361,7 +394,7 @@
         return(.np_plot_rgl_finalize(
           rgl.out = rgl.out,
           plot.behavior = plot.behavior,
-          plot.data = list(d1 = d1)
+          plot.data = publish.plot(list(d1 = d1))
         ))
       }
 
@@ -427,6 +460,7 @@
               border = scalar_default(border, .np_plot_color("context_border")),
               lwd = scalar_default(lwd, par()$lwd),
               annotation = .np_plot_variability_annotation_spec(
+                construction = if(identical(plot.errors.boot.calibration,"smoothed-percentile")) "smoothed-percentile" else NULL,
                 plot.errors.method = plot.errors.method,
                 plot.errors.type = plot.errors.type,
                 plot.errors.alpha = plot.errors.alpha,
@@ -440,6 +474,7 @@
             )
             if (plot.errors.type == "all" && !is.null(lerr.all) && !is.null(herr.all)) {
               .np_plot_draw_all_band_legend(
+                construction = if(identical(plot.errors.boot.calibration,"smoothed-percentile")) "smoothed-percentile" else NULL,
                 legend = plot.legend,
                 x = "topright",
                 lty = .np_plot_lty("solid"),
@@ -457,7 +492,7 @@
 
 
       if (plot.behavior == "plot-data")
-        return ( list(d1 = d1) )        
+        return(publish.plot(list(d1 = d1)))
 
     } else {
 
@@ -534,7 +569,9 @@
         temp.dens[seq_len(xi.neval)] <- tobj$dist
 
         if (plot.errors){
-          temp.payload <- .np_plot_interval_payload(
+          temp.payload <- if (new.bias) .np_udist_plot_errors(bias.state, eval.slice,
+             plot.errors.alpha, if (plot.errors.method == "asymptotic") gaussian.draws else plot.errors.boot.num,
+             plot.errors.type) else .np_plot_interval_payload(
             estimate = temp.dens[seq_len(xi.neval)],
             se = tobj$derr,
             plot.errors.method = plot.errors.method,
@@ -637,6 +674,7 @@
           ## error plotting evaluation
           if (plot.errors && !(xi.factor && plot.bootstrap && plot.bxp)){
             panel.annotation <- .np_plot_variability_annotation_spec(
+                construction = if(identical(plot.errors.boot.calibration,"smoothed-percentile")) "smoothed-percentile" else NULL,
               plot.errors.method = plot.errors.method,
               plot.errors.type = plot.errors.type,
               plot.errors.alpha = plot.errors.alpha,
@@ -651,6 +689,7 @@
 
             if (plot.errors.type == "all") {
               .np_plot_draw_all_errors_with_gaps(
+                construction = if(identical(plot.errors.boot.calibration,"smoothed-percentile")) "smoothed-percentile" else NULL,
                 ex = as.numeric(ei),
                 center = as.numeric(if (plotOnEstimate) temp.dens else temp.err[,3]),
                 all.err = temp.all.err,
@@ -696,6 +735,7 @@
               joint.eligible, plot.errors.type),
             ntrain = bws$nobs, se = plot.errors
           )
+          if (new.bias) plot.out[[i]]$inference <- temp.payload$inference
           plot.out[[i]]$bias = NA
           plot.out[[i]]$bias.corrected = NA
           if (.np_plot_center_is_bias_corrected(plot.errors.center))
@@ -705,6 +745,13 @@
               temp.err[,3]
             )
           plot.out[[i]]$bxp = temp.boot
+          plot.out[[i]][[".plot_rows"]] <- list(estimate = temp.dens[seq_len(xi.neval)],
+            corrected = temp.err[seq_len(xi.neval), 3L],
+            widths = temp.err[seq_len(xi.neval), 1:2, drop = FALSE])
+          if (identical(plot.errors.method, "asymptotic"))
+            plot.out[[i]][[".plot_std_error"]] <- tobj$derr
+          if (identical(plot.errors.type, "all"))
+            plot.out[[i]][[".plot_band_widths"]] <- temp.all.err
           if (joint.eligible)
             plot.out[[i]] <- .np_plot_density_band_fields(plot.out[[i]], temp.payload)
         }
@@ -804,6 +851,7 @@
           ## error plotting evaluation
           if (plot.errors && !(xi.factor && plot.bootstrap && plot.bxp)){
             panel.annotation <- .np_plot_variability_annotation_spec(
+                construction = if(identical(plot.errors.boot.calibration,"smoothed-percentile")) "smoothed-percentile" else NULL,
               plot.errors.method = plot.errors.method,
               plot.errors.type = plot.errors.type,
               plot.errors.alpha = plot.errors.alpha,
@@ -814,10 +862,11 @@
               continuous = !xi.factor
             )
             if (!xi.factor && !plotOnEstimate)
-              lines(na.omit(ei), na.omit(temp.err[,3]), lty = .np_plot_lty("center"))
+              lines(na.omit(allei[,i]), na.omit(data.err[,3*i]), lty = .np_plot_lty("center"))
 
             if (plot.errors.type == "all") {
               .np_plot_draw_all_errors_with_gaps(
+                construction = if(identical(plot.errors.boot.calibration,"smoothed-percentile")) "smoothed-percentile" else NULL,
                 ex = as.numeric(allei[,i]),
                 center = as.numeric(if (plotOnEstimate) data.eval[,i] else data.err[,3*i]),
                 all.err = data.err.all[[i]],
@@ -858,7 +907,7 @@
 
       if (plot.behavior != "plot"){
         names(plot.out) = paste("d",seq_len(bws$ndim),sep="")
-        return (plot.out)
+        return(publish.plot(plot.out))
       }
     }
   }

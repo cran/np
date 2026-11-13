@@ -220,6 +220,17 @@ Further arguments are passed to the bandwidth-selection counterpart when bandwid
   }
 }
 \details{
+  The primary response must be a one-dimensional numeric (integer or double)
+  vector. Factors and ordered factors are not accepted as primary responses,
+  including retained responses used in a new fit or bandwidth search.
+  The same requirement applies to explicitly selected evaluation responses.
+  Prediction without selected evaluation outcomes does not require a response
+  column. An explicit formula transformation that returns numeric values is
+  accepted; numerical scores are a modeling choice made by the user.
+  Categorical predictors retain their existing support. Internal auxiliary
+  responses used to represent predictors retain their established encoding.
+  Klein--Spady retains its stricter numeric 0/1 response requirement.
+
   \subsection{Factor Predictors and Coefficient Inference}{
     New bandwidth objects expand factors into the retained R contrast design
     described in \code{\link{npindexbw}}. Training refits, prediction and plots
@@ -273,14 +284,9 @@ Further arguments are passed to the bandwidth-selection counterpart when bandwid
   coefficients. For held-out assessment, estimate the coefficients and any
   data-selected bandwidths using the training sample.
 
-  For Ichimura fits trained on an unordered factor response (or an ordered
-  response without numeric levels), evaluation outcomes must
-  also be factors compatible with the training levels: raw numeric labels
-  do not identify the factor-code scale used for fitting. In automatic mode
-  such numeric outcomes leave diagnostics unavailable, without blocking
-  predictions; explicit evaluation-outcome requests report an error.
-  For ordered training responses with numeric levels, numeric evaluation
-  outcomes on that same scale are also accepted.
+  Ichimura evaluation outcomes must be numeric when explicitly requested.
+  An unsuitable automatically discovered outcome, including a factor, leaves
+  diagnostics unavailable while predictions remain available.
 
   Evaluation outcomes affect diagnostics only. In automatic mode, outcomes that
   cannot be evaluated, aligned, or validated are treated as unavailable for
@@ -522,6 +528,24 @@ Further arguments are passed to the bandwidth-selection counterpart when bandwid
   retained state/call, or be supplied explicitly. \code{predict(..., se.fit=TRUE)}
   uses the fitted object's stored \code{se.type} for new evaluation data unless
   an explicit \code{se.type} is supplied.
+}
+
+
+\section{Experimental status of bias-corrected inference}{
+\strong{All bias-corrected confidence intervals and bands are experimental
+(pre-beta research), incomplete, and not recommended for general-purpose
+inference.} This status remains in effect unless the documentation explicitly
+states otherwise for a particular method and scope. It applies wherever
+bias-corrected bounds are available: asymptotic and bootstrap constructions,
+including legacy methods, pointwise intervals, Bonferroni intervals and
+simultaneous bands, for levels and supported derivatives.
+
+These methods form an ongoing research project. Implementation support,
+numerical checks and favorable simulation results in selected settings do not
+establish generally valid coverage. Coverage can fail outside the studied
+settings, and available options do not constitute a general solution to
+bias-corrected inference. Method-specific assumptions, restrictions and known
+failures must be considered when experimenting with these bounds.
 }
 
 \seealso{

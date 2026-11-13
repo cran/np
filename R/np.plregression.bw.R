@@ -58,6 +58,7 @@ npplregbw.NULL =
            zdat = stop("invoked without data `zdat'"),
            bws, ...){
   .np_reject_native_data(substitute(list(...))[-1L])
+  .np_reject_native_frame_args(substitute(list(...))[-1L])
 
 
     ## maintain x names and 'toFrame'
@@ -91,6 +92,7 @@ npplregbw.plbandwidth =
            zdat = stop("invoked without data `zdat'"),
            bws, nmulti, ...){
   .np_reject_native_data(substitute(list(...))[-1L])
+  .np_reject_native_frame_args(substitute(list(...))[-1L])
 
 
     ## n observations
@@ -106,6 +108,7 @@ npplregbw.plbandwidth =
     
     xdat = toFrame(xdat)
     zdat = toFrame(zdat)
+    .np_require_numeric_response(ydat, "npplregbw", "ydat")
 
     ## catch and destroy NA's
     keep.rows <- rep_len(TRUE, nrow(xdat))
@@ -129,14 +132,14 @@ npplregbw.plbandwidth =
     total.time <-
       system.time({
         .np_progress_bandwidth_set_coordinator_group(1L, "E[y|z]")
-        bws$bw$yzbw  <- npregbw(xdat = zdat, ydat = ydat,
+        bws$bw$yzbw  <- .npregbw_auxiliary(xdat = zdat, ydat = ydat,
                                 bws = bws$bw$yzbw, nmulti = nmulti, ...)
         
         ## x on z
 
         for (i in seq_len(ncol(xdat))) {
           .np_progress_bandwidth_set_coordinator_group(i + 1L, sprintf("E[%s|z]", names(xdat)[[i]]))
-          bws$bw[[i+1]] <- npregbw(xdat=zdat, ydat=xdat[,i],
+          bws$bw[[i+1]] <- .npregbw_auxiliary(xdat=zdat, ydat=xdat[,i],
                   bws = bws$bw[[i+1]], nmulti = nmulti, ...)
         }
       })[["elapsed"]]
@@ -217,7 +220,7 @@ npplregbw.plbandwidth =
   if (!is.null(child.degree))
     child.reg.args$degree <- child.degree[[1L]]
   plband$yzbw <- do.call(
-    npregbw,
+    .npregbw_auxiliary,
     c(list(xdat = zdat, ydat = ydat, bws = bws[1, ]), child.reg.args)
   )
 
@@ -226,7 +229,7 @@ npplregbw.plbandwidth =
     if (!is.null(child.degree))
       child.reg.args$degree <- child.degree[[i + 1L]]
     plband[[i + 1L]] <- do.call(
-      npregbw,
+      .npregbw_auxiliary,
       c(list(xdat = zdat, ydat = xdat[, i], bws = bws[i + 1L, ]), child.reg.args)
     )
   }
@@ -586,7 +589,7 @@ npplregbw.plbandwidth =
         nomad.inner.nmulti = nomad.inner.nmulti,
         random.seed = random.seed
       )
-      do.call(npregbw, child.args)
+      do.call(.npregbw_auxiliary, child.args)
     }, finally = {
       .np_progress_bandwidth_set_context(old.context)
     })
@@ -729,6 +732,7 @@ npplregbw.default =
            ftol, itmax, nmulti, nomad.remin, powell.remin, small, tol,
            ...){
   .np_reject_native_data(substitute(list(...))[-1L])
+  .np_reject_native_frame_args(substitute(list(...))[-1L])
 
     bandwidth.compute <- npValidateScalarLogical(bandwidth.compute, "bandwidth.compute")
 
@@ -737,6 +741,7 @@ npplregbw.default =
 
     ## maintain z names and 'toFrame'
     zdat <- toFrame(zdat)
+    .np_require_numeric_response(ydat, "npplregbw", "ydat")
 
     dots <- list(...)
     npRejectUnsupportedBwsolver(dots, "npplregbw")

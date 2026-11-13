@@ -121,6 +121,12 @@ npcmstest <- function(formula,
                       density.weighted = TRUE,
                       random.seed = 42,
                       ...) {
+  if (missing(formula) && !missing(xdat) && !missing(ydat)) {
+    frame.args <- substitute(list(...))[-1L]
+    if (!missing(subset)) frame.args <- c(list(subset = quote(subset)), frame.args)
+    .np_reject_native_frame_args(frame.args)
+  }
+
   if (missing(formula) && !missing(xdat) && !missing(ydat) &&
       .np_data_formal_supplied(sys.call(), sys.function()))
     .np_native_data_error()
@@ -177,8 +183,9 @@ npcmstest <- function(formula,
 
   ## Save seed prior to setting
 
-  seed.state <- .np_seed_enter(random.seed)
-  on.exit(.np_seed_exit(seed.state, remove_if_absent = TRUE), add = TRUE)
+  seed.state <- .np_rng_scope_capture()
+  on.exit(.np_rng_scope_restore(seed.state), add = TRUE)
+  .np_rng_scope_seed(seed.state, random.seed)
 
 
   distribution = match.arg(distribution)
@@ -417,7 +424,7 @@ npcmstest <- function(formula,
   
   ## Restore seed
 
-  .np_seed_exit(seed.state, remove_if_absent = TRUE)
+  .np_rng_scope_restore(seed.state)
   
   cmstest(Jn = tJn$Jn,
           In = tJn$In,

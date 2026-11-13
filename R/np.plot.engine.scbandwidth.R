@@ -41,7 +41,7 @@
            plot.errors.boot.num = 9999,
            plot.errors.boot.method = c("wild", "inid", "fixed", "geom"),
            plot.errors.boot.nonfixed = c("exact", "frozen"),
-           plot.errors.boot.wild = c("rademacher", "mammen"),
+           plot.errors.boot.wild = c("mammen", "rademacher"),
            plot.errors.boot.blocklen = NULL,
            plot.errors.center = c("estimate", "bias-corrected"),
            plot.errors.type = c("pmzsd","pointwise","bonferroni","simultaneous","all"),
@@ -60,9 +60,21 @@
     if (.np_data_formal_supplied(sys.call(), sys.function()))
       .np_plot_data_error()
 
+    saved.plot.style <- list(xlab = xlab, ylab = ylab,
+        main = main, sub = sub, xlim = xlim, ylim = ylim, col = col,
+        lty = lty, lwd = lwd, type = type,
+        theta = theta, phi = phi, zlab = zlab, zlim = zlim)
+    publish.plot <- function(value) .np_plot_data_publish_display(value,
+      coordinates = if (is.null(zdat)) xdat else cbind(xdat, zdat), roles = c(rep("X", ncol(xdat)), rep("Z", if (is.null(zdat)) 0L else ncol(zdat))), response = ydat,
+      overlay = isTRUE(plot.data.overlay) && !gradients && !coef, rug = plot.rug,
+      style = utils::modifyList(plot.user.args, saved.plot.style),
+      points_args = points.user.args, boxplot = plot.bxp,
+      interval_style = list(style = plot.errors.style, bar = plot.errors.bar,
+        bar_num = plot.errors.bar.num, boxplot_outliers = plot.bxp.out))
+
     sub.supplied <- !missing(sub)
     coef.index <- .np_plot_match_coef_index(coef.index)
-    common.scale <- .np_plot_match_flag(common.scale, "common.scale")
+    common.scale <- .np_plot_match_flag(common.scale, "common_scale")
 
     engine.ctx <- .np_plot_engine_begin(plot.par.mfrow = plot.par.mfrow)
     plot.par.mfrow <- engine.ctx$plot.par.mfrow
@@ -96,13 +108,15 @@
     coef <- isTRUE(coef)
     if (coef && gradients)
       stop("coef=TRUE and gradients=TRUE cannot be combined for smooth coefficient plots.", call. = FALSE)
+    if (coef)
+      coef.index <- .np_plot_match_coef_index(coef.index, length(bws$xnames) + 1L)
     gradient.index <- coef.index
     response.axis.label <- .np_plot_resolve_axis_label(
       bws$ynames,
       "Conditional Mean"
     )
     default.value.ylab <- if (coef) {
-      paste("Coefficient", min(coef.index, bws$xndim))
+      paste("Coefficient", coef.index)
     } else if (gradients) {
       .np_plot_gradient_axis_label(
         target = response.axis.label,
@@ -125,7 +139,7 @@
       if (is.null(beta.plot))
         stop("coef=TRUE requires npscoef(..., betas=TRUE) output.")
       if (is.matrix(beta.plot))
-        return(as.double(beta.plot[, min(coef.index, ncol(beta.plot))]))
+        return(as.double(beta.plot[, coef.index]))
       as.double(beta.plot)
     }
     extract_scoef_se <- function(obj) {
@@ -154,6 +168,7 @@
       umf <- tmf <- .np_bws_formula_model_frame(bws, mf.args)
       
       ydat <- model.response(tmf)
+      .np_plot_require_response(ydat, bws, "plot.scbandwidth")
       xdat <- tmf[, .np_formula_term_names(bws$chromoly[[2]]), drop = FALSE]
       if (!miss.z)
         zdat <- tmf[, .np_formula_term_names(bws$chromoly[[3]]), drop = FALSE]
@@ -165,6 +180,8 @@
           zdat <- data.frame(.np_eval_bws_call_arg(bws, "zdat"))
       }
           
+      .np_plot_require_response(ydat, bws, "plot.scbandwidth")
+
       ## catch and destroy NA's
       xdat = toFrame(xdat)
       if(!miss.z)
@@ -192,7 +209,7 @@
     ## ydat = as.double(ydat)
 
     xq = double(ncol(xdat))+xq
-    xtrim = double(ncol(xdat))+xtrim
+    xtrim = .np_plot_recycle_xtrim(xtrim, ncol(xdat))
 
     if (!miss.z){
       zq = double(ncol(zdat))+zq
@@ -214,7 +231,7 @@
     joint.request <- identical(error.request$method, "asymptotic") &&
       error.request$type %in% c("simultaneous", "all")
     if (!missing(gaussian.draws) && !joint.request)
-      stop("gaussian.draws requires asymptotic simultaneous or all bands", call. = FALSE)
+      stop("gaussian_draws requires asymptotic simultaneous or all bands", call. = FALSE)
     joint.eligible <- FALSE
     joint.residual <- NULL
     joint.calibration <- NULL
@@ -504,6 +521,12 @@
           merr = terr[,1:2],
           ntrain = dim(xdat)[1]
         ))
+        if (identical(plot.errors.method, "asymptotic"))
+          r1[[".plot_std_error"]] <- extract_scoef_se(tobj)
+        if (plot.errors && identical(plot.errors.type, "all"))
+          r1[[".plot_band_widths"]] <- terr.all
+        r1[[".plot_rows"]] <- list(estimate = as.double(treg),
+          corrected = terr[, 3L], widths = terr[, 1:2, drop = FALSE])
         r1$bias = NA
         r1$bias.corrected = NA
         if (!is.null(joint.calibration)) {
@@ -515,7 +538,7 @@
           r1 <- .np_plot_add_bias_fields(r1, as.double(treg), terr[,3])
 
         if (plot.behavior == "data")
-          return ( list(r1 = r1) )
+          return(publish.plot(list(r1 = r1)))
 
       }
 
@@ -593,7 +616,7 @@
         return(.np_plot_rgl_finalize(
           rgl.out = rgl.out,
           plot.behavior = plot.behavior,
-          plot.data = list(r1 = r1)
+          plot.data = publish.plot(list(r1 = r1))
         ))
       }
 
@@ -710,7 +733,7 @@
       ##}
 
       if (plot.behavior == "plot-data")
-        return ( list(r1 = r1) )
+        return(publish.plot(list(r1 = r1)))
 
     } else {
 
@@ -1156,6 +1179,13 @@
                 temp.err[eval.rows, 3]
               )
             plot.out[[plot.index]]$bxp = temp.boot
+            plot.out[[plot.index]][[".plot_rows"]] <- list(estimate = temp.mean[seq_len(xi.neval)],
+              corrected = temp.err[seq_len(xi.neval), 3L],
+              widths = temp.err[seq_len(xi.neval), 1:2, drop = FALSE])
+            if (identical(plot.errors.method, "asymptotic"))
+              plot.out[[plot.index]][[".plot_std_error"]] <- extract_scoef_se(tobj)
+            if (identical(plot.errors.type, "all"))
+              plot.out[[plot.index]][[".plot_band_widths"]] <- temp.all.err
             if (!is.null(joint.calibration)) {
               plot.out[[plot.index]]$band.calibration <- joint.calibration
               if (identical(plot.errors.type, "all"))
@@ -1191,6 +1221,13 @@
                 temp.err[eval.rows, 3]
               )
             plot.out[[plot.index]]$bxp = temp.boot
+            plot.out[[plot.index]][[".plot_rows"]] <- list(estimate = temp.mean[seq_len(xi.neval)],
+              corrected = temp.err[seq_len(xi.neval), 3L],
+              widths = temp.err[seq_len(xi.neval), 1:2, drop = FALSE])
+            if (identical(plot.errors.method, "asymptotic"))
+              plot.out[[plot.index]][[".plot_std_error"]] <- extract_scoef_se(tobj)
+            if (identical(plot.errors.type, "all"))
+              plot.out[[plot.index]][[".plot_band_widths"]] <- temp.all.err
             if (!is.null(joint.calibration)) {
               plot.out[[plot.index]]$band.calibration <- joint.calibration
               if (identical(plot.errors.type, "all"))
@@ -1491,6 +1528,13 @@
                   temp.err[eval.rows, 3]
                 )
               plot.out[[plot.index]]$bxp = temp.boot
+              plot.out[[plot.index]][[".plot_rows"]] <- list(estimate = temp.mean[seq_len(xi.neval)],
+                corrected = temp.err[seq_len(xi.neval), 3L],
+                widths = temp.err[seq_len(xi.neval), 1:2, drop = FALSE])
+              if (identical(plot.errors.method, "asymptotic"))
+                plot.out[[plot.index]][[".plot_std_error"]] <- extract_scoef_se(tobj)
+              if (identical(plot.errors.type, "all"))
+                plot.out[[plot.index]][[".plot_band_widths"]] <- temp.all.err
               if (!is.null(joint.calibration)) {
                 plot.out[[plot.index]]$band.calibration <- joint.calibration
                 if (identical(plot.errors.type, "all"))
@@ -1521,6 +1565,13 @@
                   temp.err[eval.rows, 3]
                 )
               plot.out[[plot.index]]$bxp = temp.boot
+              plot.out[[plot.index]][[".plot_rows"]] <- list(estimate = temp.mean[seq_len(xi.neval)],
+                corrected = temp.err[seq_len(xi.neval), 3L],
+                widths = temp.err[seq_len(xi.neval), 1:2, drop = FALSE])
+              if (identical(plot.errors.method, "asymptotic"))
+                plot.out[[plot.index]][[".plot_std_error"]] <- extract_scoef_se(tobj)
+              if (identical(plot.errors.type, "all"))
+                plot.out[[plot.index]][[".plot_band_widths"]] <- temp.all.err
               if (!is.null(joint.calibration)) {
                 plot.out[[plot.index]]$band.calibration <- joint.calibration
                 if (identical(plot.errors.type, "all"))
@@ -1773,7 +1824,7 @@
           paste(if (gradients) "gsc" else "sc",
                 seq_len(bws$xndim + bws$zndim), sep = "")
         
-        return (plot.out)
+        return(publish.plot(plot.out))
       }
     }
 

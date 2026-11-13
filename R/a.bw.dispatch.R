@@ -168,23 +168,75 @@
   list(call = call_obj, expressions = expressions, values = values)
 }
 
+.np_bw_formula_promises <- function(call_obj, formula.index, map, frame, caller_env) {
+  if (is.null(map) || is.null(formula.index))
+    return(list(call = call_obj, expressions = list()))
+  tagged <- call_obj
+  for (i in seq_along(tagged)[-1L]) tagged[[i]] <- i
+  native.matcher <- function(...) NULL
+  formals(native.matcher) <- as.pairlist(c(
+    stats::setNames(rep(alist(value = ), length(map)), names(map)), alist(... = )))
+  native <- match.call(native.matcher, tagged, expand.dots = FALSE)
+  # Determine selector formula roles without evaluating any argument. The
+  # original default's formal map still owns positional native/data slots.
+  names(tagged)[formula.index] <- "formula"
+  roles <- match.call(function(formula, data, subset, na.action, call,
+                              gdata = NULL, ..., bws = NULL) NULL, tagged, expand.dots = FALSE)
+  dots <- eval(quote(substitute(list(...))), envir = frame)[-1L]
+  dot.names <- names(dots)
+  if (is.null(dot.names)) dot.names <- rep("", length(dots))
+  native.dots <- native[["..."]]
+  native.names <- names(native.dots)
+  if (is.null(native.names)) native.names <- rep("", length(native.dots))
+  expressions <- list()
+  # Numeric bandwidths may already have been forced by generic dispatch.
+  # Reuse that same promise, just as for the formula's data/NA arguments.
+  for (name in intersect(c("data", "na.action", "gdata", "bws"), names(roles))) {
+    index <- roles[[name]]
+    formal <- names(map)[vapply(names(map), function(n)
+      identical(native[[n]], index), logical(1L))]
+    if (length(formal)) {
+      source <- as.name(map[[formal]])
+    } else {
+      position <- which(vapply(as.list(native.dots), identical, logical(1L), index))
+      argument <- native.names[position]
+      if (length(argument) && nzchar(argument)) {
+        dot <- match(argument, dot.names)
+      } else {
+        ordinal <- match(position, which(!nzchar(native.names)))
+        dot <- which(!nzchar(dot.names))[ordinal]
+      }
+      if (length(dot) != 1L || is.na(dot))
+        stop("cannot identify original formula data promise", call. = FALSE)
+      source <- substitute(...elt(I), list(I = dot))
+    }
+    expressions[name] <- list(.np_formula_dot_expression(call_obj[[index]], caller_env))
+    call_obj[[index]] <- .np_formula_promise_expression(source, frame)
+  }
+  list(call = call_obj, expressions = expressions)
+}
+
+.np_bw_package_selector_call <- function(call_obj) {
+  selector <- call_obj[[1L]]
+  if (is.symbol(selector) && as.character(selector) %in%
+      c("npregbw", "npplregbw", "npudensbw", "npudistbw", "npcdensbw",
+        "npcdistbw", "npindexbw", "npscoefbw"))
+    call_obj[[1L]] <- call("::", as.name("np"), selector)
+  call_obj
+}
+
 .np_eval_bw_call <- function(call_obj, caller_env = parent.frame(),
                              formula.value = NULL, native.map = NULL,
                              native.frame = NULL) {
   if (!is.call(call_obj))
     stop("bandwidth selector call is malformed", call. = FALSE)
 
-  # Namespace-only estimator calls reconstruct an unqualified selector name.
-  # Resolve that name before executing; never replay a failed search in other
-  # frames. The existence check must not force a caller's active binding, and
-  # arguments must still be evaluated in the original caller environment.
-  selector <- call_obj[[1L]]
-  if (is.symbol(selector) &&
-      !exists(as.character(selector), envir = caller_env, inherits = TRUE) &&
-      as.character(selector) %in% getNamespaceExports("np"))
-    call_obj[[1L]] <- call("::", as.name("np"), selector)
+  # Only package-generated selector heads are bound here. Arguments and
+  # formula environments still belong to the original caller.
+  call_obj <- .np_bw_package_selector_call(call_obj)
 
   formula.expression <- NULL
+  formula.index <- NULL
   if (!is.null(formula.value)) {
     if (!inherits(formula.value$value, "formula"))
       stop("invalid resolved formula handoff", call. = FALSE)
@@ -201,6 +253,7 @@
     if (source == "bws" && "formula" %in% names(matched)) source <- "formula"
     index <- matched[[source]]
     if (!is.null(index)) {
+      formula.index <- index
       formula.expression <- .np_formula_dot_expression(call_obj[[index]], caller_env)
       call_obj[[index]] <- substitute(quote(VALUE), list(VALUE = formula.value$value))
     }
@@ -211,7 +264,7 @@
     .np_native_data_error()
   native <- if (is.null(formula.value))
     .np_bw_native_values(call_obj, native.map, native.frame, caller_env) else
-    list(call = call_obj, expressions = list())
+    .np_bw_formula_promises(call_obj, formula.index, native.map, native.frame, caller_env)
   # Bound values avoid deparsing an entire response vector as a variable
   # name. The child environment exists only during this selector invocation;
   # restore the public call and its owner before returning the object.
@@ -219,8 +272,12 @@
     list2env(native$values, parent = caller_env) else caller_env
   result <- eval(native$call, envir = value.env)
   if (is.list(result) && is.call(result[["call"]])) {
-    for (name in intersect(names(native$expressions), names(result[["call"]])))
-      result[["call"]][[name]] <- native$expressions[[name]]
+    for (name in names(native$expressions)) {
+      if (name %in% names(result[["call"]]))
+        result[["call"]][[name]] <- native$expressions[[name]]
+      else if (name %in% names(result[["call"]][["..."]]))
+        result[["call"]][["..."]][[name]] <- native$expressions[[name]]
+    }
     if (identical(environment(result[["call"]]), value.env))
       environment(result[["call"]]) <- caller_env
   }
@@ -249,13 +306,14 @@
   if (!is.call(call_obj) || length(call_obj) < 1L)
     return(FALSE)
 
-  fn_expr <- call_obj[[1L]]
+  original.head <- call_obj[[1L]]
+  fn_expr <- .np_bw_package_selector_call(call_obj)[[1L]]
   fn <- .np_try_eval_in_frames(fn_expr, eval_env = caller_env)
   if (!isTRUE(fn$ok) || !is.function(fn$value))
     return(FALSE)
 
   fn_def <- fn$value
-  fn_name <- if (is.symbol(fn_expr)) as.character(fn_expr) else NULL
+  fn_name <- if (is.symbol(original.head)) as.character(original.head) else NULL
   if (!is.null(fn_name) && nzchar(fn_name)) {
     default_name <- paste0(fn_name, ".default")
     default_fn <- get0(default_name, envir = environment(fn_def), inherits = TRUE)

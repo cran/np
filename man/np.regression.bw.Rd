@@ -190,6 +190,8 @@ These arguments identify the data, formula interface, and whether bandwidths are
     a one (1) dimensional numeric or integer vector of dependent data, each
     element \eqn{i} corresponding to each observation (row) \eqn{i} of
     \code{xdat}. 
+    Factors and ordered factors are not supported. Select a numeric outcome
+    scale explicitly; categorical predictors remain supported.
   }
 
 \subsection{Automatic Degree Search Controls}{
@@ -657,6 +659,8 @@ These arguments collect remaining controls passed through S3 methods.
   }
 }
 \details{
+  Seeded temporary operations follow \link{np_rng_scope}.
+
 Formula bandwidth objects retain the prepared training sample (after alignment,
 subsetting and missing-value handling) and the resolved missing-value policy.
 Later refits use that sample even if constructor variables are rebound.

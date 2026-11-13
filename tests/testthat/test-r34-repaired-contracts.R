@@ -10,19 +10,24 @@ test_that("retained LSQ subsets require an explicit sample", {
   expect_equal(retained$nobs,80)
 })
 
-test_that("Ichimura scoring respects the factor training scale", {
+test_that("Ichimura scoring uses explicit numeric evaluation outcomes", {
   set.seed(5101); d <- data.frame(x=rnorm(90),z=rnorm(90))
-  d$y <- factor(sample(0:3,90,TRUE)); e <- d[1:12,]
+  d$y <- as.double(sample(0:3,90,TRUE)); e <- d[1:12,]
   b <- npindexbw(y~x+z,data=d,bws=c(1,.5,.5),bandwidth.compute=FALSE)
   f <- npindex(b,newdata=e,se=FALSE)
-  expected <- mean((as.integer(e$y)-fitted(f))^2)
-  expect_equal(f$MSE,expected,tolerance=1e-14)
-  e$y <- as.numeric(as.character(e$y))
-  unscored <- npindex(b,newdata=e,se=FALSE)
+  expect_identical(f$diagnostics.sample,'evaluation')
+  expect_equal(f$MSE,mean((e$y-fitted(f))^2),tolerance=1e-14)
+  unscored <- npindex(b,newdata=e[c('x','z')],se=FALSE)
   expect_identical(unscored$diagnostics.sample,'unavailable')
   expect_true(is.na(unscored$MSE))
   expect_equal(fitted(unscored),fitted(f),tolerance=0)
-  expect_error(npindex(b,newdata=e,y.eval=TRUE,se=FALSE),'must be a factor')
+  for (ordered in c(FALSE,TRUE)) {
+    bad <- d; bad$y <- factor(d$y,ordered=ordered)
+    expect_error(npindexbw(y~x+z,data=bad,bws=c(1,.5,.5),
+                          bandwidth.compute=FALSE),'must be a numeric')
+    bad <- e; bad$y <- factor(e$y,ordered=ordered)
+    expect_error(npindex(b,newdata=bad,y.eval=TRUE,se=FALSE),'must be a numeric')
+  }
 })
 
 test_that("smooth coefficient predictions retain actual training MSE", {
@@ -57,32 +62,30 @@ test_that("plot-data surfaces and slices retain dimensions and names", {
   for (family in c('npcdens','npcdist')) {
     b <- do.call(get(paste0(family,'bw')),list(xdat=d[1],ydat=d['y'],bws=c(.4,.5),bandwidth.compute=FALSE))
     fit <- get(family)(b)
-    p <- plot(fit,plot.behavior='data',perspective=TRUE,neval=5)[[1L]]
-    expect_identical(dim(p$xeval),c(25L,1L))
-    expect_identical(dim(p$yeval),c(25L,1L))
-    expect_identical(names(p$xeval),'x one')
-    expect_identical(names(p$yeval),'y')
-    expect_equal(p$nobs,25L)
-    expect_length(fitted(p),25L)
-    expect_error(capture.output(summary(p)),NA)
+    p <- plot(fit,output='data',perspective=TRUE,neval=5)
+    expect_identical(dim(plot_coordinates(p, role="X")),c(25L,1L))
+    expect_identical(dim(plot_coordinates(p, role="Y")),c(25L,1L))
+    expect_identical(names(plot_coordinates(p, role="X")),'x one')
+    expect_identical(names(plot_coordinates(p, role="Y")),'y')
+    expect_length(plot_target(p)$estimate,25L)
+    expect_error(capture.output(print(p)),NA)
   }
   for (cols in list(1L,1:2)) {
     b <- npregbw(xdat=d[cols],ydat=d$y,bws=rep(.5,length(cols)),bandwidth.compute=FALSE)
     f <- npreg(b)
     for (perspective in if(length(cols)==1L) FALSE else c(FALSE,TRUE)) {
-      p <- plot(f,plot.behavior='data',perspective=perspective,neval=5)[[1L]]
-      expect_identical(names(p$eval),names(d)[cols])
-      expect_identical(ncol(p$eval),length(cols))
-      expect_equal(nrow(p$eval),length(fitted(p)))
-      expect_error(capture.output(summary(p)),NA)
+      p <- plot(f,output='data',perspective=perspective,neval=5)
+      expect_identical(names(plot_coordinates(p, role="X")),names(d)[cols])
+      expect_identical(ncol(plot_coordinates(p, role="X")),length(cols))
+      expect_equal(nrow(plot_coordinates(p, role="X")),length(plot_target(p)$estimate))
+      expect_error(capture.output(print(p)),NA)
     }
   }
   b <- npscoefbw(xdat=d[1],ydat=d$y,zdat=d[2],bws=.4,bandwidth.compute=FALSE)
-  p <- plot(npscoef(b),plot.behavior='data',perspective=FALSE,neval=5)[[1L]]
+  p <- plot(npscoef(b),output='data',perspective=FALSE,neval=5)
   fields <- c('R2','MSE','MAE','MAPE','CORR','SIGN')
-  expect_true(all(fields %in% names(p)))
-  expect_true(all(is.na(unlist(p[fields]))))
-  expect_error(capture.output(summary(p)),NA)
+  expect_false(any(fields %in% names(p$panels[[1]])))
+  expect_error(capture.output(print(p)),NA)
 })
 
 test_that("LSQ dispatch uses formal promises once in their original scope", {

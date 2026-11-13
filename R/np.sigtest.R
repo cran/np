@@ -37,6 +37,8 @@ npsigtest <-
 
 npsigtest.formula <-
   function(bws, data = NULL, ...){
+    .np_reject_fit_subset(substitute(list(...))[-1L])
+
 
     state.index <- match(".np.formula.state",
                          names(substitute(list(...))[-1L]), nomatch = 0L)
@@ -76,6 +78,8 @@ npsigtest.formula <-
 
 npsigtest.call <-
   function(bws, ...) {
+    .np_reject_fit_subset(substitute(list(...))[-1L])
+
   .np_reject_native_data(substitute(list(...))[-1L])
 
     ev <- npsigtest(xdat = .np_eval_bws_call_arg(bws, "xdat"),
@@ -88,6 +92,8 @@ npsigtest.call <-
 
 npsigtest.npregression <-
   function(bws, ...){
+    .np_reject_fit_subset(substitute(list(...))[-1L])
+
     ev <- npsigtest(bws$bws, ...)
     ev$call <- match.call(expand.dots = FALSE)
     environment(ev$call) <- parent.frame()
@@ -536,6 +542,8 @@ npsigtest.rbandwidth <- function(bws,
                                  index = seq_len(ncol(xdat)),
                                  random.seed = 42,
                                  ...) {
+    .np_reject_fit_subset(substitute(list(...))[-1L])
+
   .np_reject_native_data(substitute(list(...))[-1L])
 
 
@@ -618,8 +626,9 @@ npsigtest.rbandwidth <- function(bws,
   ## Save seed prior to setting.  The computational owner is selected before
   ## this boundary so unsupported calls enter the incumbent without RNG work.
 
-  seed.state <- .np_seed_enter(random.seed)
-  on.exit(.np_seed_exit(seed.state, remove_if_absent = TRUE), add = TRUE)
+  seed.state <- .np_rng_scope_capture()
+  on.exit(.np_rng_scope_restore(seed.state), add = TRUE)
+  .np_rng_scope_seed(seed.state, random.seed)
 
   if(boot.type=="II") {
     ## Store a copy of the bandwidths passed in
@@ -1253,7 +1262,7 @@ npsigtest.rbandwidth <- function(bws,
 
   ## Restore seed
 
-  .np_seed_exit(seed.state, remove_if_absent = TRUE)
+  .np_rng_scope_restore(seed.state)
 
   sigtest(In = In,
           In.bootstrap = In.mat,
@@ -1309,8 +1318,14 @@ npsigtest.default <- function(bws, xdat, ydat, ...){
     xdat <- toFrame(xdat)
   }
 
+  # A named formula is a selector input, not a fixed numeric bandwidth.
+  # Match the established npRmpi handoff using the already-resolved value.
   sc.bw <- sc
-  
+  if (bws.named && no.xdat && no.ydat && inherits(bws, "formula")) {
+    sc.bw$bws <- NULL
+    sc.bw$formula <- bws
+    bws.named <- FALSE
+  }
   sc.bw[[1]] <- quote(npregbw)
   sc.bw[.np_npsig_default_test_args] <- NULL
 

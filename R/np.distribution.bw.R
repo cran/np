@@ -99,7 +99,7 @@ npudistbw.formula <-
       gmf[[1]] <- as.name("model.frame")
       names(gmf)[3] <- "data"
       gmf[["formula"]] <- attr(mf, "terms")
-      gmf.args <- as.list(gmf[-1L])
+      gmf.args <- .np_formula_frame_promises(as.list(gmf[-1L]), environment(), c(data = "gdata"))
       gmf <- do.call(.np_formula_model_frame, gmf.args, envir = parent.frame())
 
       gdat <- gmf[, .np_formula_term_names(attr(attr(gmf, "terms"),"term.labels")), drop = FALSE]
@@ -128,6 +128,7 @@ npudistbw.NULL <-
   function(dat = stop("invoked without input data 'dat'"),
            bws, ...){
   .np_reject_native_data(substitute(list(...))[-1L])
+  .np_reject_native_frame_args(substitute(list(...))[-1L])
 
 
     dots <- list(...)
@@ -846,6 +847,7 @@ npudistbw.dbandwidth <-
            ...,
            nomad.opts = list()){
   .np_reject_native_data(substitute(list(...))[-1L])
+  .np_reject_native_frame_args(substitute(list(...))[-1L])
 
 
     nomad.opts <- .np_nomad_normalize_user_opts(nomad.opts, "npudistbw")
@@ -972,7 +974,7 @@ npudistbw.dbandwidth <-
     penalty_mode <- (if (invalid.penalty == "baseline") 1L else 0L)
 
     if (bandwidth.compute && !eval.only && npBwsolverUsesMads(bwsolver)) {
-      return(.npudistbw_run_mads(
+      return(.np_bw_procedure_record(.npudistbw_run_mads(
         dat = dat.frame,
         bws = bws,
         gdat = gdat,
@@ -1004,7 +1006,7 @@ npudistbw.dbandwidth <-
           nomad.opts = dot.args$nomad.opts
         ),
         bwsolver = bwsolver
-      ))
+      ), bws, "distribution", environment()))
     }
 
     if (bandwidth.compute){
@@ -1197,7 +1199,7 @@ npudistbw.dbandwidth <-
         where = "beta range distribution CDF certification"
       )
     }
-    tbw
+    .np_bw_procedure_record(tbw, bws, "distribution", environment())
   }
 
 npudistbw.default <-
@@ -1246,6 +1248,7 @@ npudistbw.default <-
            ...,
            nomad.opts = list()){
   .np_reject_native_data(substitute(list(...))[-1L])
+  .np_reject_native_frame_args(substitute(list(...))[-1L])
 
 
     nomad.opts <- .np_nomad_normalize_user_opts(nomad.opts, "npudistbw")

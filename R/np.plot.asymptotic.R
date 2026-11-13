@@ -1,3 +1,17 @@
+# Subsetting a matrix drops private replay metadata. Preserve the row-owned
+# policy explicitly; ordinary matrices remain unchanged.
+.np_plot_projection_slice <- function(x, index, columns = seq_len(ncol(x))) {
+  out <- x[index,columns,drop=FALSE]
+  policy <- attr(x,".np.fit.precision",exact=TRUE)
+  if (!is.null(policy)) {
+    if (!is.matrix(policy) || !identical(dim(policy),c(nrow(x),2L)) ||
+        any(!is.finite(policy)) || any(policy<0))
+      stop("invalid accepted precision replay policy",call.=FALSE)
+    attr(out,".np.fit.precision") <- policy[index,,drop=FALSE]
+  }
+  out
+}
+
 # A missing joint interval must retain one row per retained plotted center.
 # Other interval routes preserve their established omission behavior.
 .np_plot_joint_interval_rows <- function(errors, center, joint, type) {
@@ -47,11 +61,11 @@
   minimum <- ceiling(qnorm(.975)^2 * (1 - alpha) / (.1^2 * alpha))
   draws <- .np_plot_gaussian_integer(draws, "gaussian.draws")
   if (draws < minimum)
-    .np_warning(sprintf(paste0("gaussian.draws=%.0f is below the recommended Monte Carlo ",
+    .np_warning(sprintf(paste0("gaussian_draws=%.0f is below the recommended Monte Carlo ",
       "precision count %.0f (alpha=%g, m=%.0f evaluation points). This approximate ",
       "95%% target limits relative simulation error in the maximum's upper-tail ",
       "probability to 10%%; it does not guarantee endpoint accuracy or statistical ",
-      "coverage. Increase gaussian.draws for greater precision; retaining the requested count."),
+      "coverage. Increase gaussian_draws for greater precision; retaining the requested count."),
       draws, minimum, alpha, m), call. = FALSE)
   draws
 }
@@ -122,6 +136,38 @@
   if (!is.numeric(alpha) || length(alpha) != 1L || !is.finite(alpha) ||
       alpha <= 0 || alpha >= 0.5)
     stop("alpha must lie in (0, 0.5)", call. = FALSE)
+  .np_plot_gaussian_calibrate_alphas(covariance, alpha, draws, block, max.bytes)[[1L]]
+}
+
+# One stochastic producer serves all alpha reductions. Reassigning a visible
+# seed cannot replay a pending Box-Muller deviate; leave the normal stream live.
+.np_plot_gaussian_calibrate_alphas <- function(covariance, alpha,
+                                               draws = 9999L, block = 4096L,
+                                               max.bytes = 64 * 1024^2) {
+  process <- .np_plot_gaussian_maxima(covariance, alpha, draws, block, max.bytes)
+  metadata <- process$metadata
+  if (!metadata$positive.variance) return(lapply(alpha, function(a) metadata))
+  lapply(alpha, function(a) {
+    result <- metadata
+    result$critical.raw <- unname(quantile(process$maxima, 1 - a, type = 1L))
+    result$critical <- .np_plot_gaussian_critical(result$critical.raw, a,
+                                                 metadata$grid.size)
+    result$rank <- process$rank
+    result
+  })
+}
+
+# Shared bounded producer: validation, symmetric root and normal draw order
+# have one owner. Signed scale uncertainty uses the same draws without replay.
+.np_plot_gaussian_maxima <- function(covariance, alpha,
+                                      draws = 9999L, block = 4096L,
+                                      max.bytes = 64 * 1024^2,
+                                      reduction = c("absolute", "negative")) {
+  reduction <- match.arg(reduction)
+  block <- .np_plot_gaussian_integer(block, "Gaussian draw block", 1000000L)
+  if (!is.numeric(alpha) || !length(alpha) || any(!is.finite(alpha)) ||
+      any(alpha <= 0 | alpha >= 0.5) || anyDuplicated(alpha))
+    stop("alpha values must be unique and lie in (0, 0.5)", call. = FALSE)
   if (!is.numeric(max.bytes) || length(max.bytes) != 1L ||
       !is.finite(max.bytes) || max.bytes <= 0)
     stop("Gaussian memory budget must be positive and finite", call. = FALSE)
@@ -130,7 +176,9 @@
     stop("Gaussian covariance must be a nonempty square numeric matrix",
          call. = FALSE)
   g <- nrow(covariance)
-  draws <- .np_plot_gaussian_draws(draws, alpha, g)
+  draws <- .np_plot_gaussian_draws(draws, alpha[[1L]], g)
+  if (length(alpha) > 1L)
+    for (a in alpha[-1L]) .np_plot_gaussian_draws(draws, a, g)
   if (g > 512L || 64 * as.double(g)^2 + 24 * draws + 64 * g > max.bytes)
     .np_plot_joint_unavailable("finite-grid Gaussian covariance exceeds the plot memory/grid budget",
          call. = FALSE)
@@ -151,7 +199,7 @@
   metadata <- list(method = "asymptotic Gaussian", scope = "finite grid within panel",
                    draws = draws, critical = 0, grid.size = g,
                    positive.variance = length(active), rank = 0L)
-  if (!length(active)) return(metadata)
+  if (!length(active)) return(list(metadata = metadata, maxima = NULL, rank = 0L))
   s <- sqrt(variance[active])
   correlation <- covariance[active, active, drop = FALSE] / outer(s, s)
   correlation <- (correlation + t(correlation)) / 2
@@ -174,13 +222,88 @@
     normal <- matrix(rnorm(length(active) * (last - start + 1L)),
                      nrow = length(active))
     simulated <- root %*% normal
-    maxima[start:last] <- apply(abs(simulated), 2L, max)
+    maxima[start:last] <- if (reduction == "absolute") {
+      apply(abs(simulated), 2L, max)
+    } else {
+      negative <- apply(-simulated, 2L, max)
+      if (length(zero)) pmax(0, negative) else negative
+    }
     progress <- .np_plot_progress_tick(progress, last)
   }
-  metadata$critical.raw <- unname(quantile(maxima, 1 - alpha, type = 1L))
-  metadata$critical <- .np_plot_gaussian_critical(metadata$critical.raw, alpha, g)
-  metadata$rank <- sum(values > tolerance)
-  metadata
+  list(metadata = metadata, maxima = maxima, rank = sum(values > tolerance))
+}
+
+# Captured adjoints belong to one complete request, including its native
+# constant-weight decisions. Only the observation rows are tiled below.
+.np_plot_regression_capture_supported <- function(bws) {
+  identical(bws[["type", exact=TRUE]], "fixed") &&
+    identical(bws[["ckertype", exact=TRUE]], "gaussian") &&
+    isTRUE(bws[["ckerorder", exact=TRUE]] == 2L) &&
+    identical(bws[["ckerbound", exact=TRUE]], "none") &&
+    isTRUE(bws[["ncon", exact=TRUE]] > 0L)
+}
+
+# Calls retain historical formula/evaluation environments. MPI transport may
+# remove that provenance, while the complete computational bandwidth state and
+# retained training/evaluation data remain identical. Never evaluate a call to
+# validate a compact fitted operator, or omit any other bandwidth field.
+.np_plot_regression_capture_same_bws <- function(left, right) {
+  if (!is.list(left) || !is.list(right)) return(FALSE)
+  left[["call"]] <- NULL
+  right[["call"]] <- NULL
+  identical(left, right)
+}
+
+.np_plot_regression_capture_operator <- function(fit,bws,x,y,ex,deriv,
+                                                 categorical.index,max.bytes) {
+  request <- fit[["fit.request", exact=TRUE]]
+  if (!.np_plot_regression_capture_supported(bws) ||
+      !is.null(categorical.index) || !is.list(request) ||
+      !.np_plot_regression_capture_same_bws(request$bws,bws) || !identical(request$xdat,x) ||
+      !identical(request$ydat,y) || !identical(request$exdat,ex))
+    stop("regression inference capture does not match its fit request",call.=FALSE)
+  state <- fit[["fit.inference", exact=TRUE]]
+  projection <- fit[["fit.projection", exact=TRUE]]
+  spec <- npValidatedConditionalRegSpec(bws,where="regression inference capture",
+                                        ncon.field="ncon")
+  scalar <- npIsCanonicalLp0Spec(spec,bws$ncon)
+  width <- if (scalar) 1L else npLpBasisNcol(spec$basis.engine,spec$degree.engine)
+  n <- nrow(x); m <- nrow(ex); d <- bws$ncon
+  if (!is.list(state) || length(state)!=4L || !is.list(projection) ||
+      length(projection)!=3L ||
+      !identical(dim(projection[[1L]]),c(n,as.integer(width))) ||
+      !identical(dim(projection[[2L]]),c(m,as.integer(width))) ||
+      !identical(dim(state[[1L]]),c(m,as.integer(width*d))) ||
+      length(state[[2L]])!=n || length(state[[3L]])!=m ||
+      !identical(dim(state[[4L]]),c(3L,ncol(x))))
+    stop("invalid compact regression inference state",call.=FALSE)
+  direction <- NULL
+  if (!is.null(deriv)) {
+    order <- rep_len(request$gradient.order,d)
+    if (!isTRUE(request$gradients) || length(deriv)!=d || anyNA(deriv) ||
+        any(deriv<0L) || sum(deriv>0L)!=1L)
+      stop("derivative is absent from the regression inference capture",call.=FALSE)
+    direction <- which(deriv>0L)
+    if (deriv[direction]!=order[direction])
+      stop("derivative order differs from the regression inference capture",call.=FALSE)
+  }
+  geometry <- .np_plot_lsq_gate_geometry(bws,x,ex,max.bytes=max.bytes)
+  attr(geometry,".np.fit.gate") <- state[[4L]]
+  operator <- function(evaluation, derivative=NULL, index=NULL) {
+    index <- .np_plot_lsq_gate_indices(index,m)
+    if (!identical(derivative,deriv) ||
+        !identical(evaluation,ex[index,,drop=FALSE]))
+      stop("regression inference tile differs from its complete request",call.=FALSE)
+    if (!is.null(direction) && scalar)
+      return(.np_plot_lsq_gate_derivative(bws,x,ex,s=as.integer(deriv),
+        max.bytes=max.bytes,.np.gate=state[[4L]],.np.index=index))
+    adjoint <- if (is.null(direction))  .np_plot_projection_slice(projection[[2L]],index) else
+      .np_plot_projection_slice(state[[1L]],index,(direction-1L)*width+seq_len(width))
+    attr(adjoint,".np.fit.accepted") <- TRUE
+    weights <- .np_plot_lsq_gate_weights(bws,geometry,index,max.bytes=max.bytes)
+    .Call("C_np_plot_projection_apply",projection[[1L]],adjoint,weights,PACKAGE="np")
+  }
+  list(operator=operator,residual=state[[2L]])
 }
 
 .np_plot_regression_joint_covariance <- function(bws, xdat, ydat, exdat,
@@ -188,7 +311,7 @@
                                                 categorical.index = NULL,
                                                 factor = FALSE,
                                                 block.bytes = 4 * 1024^2,
-                                                max.bytes = 64 * 1024^2) {
+                                                max.bytes = 64 * 1024^2, fit = NULL) {
   n <- nrow(xdat)
   g <- nrow(exdat)
   ydat <- .np_hat_response(ydat, bws[["ydati", exact = TRUE]])
@@ -216,11 +339,15 @@
   if ((!factor && g > 512L) || rows < 1)
     .np_plot_joint_unavailable("joint covariance exceeds the plot memory/grid budget")
   rows <- min(rows, n, g)
-  operator <- function(evaluation, derivative = NULL) {
+  operator <- function(evaluation, derivative = NULL, index = NULL) {
     npreghat(bws = bws, txdat = xdat, exdat = evaluation, deriv = derivative,
              output = "matrix", .np.require.finite = TRUE)
   }
-  z <- residual
+  captured <- if (!is.null(fit[["fit.inference", exact=TRUE]]))
+    .np_plot_regression_capture_operator(fit,bws,xdat,ydat,exdat,deriv,
+      categorical.index,max.bytes) else NULL
+  z <- if (is.null(captured)) residual else captured$residual
+  if (!is.null(captured)) operator <- captured$operator
   if (is.null(z) && bws[["type", exact = TRUE]] %in% c("generalized_nn", "adaptive_nn"))
     z <- .np_plot_response_residuals(bws, xdat, ydat, rows)$residual
   if (is.null(z)) {
@@ -263,7 +390,7 @@
     if (!is.null(deriv))
       stop("joint covariance cannot combine continuous and categorical derivatives",
            call. = FALSE)
-    evaluation.operator <- function(evaluation, derivative = NULL) {
+    evaluation.operator <- function(evaluation, derivative = NULL, index = NULL) {
       frames <- npCategoricalFirstDifferenceFrames(evaluation, categorical.index,
                                                    "plot joint covariance")
       operator(frames$upper) - operator(frames$lower)
@@ -275,7 +402,7 @@
   starts <- seq.int(1L, g, by = rows)
   for (a in seq_along(starts)) {
     ia <- seq.int(starts[a], min(g, starts[a] + rows - 1L))
-    hat <- evaluation.operator(exdat[ia, , drop = FALSE], deriv)
+    hat <- evaluation.operator(exdat[ia, , drop = FALSE], deriv, ia)
     if (!is.null(estimate)) estimate[ia] <- drop(hat %*% ydat)
     left <- sweep(hat, 2L, z, "*")
     if (factor) {
@@ -285,7 +412,7 @@
     for (b in seq_len(a)) {
       ib <- seq.int(starts[b], min(g, starts[b] + rows - 1L))
       right <- if (a == b) left else
-        sweep(evaluation.operator(exdat[ib, , drop = FALSE], deriv), 2L, z, "*")
+        sweep(evaluation.operator(exdat[ib, , drop = FALSE], deriv, ib), 2L, z, "*")
       cell <- tcrossprod(left, right)
       covariance[ia, ib] <- cell
       covariance[ib, ia] <- t(cell)
@@ -534,7 +661,7 @@
       kw <- do.call(npksum, args)$kw
     }
     .Call("C_np_plot_projection_apply", ingredients[[1L]],
-      ingredients[[2L]][index, , drop = FALSE], kw, PACKAGE = "np")
+      .np_plot_projection_slice(ingredients[[2L]],index), kw, PACKAGE = "np")
   }
 }
 

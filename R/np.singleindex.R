@@ -69,6 +69,9 @@ npindex <-
 npindex.formula <-
     function(bws, data = NULL, newdata = NULL, y.eval = NULL,
              se = TRUE, ..., se.type = c("asymptotic", "bootstrap")){
+    if (!inherits(bws, "formula"))
+      .np_reject_fit_subset(substitute(list(...))[-1L])
+
 
         if (!is.null(y.eval)) y.eval <- npValidateScalarLogical(y.eval, "y.eval")
         raw.formula <- inherits(bws, "formula")
@@ -161,9 +164,9 @@ npindex.formula <-
             out <- dots$.np_index_explicit_bws
             dots$.np_index_explicit_bws <- NULL
             out
-        } else if (!is.null(dots$bws)) {
-            out <- dots$bws
-            dots$bws <- NULL
+        } else if (!is.null(dots[["bws", exact = TRUE]])) {
+            out <- dots[["bws", exact = TRUE]]
+            dots[["bws"]] <- NULL
             out
         } else {
             bws
@@ -185,6 +188,11 @@ npindex.formula <-
         # formula again through the explicit-native formula reentry interface.
         if (!inherits(si.bws, "formula"))
           si.args$bws <- si.bws
+        # The raw formula owner has already applied the training NA policy
+        # and retained the evaluation policy above. Native constructors must
+        # not receive this consumed formula-only argument a second time.
+        if (raw.formula)
+          dots$na.action <- NULL
         ev <- do.call(npindex, c(si.args, list(se = se, se.type = se.type), dots))
         ev$call <- mc
         environment(ev$call) <- .np_call_owner_environment(
@@ -231,6 +239,8 @@ npindex.formula <-
 
 npindex.call <-
   function(bws, ...) {
+    .np_reject_fit_subset(substitute(list(...))[-1L])
+
   .np_reject_native_data(substitute(list(...))[-1L])
 
     do.call(npindex, .np_retained_training_args(
@@ -505,6 +515,8 @@ npindex.sibandwidth <-
            gradients = FALSE,
            residuals = FALSE, ..., se.type = c("asymptotic", "bootstrap"),
            y.eval = NULL) {
+    .np_reject_fit_subset(substitute(list(...))[-1L])
+
   .np_reject_native_data(substitute(list(...))[-1L])
 
 
@@ -572,6 +584,8 @@ npindex.sibandwidth <-
       .npindex_check_binary_response(tydat, "npindex() 'tydat'")
       if (!no.ey)
         .npindex_check_binary_response(eydat, "npindex() 'eydat'")
+    } else {
+      .np_require_numeric_response(tydat, "npindex", "tydat")
     }
 
     tydat <- if (is.factor(tydat)) {

@@ -27,6 +27,8 @@ npplreg <-
 
 npplreg.formula <-
   function(bws, data = NULL, newdata = NULL, y.eval = FALSE, ..., se = FALSE){
+    .np_reject_fit_subset(substitute(list(...))[-1L])
+
     se <- npValidateScalarLogical(se, "se")
     dots <- list(...)
     frame.state <- dots[[".np.formula.state", exact = TRUE]]
@@ -89,6 +91,8 @@ npplreg.formula <-
 
 npplreg.call <-
   function(bws, ...) {
+    .np_reject_fit_subset(substitute(list(...))[-1L])
+
   .np_reject_native_data(substitute(list(...))[-1L])
 
     do.call(npplreg, .np_retained_training_args(
@@ -496,6 +500,8 @@ npplreg.plbandwidth <-
            tydat = stop("training data tydat missing"),
            tzdat = stop("training data tzdat missing"),
            exdat, eydat, ezdat, residuals = FALSE, ..., se = FALSE){
+    .np_reject_fit_subset(substitute(list(...))[-1L])
+
   .np_reject_native_data(substitute(list(...))[-1L])
 
 
@@ -507,6 +513,9 @@ npplreg.plbandwidth <-
 
     txdat = toFrame(txdat)
     tzdat = toFrame(tzdat)
+    .np_require_numeric_response(tydat, "npplreg", "tydat")
+    if (!missing(eydat))
+      .np_require_numeric_response(eydat, "npplreg", "eydat")
     .np_require_paired_rows(txdat, tydat, "txdat", "tydat")
     .np_require_paired_rows(txdat, tzdat, "txdat", "tzdat")
     bws <- .np_bws_retain_native_training(bws, xdat = txdat, ydat = tydat, zdat = tzdat)
@@ -594,7 +603,7 @@ npplreg.plbandwidth <-
       if (!is.null(zeval))
         args$exdat <- zeval
       args$.np.defer.empty.rows <- TRUE
-      fit <- do.call(npreg, args)
+      fit <- do.call(.npreg_auxiliary, args)
       empty.state$rows <- .npreg_merge_empty_rows(
         empty.state$rows, attr(fit, ".np.empty.rows", exact = TRUE))
       as.vector(fitted(fit))

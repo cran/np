@@ -1,6 +1,6 @@
 Package: np
-Version: 0.80-1
-Date: 2026-10-17
+Version: 0.80-2
+Date: 2026-11-11
 Depends: R (>= 3.5.0)
 Imports: compiler, boot, methods, quadprog, quantreg, stats, crs (>=
         0.15-46)
@@ -17,11 +17,12 @@ Maintainer: Jeffrey S. Racine <racinej@mcmaster.ca>
 Description: Nonparametric (and semiparametric) kernel methods that seamlessly handle a mix of continuous, unordered, and ordered factor data types. We would like to gratefully acknowledge support from the Natural Sciences and Engineering Research Council of Canada (NSERC, <https://www.nserc-crsng.gc.ca/>), the Social Sciences and Humanities Research Council of Canada (SSHRC, <https://sshrc-crsh.canada.ca/en.aspx>), and the Shared Hierarchical Academic Research Computing Network (SHARCNET, <https://sharcnet.ca/>). We would also like to acknowledge the contributions of the GNU GSL authors. In particular, we adapt the GNU GSL B-spline routine gsl_bspline.c adding automated support for quantile knots (in addition to uniform knots), providing missing functionality for derivatives, and for extending the splines beyond their endpoints.
 License: GPL
 Encoding: UTF-8
-URL: https://github.com/JeffreyRacine/R-Package-np
+URL: https://github.com/JeffreyRacine/R-Package-np,
+        https://jeffreyracine.github.io/gallery/
 BugReports: https://github.com/JeffreyRacine/R-Package-np/issues
 Repository: CRAN
 NeedsCompilation: yes
-Packaged: 2026-10-18 04:36:43 UTC; jracine
+Packaged: 2026-11-12 17:02:36 UTC; jracine
 Author: Jeffrey S. Racine [aut, cre],
   Tristen Hayfield [aut]
-Date/Publication: 2026-10-26 14:20:02 UTC
+Date/Publication: 2026-11-13 13:20:15 UTC

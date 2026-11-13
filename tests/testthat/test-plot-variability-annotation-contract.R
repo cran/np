@@ -1,5 +1,30 @@
 .plot_annotation_package <- if (isNamespaceLoaded("npRmpi")) "npRmpi" else "np"
 
+test_that("corrected Gaussian subtitles fit ordinary devices without geometry changes", {
+  draw <- getFromNamespace(".np_plot_draw_variability_annotation", .plot_annotation_package)
+  spec <- getFromNamespace(".np_plot_variability_annotation_spec", .plot_annotation_package)
+  descriptor <- getFromNamespace(".np_plot_variability_descriptor", .plot_annotation_package)
+  path <- tempfile(fileext = ".pdf")
+  grDevices::pdf(path, width = 7, height = 5)
+  on.exit({grDevices::dev.off(); unlink(path)}, add = TRUE)
+  for (band in c("pointwise", "bonferroni", "simultaneous", "all")) {
+    graphics::plot(1:5, xlab = "age", ylab = "estimate")
+    before <- graphics::par(c("mar", "oma", "fig", "fin", "pin", "plt", "usr", "cex.sub"))
+    annotation <- spec("asymptotic", band, .05, "bias-corrected", FALSE,
+                       list(xlab = "age"), construction = "iterated")
+    expect_true(draw(annotation), info = band)
+    expect_identical(graphics::par(names(before)), before)
+    labels <- descriptor("asymptotic", band, .05, "bias-corrected",
+                         construction = "iterated")$candidates
+    expect_true(all(grepl("Gaussian", labels, fixed = TRUE)))
+    expect_true(all(grepl("bias-corrected", labels, fixed = TRUE)))
+    if (band == "simultaneous")
+      expect_true(all(grepl("grid", labels, fixed = TRUE)))
+    expect_null(spec("asymptotic", band, .05, "bias-corrected", TRUE,
+                     list(sub = "user title"), construction = "iterated"))
+  }
+})
+
 test_that("variability descriptors distinguish bootstrap and asymptotic constructions", {
   descriptor <- getFromNamespace(".np_plot_variability_descriptor",
                                  .plot_annotation_package)
@@ -306,4 +331,21 @@ test_that("multi-quantile annotations consume one finite draw and state their sc
       expect_identical(env$count, if (finite) 1L else 0L)
     }
   }
+})
+
+
+test_that("smoothed-percentile annotations describe curves without a center claim", {
+  descriptor <- getFromNamespace(".np_plot_variability_descriptor", .plot_annotation_package)
+  labels <- getFromNamespace(".np_plot_all_band_legend_labels", .plot_annotation_package)
+  for (band in c("pointwise", "simultaneous", "bonferroni", "all")) {
+    for (shared in c(FALSE, TRUE)) {
+      text <- descriptor("bootstrap", band, 0.05, "bias-corrected",
+                         shared = shared, construction = "smoothed-percentile")$candidates
+      expect_true(all(grepl("smoothed-percentile", text, fixed = TRUE)))
+      expect_true(all(grepl("corrected.*curves", text)))
+      expect_false(any(grepl("maximum|bias-corrected center", text)))
+    }
+  }
+  expect_match(labels("bootstrap", "smoothed-percentile")[["simultaneous"]],
+               "calibrated percentile ranks", fixed = TRUE)
 })

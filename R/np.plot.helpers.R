@@ -2,32 +2,10 @@
 ## you just need to supply training data and the bandwidth
 ## this tool will help you visualize the result
 
-.np_seed_enter <- function(random.seed = 42L) {
-  save.seed <- NULL
-  if (exists(".Random.seed", envir = .GlobalEnv, inherits = FALSE)) {
-    save.seed <- get(".Random.seed", envir = .GlobalEnv, inherits = FALSE)
-    exists.seed <- TRUE
-  } else {
-    exists.seed <- FALSE
-  }
-
-  set.seed(random.seed)
-  list(exists.seed = exists.seed, save.seed = save.seed)
-}
-
-.np_seed_exit <- function(state, remove_if_absent = FALSE) {
-  if (isTRUE(state$exists.seed)) {
-    assign(".Random.seed", state$save.seed, envir = .GlobalEnv)
-  } else if (isTRUE(remove_if_absent) &&
-             exists(".Random.seed", envir = .GlobalEnv, inherits = FALSE)) {
-    rm(".Random.seed", envir = .GlobalEnv)
-  }
-  invisible(NULL)
-}
-
 .np_with_seed <- function(random.seed = 42L, code) {
-  seed.state <- .np_seed_enter(random.seed)
-  on.exit(.np_seed_exit(seed.state, remove_if_absent = TRUE), add = TRUE)
+  seed.state <- .np_rng_scope_capture()
+  on.exit(.np_rng_scope_restore(seed.state), add = TRUE)
+  .np_rng_scope_seed(seed.state, random.seed)
   force(code)
 }
 
@@ -139,7 +117,8 @@
 .np_plot_progress_runtime <- new.env(parent = emptyenv())
 .np_plot_progress_runtime$context <- NULL
 
-.np_plot_progress_run <- function(expr, enabled = FALSE) {
+.np_plot_progress_run <- function(expr, enabled = FALSE,
+                                  label = "Plot bootstrap") {
   if (!isTRUE(enabled) || !.np_plot_progress_enabled())
     return(force(expr))
   previous <- .np_plot_progress_runtime$context
@@ -158,7 +137,8 @@
   context$rep <- NULL
   context$stage <- "preparing"
   context$finished <- FALSE
-  context$state <- .np_progress_begin("Plot bootstrap", domain = "plot",
+  context$phase <- NULL
+  context$state <- .np_progress_begin(label, domain = "plot",
                                        surface = "plot_bounded")
   if (!isTRUE(context$state$visible))
     return(force(expr))
@@ -170,10 +150,18 @@
       if (work >= context$total) "finishing" else
       paste0(.np_progress_fmt_num(elapsed *
         max(0, context$total - work) / work), "s")
+    eta.label <- "eta"
+    if (!context$finished && !is.null(context$phase)) {
+      phase <- context$phase
+      eta.label <- if (is.null(phase$eta.label)) "outer eta" else phase$eta.label
+      eta <- if (phase$done <= 0) "estimating" else if (phase$done >= phase$total)
+        "finishing" else paste0(.np_progress_fmt_num(
+          max(0, now - phase$started) * (phase$total - phase$done) / phase$done), "s")
+    }
     fields <- c(if (is.null(context$total)) "targets pending" else
         sprintf("target %d/%d", context$target, context$total),
       context$rep, paste0("elapsed ", .np_progress_fmt_num(elapsed), "s"),
-      paste("eta", eta))
+      paste(eta.label, eta))
     # Width fitting belongs to the shared renderer, not the work coordinator.
     stage <- sub("^Plot bootstrap[ :]*", "", context$stage)
     c(fields, paste("detail", stage))
@@ -184,7 +172,7 @@
     .np_progress_runtime$fit_forward <- old.forward
     .np_plot_progress_runtime$context <- previous
     if (complete) .np_progress_end(context$state) else
-      .np_progress_abort(context$state)
+      .np_progress_abort(context$state, detail = paste(label, "interrupted"))
   }, add = TRUE)
   .np_plot_progress_runtime$context <- context
   .np_progress_runtime$fit_forward <- function() .np_plot_progress_notify()
@@ -234,6 +222,16 @@
   if (is.null(context))
     return(invisible(NULL))
   if (!is.null(stage)) context$stage <- stage
+  if (!is.null(context$phase)) {
+    # Inner draws/fit activity cannot replace completed outer work. Repeated
+    # collector notifications credit no additional samples.
+    if (identical(unit, context$phase$unit) && !is.null(done) &&
+        !is.null(total) && identical(as.integer(total), context$phase$total))
+      context$phase$done <- max(context$phase$done, min(total, max(0, done)))
+    context$rep <- sprintf("%s %d/%d", context$phase$unit,
+                           context$phase$done, context$phase$total)
+    return(invisible(NULL))
+  }
   if (!is.null(done) && !is.null(total) && total > 0) {
     context$rep <- sprintf("%s %d/%d", unit, done, total)
     # A bias bootstrap can reset the local counter within the same target.
@@ -242,6 +240,25 @@
       context$fraction <- max(context$fraction, done / total)
   }
   invisible(NULL)
+}
+
+# One nested work phase in the existing display owner, with its own rate
+# origin but the unchanged whole-call elapsed clock. No statistical state.
+.np_plot_progress_outer_run <- function(expr, total = 39L) {
+  context <- .np_plot_progress_runtime$context
+  if (is.null(context)) return(force(expr))
+  previous <- context$phase
+  on.exit({
+    context$phase <- previous
+    context$rep <- NULL
+    context$fraction <- 0
+    context$stage <- "constructing intervals"
+  }, add = TRUE)
+  context$phase <- list(started = .np_progress_now(), done = 0L,
+                        total = as.integer(total), unit = "samples")
+  .np_plot_progress_notify(stage = "calibrating outer samples", done = 0L,
+                           total = total, unit = "samples")
+  force(expr)
 }
 
 .np_plot_progress_notify <- function(stage = NULL, done = NULL, total = NULL,
@@ -409,6 +426,22 @@
   invisible(NULL)
 }
 
+# Corrected adapters bypass the ordinary bootstrap target scope. Supply a
+# display owner for standalone calls without changing their local work clocks.
+.np_plot_corrected_activity_run <- function(label, expr) {
+  run <- function() {
+    target <- .np_plot_progress_target_begin()
+    on.exit(.np_plot_progress_target_end(target), add = TRUE)
+    .np_plot_activity_run(label, expr)
+  }
+  if (is.null(.np_plot_progress_runtime$context))
+    return(.np_plot_progress_run({
+      .np_plot_progress_plan(1L)
+      run()
+    }, enabled = TRUE, label = "Plot inference"))
+  run()
+}
+
 .np_plot_activity_run <- function(label, expr) {
   activity <- .np_plot_activity_begin(label)
   on.exit(.np_plot_activity_end(activity), add = TRUE)
@@ -445,14 +478,36 @@
   if (is.na(total_frames) || total_frames < 2L)
     return(NULL)
 
-  .np_plot_progress_begin(total = total_frames, label = label)
+  state <- .np_plot_progress_begin(total = total_frames, label = label)
+  if (is.null(state)) return(NULL)
+  context <- state$plot_context
+  if (!is.null(context)) {
+    # Frame work has its own rate. Completed inference targets cannot provide
+    # an ETA for a renderer that has only just started.
+    state$rotation.previous <- list(phase = context$phase, stage = context$stage,
+      rep = context$rep, fraction = context$fraction)
+    state$rotation.label <- label
+    state$plot_unit <- "frames"
+    context$phase <- list(started = state$started, done = 0L,
+      total = total_frames, unit = "frames", eta.label = "frame eta")
+    .np_plot_progress_notify(stage = label, done = 0L, total = total_frames,
+                             unit = "frames", force = TRUE)
+  }
+  state
 }
 
 .np_plot_rotation_progress_tick <- function(state, done) {
+  if (!is.null(state$rotation.label))
+    .np_plot_progress_record(stage = state$rotation.label)
   .np_plot_progress_tick(state = state, done = done)
 }
 
 .np_plot_rotation_progress_end <- function(state) {
+  if (!is.null(state$rotation.previous)) {
+    context <- state$plot_context
+    for (name in names(state$rotation.previous))
+      context[[name]] <- state$rotation.previous[[name]]
+  }
   .np_plot_progress_end(state)
 }
 
@@ -533,7 +588,8 @@
                                             plot.errors.center = "estimate",
                                             continuous = TRUE,
                                             shared = FALSE,
-                                            per.quantile = FALSE) {
+                                            per.quantile = FALSE,
+                                            construction = NULL) {
   method <- match.arg(as.character(plot.errors.method)[1L],
                       c("bootstrap", "asymptotic"))
   band <- match.arg(as.character(plot.errors.type)[1L],
@@ -582,7 +638,8 @@
     ),
     "asymptotic:simultaneous" = c(
       sprintf("%s asymptotic Gaussian simultaneous variability band; finite grid within panel", level),
-      sprintf("%s Gaussian simultaneous band; finite grid within panel", level)
+      sprintf("%s Gaussian simultaneous band; finite grid within panel", level),
+      sprintf("%s Gaussian simultaneous band; panel grid", level)
     ),
     "asymptotic:all" = c(
       sprintf("%s asymptotic variability bands", level),
@@ -590,18 +647,61 @@
     )
   )
 
+  if (identical(construction, "iterated") && identical(method, "asymptotic") &&
+      !identical(band, "pmzsd")) {
+    candidates <- switch(band,
+      pointwise=c(
+        sprintf("%s pointwise Gaussian studentized band (quantiles)", level),
+        sprintf("%s pointwise Gaussian t band (quantiles)", level),
+        sprintf("%s pointwise Gaussian t band", level)),
+      bonferroni=c(
+        sprintf("%s Bonferroni Gaussian studentized band (quantile envelope)", level),
+        sprintf("%s Bonferroni Gaussian t band (quantile envelope)", level),
+        sprintf("%s Bonferroni Gaussian t band", level)),
+      simultaneous=c(
+        sprintf("%s Gaussian studentized maximum band; finite grid within panel", level),
+        sprintf("%s Gaussian max-t band; finite grid within panel", level),
+        sprintf("%s Gaussian max-t band; panel grid", level)),
+      all=sprintf("%s Gaussian studentized bands", level))
+  }
+
+  smoothed.percentile <- identical(method, "bootstrap") &&
+    identical(construction, "smoothed-percentile")
+  if (smoothed.percentile) {
+    candidates <- switch(band,
+      pointwise = sprintf("%s pointwise smoothed-percentile band", level),
+      simultaneous = sprintf("%s simultaneous calibrated smoothed-percentile band", level),
+      bonferroni = sprintf("%s Bonferroni smoothed-percentile band (companion envelope)", level),
+      all = sprintf("%s smoothed-percentile bands (calibrated simultaneous)", level))
+    compact <- switch(band,
+      pointwise = sprintf("%s pointwise smoothed-percentile; corrected curves", level),
+      simultaneous = sprintf("%s simultaneous smoothed-percentile; corrected curves", level),
+      bonferroni = sprintf("%s Bonferroni smoothed-percentile envelope; corrected curves", level),
+      all = sprintf("%s smoothed-percentile bands; corrected curves", level))
+    candidates <- c(paste0(candidates, "; bias-corrected bootstrap curves"), compact)
+  }
+
   if (isTRUE(shared)) {
     candidates <- gsub("\\bbands?\\b", "intervals", candidates)
-    if (identical(key, "bootstrap:simultaneous")) {
+    if (identical(key, "bootstrap:simultaneous") && !smoothed.percentile) {
       candidates <- c(
         sprintf("%s bootstrap variability intervals; simultaneous within each panel (rank-based)", level),
         sprintf("%s bootstrap intervals; simultaneous within each panel (rank-based)", level)
       )
-    } else if (band %in% c("bonferroni", "all")) {
+    } else if (band %in% c("bonferroni", "all") ||
+               (smoothed.percentile && identical(band, "simultaneous"))) {
       candidates <- paste0(candidates, "; within each panel")
     }
   } else if (!isTRUE(continuous)) {
     candidates <- gsub("\\bband(s?)\\b", "interval\\1", candidates)
+  }
+
+  if (identical(construction, "iterated") || identical(construction, "positive-covariance")) {
+    candidates <- gsub("rank-based", "maximum-based", candidates, fixed=TRUE)
+    candidates <- gsub("bootstrap rank band", "bootstrap maximum band", candidates, fixed=TRUE)
+    candidates <- gsub("bootstrap SD", "corrected SE", candidates, fixed=TRUE)
+    candidates <- gsub("asymptotic SE", "corrected SE", candidates, fixed=TRUE)
+    candidates <- gsub("bootstrap z \u00d7 SD", "bootstrap z \u00d7 SE", candidates, fixed=TRUE)
   }
 
   if (isTRUE(per.quantile) && band %in% c("simultaneous", "bonferroni", "all")) {
@@ -611,7 +711,9 @@
     candidates <- paste0(candidates, "; within each quantile curve")
   }
 
-  if (identical(method, "bootstrap") && identical(center, "bias-corrected")) {
+  if (!smoothed.percentile &&
+      (identical(method, "bootstrap") || identical(construction, "iterated")) &&
+      identical(center, "bias-corrected")) {
     suffix <- if (length(candidates) >= 3L) {
       c(rep.int("; bias-corrected center", length(candidates) - 1L),
         "; bias-corrected")
@@ -621,6 +723,20 @@
     candidates <- paste0(candidates, suffix)
   }
 
+  if (identical(construction, "guide-region")) {
+    # These providers combine a guide region and a residual envelope. Their
+    # simultaneous family includes every supplied slice, not one panel at a time.
+    scope <- if (identical(band, "simultaneous")) "; supplied finite family" else ""
+    candidates <- c(
+      sprintf("%s %s guide-region + residual envelope%s", level, band, scope),
+      sprintf("%s %s guide + residual envelope%s", level, band, scope))
+  }
+
+  if (identical(construction,"conditional-pilot")) {
+    candidates <- c(sprintf("%s %s conditional-pilot band; corrected center with score safeguard%s", level, band,
+      if(band %in% c("simultaneous","all")) "; finite grid within panel" else ""),
+      sprintf("%s %s conditional-pilot; corrected center, score safeguard",level,band))
+  }
   list(
     method = method,
     band = band,
@@ -641,12 +757,13 @@
                                                  context = NULL,
                                                  continuous = TRUE,
                                                  fixed = TRUE,
-                                                 per.quantile = FALSE) {
+                                                 per.quantile = FALSE,
+                                                 construction = NULL) {
   if (!isTRUE(eligible) || isTRUE(sub.supplied) ||
       !isTRUE(fixed) ||
       identical(as.character(plot.errors.method)[1L], "none"))
     return(NULL)
-  list(
+  result <- list(
     plot.errors.method = as.character(plot.errors.method)[1L],
     plot.errors.type = as.character(plot.errors.type)[1L],
     plot.errors.alpha = as.double(plot.errors.alpha)[1L],
@@ -656,6 +773,8 @@
     continuous = continuous,
     per.quantile = per.quantile
   )
+  if (!is.null(construction)) result$construction <- construction
+  result
 }
 
 .np_plot_variability_label_select <- function(candidates,
@@ -738,7 +857,8 @@
     plot.errors.center = spec$plot.errors.center,
     continuous = spec$continuous,
     shared = shared,
-    per.quantile = spec$per.quantile
+    per.quantile = spec$per.quantile,
+    construction = spec[["construction"]]
   )
   if (!length(descriptor$candidates))
     return(invisible(FALSE))
@@ -854,13 +974,9 @@
                                        upper,
                                        lower.all,
                                        upper.all) {
-  lower.values <- c(unlist(lower.all, use.names = FALSE), lower)
-  upper.values <- c(unlist(upper.all, use.names = FALSE), upper)
-  lower.values <- lower.values[is.finite(lower.values)]
-  upper.values <- upper.values[is.finite(upper.values)]
-  if (length(lower.values) && length(upper.values))
-    return(c(min(lower.values), max(upper.values)))
-  .np_plot_finite_range(center)
+  .np_plot_finite_range(c(center, lower, upper,
+    unlist(lower.all, use.names = FALSE),
+    unlist(upper.all, use.names = FALSE)))
 }
 
 .np_plot_interval_payload <- function(estimate,
@@ -1318,7 +1434,7 @@
   invisible(NULL)
 }
 
-.np_plot_normalize_wild <- function(wild = c("rademacher", "mammen")) {
+.np_plot_normalize_wild <- function(wild = c("mammen", "rademacher")) {
   if (length(wild) > 1L)
     wild <- wild[1L]
   match.arg(wild, c("mammen", "rademacher"))
@@ -3083,7 +3199,7 @@
                                             bws,
                                             ydat,
                                             B,
-                                            wild = c("rademacher", "mammen"),
+                                            wild = c("mammen", "rademacher"),
                                             fit.mean.train = NULL,
                                             gradients = FALSE,
                                             gradient.order = 1L,
@@ -3175,7 +3291,7 @@
                                             bws,
                                             ydat,
                                             B,
-                                            wild = c("rademacher", "mammen"),
+                                            wild = c("mammen", "rademacher"),
                                             fit.mean.train = NULL,
                                             gradients = FALSE,
                                             gradient.order = 1L,
@@ -3269,7 +3385,7 @@
 
   if (isTRUE(xi.factor)) {
     stop(
-      "boot.control = np_boot_control(nonfixed = \"frozen\") currently supports nonfixed regression means and continuous gradients only; use nonfixed = \"exact\" for categorical slices",
+      "boot_control = np_boot_control(nonfixed = \"frozen\") currently supports nonfixed regression means and continuous gradients only; use nonfixed = \"exact\" for categorical slices",
       call. = FALSE
     )
   }
@@ -3277,7 +3393,7 @@
   if (identical(regtype, "lc")) {
     if (isTRUE(gradients)) {
       stop(
-        "boot.control = np_boot_control(nonfixed = \"frozen\") currently supports nonfixed local-constant regression means only; use nonfixed = \"exact\" for local-constant gradients",
+        "boot_control = np_boot_control(nonfixed = \"frozen\") currently supports nonfixed local-constant regression means only; use nonfixed = \"exact\" for local-constant gradients",
         call. = FALSE
       )
     }
@@ -4325,7 +4441,7 @@
                                            ezdat,
                                            bws,
                                            B,
-                                           wild = c("rademacher", "mammen"),
+                                           wild = c("mammen", "rademacher"),
                                            leave.one.out = FALSE,
                                            progress.label = NULL,
                                            target = c("mean", "grad"),
@@ -7167,7 +7283,7 @@ draw.all.error.types <- function(ex, center, all.err,
                                  legend = TRUE,
                                  xi.factor = FALSE,
                                  plot.errors.method,
-                                 annotation = NULL){
+                                 annotation = NULL, construction = NULL){
   if (is.null(all.err)) return(invisible(NULL))
 
   if (xi.factor) {
@@ -7208,7 +7324,8 @@ draw.all.error.types <- function(ex, center, all.err,
       lty = .np_plot_lty("interval"),
       lwd = .np_plot_lwd("band_all_1d"),
       plot.errors.method = plot.errors.method,
-      drawn = drawn
+      drawn = drawn,
+      construction = construction
     )
   if (any(drawn))
     .np_plot_draw_variability_annotation(annotation)
@@ -7280,12 +7397,12 @@ plotFactor <- function(f, y, ...){
     return(FALSE)
   if (isTRUE(gradients)) {
     if (!isTRUE(plot.data.overlay.missing))
-      .np_warning("plot.data.overlay is available only for regression surfaces, not derivatives")
+      .np_warning("data_overlay is available only for regression surfaces, not derivatives")
     return(FALSE)
   }
   if (isTRUE(coef)) {
     if (!isTRUE(plot.data.overlay.missing))
-      .np_warning("plot.data.overlay is available only for regression surfaces, not coefficient plots")
+      .np_warning("data_overlay is available only for regression surfaces, not coefficient plots")
     return(FALSE)
   }
   TRUE
@@ -7403,7 +7520,7 @@ plotFactor <- function(f, y, ...){
                                           supported.route = FALSE,
                                           renderer = "base",
                                           reason = "supported plot routes for the selected renderer") {
-  plot.rug <- .np_plot_match_flag(plot.rug, "plot.rug")
+  plot.rug <- .np_plot_match_flag(plot.rug, "data_rug")
 
   if (!isTRUE(plot.rug))
     return(FALSE)
@@ -7441,6 +7558,11 @@ plotFactor <- function(f, y, ...){
   invisible(TRUE)
 }
 
+.np_plot_surface_coordinate <- function(x) {
+  # Surface grids use metric numeric labels, or ranks for nonnumeric levels.
+  if (is.factor(x)) dlev(x)[as.integer(x)] else x
+}
+
 .np_plot_draw_floor_rug_persp <- function(x1,
                                           x2,
                                           zlim,
@@ -7449,6 +7571,8 @@ plotFactor <- function(f, y, ...){
   if (is.null(x1) || is.null(x2) || is.null(zlim) || is.null(persp.mat))
     return(invisible(FALSE))
 
+  x1 <- .np_plot_surface_coordinate(x1)
+  x2 <- .np_plot_surface_coordinate(x2)
   ok <- is.finite(x1) & is.finite(x2)
   if (!any(ok))
     return(invisible(FALSE))
@@ -7489,6 +7613,8 @@ plotFactor <- function(f, y, ...){
   if (is.null(x1) || is.null(x2) || is.null(zlim))
     return(invisible(FALSE))
 
+  x1 <- .np_plot_surface_coordinate(x1)
+  x2 <- .np_plot_surface_coordinate(x2)
   ok <- is.finite(x1) & is.finite(x2)
   if (!any(ok))
     return(invisible(FALSE))
@@ -8238,9 +8364,27 @@ plotFactor <- function(f, y, ...){
   invisible(TRUE)
 }
 
-.np_plot_all_band_legend_labels <- function(plot.errors.method) {
+.np_plot_all_band_legend_labels <- function(plot.errors.method, construction = NULL) {
   method <- match.arg(as.character(plot.errors.method)[1L],
                       c("bootstrap", "asymptotic"))
+  if (identical(construction, "guide-region"))
+    return(c(pointwise = "Pointwise (guide + residual envelope)",
+      simultaneous = "Simultaneous (guide + residual envelope, finite family)",
+      bonferroni = "Bonferroni (guide + residual envelope)"))
+  if (identical(construction,"conditional-pilot"))
+    return(c(pointwise="Pointwise (score safeguard)",
+      simultaneous="Simultaneous (finite grid, score safeguard)",
+      bonferroni="Bonferroni (companion envelope)"))
+  if (identical(method, "bootstrap") && identical(construction, "smoothed-percentile")) {
+    return(c(pointwise = "Pointwise (percentiles)",
+      simultaneous = "Simultaneous (calibrated percentile ranks)",
+      bonferroni = "Bonferroni (percentile envelope)"))
+  }
+  if (identical(construction, "iterated") || identical(construction, "positive-covariance")) {
+    return(c(pointwise="Pointwise (quantiles)",
+      simultaneous="Simultaneous (maximum, finite grid)",
+      bonferroni="Bonferroni (quantile envelope)"))
+  }
   if (identical(method, "bootstrap")) {
     c(pointwise = "Pointwise (quantiles)",
       simultaneous = "Simultaneous (rank-based)",
@@ -8286,7 +8430,8 @@ plotFactor <- function(f, y, ...){
                                           plot.errors.method,
                                           drawn = NULL,
                                           lerr.all = NULL,
-                                          herr.all = NULL) {
+                                          herr.all = NULL,
+                                          construction = NULL) {
   band.cols <- .np_plot_all_band_colors()
   band.names <- c("pointwise", "simultaneous", "bonferroni")
   explicit.labels <- is.list(legend.value) && !is.null(legend.value$legend)
@@ -8300,7 +8445,7 @@ plotFactor <- function(f, y, ...){
   }
   if (!length(band.names))
     return(NULL)
-  labels <- .np_plot_all_band_legend_labels(plot.errors.method)
+  labels <- .np_plot_all_band_legend_labels(plot.errors.method, construction)
   .np_plot_legend_args(
     list(x = x,
          legend = unname(labels[band.names]),
@@ -8322,7 +8467,8 @@ plotFactor <- function(f, y, ...){
                                           plot.errors.method = NULL,
                                           drawn = NULL,
                                           lerr.all = NULL,
-                                          herr.all = NULL) {
+                                          herr.all = NULL,
+                                          construction = NULL) {
   if (is.null(plot.errors.method))
     plot.errors.method <- if (!is.null(lerr.all$simultaneous) ||
                               !is.null(herr.all$simultaneous)) {
@@ -8344,7 +8490,8 @@ plotFactor <- function(f, y, ...){
     plot.errors.method = plot.errors.method,
     drawn = drawn,
     lerr.all = lerr.all,
-    herr.all = herr.all
+    herr.all = herr.all,
+    construction = construction
   )
   if (!is.null(legend.args))
     do.call(graphics::legend, legend.args)
@@ -8701,6 +8848,7 @@ plotFactor <- function(f, y, ...){
     tmf <- .np_bws_formula_model_frame(bws, mf.args)
 
     ydat <- model.response(tmf)
+    .np_plot_require_response(ydat, bws, "plot.sibandwidth")
     xdat <- tmf[, .np_formula_term_names(attr(attr(tmf, "terms"), "term.labels")), drop = FALSE]
     return(list(xdat = xdat, ydat = ydat))
   }
@@ -8710,6 +8858,7 @@ plotFactor <- function(f, y, ...){
     ydat <- .np_eval_bws_call_arg(bws, "ydat")
   }
 
+  .np_plot_require_response(ydat, bws, "plot.sibandwidth")
   xdat <- toFrame(xdat)
   goodrows <- seq_len(nrow(xdat))
   rows.omit <- attr(na.omit(data.frame(xdat, ydat)), "na.action")
@@ -8731,7 +8880,8 @@ plotFactor <- function(f, y, ...){
                                      gradients = FALSE,
                                      gradient.order = 1L,
                                      need.asymptotic = FALSE,
-                                     .np.empty.report = NULL) {
+                                     .np.empty.report = NULL, need.joint = FALSE,
+                                     need.bias.capture = FALSE, bias.state = NULL, bias.target = "mean") {
   .np_plot_activity_run(
     label = if (isTRUE(need.asymptotic)) {
       "Computing regression plot asymptotic fit"
@@ -8739,7 +8889,25 @@ plotFactor <- function(f, y, ...){
       "Computing regression plot fit"
     },
     expr = {
+      if (!is.null(bias.state$mixed)) {
+         fit <- .np_bias_mixed_eval(bias.state,bws,xdat,ydat,exdat,gradients,gradient.order,bias.target)
+         return(.npreg_publish_plot_rows(fit,report=.np.empty.report,row.labels=row.names(exdat)))
+       }
+       if (isTRUE(need.bias.capture)) {
+        fit <- .np_regression_direct(bws,xdat,ydat,exdat,se=TRUE,
+          gradients=gradients,gradient.order=gradient.order,
+          allow.empty.rows=TRUE,fit.inference=TRUE)
+        return(.npreg_publish_plot_rows(fit,report=.np.empty.report,
+          row.labels=row.names(exdat)))
+      }
       if (isTRUE(need.asymptotic)) {
+        if (isTRUE(need.joint) && .np_plot_regression_capture_supported(bws)) {
+          fit <- .np_regression_direct(bws, xdat, ydat, exdat, se=TRUE,
+            gradients=gradients, gradient.order=gradient.order,
+            allow.empty.rows=TRUE, fit.inference=TRUE)
+          return(.npreg_publish_plot_rows(fit, report=.np.empty.report,
+            row.labels=row.names(exdat)))
+        }
         fit <- npreg(
           txdat = xdat,
           tydat = ydat,
@@ -8787,11 +8955,13 @@ plotFactor <- function(f, y, ...){
                                            xdat,
                                            neval,
                                            trim = 0.0,
-                                           where = "plot.singleindex") {
+                                           where = "plot.singleindex",
+                                           probs = NULL) {
   xdat <- adjustLevels(toFrame(xdat), bws$xdati)
   neval <- .np_plot_validate_neval(neval, where = where)
   index.train <- as.vector(toMatrix(xdat) %*% bws$beta)
-  bounds <- trim.quantiles(index.train, trim = trim)
+  bounds <- if (is.null(probs)) trim.quantiles(index.train, trim = trim) else
+    stats::quantile(index.train, probs = probs, names = FALSE)
   index.eval <- seq(bounds[1L], bounds[2L], length.out = neval)
 
   list(
@@ -10903,7 +11073,7 @@ compute.default.error.range <- function(center, err) {
                                              plot.errors.method,
                                              plot.errors.boot.method,
                                              plot.errors.boot.nonfixed = c("exact", "frozen"),
-                                             plot.errors.boot.wild = c("rademacher", "mammen"),
+                                             plot.errors.boot.wild = c("mammen", "rademacher"),
                                              plot.errors.boot.blocklen,
                                              plot.errors.center,
                                              plot.errors.type,
@@ -10915,7 +11085,11 @@ compute.default.error.range <- function(center, err) {
                                              ylim,
                                              allow_asymptotic_quantile = TRUE,
                                              allow_asymptotic_simultaneous = FALSE,
-                                             error.request = NULL) {
+                                             error.request = NULL,
+                                             allow_asymptotic_bias = FALSE,
+                                             defer_block_selection = FALSE,
+                                               allow_residual = FALSE,
+                                               allow_conditional_pilot = FALSE) {
   scalar_choice <- function(value, default) {
     if (is.null(value) || length(value) < 1L || is.na(value[1L])) default else value[1L]
   }
@@ -10930,15 +11104,16 @@ compute.default.error.range <- function(center, err) {
   plot.errors.method <- error.request$method
   plot.errors.boot.method <- match.arg(
     scalar_choice(plot.errors.boot.method, "wild"),
-    c("wild", "inid", "fixed", "geom")
+    c("wild", "inid", "fixed", "geom", if (isTRUE(allow_residual)) "residual",
+      if (isTRUE(allow_conditional_pilot)) "conditional-pilot")
   )
   plot.errors.boot.nonfixed <- match.arg(
     scalar_choice(plot.errors.boot.nonfixed, "exact"),
     c("exact", "frozen")
   )
   plot.errors.boot.wild <- match.arg(
-    scalar_choice(plot.errors.boot.wild, "rademacher"),
-    c("rademacher", "mammen")
+    scalar_choice(plot.errors.boot.wild, "mammen"),
+    c("mammen", "rademacher")
   )
   plot.errors.center <- match.arg(
     scalar_choice(plot.errors.center, "estimate"),
@@ -10972,13 +11147,13 @@ compute.default.error.range <- function(center, err) {
     if (!allow_asymptotic_simultaneous && plot.errors.type == "all")
       .np_warning("asymptotic simultaneous confidence bands are unavailable here; 'all' returns pointwise/bonferroni and NA simultaneous")
 
-    if (.np_plot_center_is_bias_corrected(plot.errors.center)) {
+    if (!allow_asymptotic_bias && .np_plot_center_is_bias_corrected(plot.errors.center)) {
       .np_warning("no bias corrections can be calculated with asymptotics, centering on estimate")
       plot.errors.center <- "estimate"
     }
   }
 
-  if (is.element(plot.errors.boot.method, c("fixed", "geom")) &&
+  if (!defer_block_selection && is.element(plot.errors.boot.method, c("fixed", "geom")) &&
       is.null(plot.errors.boot.blocklen))
     plot.errors.boot.blocklen <- b.star(xdat, round = TRUE)[1,1]
 
@@ -12023,7 +12198,7 @@ compute.bootstrap.errors.rbandwidth =
            slice.index,
            plot.errors.boot.method,
            plot.errors.boot.nonfixed = c("exact", "frozen"),
-           plot.errors.boot.wild = c("rademacher", "mammen"),
+           plot.errors.boot.wild = c("mammen", "rademacher"),
            plot.errors.boot.blocklen,
            plot.errors.boot.num,
            plot.errors.center,
@@ -12366,7 +12541,7 @@ compute.bootstrap.errors.scbandwidth =
            plot.errors.boot.method,
            t0.override = NULL,
            plot.errors.boot.nonfixed = c("exact", "frozen"),
-           plot.errors.boot.wild = c("rademacher", "mammen"),
+           plot.errors.boot.wild = c("mammen", "rademacher"),
            plot.errors.boot.blocklen,
            plot.errors.boot.num,
            plot.errors.center,
@@ -12627,7 +12802,7 @@ compute.bootstrap.errors.plbandwidth =
            plot.errors.boot.method,
            t0.override = NULL,
            plot.errors.boot.nonfixed = c("exact", "frozen"),
-           plot.errors.boot.wild = c("rademacher", "mammen"),
+           plot.errors.boot.wild = c("mammen", "rademacher"),
            plot.errors.boot.blocklen,
            plot.errors.boot.num,
            plot.errors.center,
@@ -13525,7 +13700,7 @@ compute.bootstrap.errors.sibandwidth =
            gradients,
            plot.errors.boot.method,
            plot.errors.boot.nonfixed = c("exact", "frozen"),
-           plot.errors.boot.wild = c("rademacher", "mammen"),
+           plot.errors.boot.wild = c("mammen", "rademacher"),
            plot.errors.boot.blocklen,
            plot.errors.boot.num,
            plot.errors.center,
@@ -13769,7 +13944,17 @@ uocquantile <- function(x, prob) {
 }
 
 
+# Public grid controls carry an ordered probability range; keep the legacy
+# engine's numeric symmetric-trim contract separate and unchanged.
+.np_plot_recycle_xtrim <- function(trim, n) {
+  if (inherits(trim, "np_plot_trim_range"))
+    return(rep(list(.np_plot_conmode_resolve_xtrim(trim)), n))
+  double(n) + trim
+}
+
 trim.quantiles <- function(dat, trim){
+  if (is.list(trim))
+    return(stats::quantile(dat, probs = trim[[1L]]))
   if (sign(trim) == sign(-1)){
     trim <- abs(trim)
     tq <- quantile(dat, probs = c(0.0, 0.0+trim, 1.0-trim,1.0))

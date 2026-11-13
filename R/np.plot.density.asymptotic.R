@@ -1,10 +1,90 @@
+# A nonnegative effective kernel sum can be zero only when no positive
+# empirical contribution reaches the target. That does not identify zero
+# uncertainty inside support. This admission is plot-only; raw fits are intact.
+.np_plot_density_marginal_se <- function(bws, ex, estimate, se) {
+  positive <- isTRUE(bws[["ncon", exact = TRUE]] == 0L) ||
+    identical(bws[["ckertype", exact = TRUE]], "uniform") ||
+    (isTRUE(bws[["ckerorder", exact = TRUE]] == 2L) &&
+     isTRUE(bws[["ckertype", exact = TRUE]] %in%
+       c("gaussian", "epanechnikov", "uniform", "beta")))
+  if (!positive) return(se)
+  empty <- is.finite(estimate) & estimate == 0 & is.finite(se) & se == 0
+  if (!any(empty)) return(se)
+  # Only genuinely fixed support certifies zero density outside its bounds.
+  # An endpoint itself, or an empirical-range boundary, is not such a zero.
+  if (identical(bws[["ckerbound", exact = TRUE]], "fixed")) {
+    continuous <- which(bws[["icon", exact = TRUE]])
+    lower <- bws[["ckerlb", exact = TRUE]]
+    upper <- bws[["ckerub", exact = TRUE]]
+    for (j in continuous) {
+      if (is.finite(lower[j])) empty[ex[[j]] < lower[j]] <- FALSE
+      if (is.finite(upper[j])) empty[ex[[j]] > upper[j]] <- FALSE
+    }
+  }
+  if (any(empty)) {
+    se[empty] <- NA_real_
+    .np_warning(sprintf(paste0("asymptotic density uncertainty is unavailable at %d ",
+      "grid target(s) with no positive empirical kernel contribution; returning NA ",
+      "limits at those targets and retaining the estimates and full grid"), sum(empty)),
+      call. = FALSE)
+  }
+  se
+}
+
 # Joint variability for density-family plots only. The incumbent fit and marginal SEs
 # are unchanged; these empirical influence rows supply cross-grid dependence.  Kernels,
 # basis preparation and accepted solves retain their canonical owners.
-.np_plot_density_joint_supported <- function(bws, conditional) {
+.np_plot_density_uniform_fixed <- function(bws, conditional, cdf = FALSE) {
+  if (conditional || cdf ||
+      !identical(bws[["ckertype", exact = TRUE]], "uniform") ||
+      !identical(bws[["type", exact = TRUE]], "fixed") ||
+      !isTRUE(bws[["ckerorder", exact = TRUE]] == 2L) ||
+      !isTRUE(bws[["ndim", exact = TRUE]] %in% 1:2) ||
+      !isTRUE(bws[["ncon", exact = TRUE]] == bws[["ndim", exact = TRUE]]))
+    return(FALSE)
+  bounds <- bws[["ckerbound", exact = TRUE]]
+  if (identical(bounds, "none")) return(TRUE)
+  lower <- bws[["ckerlb", exact = TRUE]]
+  upper <- bws[["ckerub", exact = TRUE]]
+  identical(bounds, "fixed") && is.numeric(lower) && is.numeric(upper) &&
+    length(lower) == bws[["ndim", exact = TRUE]] &&
+    length(upper) == length(lower) && !anyNA(c(lower, upper)) &&
+    all(upper > lower)
+}
+
+.np_plot_density_higher_order_fixed <- function(bws, conditional, cdf = FALSE) {
+  if (conditional || cdf ||
+      !isTRUE(bws[["ckertype", exact = TRUE]] %in% c("gaussian", "epanechnikov", "beta")) ||
+      !identical(bws[["type", exact = TRUE]], "fixed") ||
+      !isTRUE(bws[["ckerorder", exact = TRUE]] %in% c(4L, 6L, 8L)) ||
+      !isTRUE(bws[["ndim", exact = TRUE]] %in% 1:2) ||
+      !isTRUE(bws[["ncon", exact = TRUE]] == bws[["ndim", exact = TRUE]]))
+    return(FALSE)
+  bounds <- bws[["ckerbound", exact = TRUE]]
+  if (identical(bounds, "none"))
+    return(!identical(bws[["ckertype", exact = TRUE]], "beta"))
+  lower <- bws[["ckerlb", exact = TRUE]]
+  upper <- bws[["ckerub", exact = TRUE]]
+  identical(bounds, "fixed") && is.numeric(lower) && is.numeric(upper) &&
+    length(lower) == bws[["ndim", exact = TRUE]] &&
+    length(upper) == length(lower) && all(is.finite(c(lower, upper))) &&
+    all(upper > lower)
+}
+
+.np_plot_density_joint_supported <- function(bws, conditional, cdf = FALSE) {
+  if (.np_plot_density_higher_order_fixed(bws, conditional, cdf)) return(TRUE)
+  if (.np_plot_density_uniform_fixed(bws, conditional, cdf)) return(TRUE)
   second <- function(kernel, order) kernel %in% c("gaussian", "epanechnikov") && identical(as.integer(order),
     2L)
   if (!conditional) {
+    # Density-only admission: beta CDF and conditional policies are unchanged.
+    if (!cdf && identical(bws[["ckertype", exact = TRUE]], "beta") &&
+        identical(bws[["type", exact = TRUE]], "fixed") &&
+        identical(bws[["ckerbound", exact = TRUE]], "fixed") &&
+        isTRUE(bws[["ckerorder", exact = TRUE]] == 2L) &&
+        isTRUE(bws[["ndim", exact = TRUE]] %in% 1:2) &&
+        isTRUE(bws[["ncon", exact = TRUE]] == bws[["ndim", exact = TRUE]]))
+      return(TRUE)
     return(bws[["ncon", exact = TRUE]] == 0L || second(bws[["ckertype", exact = TRUE]],
       bws[["ckerorder", exact = TRUE]]) || (identical(bws[["type", exact = TRUE]],
       "adaptive_nn") && identical(bws[["ckertype", exact = TRUE]], "uniform")))
@@ -300,16 +380,25 @@
 }
 # Same-sample random-radius term. Geometry, kernels and boundary-face pilots come from
 # their current owners; vectorized interval accumulation avoids n^2.
-.np_plot_density_ann <- function(bws, x, ex, pdf) {
-  n <- nrow(x)
-  m <- nrow(ex)
-  reason <- .np_ann_se_domain(bws, n, pdf)
+.np_plot_density_ann_prepare <- function(bws, x, pdf, uniform.faces = FALSE) {
+  reason <- .np_ann_se_domain(bws, nrow(x), pdf)
   if (!is.null(reason))
     .np_plot_joint_unavailable(reason)
   st <- .np_ann_se_geometry(bws, x)
   if (!st$valid)
     .np_plot_joint_unavailable("nonregular ANN spacing geometry")
   kb <- .np_make_kbandwidth_unconditional(bws, x)
+  if (uniform.faces)
+    st$uniform <- .np_ann_uniform_prepare(kb, x)
+  list(state = st, bandwidth = kb)
+}
+.np_plot_density_ann <- function(bws, x, ex, pdf, prepared = NULL) {
+  n <- nrow(x)
+  m <- nrow(ex)
+  if (is.null(prepared))
+    prepared <- .np_plot_density_ann_prepare(bws, x, pdf)
+  st <- prepared[["state", exact = TRUE]]
+  kb <- prepared[["bandwidth", exact = TRUE]]
   p <- ncol(st$x)
   e <- as.matrix(ex[, bws[["icon", exact = TRUE]], drop = FALSE])
   # The ANN native kernel owner returns physically normalized weights. Use its
@@ -335,7 +424,8 @@
   A <- matrix(NA_real_, m, n)
   faces <- NULL
   if (pdf && identical(bws[["ckertype", exact = TRUE]], "uniform")) {
-    st$uniform <- .np_ann_uniform_prepare(kb, x)
+    if (is.null(st[["uniform", exact = TRUE]]))
+      st$uniform <- .np_ann_uniform_prepare(kb, x)
     # Reuse the unchanged support-face formula with a local kernel dependency.  Only
     # this copied closure is adapted; the package namespace stays intact.
     face.owner <- .np_ann_uniform_faces
@@ -394,7 +484,7 @@
   n <- nrow(x)
   m <- nrow(ex)
   incumbent <- estimate
-  if (!.np_plot_density_joint_supported(bws, !is.null(y)))
+  if (!.np_plot_density_joint_supported(bws, !is.null(y), cdf))
     .np_plot_joint_unavailable("this density kernel specification is not supported")
   if (length(se) != m || any(!is.finite(se)) || any(se < 0))
     .np_plot_joint_unavailable("marginal uncertainty is unavailable on this grid")
@@ -457,6 +547,12 @@
       stop("density influence does not reproduce the plotted target within 1% of its SE",
         call. = FALSE)
   }
+  # A constant uniform window contains no empirical correlation information.
+  # Preserve marginal intervals, using the existing explicit-unavailability
+  # contract only for this newly admitted class. Other arithmetic still fails.
+  if (.np_plot_density_uniform_fixed(bws, !is.null(y), cdf) &&
+      any(se > 0 & apply(A, 1L, function(row) all(row == row[1L]))))
+    .np_plot_joint_unavailable("uniform empirical correlation is unidentified with positive marginal uncertainty")
   P <- .np_plot_density_rescale(A, se)
   if (m <= 512L)
     cal <- .np_plot_gaussian_calibrate(tcrossprod(P$factor), alpha = alpha, draws = gaussian.draws) else cal <- .np_plot_gaussian_factor_calibrate(P$factor, alpha = alpha, draws = gaussian.draws)

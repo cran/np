@@ -13,7 +13,8 @@ test_that("response coding refuses missing factor metadata and preserves fitted 
     expect_equal(hat.response(y, dati), expected, tolerance = 0)
     expect_error(adjust(data.frame(y), numeric.dati), "factor response requires")
     expect_error(numeric.response(y, numeric.dati), "factor response requires")
-    expect_identical(hat.response(y, numeric.dati), y)
+    expect_error(hat.response(y, numeric.dati),
+                 "must have numeric (integer or double) storage", fixed = TRUE)
   }
   y <- ordered(c(10, 30, 50))
   dati <- ut(data.frame(y))
@@ -30,14 +31,14 @@ test_that("regression rejects incompatible coding while explicit hat payloads re
   y <- rep(c(10, 30, 50), 8L)
   f <- ordered(y)
   b <- npregbw(xdat = x, ydat = y, bws = .25, bandwidth.compute = FALSE)
-  expect_error(npreg(b, txdat = x, tydat = f, se = FALSE), "factor response requires")
-  expect_error(npreg(b, txdat = x, tydat = y, eydat = f, se = FALSE), "factor response requires")
+  expect_error(npreg(b, txdat = x, tydat = f, se = FALSE), "must be a numeric")
+  expect_error(npreg(b, txdat = x, tydat = y, eydat = f, se = FALSE), "must be a numeric")
   H <- npreghat(b, txdat = x)
-  expect_equal(as.numeric(npreghat(b, txdat = x, y = f, output = "apply")),
-               as.numeric(H %*% as.numeric(f)), tolerance = 1e-11)
-  # Cached numeric-fitted hats already refuse factor matrix multiplication;
-  # preserve that existing R condition rather than inventing a coding policy.
-  expect_error(predict(H, y = f, output = "apply"), "numeric/complex")
+  # Numeric-fitted direct and cached hats share the numeric-storage ingress.
+  expect_error(npreghat(b, txdat = x, y = f, output = "apply"),
+               "must have numeric (integer or double) storage", fixed = TRUE)
+  expect_error(predict(H, y = f, output = "apply"),
+               "must have numeric (integer or double) storage", fixed = TRUE)
   valid <- npreg(b, txdat = x, tydat = y, se = FALSE)
   expect_equal(as.numeric(fitted(valid)), as.numeric(H %*% y), tolerance = 1e-11)
   external <- npreg(b, txdat = x, tydat = y, exdat = x[c(3, 12, 20), , drop = FALSE], se = FALSE)
@@ -53,7 +54,7 @@ test_that("native regression response extents are checked independently of R cod
   b <- npregbw(xdat = x, ydat = y, bws = .25, bandwidth.compute = FALSE)
   # Intercept a valid argument builder before native entry. The MPI overrides
   # are capture-only: no computational claim is made from this local seam.
-  fn <- get("npreg.rbandwidth", ns)
+  fn <- get(".npreg_fit_impl", ns)
   env <- new.env(parent = environment(fn))
   environment(fn) <- env
   captured <- NULL
@@ -71,7 +72,8 @@ test_that("native regression response extents are checked independently of R cod
     env$.npRmpi_rank_local_regression_context <- function(...) FALSE
     env$mpi.comm.size <- function(...) 1L
   }
-  expect_error(fn(b, txdat = x, tydat = y, eydat = y, se = FALSE), class = "response_capture")
+  expect_error(fn(b, txdat = x, tydat = y, eydat = y, se = FALSE,
+                  .np.context = list(public = TRUE, dots = pairlist())), class = "response_capture")
   expect_length(captured, 26L)
   short.train <- captured; short.train[[5L]] <- double()
   expect_error(do.call(base::.Call, short.train), "training-response buffer is too short")

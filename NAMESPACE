@@ -2,7 +2,7 @@ useDynLib(np, .registration = TRUE)
 import(stats, boot)
 importFrom("grDevices", "boxplot.stats", "dev.cur", "extendrange", "n2mfrow", "grey", "rgb", "trans3d")
 importFrom("graphics", "axis", "legend", "lines", "mtext", "par", "persp", "plot", "points", "plot.new", "plot.window", "polygon", "arrows", "barplot", "bxp")
-importFrom("utils", "combn", "flush.console", "head", "tail")
+importFrom("utils", "combn", "flush.console", "head", "object.size", "tail")
 importFrom("methods", "is")
 importFrom("quantreg", "rq")
 importFrom("quadprog", "solve.QP")
@@ -17,6 +17,7 @@ export(b.star
        ,npudenshat
        ,npudisthat
        ,npudist
+       ,np_udist_bias_control
        ,npregbw
        ,npreg
        ,nplsqregbw
@@ -49,6 +50,8 @@ export(b.star
        ,npqcmstest       
        ,npseed
        ,np_boot_control
+       ,np_bias_control
+       ,np_udens_bias_control
        ,np_grid_control
        ,np_render_control
        ,np.pairs
@@ -374,3 +377,9 @@ S3method(npscoef, default)
 S3method(npscoef, call)
 S3method(npscoef, formula)
 S3method(npscoef, scbandwidth)
+
+export(np_conditional_bias_control)
+
+S3method(print,np_plot_data)
+S3method(as.data.frame,np_plot_data)
+S3method(plot,np_plot_data)

@@ -112,6 +112,7 @@ npscoefbw.NULL <-
            zdat = NULL,
            bws, ...){
   .np_reject_native_data(substitute(list(...))[-1L])
+  .np_reject_native_frame_args(substitute(list(...))[-1L])
 
 
     miss.z <- missing(zdat)
@@ -570,6 +571,7 @@ npscoefbw.scbandwidth <-
            ...,
            nomad.opts = list()){
   .np_reject_native_data(substitute(list(...))[-1L])
+  .np_reject_native_frame_args(substitute(list(...))[-1L])
 
 
     nomad.opts <- .np_nomad_normalize_user_opts(nomad.opts, "npscoefbw")
@@ -580,8 +582,9 @@ npscoefbw.scbandwidth <-
     
     ## Save seed prior to setting
 
-    seed.state <- .np_seed_enter(random.seed)
-    on.exit(.np_seed_exit(seed.state, remove_if_absent = TRUE), add = TRUE)
+    seed.state <- .np_rng_scope_capture()
+    on.exit(.np_rng_scope_restore(seed.state), add = TRUE)
+    .np_rng_scope_seed(seed.state, random.seed)
 
 
     miss.z <- missing(zdat)
@@ -637,6 +640,7 @@ npscoefbw.scbandwidth <-
     if (!identical(reg.engine, "lc") && cv.iterate)
       stop("cv.iterate currently supports regtype='lc' for npscoefbw")
 
+    .np_require_numeric_response(ydat, "npscoefbw", "ydat")
     if (!(is.vector(ydat) || is.factor(ydat)))
       stop("'ydat' must be a vector or a factor")
 
@@ -1892,7 +1896,7 @@ npscoefbw.scbandwidth <-
 
     ## Restore seed
 
-    .np_seed_exit(seed.state, remove_if_absent = TRUE)
+    .np_rng_scope_restore(seed.state)
     nn.cache <- bws$nn.cache
     
     bws <- .np_retained_uniform_constructor(scbandwidth, bw = bws$bw,
@@ -2977,6 +2981,7 @@ npscoefbw.default <-
            ...,
            nomad.opts = list()){
   .np_reject_native_data(substitute(list(...))[-1L])
+  .np_reject_native_frame_args(substitute(list(...))[-1L])
 
 
     nomad.opts <- .np_nomad_normalize_user_opts(nomad.opts, "npscoefbw")
@@ -2992,6 +2997,7 @@ npscoefbw.default <-
     miss.z <- missing(zdat)
     xdat <- toFrame(xdat)
     
+    .np_require_numeric_response(ydat, "npscoefbw", "ydat")
     if (!(is.vector(ydat) || is.factor(ydat)))
       stop("'ydat' must be a vector or a factor")
     .np_require_paired_rows(xdat, ydat, "xdat", "ydat")

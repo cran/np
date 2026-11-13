@@ -27,6 +27,8 @@ npudens <-
 
 npudens.formula <-
   function(bws, data = NULL, newdata = NULL, ...){
+    .np_reject_fit_subset(substitute(list(...))[-1L])
+
 
     dots <- list(...)
     frame.state <- dots[[".np.formula.state", exact = TRUE]]
@@ -90,6 +92,8 @@ npudens.formula <-
 
 npudens.call <-
   function(bws, ...) {
+    .np_reject_fit_subset(substitute(list(...))[-1L])
+
   .np_reject_native_data(substitute(list(...))[-1L])
 
     do.call(npudens, .np_retained_training_args(
@@ -100,6 +104,8 @@ npudens.bandwidth <-
   function(bws,
            tdat = stop("invoked without training data 'tdat'"),
            edat, ..., se = FALSE){
+    .np_reject_fit_subset(substitute(list(...))[-1L])
+
   .np_reject_native_data(substitute(list(...))[-1L])
 
 
@@ -119,7 +125,8 @@ npudens.bandwidth <-
 
   no.e = missing(edat)
 
-  tdat = toFrame(tdat)
+  tdat.was.vector <- is.atomic(tdat) && is.null(dim(tdat))
+    tdat = .np_native_vector_frame_names(toFrame(tdat), tdat.was.vector, bws)
   bws <- .np_bws_retain_native_training(bws, dat = tdat)
 
   if (!no.e)
