@@ -1234,8 +1234,8 @@ double np_rect(const double z){
   return (z*z < 1.0)?0.5:0.0;
 }
 
-/* NN radii are distances. Standardizing an exact boundary distance by a
- * rounded reciprocal can move it inside the documented open support. */
+/* Fixed bandwidths and NN radii use physical distances. Standardizing an
+ * exact boundary by a rounded reciprocal can move it inside open support. */
 static inline double np_nn_rect(const double difference, const double radius)
 {
   return fabs(difference) < radius ? 0.5 : 0.0;
@@ -1246,7 +1246,7 @@ static inline double np_nn_rect(const double difference, const double radius)
 static inline void np_nn_rect_box(const int kernel, const int nn_bandwidth,
                                   double *lower, double *upper)
 {
-  if(nn_bandwidth && (kernel == 8 || (kernel >= 14 && kernel <= 18))) {
+  if(kernel == 8 || (nn_bandwidth && kernel >= 14 && kernel <= 18)) {
     *lower = nextafter(*lower, -INFINITY);
     *upper = nextafter(*upper, INFINITY);
   }
@@ -5027,8 +5027,8 @@ void np_p_ckernelv(const int KERNEL,
                                    np_cdf_rect, np_reserved_ckernel };
   double bounded_lower = 0.0, bounded_denominator = 0.0;
   double p_bounded_lower = 0.0, p_bounded_denominator = 0.0;
-  const int uniform_nn = nn_bandwidth && KERNEL == 8;
-  const int p_uniform_nn = nn_bandwidth && P_KERNEL == 8;
+  const int uniform_normal = KERNEL == 8;
+  const int p_uniform_normal = P_KERNEL == 8;
 #define NP_P_CKERNEL_VALUE(kind, uniform, observation) \
   ((uniform) ? np_nn_rect(x-xt[observation], h) : \
    k[kind]((x-xt[observation])*zscale))
@@ -5075,14 +5075,14 @@ void np_p_ckernelv(const int KERNEL,
       } else {
         if(p_xl == NULL){
           for (i = 0, j = 0; i < num_xt; i++, j += bin_do_xw){
-            p_result[P_IDX*num_xt + i] = pxw[bin_do_xw*P_IDX*num_xt + j]*p_invnorm*NP_P_CKERNEL_VALUE(P_KERNEL, p_uniform_nn, i)*(do_score ? ((xt[i]-x)*zscale) : 1.0);
+            p_result[P_IDX*num_xt + i] = pxw[bin_do_xw*P_IDX*num_xt + j]*p_invnorm*NP_P_CKERNEL_VALUE(P_KERNEL, p_uniform_normal, i)*(do_score ? ((xt[i]-x)*zscale) : 1.0);
           }
         } else {
           for (int m = 0; m < p_xl->n; m++){
             const int istart = p_xl->istart[m];
             const int nlev = p_xl->nlev[m];
             for (i = istart, j = bin_do_xw*istart; i < istart+nlev; i++, j += bin_do_xw){
-              p_result[P_IDX*num_xt + i] = pxw[bin_do_xw*P_IDX*num_xt + j]*p_invnorm*NP_P_CKERNEL_VALUE(P_KERNEL, p_uniform_nn, i)*(do_score ? ((xt[i]-x)*zscale) : 1.0);
+              p_result[P_IDX*num_xt + i] = pxw[bin_do_xw*P_IDX*num_xt + j]*p_invnorm*NP_P_CKERNEL_VALUE(P_KERNEL, p_uniform_normal, i)*(do_score ? ((xt[i]-x)*zscale) : 1.0);
             }
           }
         }
@@ -5138,7 +5138,7 @@ void np_p_ckernelv(const int KERNEL,
           swap_xxt ? bounded_lower : bounded_lower_vec[i],
           swap_xxt ? bounded_denominator : bounded_den_vec[i]) :
          np_cker_bounded_cdf(KERNEL, eval, train, h, bound_lb, bound_ub)) :
-        invnorm*NP_P_CKERNEL_VALUE(KERNEL, uniform_nn, i);
+        invnorm*NP_P_CKERNEL_VALUE(KERNEL, uniform_normal, i);
 
       result[i] = xw[j]*kn;
       kbuf[i] = kn;
@@ -5151,7 +5151,7 @@ void np_p_ckernelv(const int KERNEL,
             swap_xxt ? p_bounded_lower : bounded_lower_vec[i],
             swap_xxt ? p_bounded_denominator : bounded_den_vec[i]) :
            np_cker_bounded_cdf(P_KERNEL, eval, train, h, bound_lb, bound_ub)) :
-          p_invnorm*NP_P_CKERNEL_VALUE(P_KERNEL, p_uniform_nn, i);
+          p_invnorm*NP_P_CKERNEL_VALUE(P_KERNEL, p_uniform_normal, i);
         p_result[P_IDX*num_xt + i] = pxw[bin_do_xw*P_IDX*num_xt + j]*
           pkn*(do_score ? ((xt[i]-x)*zscale) : 1.0);
       }
@@ -5180,7 +5180,7 @@ void np_p_ckernelv(const int KERNEL,
             swap_xxt ? bounded_lower : bounded_lower_vec[i],
             swap_xxt ? bounded_denominator : bounded_den_vec[i]) :
            np_cker_bounded_cdf(KERNEL, eval, train, h, bound_lb, bound_ub)) :
-          invnorm*NP_P_CKERNEL_VALUE(KERNEL, uniform_nn, i);
+          invnorm*NP_P_CKERNEL_VALUE(KERNEL, uniform_normal, i);
 
         result[i] = xw[j]*kn;
         kbuf[i] = kn;
@@ -5201,7 +5201,7 @@ void np_p_ckernelv(const int KERNEL,
               swap_xxt ? p_bounded_lower : bounded_lower_vec[i],
               swap_xxt ? p_bounded_denominator : bounded_den_vec[i]) :
              np_cker_bounded_cdf(P_KERNEL, eval, train, h, bound_lb, bound_ub)) :
-            p_invnorm*NP_P_CKERNEL_VALUE(P_KERNEL, p_uniform_nn, i);
+            p_invnorm*NP_P_CKERNEL_VALUE(P_KERNEL, p_uniform_normal, i);
           p_result[P_IDX*num_xt + i] = pxw[bin_do_xw*P_IDX*num_xt + j]*
             pkn*(do_score ? ((xt[i]-x)*zscale) : 1.0);
         }
@@ -6589,8 +6589,7 @@ void np_ckernelv(const int KERNEL,
     case 7: NP_CKERNELV_APPLY(np_epan8); break;
 
     case 8:
-      if(nn_bandwidth) NP_CKERNELV_APPLY_VALUE(np_nn_rect(x-xt[i], h));
-      else NP_CKERNELV_APPLY(np_rect);
+      NP_CKERNELV_APPLY_VALUE(np_nn_rect(x-xt[i], h));
       break;
     case 9: NP_CKERNELV_APPLY(np_reserved_ckernel); break;
 
@@ -8600,6 +8599,7 @@ typedef struct {
   NPContinuousKernelDerivativeDiagnostics *diagnostics;
   int categorical_compress;
   const NPNNKernelFold *fold;
+  int lc_nn_derivative;
 } NPContinuousKernelExecutionContext;
 
 typedef struct {
@@ -9459,6 +9459,7 @@ typedef struct {
   int retain_common_scale;
   double *centered_m2;
   double *kw;
+  int lc_nn_derivative;
   const NPBetaRegressionMomentCtx *regression_moment_context;
   NPContinuousKernelDerivativeDiagnostics *route_diagnostics;
   NPContinuousKernelProgressFunction progress;
@@ -11065,7 +11066,7 @@ double * const pkw,
 const int categorical_compress,
 const NPContinuousKernelRoute * const kernel_route,
 NPContinuousKernelDerivativeDiagnostics * const kernel_route_diagnostics,
-const NPNNKernelFold * const fold);
+const NPNNKernelFold * const fold, int lc_nn_derivative);
 
 #include "conditional_literal/jksum_kernel_weighted_sum_np_route.inc"
 
@@ -12956,6 +12957,7 @@ typedef struct {
   double *row_cont_const;
   double *row_xeval;
   double *row_hinv;
+  double **row_bandwidth; /* Borrowed from the enclosing fixed-row owner. */
   double *bb;
 } NPLPTreeSupportCtx;
 
@@ -13017,6 +13019,7 @@ static inline int np_lp_tree_support_prepare_row(NPLPTreeSupportCtx *ctx,
   int all_largeh = (num_reg_continuous > 0);
 
   ctx->xl.n = 0;
+  ctx->row_bandwidth = matrix_bandwidth;
 
   for(l = 0; l < num_reg_continuous; l++){
     const int kc = kernel_c[l];
@@ -13043,6 +13046,7 @@ static inline int np_lp_tree_support_prepare_row(NPLPTreeSupportCtx *ctx,
       ctx->bb[2*l+1] = -cksup[kc][0];
       ctx->bb[2*l] = (fabs(ctx->bb[2*l]) == DBL_MAX) ? ctx->bb[2*l] : (xeval + ctx->bb[2*l]*h);
       ctx->bb[2*l+1] = (fabs(ctx->bb[2*l+1]) == DBL_MAX) ? ctx->bb[2*l+1] : (xeval + ctx->bb[2*l+1]*h);
+      np_nn_rect_box(kc, 0, &ctx->bb[2*l], &ctx->bb[2*l+1]);
     }
   }
 
@@ -13059,7 +13063,9 @@ static inline int np_lp_tree_support_prepare_row(NPLPTreeSupportCtx *ctx,
 
 static inline double np_lp_cont_weight_scaled(const int kc,
                                                const double z,
-                                               const double hinv){
+                                               const double hinv,
+                                               const double difference,
+                                               const double bandwidth){
   switch(kc){
     case 4:
     {
@@ -13067,7 +13073,7 @@ static inline double np_lp_cont_weight_scaled(const int kc,
       return (z2 < 5.0) ? ((0.33541019662496845446 - 0.067082039324993690892*z2)*hinv) : 0.0;
     }
     case 8:
-      return (z*z < 1.0) ? (0.5*hinv) : 0.0;
+      return np_nn_rect(difference, bandwidth)*hinv;
     default:
       return allck[kc](z)*hinv;
   }
@@ -13099,8 +13105,10 @@ static inline double np_lp_tree_support_weight(const NPLPTreeSupportCtx *ctx,
     if(ctx->row_largeh[l]){
       w *= ctx->row_cont_const[l];
     } else {
-      const double z = (ctx->row_xeval[l] - matrix_X_continuous[l][tree_idx])*ctx->row_hinv[l];
-      w *= np_lp_cont_weight_scaled(kc, z, ctx->row_hinv[l]);
+      const double difference = ctx->row_xeval[l] - matrix_X_continuous[l][tree_idx];
+      const double z = difference*ctx->row_hinv[l];
+      w *= np_lp_cont_weight_scaled(kc, z, ctx->row_hinv[l],
+                                   difference, ctx->row_bandwidth[l][0]);
     }
 
     if(w == 0.0)
@@ -13691,9 +13699,9 @@ static int NP_NOINLINE np_lp_fixed_tree_sparse_accumulate(
           if(ii <= j)
             continue;
 
-          w = np_lp_cont_weight_scaled(kc0,
-                                        (xeval0 - matrix_X_continuous[0][ii])*hinv0,
-                                        hinv0);
+          const double difference = xeval0 - matrix_X_continuous[0][ii];
+          w = np_lp_cont_weight_scaled(kc0, difference*hinv0, hinv0,
+                                      difference, sctx.row_bandwidth[0][0]);
           if(w != 0.0){
             if(track_lowsupport){
               np_lp_cvls_support_add(j, nterms, support_count);
@@ -15076,7 +15084,7 @@ static int np_regression_cv_ann_tree_moments(
     xu, xo, xc, xu, xo, xc, design, design, NULL, scale_factor,
     1, primary, primary, lambda, num_categories,
     matrix_categorical_vals_extern, NULL, moments, NULL, NULL, NULL,
-    0, NULL, NULL, deleted ? &fold : NULL);
+    0, NULL, NULL, deleted ? &fold : NULL, 0);
   vmaxset(marker);
   return status;
 }
@@ -23634,7 +23642,7 @@ static SEXP np_ann_fit_batch_execute(void *raw)
     NP_TREE_TRUE,0,b->tree,NULL,NULL,NULL,
     NULL,NULL,b->train,NULL,NULL,b->tile,NULL,NULL,NULL,NULL,1,
     b->radius,b->radius,NULL,NULL,NULL,NULL,NULL,NULL,b->weights,
-    NULL,0,NULL,NULL,NULL);
+    NULL,0,NULL,NULL,NULL, 0);
   return R_NilValue;
 }
 
@@ -24060,17 +24068,94 @@ static void np_regression_general_lp_fit_owner_cleanup(
 }
 
 
+/* Fully pooled Aitchison-Aitken factors give every donor the same
+ * categorical weight. The continuous GNN row still uses the fitted radius. */
+static int np_pooled_beta_linear_precision(const NPContinuousKernelRoute *route,
+  int bandwidth_mode, int ncon, int nuno, int nord, const int *kernels,
+  const double *lambda, const int *levels)
+{
+  if(route == NULL || bandwidth_mode != BW_GEN_NN || ncon != 1 ||
+     nuno < 2 || nord != 0 || kernels == NULL || lambda == NULL ||
+     levels == NULL || vector_glp_degree_extern == NULL ||
+     vector_glp_degree_extern[0] != 1 || route->segment_count != 1 ||
+     route->segment[0].descriptor.family != NP_CKERNEL_FAMILY_BETA ||
+     route->segment[0].descriptor.order != 2)
+    return 0;
+  for(int j = 0; j < nuno; ++j)
+    if(kernels[j] != UKERNEL_UAA || levels[j] < 2 ||
+       np_uaa(1, lambda[j], levels[j]) != np_uaa(0, lambda[j], levels[j]))
+      return 0;
+  return 1;
+}
+
 /* Scoped precision sibling. Accepted rank/ridge and all incumbent kernel/tree
- * selection remain upstream. NN, conditional, categorical and signed routes
- * are unchanged until their own representation and timing gates close. */
+ * selection remain upstream. Continuous second-order GNN rows use their own
+ * target radius; conditional, categorical and signed owners are unchanged. */
+/* At a bounded edge, a linear beta ANN row outside the donor range can
+ * concentrate on very few observations. Preserve its weights for the
+ * existing condition and ridge check. Infinite edges disable that side. */
+typedef struct { double lower, upper; } NPLinearBetaANNRange;
+
+static NPLinearBetaANNRange np_linear_beta_ann_training_range(const NPContinuousKernelRoute *route,
+                                                             int bandwidth, int continuous,
+                                                             int unordered, int ordered,
+                                                             double **training, int n)
+{
+  NPLinearBetaANNRange range = {R_NegInf, R_PosInf};
+  if(bandwidth != BW_ADAP_NN || continuous != 1 || unordered || ordered ||
+     vector_glp_degree_extern == NULL || vector_glp_degree_extern[0] != 1 ||
+     route == NULL || route->segment_count != 1 ||
+     route->segment[0].descriptor.family != NP_CKERNEL_FAMILY_BETA ||
+     route->segment[0].descriptor.order != 2 || n <= 0 || training == NULL)
+    return range;
+  const int lower = route->segment[0].lower != NULL && R_FINITE(route->segment[0].lower[0]);
+  const int upper = route->segment[0].upper != NULL && R_FINITE(route->segment[0].upper[0]);
+  if(lower || upper) {
+    double xmin = training[0][0], xmax = xmin;
+    for(int i = 1; i < n; ++i) {
+      const double x = training[0][i];
+      if(x < xmin) xmin = x;
+      if(x > xmax) xmax = x;
+    }
+    if(lower) range.lower = xmin;
+    if(upper) range.upper = xmax;
+  }
+  return range;
+}
+
+static inline int np_linear_beta_ann_extrapolates(NPLinearBetaANNRange range, double x)
+{
+  return x < range.lower || x > range.upper;
+}
+
 static int np_regression_precision_eligible(const NPRegressionGeneralLPFitCall *call)
 {
-  if(!call->ordinary_response || call->bandwidth_mode != BW_FIXED ||
-     call->kernel_route != NULL || int_cker_bound_extern ||
+  /* Bounded univariate adaptive rows have donor-specific radii. The fit
+   * retains the weights produced by its own moment traversal. */
+  if(call->bandwidth_mode == BW_ADAP_NN)
+    return call->ordinary_response && !call->all_large_kernel_rows &&
+      call->num_reg_continuous == 1 && !call->num_reg_unordered &&
+      !call->num_reg_ordered && vector_glp_degree_extern != NULL &&
+      vector_glp_degree_extern[0] == 2 &&
+      ((call->kernel_route == NULL && int_cker_bound_extern && call->kernel_c[0] == 0) ||
+       (call->kernel_route != NULL && call->kernel_route->segment_count == 1 &&
+        call->kernel_route->segment[0].descriptor.family == NP_CKERNEL_FAMILY_BETA &&
+        call->kernel_route->segment[0].descriptor.order == 2));
+  if(!call->ordinary_response ||
+     (call->bandwidth_mode != BW_FIXED && call->bandwidth_mode != BW_GEN_NN) ||
      call->num_reg_unordered || call->num_reg_ordered || call->all_large_kernel_rows)
     return 0;
+  if(call->kernel_route != NULL) {
+    const NPContinuousKernelRoute *route=call->kernel_route;
+    return call->bandwidth_mode==BW_GEN_NN && call->num_reg_continuous>0 &&
+      route->segment_count==1 && route->segment[0].coordinate_offset==0 &&
+      route->segment[0].coordinate_count==call->num_reg_continuous &&
+      route->segment[0].descriptor.family==NP_CKERNEL_FAMILY_BETA &&
+      route->segment[0].descriptor.order==2;
+  }
   for(int d=0;d<call->num_reg_continuous;++d)
-    if(call->kernel_c[d]!=0)return 0;
+    if(call->kernel_c[d]!=0 &&
+       !(call->bandwidth_mode==BW_GEN_NN && call->kernel_c[d]==4))return 0;
   return 1;
 }
 static int np_regression_precision_prepare(
@@ -24078,11 +24163,34 @@ static int np_regression_precision_prepare(
   const double *retained, double divisor, double ridge, double anchor)
 {
   const int n=call->num_obs_train;
+  if(call->bandwidth_mode == BW_ADAP_NN)
+    return retained != NULL && divisor == 1.0 &&
+      np_regression_precision_factor(&owner->precision,owner->basis,retained,
+                                     n,owner->nterms,ridge,anchor);
   if(owner->precision_kernel==NULL)
     owner->precision_kernel=(double *)malloc((size_t)n*sizeof(double));
   if(owner->precision_kernel==NULL)return 0;
   if(retained!=NULL) {
     for(int i=0;i<n;++i)owner->precision_kernel[i]=retained[i]/divisor;
+  } else if(call->kernel_route != NULL) {
+    /* The owned moments are scratch only when no conditional-SE reader follows.
+     * Current ordinary beta SE requests retain canonical weights above; keep
+     * this invariant checked if a future entry adds another consumer. */
+    if(call->do_merr && (call->hc0_context==NULL ||
+       call->hc0_context->status==NP_REGRESSION_HC0_RESIDUAL_PREPARING))return 0;
+    /* Recreate only the missing canonical row after the unchanged trigger.
+     * The beta route always includes the response-square anchor, hence the
+     * ordinary response/basis stride is nterms+2, even without SE. */
+    if(np_beta_regression_lp_moment_row_canonical(call->bandwidth_mode,n,
+      call->num_reg_unordered,call->num_reg_ordered,call->num_reg_continuous,
+      owner->nterms,owner->nterms+2,call->operator,call->kernel_u,call->kernel_o,
+      call->matrix_X_unordered_train,call->matrix_X_ordered_train,call->matrix_X_continuous_train,
+      owner->eval_unordered,owner->eval_ordered,owner->eval_continuous,
+      owner->response_columns,owner->basis,call->vector_scale_factor,
+      call->matrix_bandwidth,owner->matrix_bandwidth_eval,call->lambda,
+      call->num_categories,call->matrix_categorical_vals,call->categorical_compress,
+      owner->moments,NULL,NULL,owner->precision_kernel,call->kernel_route,
+      call->kernel_route_diagnostics,NULL))return 0;
   } else {
     if(kernel_weighted_sum_np_ctx_ex(call->kernel_c,call->kernel_u,call->kernel_o,
       call->bandwidth_mode,n,1,0,0,call->num_reg_continuous,
@@ -24091,7 +24199,8 @@ static int np_regression_precision_prepare(
       call->matrix_X_unordered_train,call->matrix_X_ordered_train,call->matrix_X_continuous_train,
       owner->eval_unordered,owner->eval_ordered,owner->eval_continuous,
       NULL,NULL,NULL,call->vector_scale_factor,1,call->matrix_bandwidth,
-      call->matrix_bandwidth,call->lambda,call->num_categories,
+      call->bandwidth_mode==BW_GEN_NN ? owner->matrix_bandwidth_eval :
+        call->matrix_bandwidth,call->lambda,call->num_categories,
       call->matrix_categorical_vals,NULL,NULL,NULL,owner->precision_kernel,
       call->gate_context,NULL,NULL,NULL,NULL,
 #ifdef MPI2
@@ -25239,7 +25348,8 @@ static int np_conditional_xrow_influence(
   int eval_idx,
   int eval_pos,
   int drop_eval_self,
-  double *row_out){
+  double *row_out,
+  NPLPSolvePolicyDiagnostics *policy_out){
   const int num_train = num_obs_train_extern;
   const int k = np_glp_cv_cache.nterms;
   const double ridge_fraction = 1.0/(double)MAX(1, num_train);
@@ -25313,6 +25423,7 @@ static int np_conditional_xrow_influence(
        np_lp_rank_upper_bound_from_weights(ctx->kw, num_train, k),
        &diagnostics) != NP_LP_SOLVE_POLICY_OK)
     return 1;
+  if(policy_out != NULL)*policy_out=diagnostics;
 
   if(ctx->weighted_design != NULL){
     const char trans_n = 'N';
@@ -25694,7 +25805,7 @@ static int np_conditional_xrow_from_ctx_impl(NPConditionalXRowCtx *ctx,
       }
 
       if(np_conditional_xrow_influence(
-           ctx, eval_idx, eval_pos, drop_eval_self, row_out) != 0)
+           ctx, eval_idx, eval_pos, drop_eval_self, row_out, diagnostics) != 0)
         goto cleanup_xrow_from_ctx;
 complete_xrow_influence:
       ;
@@ -28402,8 +28513,10 @@ static int np_conditional_y_eval_univariate_pair_direct(
     matrix_Y_continuous_train_extern[0],
     num_train,
     matrix_Y_continuous_eval[0][eval_pos],
-    ctx->matrix_bandwidth_y[0][eval_pos],
-    ctx->matrix_bandwidth_y_successor[0][eval_pos],
+    ctx->matrix_bandwidth_y[0][eval_pos] *
+      (ctx->base_exclusion_scale != NULL ? ctx->base_exclusion_scale[0] : 1.0),
+    ctx->matrix_bandwidth_y_successor[0][eval_pos] *
+      (ctx->base_exclusion_scale != NULL ? ctx->base_exclusion_scale[0] : 1.0),
     int_TREE_Y == NP_TREE_TRUE ? ipt_extern_Y : NULL,
     primary,
     successor);
@@ -28454,6 +28567,8 @@ static int np_conditional_y_eval_univariate_direct(
   bandwidth = use_successor ?
     ctx->matrix_bandwidth_y_successor[0][eval_pos] :
     ctx->matrix_bandwidth_y[0][eval_pos];
+  if(ctx->base_exclusion_scale != NULL)
+    bandwidth *= ctx->base_exclusion_scale[0];
   if(!isfinite(eval_y) || !isfinite(bandwidth) || bandwidth <= 0.0)
     return 1;
 
@@ -34924,7 +35039,7 @@ static SEXP np_conditional_ann_tree_block_body(void *raw)
        NULL, NULL, NULL, x->vsfx, 1,
        x->matrix_bandwidth_x, x->matrix_bandwidth_x,
        x->lambdax, num_categories_extern_X, matrix_categorical_vals_extern_X,
-       NULL, NULL, NULL, b->weights, NULL, 0, NULL, NULL, &fold) != 0)
+       NULL, NULL, NULL, b->weights, NULL, 0, NULL, NULL, &fold, 0) != 0)
     return R_NilValue;
 
   /* The conditional fold uses radius one on its self placeholder before
@@ -34988,7 +35103,7 @@ static int np_conditional_ann_tree_xrow(NPConditionalANNTreeBlock *b,
     for(int j = 0; j < n; ++j) row[j] = b->x->kw[j]/sum;
     return 0;
   }
-  return np_conditional_xrow_influence(b->x, evaluation, evaluation, 1, row);
+  return np_conditional_xrow_influence(b->x, evaluation, evaluation, 1, row, NULL);
 }
 
 static NPConditionalAdaptiveExactStatus
@@ -36723,9 +36838,10 @@ cleanup_adaptive_cdist:
 }
 
 /* Canonical generalized-NN empirical conditional-CDF row owner.  X row i is
- * formed on D_n\{i}.  Response query j uses the bounded exclusion union
- * D_n\{i,j}, while the estimator dot product still excludes only donor i via
- * the X influence row.  The prepared adjacent response radii avoid per-pair
+ * formed on D_n\{i}. Response query j is evaluated on that same deleted
+ * sample: its training occurrence remains a donor when j != i. Mapping a
+ * query back to its stored tree position does not remove that observation.
+ * The prepared adjacent response radii avoid per-pair
  * sorting and retain O(n) auxiliary storage per coordinate. */
 static int np_conditional_distribution_cvls_gnn_empirical_row_stream(
   double *vector_scale_factor,
@@ -36754,8 +36870,7 @@ static int np_conditional_distribution_cvls_gnn_empirical_row_stream(
 
   if(np_conditional_xrow_ctx_prepare_ctx(
        vector_scale_factor,
-       cdfontrain_extern ? &np_conditional_training_identity_geometry :
-         &np_conditional_deleted_identity_geometry,
+       &np_conditional_deleted_identity_geometry,
        &xctx) != 0)
     goto cleanup_gnn_empirical_cdist;
   if(np_conditional_yrow_eval_two_slot_ctx_prepare(
@@ -36765,8 +36880,7 @@ static int np_conditional_distribution_cvls_gnn_empirical_row_stream(
        matrix_Y_ordered_eval_extern,
        matrix_Y_continuous_eval_extern,
        num_eval,
-       cdfontrain_extern ? &np_conditional_training_identity_geometry :
-         &np_conditional_external_geometry,
+       &np_conditional_external_geometry,
        &yctx) != 0)
     goto cleanup_gnn_empirical_cdist;
 
@@ -36924,8 +37038,7 @@ static int np_conditional_distribution_cvls_gnn_empirical_block_stream(
 
   if(np_conditional_xrow_ctx_prepare_ctx(
        vector_scale_factor,
-       cdfontrain_extern ? &np_conditional_training_identity_geometry :
-         &np_conditional_deleted_identity_geometry,
+       &np_conditional_deleted_identity_geometry,
        &xctx) != 0)
     goto cleanup_gnn_empirical_block;
   if(np_conditional_yrow_eval_two_slot_ctx_prepare(
@@ -36935,8 +37048,7 @@ static int np_conditional_distribution_cvls_gnn_empirical_block_stream(
        matrix_Y_ordered_eval_extern,
        matrix_Y_continuous_eval_extern,
        num_eval,
-       cdfontrain_extern ? &np_conditional_training_identity_geometry :
-         &np_conditional_external_geometry,
+       &np_conditional_external_geometry,
        &yctx) != 0)
     goto cleanup_gnn_empirical_block;
 

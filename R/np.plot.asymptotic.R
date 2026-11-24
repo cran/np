@@ -61,11 +61,11 @@
   minimum <- ceiling(qnorm(.975)^2 * (1 - alpha) / (.1^2 * alpha))
   draws <- .np_plot_gaussian_integer(draws, "gaussian.draws")
   if (draws < minimum)
-    .np_warning(sprintf(paste0("gaussian_draws=%.0f is below the recommended Monte Carlo ",
+    .np_warning(sprintf(paste0("gaussian.draws=%.0f is below the recommended Monte Carlo ",
       "precision count %.0f (alpha=%g, m=%.0f evaluation points). This approximate ",
       "95%% target limits relative simulation error in the maximum's upper-tail ",
       "probability to 10%%; it does not guarantee endpoint accuracy or statistical ",
-      "coverage. Increase gaussian_draws for greater precision; retaining the requested count."),
+      "coverage. Increase gaussian.draws for greater precision; retaining the requested count."),
       draws, minimum, alpha, m), call. = FALSE)
   draws
 }
@@ -239,16 +239,22 @@
   identical(bws[["type", exact=TRUE]], "fixed") &&
     identical(bws[["ckertype", exact=TRUE]], "gaussian") &&
     isTRUE(bws[["ckerorder", exact=TRUE]] == 2L) &&
-    identical(bws[["ckerbound", exact=TRUE]], "none") &&
+    (identical(bws[["ckerbound", exact=TRUE]], "none") ||
+     (identical(bws[["ckerbound", exact=TRUE]], "fixed") &&
+      isTRUE(bws[["nuno", exact=TRUE]] == 0L) &&
+      isTRUE(bws[["nord", exact=TRUE]] == 0L))) &&
     isTRUE(bws[["ncon", exact=TRUE]] > 0L)
 }
 
-# Calls retain historical formula/evaluation environments. MPI transport may
-# remove that provenance, while the complete computational bandwidth state and
-# retained training/evaluation data remain identical. Never evaluate a call to
-# validate a compact fitted operator, or omit any other bandwidth field.
+# Calls and post-publication timing profiles are provenance, not fitted
+# geometry. MPI reuse may retain the bandwidth before its coordinator profile
+# is attached. Compare every other bandwidth field and attribute exactly;
+# training/evaluation ownership is checked separately by each consumer.
+# Never evaluate a call to validate a compact fitted operator.
 .np_plot_regression_capture_same_bws <- function(left, right) {
   if (!is.list(left) || !is.list(right)) return(FALSE)
+  left[["timing.profile"]] <- NULL
+  right[["timing.profile"]] <- NULL
   left[["call"]] <- NULL
   right[["call"]] <- NULL
   identical(left, right)

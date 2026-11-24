@@ -2,6 +2,8 @@ npcdist <-
   function(bws, ...){
     mc <- match.call(expand.dots = FALSE)
     .np_validate_public_dots(mc[["..."]], "npcdist")
+    if (!missing(bws) && "na.action" %in% names(mc[["..."]]))
+      .np_fit_na_preflight(bws, substitute(list(...))[-1L], environment(), "npcdist")
     args <- .np_formula_dispatch_args(
       NULL, substitute(list(...))[-1L], environment(),
       data.roles = c("txdat", "tydat"),
@@ -28,8 +30,10 @@ npcdist <-
 npcdist.formula <-
   function(bws, data = NULL, newdata = NULL, ...){
     .np_reject_fit_subset(substitute(list(...))[-1L])
+    .np_fit_na_preflight(bws, substitute(list(...))[-1L], environment(), "npcdist", data = data, newdata = newdata)
 
-    dots <- list(...)
+    dots <- .np_formula_dispatch_args(
+      NULL, substitute(list(...))[-1L], environment(), omit.subset = FALSE)
     frame.state <- dots[[".np.formula.state", exact = TRUE]]
     dots$.np.formula.state <- NULL
     dots$formula <- NULL
@@ -75,7 +79,8 @@ npcdist.formula <-
       cd.args$eydat <- eydat
     }
     cd.args$bws <- bws
-    ev <- do.call(npcdist, c(cd.args, dots))
+    dots$na.action <- NULL
+    ev <- do.call(npcdist, c(cd.args, .np_formula_options(dots, "npcdist.formula")))
 
     ev$omit <- .np_formula_output_action(ev, umf, has.eval)
     ev$rows.omit <- as.vector(ev$omit)
@@ -105,11 +110,12 @@ npcdist.formula <-
 npcdist.call <-
   function(bws, ...) {
     .np_reject_fit_subset(substitute(list(...))[-1L])
+    .np_fit_na_preflight(bws, substitute(list(...))[-1L], environment(), "npcdist", native = TRUE)
 
   .np_reject_native_data(substitute(list(...))[-1L])
 
     do.call(npcdist, .np_retained_training_args(
-      bws, c(txdat = "xdat", tydat = "ydat"), list(...), npcdist.condbandwidth))
+      bws, c(txdat = "xdat", tydat = "ydat"), .np_formula_dispatch_args(NULL, substitute(list(...))[-1L], environment(), omit.subset = FALSE), npcdist.condbandwidth))
   }
 
 
@@ -124,12 +130,13 @@ npcdist.condbandwidth <-
            proper.control = list(),
            ..., se = FALSE){
     .np_reject_fit_subset(substitute(list(...))[-1L])
+    .np_fit_na_preflight(bws, substitute(list(...))[-1L], environment(), "npcdist", native = TRUE)
 
   .np_reject_native_data(substitute(list(...))[-1L])
 
 
     se <- npValidateScalarLogical(se, "se")
-    dots <- list(...)
+    dots <- .np_formula_dispatch_args(NULL, substitute(list(...))[-1L], environment(), omit.subset = FALSE)
     lp.first.se.demand <- .np_conditional_first_se_demand(
       dots[[".np_lp_first_se_demand", exact = TRUE]], bws$xncon)
     cat.se.demand <- .np_conditional_cat_se_demand(
@@ -213,8 +220,8 @@ npcdist.condbandwidth <-
     if (!any(keep.rows))
       stop("Data has no rows without NAs")
 
-    txdat <- txdat[keep.rows,,drop = FALSE]
-    tydat <- tydat[keep.rows,,drop = FALSE]
+    txdat <- .np_data_rows(txdat, keep.rows)
+    tydat <- .np_data_rows(tydat, keep.rows)
 
     eval.rows.omit <- integer(0)
     if (!no.exy){
@@ -226,8 +233,8 @@ npcdist.condbandwidth <-
       if (!any(keep.eval))
         stop("Data has no rows without NAs")
 
-      exdat <- exdat[keep.eval,,drop = FALSE]
-      eydat <- eydat[keep.eval,,drop = FALSE]
+      exdat <- .np_data_rows(exdat, keep.eval)
+      eydat <- .np_data_rows(eydat, keep.eval)
     }
 
 
@@ -749,7 +756,8 @@ npcdist.default <- function(bws, txdat, tydat, nomad = FALSE, ...){
   if (!has.explicit.bws)
     call.args$.np_fit_progress_handoff <- TRUE
   fit.dots <- if (!is.null(tbw[["formula", exact = TRUE]]))
-    .np_formula_dispatch_args(NULL, substitute(list(...))[-1L], environment())
-  else list(...)
+    .np_formula_options(.np_formula_dispatch_args(
+      NULL, substitute(list(...))[-1L], environment()), "npcdist.default")
+  else .np_formula_dispatch_args(NULL, substitute(list(...))[-1L], environment(), omit.subset = FALSE)
   do.call(npcdist, c(call.args, fit.dots))
 }

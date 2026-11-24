@@ -108,7 +108,9 @@ static SEXP np_lp_adjoint_prepared(SEXP gram, SEXP rhs, SEXP ntrain_arg,
     memcpy(REAL(out), workspace.rhs_work, (size_t)p*sizeof(double));
   SEXP admission=getAttrib(gram,install(".np.precision.eligible"));
   if(status==NP_LP_SOLVE_POLICY_OK && admission!=R_NilValue && TYPEOF(admission)==LGLSXP &&
-     XLENGTH(admission)==1 && LOGICAL(admission)[0]==TRUE && np_regression_precision_needed(&workspace,p)) {
+     XLENGTH(admission)==1 && LOGICAL(admission)[0]==TRUE &&
+     (diagnostics.ridge_total == 0.0 || getAttrib(gram,install(".np.precision.zero.only")) == R_NilValue) &&
+     np_regression_precision_needed(&workspace,p)) {
     memcpy(REAL(out),REAL(rhs),(size_t)p*sizeof(double));
     SEXP policy=PROTECT(allocMatrix(REALSXP,1,2));
     REAL(policy)[0]=diagnostics.ridge_total;REAL(policy)[1]=anchor;
@@ -346,16 +348,18 @@ NPReghatLPRowStatus np_reghat_lp_workspace_prepare_columns(
   return NP_REGHAT_LP_ROW_OK;
 }
 
-NPReghatLPRowStatus np_reghat_lp_workspace_influence_row_ranked(
+NPReghatLPRowStatus np_reghat_lp_workspace_influence_row_ranked_precision(
   NPReghatLPWorkspace *workspace,
   const double *weights,
   const double *basis_eval,
   double *row_out,
   size_t output_stride,
-  int support_rank)
+  int support_rank, NPRegressionPrecision *precision, double **columns,
+  int zero_ridge_only)
 {
   NPReghatLPRowStatus status;
   int observation;
+  double anchor = 0.0, ridge = 0.0;
 
   if((workspace == NULL) || (workspace->ntrain <= 0) ||
      (workspace->nterms <= 1))
@@ -365,9 +369,20 @@ NPReghatLPRowStatus np_reghat_lp_workspace_influence_row_ranked(
   status = np_reghat_lp_prediction_raw(
     workspace->ntrain, workspace->nterms, workspace->design,
     weights, basis_eval, workspace->weighted_design,
-    &workspace->solve_workspace, workspace->prediction, 0, support_rank, NULL, NULL);
+    &workspace->solve_workspace, workspace->prediction, 0, support_rank,
+    precision ? &anchor : NULL, precision ? &ridge : NULL);
   if(status != NP_REGHAT_LP_ROW_OK)
     return status;
+  if(precision != NULL && (!zero_ridge_only || ridge == 0.0) &&
+     np_regression_precision_needed(&workspace->solve_workspace, workspace->nterms)) {
+    if(!np_regression_precision_factor(precision, columns, weights, workspace->ntrain,
+                                       workspace->nterms, ridge, anchor) ||
+       !np_regression_precision_row(precision, basis_eval))
+      return NP_REGHAT_LP_ROW_NONFINITE;
+    for(observation = 0; observation < workspace->ntrain; ++observation)
+      row_out[(size_t)observation*output_stride] = precision->row[observation];
+    return NP_REGHAT_LP_ROW_OK;
+  }
   for(observation = 0; observation < workspace->ntrain; ++observation) {
     const double value =
       weights[observation]*workspace->prediction[observation];
@@ -377,6 +392,18 @@ NPReghatLPRowStatus np_reghat_lp_workspace_influence_row_ranked(
     row_out[(size_t)observation*output_stride] = value;
   }
   return NP_REGHAT_LP_ROW_OK;
+}
+
+NPReghatLPRowStatus np_reghat_lp_workspace_influence_row_ranked(
+  NPReghatLPWorkspace *workspace,
+  const double *weights,
+  const double *basis_eval,
+  double *row_out,
+  size_t output_stride,
+  int support_rank)
+{
+  return np_reghat_lp_workspace_influence_row_ranked_precision(workspace, weights,
+    basis_eval, row_out, output_stride, support_rank, NULL, NULL, 0);
 }
 
 /* Search consumers deliberately retain their incumbent numerical admission.

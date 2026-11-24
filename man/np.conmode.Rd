@@ -368,19 +368,22 @@ prediction/evaluation route, or plot route as appropriate.
     \code{eydat} take precedence over \code{newdata}. In
     \code{plot.conmode}, additional arguments control the object-fed
     probability/effect display; common controls include
-    \code{gradients}, \code{level}, \code{output}, \code{data_rug},
+    \code{gradients}, \code{level}, \code{output}, \code{data.rug},
     \code{layout}, \code{legend}, \code{view}, \code{neval},
-    \code{grid_control}, \code{perspective}, \code{plot_vars},
+    \code{grid.control}, \code{perspective}, \code{plot.vars},
     \code{renderer}, and graphics arguments. The default
     \code{view="sample"} draws the stored fitted probabilities/effects at the
-    fitted evaluation points. The \code{view="fixed"} route constructs
+    fitted evaluation points. Explicit sample views reject nonempty grid
+    controls and \code{neval}, \code{xtrim} or \code{xq}; use a fixed view
+    to construct a grid. Saved plot-data replay likewise cannot change the
+    retained grid. The \code{view="fixed"} route constructs
     one-dimensional object-fed slices over each conditioning variable, holding
     the remaining variables at their \code{uocquantile} median/mode values;
     \code{np_grid_control(xtrim=..., xq=...)} may be used to adjust the slice
     range and holdout quantiles. With \code{perspective=TRUE}, the same
     fixed-grid route draws a base-graphics probability surface for one selected
     response level over two continuous conditioning variables; use
-    \code{plot_vars} to name the displayed pair when more than two continuous
+    \code{plot.vars} to name the displayed pair when more than two continuous
     conditioning variables are present; \code{renderer="rgl"} requests the
     corresponding interactive surface when \pkg{rgl} is available. Both
     renderers use the package-wide viridis surface palette and neutral-gray
@@ -434,18 +437,28 @@ prediction/evaluation route, or plot route as appropriate.
     A growing or data-dependent sample grid additionally needs
     uniform linearization, non-dominating influences and a Gaussian-maximum
     approximation; arbitrary sample grids do not carry a uniform-coverage
-    guarantee. \code{gaussian_draws} (default 9999) and \code{random_seed}
+    guarantee. \code{gaussian.draws} (default 9999) and \code{random.seed}
     control reproducible joint calibration; pointwise and Bonferroni-only
     gradient requests need no Gaussian simulation.
     Surface asymptotic intervals are available as \code{output="data"}
     payload columns and are drawn with graphical surface output. The two
-    conditioning variables selected by \code{plot_vars} must be distinct.
+    conditioning variables selected by \code{plot.vars} must be distinct.
     Surface bootstrap intervals remain unsupported.
     See \code{\link{npcdensbw}} and \code{\link{plot.np}} for the complete
     bandwidth-selection and plotting argument surfaces.
   }
 
 }
+\section{Missing-value policies with stored bandwidths}{
+An existing bandwidth object retains its training omission policy. Explicit
+\code{na.action} overrides are supported only by the formula replacement-data
+or replacement-response routes that already own that policy, and by documented
+regression and single-index prediction policies. Unsupported stored native or
+formula evaluation overrides are rejected rather than silently ignored.
+For replacement native inputs, prepare the desired complete data explicitly.
+Reusing retained training does not re-run its missing-value callback.
+}
+
 \value{
   \code{npconmode} returns a \code{conmode} object with the following
   components:
@@ -795,7 +808,6 @@ y <- factor(rbinom(n, 1, plogis(1.5*x)), levels=0:1)
 model.effects <- npconmode(y~x,
                            regtype="ll",
                            bwmethod="cv.ls",
-                           nmulti=1,
                            probabilities=TRUE,
                            gradients=TRUE)
 
@@ -813,7 +825,6 @@ y2 <- factor(rbinom(n, 1, plogis(1.5*x - z)), levels=0:1)
 model.surface <- npconmode(y2~x+z,
                            regtype="ll",
                            bwmethod="cv.ls",
-                           nmulti=1,
                            probabilities=TRUE)
 plot(model.surface, perspective=TRUE, neval=15)
 } % enddontrun

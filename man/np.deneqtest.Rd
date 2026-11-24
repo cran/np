@@ -85,9 +85,11 @@ Further arguments are passed to the bandwidth-selection routines used by the tes
   greater than or equal to the observed statistic. Ties count as at least as
   extreme, giving the conservative tie convention for discrete statistics.
   This is the ordinary bootstrap proportion, without an add-one correction;
-  a reported zero is possible with a finite number of replications.
+  a zero is displayed as \samp{0 (0 of B)}, with the actual number of draws.
 }
 \value{
+  The result includes \code{total.time}, the elapsed wall-clock time in
+  seconds for the test call, displayed by \code{summary}.
   \code{npdeneqtest} returns an object of type \code{deneqtest} with the
   following components
 
@@ -214,7 +216,7 @@ n <- 250
 sample.A <- data.frame(x=rnorm(n))
 sample.B <- data.frame(x=rnorm(n))
 
-npdeneqtest(sample.A,sample.B,B=99)
+npdeneqtest(sample.A,sample.B)
 
 if (interactive()) Sys.sleep(5)
 
@@ -223,14 +225,14 @@ if (interactive()) Sys.sleep(5)
 sample.A <- data.frame(x=rnorm(n))
 sample.B <- data.frame(x=rchisq(n,df=5))
 
-npdeneqtest(sample.A,sample.B,B=99)
+npdeneqtest(sample.A,sample.B)
 
 ## Mixed datatypes, distributions are equal
 
 sample.A <- data.frame(a=rnorm(n),b=factor(rbinom(n,2,.5)))
 sample.B <- data.frame(a=rnorm(n),b=factor(rbinom(n,2,.5)))
 
-npdeneqtest(sample.A,sample.B,B=99)
+npdeneqtest(sample.A,sample.B)
 
 if (interactive()) Sys.sleep(5)
 
@@ -239,7 +241,7 @@ if (interactive()) Sys.sleep(5)
 sample.A <- data.frame(a=rnorm(n),b=factor(rbinom(n,2,.5)))
 sample.B <- data.frame(a=rnorm(n,sd=10),b=factor(rbinom(n,2,.25)))
 
-npdeneqtest(sample.A,sample.B,B=99)
+npdeneqtest(sample.A,sample.B)
 } % enddontrun
 }
 

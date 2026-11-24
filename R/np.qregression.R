@@ -2,6 +2,8 @@ npqreg <-
   function(bws, ...){
     mc <- match.call(expand.dots = FALSE)
     .np_validate_public_dots(mc[["..."]], "npqreg")
+    if (!missing(bws) && "na.action" %in% names(mc[["..."]]))
+      .np_fit_na_preflight(bws, substitute(list(...))[-1L], environment(), "npqreg")
     args <- .np_formula_dispatch_args(
       NULL, substitute(list(...))[-1L], environment(),
       data.roles = c("txdat", "tydat"),
@@ -795,9 +797,11 @@ npqreg <-
 npqreg.formula <-
   function(bws, data = NULL, newdata = NULL, ..., se = FALSE){
     .np_reject_fit_subset(substitute(list(...))[-1L])
+    .np_fit_na_preflight(bws, substitute(list(...))[-1L], environment(), "npqreg", data = data, newdata = newdata)
 
     se <- npValidateScalarLogical(se, "se")
-    dots <- list(...)
+    dots <- .np_formula_dispatch_args(
+      NULL, substitute(list(...))[-1L], environment(), omit.subset = FALSE)
     frame.state <- dots[[".np.formula.state", exact = TRUE]]
     dots$.np.formula.state <- NULL
 
@@ -843,7 +847,8 @@ npqreg.formula <-
     if (has.eval)
       q.args$exdat <- exdat
     q.args$bws <- bws
-    tbw <- do.call(npqreg, c(q.args, .npqreg_fit_dots(dots)))
+    dots$na.action <- NULL
+    tbw <- do.call(npqreg, c(q.args, .np_formula_options(.npqreg_fit_dots(dots), "npqreg.formula")))
 
     tbw$omit <- .np_formula_output_action(tbw, umf, has.eval, native.restored = TRUE)
     train.omit <- attr(tmf, "na.action")
@@ -873,11 +878,12 @@ npqreg.formula <-
 npqreg.call <-
   function(bws, ...) {
     .np_reject_fit_subset(substitute(list(...))[-1L])
+    .np_fit_na_preflight(bws, substitute(list(...))[-1L], environment(), "npqreg", native = TRUE)
 
   .np_reject_native_data(substitute(list(...))[-1L])
 
     do.call(npqreg, .np_retained_training_args(
-      bws, c(txdat = "xdat", tydat = "ydat"), list(...), npqreg.condbandwidth))
+      bws, c(txdat = "xdat", tydat = "ydat"), .np_formula_dispatch_args(NULL, substitute(list(...))[-1L], environment(), omit.subset = FALSE), npqreg.condbandwidth))
   }
 
 npqreg.conbandwidth <-
@@ -896,13 +902,14 @@ npqreg.condbandwidth <-
            small = 1.490116e-05, itmax = 10000,
            ..., se = FALSE){
     .np_reject_fit_subset(substitute(list(...))[-1L])
+    .np_fit_na_preflight(bws, substitute(list(...))[-1L], environment(), "npqreg", native = TRUE)
 
   .np_reject_native_data(substitute(list(...))[-1L])
 
 
     fit.start <- proc.time()[3]
     se <- npValidateScalarLogical(se, "se")
-    fit.dots <- list(...)
+    fit.dots <- .np_formula_dispatch_args(NULL, substitute(list(...))[-1L], environment(), omit.subset = FALSE)
     if (missing(exdat) && !is.null(fit.dots[["newdata", exact = TRUE]]))
       exdat <- .np_native_newdata_parts(fit.dots[["newdata", exact = TRUE]],
                                        list(exdat = bws$xnames), "npqreg")$exdat
@@ -972,8 +979,8 @@ npqreg.condbandwidth <-
     if (!any(keep.rows))
       stop("Training data has no rows without NAs")
 
-    txdat <- txdat[keep.rows,,drop = FALSE]
-    tydat <- tydat[keep.rows,,drop = FALSE]
+    txdat <- .np_data_rows(txdat, keep.rows)
+    tydat <- .np_data_rows(tydat, keep.rows)
 
     eval.omit <- NULL
     if (!no.ex){
@@ -981,7 +988,7 @@ npqreg.condbandwidth <-
       eval.omit <- .np_current_rows_omit(exdat)
       if (length(eval.omit) > 0L)
         keep.eval[as.integer(eval.omit)] <- FALSE
-      exdat <- exdat[keep.eval,,drop = FALSE]
+      exdat <- .np_data_rows(exdat, keep.eval)
     }
     
     tnrow = dim(txdat)[1]
@@ -1256,10 +1263,12 @@ npqreg.default <- function(bws, txdat, tydat, nomad = FALSE, ..., se = FALSE){
       call.args <- c(call.args, list(tydat))
     }
   }
-  dots <- if (!is.null(tbw[["formula", exact = TRUE]])) early.dots else list(...)
+  dots <- if (!is.null(tbw[["formula", exact = TRUE]])) early.dots else .np_formula_dispatch_args(NULL, substitute(list(...))[-1L], environment(), omit.subset = FALSE)
   if (has.explicit.bws)
     fit.dots <- .npqreg_fit_dots(dots)
   else
     fit.dots <- .npqreg_fit_dots(dots, allow.bandwidth.controls = TRUE)
+  if (!is.null(tbw[["formula", exact = TRUE]]))
+    fit.dots <- .np_formula_options(fit.dots, "npqreg.default")
   do.call(npqreg, c(call.args, fit.dots))
 }

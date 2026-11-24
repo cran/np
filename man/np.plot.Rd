@@ -69,7 +69,7 @@ Named options passed via \code{\dots} include:
         \code{NULL}. Refit with the intended data before plotting; see
         \code{\link{np-data-interfaces}}.
       }
-      \item{\code{grid_control}}{
+      \item{\code{grid.control}}{
         optional detailed grid controls created by
         \code{\link{np_grid_control}}.
       }
@@ -93,7 +93,7 @@ Named options passed via \code{\dots} include:
       \item{\code{xq}, \code{yq}, \code{zq}}{
         quantiles used to hold non-plotted variables fixed when
         constructing slices. Single-index plots have one index axis and reject
-        \code{grid_control$xq}. Their \code{grid_control$xtrim} selects the
+        \code{grid.control$xq}. Their \code{grid.control$xtrim} selects the
         lower and upper quantiles of the fitted index.
       }
       \item{\code{xtrim}, \code{ytrim}, \code{ztrim}}{
@@ -103,21 +103,21 @@ Named options passed via \code{\dots} include:
 
     \strong{Plot content controls}
     \describe{
-      \item{\code{coef}, \code{coef_index}}{
+      \item{\code{coef}, \code{coef.index}}{
         coefficient-function plotting controls for semiparametric
         families where supported. For smooth-coefficient plots with
-        \code{coef = TRUE}, \code{coef_index} selects the intercept as 1
+        \code{coef = TRUE}, \code{coef.index} selects the intercept as 1
         and then the fitted regressors in order. An index beyond the available
         coefficients is an error; it is not replaced by the last coefficient.
       }
-      \item{\code{common_scale}}{
+      \item{\code{common.scale}}{
         a logical value specifying whether multiple panels should share a
         common plotting scale when feasible.
       }
-      \item{\code{gradient_order}, \code{gradients}}{
+      \item{\code{gradient.order}, \code{gradients}}{
         derivative plotting controls for families that support
         gradients/derivatives. For \code{npreg} local-polynomial
-        objects, \code{gradient_order} requests the continuous-predictor
+        objects, \code{gradient.order} requests the continuous-predictor
         derivative order to generate on the plot evaluation grid; if
         omitted the first derivative/effect is plotted. Location-scale
         quantile-regression \code{nplsqreg} objects use the same
@@ -154,7 +154,7 @@ Named options passed via \code{\dots} include:
         one of \code{"plot"}, \code{"data"}, or \code{"plot-data"}.
         Data-returning modes use the common \code{\link{np_plot_data}} schema.
       }
-      \item{\code{proper}, \code{proper_control}, \code{proper_method}}{
+      \item{\code{proper}, \code{proper.control}, \code{proper.method}}{
         controls for proper conditional density/distribution handling
         where implemented.
       }
@@ -185,22 +185,27 @@ Named options passed via \code{\dots} include:
       \item{\code{B}}{
         the bootstrap replication count.
       }
-      \item{\code{band}}{
-        one of \code{"pmzsd"}, \code{"pointwise"},
-        \code{"bonferroni"}, \code{"simultaneous"}, or \code{"all"}.
-        The common bandwidth-engine default is \code{"pmzsd"}; direct
-        \code{npcopula} and \code{npconmode} plots retain their
-        method-specific \code{"pointwise"} default. The meaning of a band
-        name depends on whether \code{errors="bootstrap"} or
-        \code{errors="asymptotic"}; see Details.
+      \item{\code{interval}}{
+        Interval construction for plots that compute uncertainty. Omitting it
+        or supplying \code{NULL} preserves the provider's default. A selected
+        construction defaults to pointwise coverage on routes that allow an
+        omitted scope. Specialist smoothed density laws require an explicit scope.
+        See Interval constructions across families and Regression interval constructions below.
       }
-      \item{\code{boot_control}}{
+      \item{\code{band}}{
+        Coverage scope. Choose \code{"pointwise"}, \code{"simultaneous"},
+        \code{"bonferroni"} or \code{"all"} where supported. With both selectors
+        omitted, bandwidth-engine plots retain their usual marginal normal-SD
+        display. Copula and conditional-mode plots retain their pointwise default.
+        Simultaneous coverage refers to the finite target family recorded for that component.
+      }
+      \item{\code{boot.control}}{
         optional detailed bootstrap controls created by
         \code{\link{np_boot_control}}. This controls non-fixed bootstrap
         behavior, wild-bootstrap multipliers, and dependent-bootstrap
         block length.
       }
-      \item{\code{bias_control}}{
+      \item{\code{bias.control}}{
         regression auxiliary settings created by \code{\link{np_bias_control}},
         or optional fixed-bandwidth density settings created by
         \code{\link{np_udens_bias_control}}. Used with
@@ -216,11 +221,15 @@ Named options passed via \code{\dots} include:
         \code{"wild"}, \code{"inid"}, \code{"fixed"}, and
         \code{"geom"}; density/distribution-family plots support
         \code{"inid"}, \code{"fixed"}, and \code{"geom"}.
-        Experimental regression \code{calibration="smoothed-percentile"}
+        The explicit density-only \code{"smoothed-q6"} law has the narrow
+        corrected-band scope described in Details. The separate density-only
+        \code{"smoothed-beta-binomial"} law supports fixed-bound order-four, -six and -eight
+        Epanechnikov symmetric-SD construction, also described in Details.
+        Experimental regression \code{interval="outer-calibrated-percentile"}
         additionally uses \code{bootstrap="residual"}; see
         \code{\link{np_boot_control}} for its scope and defaults.
       }
-      \item{\code{boxplot_outliers}, \code{factor_boxplot}}{
+      \item{\code{boxplot.outliers}, \code{factor.boxplot}}{
         boxplot-style bootstrap summary controls for factor/categorical
         displays when available.
       }
@@ -250,7 +259,7 @@ Named options passed via \code{\dots} include:
 
     \strong{Rendering and view controls}
     \describe{
-      \item{\code{data_overlay}}{
+      \item{\code{data.overlay}}{
         logical; when \code{TRUE}, overlay raw data on regression,
         quantile-regression, single-index, partially linear, and smooth
         coefficient plot surfaces and expand plot limits to include the data. For
@@ -277,22 +286,22 @@ Named options passed via \code{\dots} include:
         \code{legend=list(tau=list(x="topright"), bands=FALSE)} may
         be used when a route distinguishes those legend roles.
       }
-      \item{\code{data_rug}}{
+      \item{\code{data.rug}}{
         logical; when \code{TRUE}, draw a rug-style support cue for the
         plotted coordinates. For ordinary 1D base plots this behaves
         like a standard rug. For eligible 2D surface plots, the base
         renderer draws short floor-rug ticks and
         \code{renderer="rgl"} draws the analogous 3D floor-rug ticks
         on supported surface routes. In this rollout tranche,
-        \code{data_rug=TRUE} is implemented across the current base
+        \code{data.rug=TRUE} is implemented across the current base
         plot families and across supported \code{rgl} surface routes;
         unsupported renderer/geometry combinations still fail clearly
         rather than being ignored silently. On mixed base plot layouts,
         rug marks are drawn for continuous panels and omitted for
         categorical panels.
-        This option is distinct from \code{data_overlay}:
-        \code{data_rug} shows where observations lie in the plotted
-        covariate support, while \code{data_overlay} is the
+        This option is distinct from \code{data.overlay}:
+        \code{data.rug} shows where observations lie in the plotted
+        covariate support, while \code{data.overlay} is the
         regression-only 3D response overlay used on supported surface
         plots. On supported regression surfaces, both options may be
         used together. Default is \code{FALSE}.
@@ -304,7 +313,7 @@ Named options passed via \code{\dots} include:
       \item{\code{phi}, \code{theta}, \code{view}}{
         view controls for bivariate continuous surface plots.
       }
-      \item{\code{render_control}}{
+      \item{\code{render.control}}{
         optional detailed rendering controls created by
         \code{\link{np_render_control}}, including band-versus-bar
         uncertainty display controls.
@@ -340,10 +349,16 @@ Named options passed via \code{\dots} include:
         \code{theta=0}, \code{phi=-70}, and \code{fov=55} to approximate
         the base perspective in the square interactive viewport. The widget
         automatically uses up to two backing-store pixels per CSS pixel on
-        high-DPI displays. Axis titles retain rgl's native screen-facing text
+        high-DPI displays. Automatically calculated finite surface clipping
+        limits receive a display-only margin of 0.1\% of their range at each
+        end to reduce clipping artifacts where flat regions coincide with an
+        automatic boundary. This margin is not a guarantee for coordinates
+        whose magnitude is very large relative to their range. Explicit
+        limits, including supported \code{rgl.persp3d.*} overrides, numerical
+        estimates, intervals and returned plot data are unchanged. Axis titles retain rgl's native screen-facing text
         orientation while the scene is rotated. For the currently supported \code{npreg},
         \code{npplreg}, and plain mean-surface
-        \code{npscoef} surface routes, \code{data_overlay=TRUE}
+        \code{npscoef} surface routes, \code{data.overlay=TRUE}
         adds observed data as an interactive point cloud. For all
         currently supported \code{rgl} surface routes,
         \code{errors != "none"} adds interval surfaces;
@@ -387,15 +402,37 @@ Named options passed via \code{\dots} include:
       \code{lwd}, \code{main}, \code{sub}, \code{type}, \code{xlab},
       \code{xlim}, \code{ylab}, \code{ylim}, \code{zlab}, \code{zlim}}{
         standard graphical controls forwarded to the underlying plotting
-        primitives when relevant. In continuous two-dimensional regression
-        panels, \code{xlim} sets the display limits without changing the
-        evaluation grid or the family used to calibrate simultaneous bands.
+        primitives when relevant. Supplied limits affect the display, not the
+        evaluation grid, estimates, intervals or the family used to calibrate
+        simultaneous bands. For surface plots, \code{xlim} and \code{ylim}
+        control the two coordinate axes and \code{zlim} controls height.
+        For one-dimensional partially linear and smooth-coefficient panels,
+        \code{xlim} controls X panels and \code{zlim} controls Z panels;
+        \code{ylim} controls the plotted values. Saved-data replay retains
+        these choices. An explicit replay \code{xlim} overrides retained
+        horizontal limits; an explicitly supplied replay \code{zlim} takes
+        precedence on Z panels when both are supplied. A horizontal limit
+        applies to every selected line panel, including factor-level positions;
+        select individual saved panels when different ranges are wanted.
+        On these line panels, \code{xlab} labels X coordinates and
+        \code{zlab} labels Z coordinates; \code{ylab} labels the plotted
+        values. A supplied label applies to every panel of that role.
+        Saved replay retains these labels. A replay \code{xlab} alone
+        overrides every horizontal label; an explicitly supplied
+        \code{zlab} takes precedence on Z panels. Empty strings suppress
+        label text, while \code{NULL} restores the generated label.
+        Mathematical labels can be supplied using \code{expression()}.
+        Omitted or \code{NULL} limits use automatic ranges. Each renderer
+        retains its restrictions on valid limits. The rgl renderer preserves
+        its handling of constant ranges and missing endpoints; infinite limits
+        or a non-finite rendered coordinate range are refused before scene
+        serialization.
       }
     }
 
     \strong{Reproducibility controls}
     \describe{
-      \item{\code{random_seed}}{
+      \item{\code{random.seed}}{
         an optional random seed used to make bootstrap plotting
         reproducible.
       }
@@ -427,7 +464,7 @@ Further plotting controls are passed through \code{\dots} to the relevant plot m
   available through \code{\link{np_conditional_bias_control}}. They require
   explicit selection and preserve existing methods. Their bootstrap response law
   is selected explicitly by \code{bootstrap="conditional-pilot"}, with
-  \code{calibration="symmetric-sd"} or \code{"asymmetric-sd"}; it is not pairs
+  \code{interval="symmetric-sd"} or \code{"asymmetric-sd"}; it is not pairs
   resampling. Read the control help for correction differences, finite-grid
   limits, signed returned offsets and known coverage limitations.
 
@@ -457,7 +494,7 @@ Further plotting controls are passed through \code{\dots} to the relevant plot m
 
   The slice itself is evaluated on a uniformly spaced sequence of
   \eqn{neval} points. By default its limits are the training-data minimum
-  and maximum. Use \code{grid_control = np_grid_control(xtrim = c(a, b))}
+  and maximum. Use \code{grid.control = np_grid_control(xtrim = c(a, b))}
   to select the \code{a} and \code{b} quantiles for each numeric variable
   in the X block, with \code{0 <= a < b <= 1}. This pair is a range,
   not a separate trim amount for each variable. Single-index plots apply
@@ -506,10 +543,10 @@ Further plotting controls are passed through \code{\dots} to the relevant plot m
   surfaces).
 
   For regression with \code{center="bias-corrected"} and the default
-  \code{np_bias_control(construction="iterated")}, \code{"pmzsd"}
+  \code{np_bias_control(construction="iterated")}, \code{interval="normal-sd"}
   retains the symmetric normal-quantile rule around the corrected center.
   The other three band types use empirical quantiles of the corrected process.
-  Gaussian and Mammen calibration use replicate-specific studentization:
+  The incumbent absolute-root Gaussian and Mammen constructions use replicate-specific studentization:
   pointwise limits use marginal absolute studentized statistics, simultaneous
   limits use their within-target maxima, and Bonferroni limits use marginal
   tail probabilities adjusted by the number of grid points. An outward
@@ -519,8 +556,156 @@ Further plotting controls are passed through \code{\dots} to the relevant plot m
   bootstrap laws retain their documented corrected-process calibration;
   see \code{\link{np_bias_control}} for law-specific definitions and support.
 
+  Fixed-bandwidth second-order Epanechnikov kernels with none/fixed support
+  and second-order beta kernels with declared finite fixed support admit explicit
+  \code{"asymmetric-sd"} and
+  \code{"asymmetric-sd-envelope"} with \code{"inid"}, \code{"fixed"}, \code{"geom"} or Mammen/Rademacher wild resampling.
+  These existing standardized-root constructions are experimental alternatives.
+  They can be substantially narrower than the default local envelope and need not
+  retain its finite-sample coverage; saved degree-two beta derivative examples
+  miss features covered by the local envelope. The local-envelope default is
+  unchanged. Explicit tail controls still require empirical bands; they do not
+  select asymptotic errors or \code{interval="normal-sd"}.
+
+  The same fixed second-order kernel configurations support ordinary iterated
+  bias-corrected asymptotic and \code{interval="normal-sd"} calls. Asymptotic finite-grid
+  bands use the existing Gaussian multiplier process with replicate residual-pilot
+  studentization; \code{interval="normal-sd"} uses a normal critical value times the observed
+  corrected-process SD and is not a simultaneous band. Explicit
+  \code{"symmetric-sd"} supports pairs, Mammen and Rademacher
+  resampling. The auxiliary pilots remain Gaussian. These SD constructions retain
+  finite-sample limitations, including saved degree-two derivative misses;
+  Mammen and pairs empirical defaults continue to select the more protective
+  local envelope. For Rademacher wild resampling, omitted/default calibration
+  selects \code{"asymmetric-sd-envelope"} for these fixed configurations, preserving both
+  its signed and absolute intervals; explicit controls are unchanged. Nonpooled
+  Rademacher targets retain observed corrected-process scaling, while pooled
+  mixed-predictor targets retain replicate residual-pilot studentization for
+  empirical bands. This does not extend either basic envelope to Rademacher or
+  alter Gaussian defaults; the saved derivative limitations still apply.
+
+For fixed-bandwidth raw Epanechnikov GLP fits with a quadratic component,
+and fixed-bandwidth beta derivatives with a positive main degree, the
+supported iterated empirical bands require explicit
+\code{interval="basic-local-envelope"} with pairs or
+Mammen resampling. Saved cases show numerical sensitivity in the fitted rows.
+
+Fixed uniform-kernel models with \code{ckerbound="none"} or \code{"fixed"}
+support iterated mean correction for local-constant fits and GLP fits with
+degree zero in every continuous predictor, including mean panels
+for mixed continuous/categorical predictors. Their empirical default is \code{"basic-local-envelope"} for
+Mammen or pairs resampling and \code{"asymmetric-sd-envelope"} for Rademacher;
+asymptotic and \code{interval="normal-sd"} calls retain absolute calibration. The same
+explicit fixed-kernel calibration/law combinations above apply to these mean
+targets. Continuous uniform derivatives remain unqualified under iterated
+correction, including local-constant auxiliary-only derivatives. For mixed
+uniform models, \code{gradients=TRUE} requests continuous derivatives along
+with categorical contrasts and is therefore refused as a whole; the public
+plot interface does not offer a contrast-only iterated route. The existing
+explicit \code{bias.control=np_bias_control(construction="legacy")} routes
+retain their previous supported behavior. The main kernel remains uniform
+and the auxiliary pilots remain Gaussian. Saved mean comparisons are limited
+to eight reused original samples and do not establish general nominal coverage.
+Uniform LC and GLP fits with degree zero in every continuous predictor also
+support these mean constructions with generalized or adaptive nearest-neighbour
+bandwidths and unbounded or declared fixed support. Their defaults follow the
+same declared-law mapping; explicit methods remain available. Neighbour counts
+and Gaussian auxiliary fits remain fixed, and bounded ANN retains donor-specific
+support normalization. The additional NN comparison uses only two saved
+original samples and does not establish nominal coverage. Higher-degree uniform
+NN correction and continuous uniform derivatives remain unqualified.
+
+
+  Regression additionally offers the experimental inid/fixed/geometric
+  \code{interval="basic-envelope"} for fixed-bandwidth
+  means, derivatives and categorical contrasts with the admitted second-order
+  Gaussian, Epanechnikov and fixed-support beta kernels. The basic envelope
+  retains its own explicit construction; the more protective local envelope
+  remains the default for the admitted Epanechnikov/beta pairs/Mammen empirical bands.
+  For pairs resampling, the
+  \code{interval="basic-local-envelope"} option also supports
+  Gaussian generalized/adaptive nearest-neighbour bandwidths. For fixed
+  Gaussian bandwidths it additionally offers a symmetric Mammen raw/local
+  envelope. This explicit calibration also admits fixed-bandwidth second-order
+  Epanechnikov kernels with unbounded or declared fixed support, and second-order
+  beta kernels with declared finite fixed support, for pairs and Mammen laws.
+  For those fixed Epanechnikov and beta empirical-band combinations, omitted
+  \code{boot.control} also selects this qualified local-envelope construction;
+  Gaussian defaults and explicit calibration choices are unchanged.
+  Both retain Gaussian auxiliary fits and inactive automatic adaptation.
+  Beta support limits, data and metric bandwidths are transformed together;
+  derivative results retain the numerical sensitivity of the native beta fit.
+  Undefined canonical beta derivative rows, including some exact support
+  endpoints, retain the existing refusal.
+  These experimental extensions are not a general coverage guarantee.
+  The local envelope also admits unbounded second-order Epanechnikov
+  pairs resampling with adaptive NN, and generalized NN with main degrees
+  at most one in every continuous predictor. Neighbour counts remain fixed.
+  For second-order Epanechnikov LC, local-linear or GLP fits with unbounded or
+  declared fixed support and main degrees at most one in every continuous
+  predictor, either NN type also admits explicit
+  \code{basic-envelope}, \code{separate-tails} and \code{tail-envelope}
+  pairs bands. Omitted/default calibration selects the unchanged, more
+  protective local envelope for these degree-zero or first-order pairs fits. Means, first
+  continuous derivatives and categorical contrasts use the same corrected
+  rows; NN radii remain frozen for continuous derivatives. Higher-degree
+  admissions are unchanged. The degree-zero and first-order comparisons reuse two saved
+  samples and do not establish nominal coverage; narrower explicit alternatives
+  must not be interpreted as coverage improvements.
+  Epanechnikov NN classes with a main degree greater than one retain their
+  existing limitations.
+  Second-order beta regression with known finite fixed support also supports
+  generalized/adaptive NN LC or GLP degree-zero mean panels, including supported
+  mixed predictors and categorical mean contrasts. The same established SD,
+  pairs and wild constructions apply: Mammen and pairs default to the local
+  envelope, and Rademacher defaults to the containing tail envelope. Explicit
+  calibrations retain their definitions. Experimental univariate beta GNN means also admit pointwise and simultaneous
+  Mammen wild bands for degree-one and degree-two Bernstein GLP fits with
+  zero-ridge main rows and known finite bounds. The default uses absolute roots
+  (\code{interval="symmetric-sd"}). Select \code{interval="basic-local-envelope"}
+  for the wider local envelope. On 114 saved datasets at each degree, the two
+  constructions covered 111 and 114 complete grids, respectively. The ordinary-use mean comparison reuses two saved samples and does not
+  establish nominal coverage. Fitted NN counts and support bounds stay fixed.
+
+Experimental bias-corrected first-derivative bands are available for a single
+continuous predictor with known finite bounds, a second-order beta kernel,
+local-constant or degree-zero GLP regression and generalized or adaptive
+nearest-neighbour bandwidths. Request \code{gradients=TRUE},
+\code{center="bias-corrected"} and \code{band="simultaneous"} or
+\code{band="pointwise"}. With \code{errors="bootstrap"}, independent pairs
+(\code{bootstrap="inid"}) and Mammen wild use \code{"basic-local-envelope"}.
+Rademacher wild uses \code{"asymmetric-sd-envelope"}. With \code{errors="asymptotic"},
+the studentized Gaussian construction uses absolute calibration.
+The fitted neighbour count and degree stay fixed during inference.
+In the saved assessment, the independent-pairs simultaneous bands covered
+all 50 grid points on each of 114 independent datasets for both bandwidth types.
+Their median ratio of simultaneous to pointwise width was 6.80 for generalized
+and 7.14 for adaptive bandwidths. On the saved heteroskedastic exponential
+design, upper-region adaptive pointwise coverage averaged 90.63 percent at
+95 percent nominal. Mammen wild basic-local-envelope also admits \code{band="bonferroni"} and
+\code{band="all"}, with diagnostics for limited draw resolution. Omitting the band
+selects marginal normal-SD intervals for default Mammen bootstrap and Gaussian
+asymptotic inference. Explicit pointwise and simultaneous calls retain their
+empirical or studentized constructions. Fixed and geometric block pairs remain
+outside this experimental derivative scope.
+
+  The degree-zero and first-order Epanechnikov NN classes support ordinary asymptotic and
+  \code{interval="normal-sd"} calls, explicit absolute/symmetric-SD pairs and wild bands,
+  and Mammen/Rademacher separate-tail and tail-envelope bands. Its empirical
+  Mammen default is the local envelope; its Rademacher default is the containing
+  tail envelope. The fitted NN counts and Gaussian auxiliary operators are
+  unchanged. For bounded ANN, the existing donor-specific support normalizers
+  are retained; known bounds transform with the data and derivative units.
+  The limited saved comparisons are not nominal-coverage
+  certification, and \code{interval="normal-sd"} remains a descriptive SD interval.
+  Other calibration boundaries are unchanged. The experimental Mammen envelope uses positive generation variance while retaining the observed
+  standard error separately. Categorical-only wild envelopes are not qualified.
+  These options invert endpoint-unit empirical roots and take a containing
+  absolute-root envelope, rather than using a replicate studentizer or
+  ordinary percentile endpoints. See \code{\link{np_boot_control}}.
+
   In the default and legacy constructions in the table,
-  \code{errors="bootstrap", band="pmzsd"} summarizes each
+  \code{errors="bootstrap", interval="normal-sd", band="pointwise"} summarizes each
   bootstrap distribution by its standard deviation and imposes a symmetric
   normal-quantile shape on the displayed band. In contrast, bootstrap
   \code{"pointwise"} and \code{"bonferroni"} bands use the corresponding
@@ -593,10 +778,13 @@ Further plotting controls are passed through \code{\dots} to the relevant plot m
   construction; see \code{\link{npqreg}} for its supported level and
   gradient targets and conditioning assumptions.
 
-  Known-fixed-bound order-2 beta density plots support a separate corrected
-  guide-region plus residual construction in one or two continuous dimensions.
-  With omitted \code{bias_control}, request asymptotic errors or independent
-  bootstrap \code{calibration="symmetric-sd"}/\code{"asymmetric-sd"}, and
+  Known-fixed-bound beta density plots support a separate corrected
+  guide-region plus residual construction: orders 2, 4, 6 and 8 for one or
+  two continuous dimensions. Higher-order two-dimensional coverage was strongly
+  conservative in the retained saved-sample study; this is not an efficiency
+  or universal coverage guarantee.
+  With omitted \code{bias.control}, request asymptotic errors or independent
+  bootstrap \code{interval="symmetric-sd"}/\code{"asymmetric-sd"}, and
   explicitly choose pointwise, simultaneous, Bonferroni or all three bands
   together with \code{band="all"}. Range-derived bounds and
   literal endpoints are rejected. All slices share one finite calibration
@@ -609,16 +797,16 @@ Further plotting controls are passed through \code{\dots} to the relevant plot m
 
   Known-fixed-bound order-2 Gaussian density plots also support corrected
   asymptotic and independent symmetric-sd/asymmetric-sd intervals for one or
-  two continuous coordinates, with omitted \code{bias_control} and explicit
+  two continuous coordinates, with omitted \code{bias.control} and explicit
   pointwise/simultaneous/Bonferroni bands or \code{band="all"}. FG-D combines complete ratio-pilot and empirical
   residual intervals with a nonlinear guide region; it is distinct from beta
   correction and unbounded D8. Range-derived bounds and literal endpoints are
   rejected. All slices form one finite calibration family. See
   \code{\link{np_udens_bias_control}} for assumptions and endpoint rules.
 
-  For one continuous variable, these known-fixed-bound order-2 beta and Gaussian
-  density plots additionally support asymptotic normal intervals with omitted
-  \code{band} or \code{band="pmzsd"} and omitted \code{bias_control}.
+  For one continuous variable, known-fixed-bound beta kernels of orders 2, 4, 6
+  and 8 and order-2 Gaussian density plots additionally support asymptotic normal intervals with omitted
+  \code{band} or \code{interval="normal-sd", band="pointwise"} and omitted \code{bias.control}.
   The corrected center is unchanged. The complete influence variance is
   integrated under the normalized positive ratio pilot, including guide and
   cross-covariance terms, and uses ordinary normal critical values.
@@ -634,7 +822,11 @@ Further plotting controls are passed through \code{\dots} to the relevant plot m
   that limit still stop. This is distinct from full-covariance calibrated bands
   and does not bound the memory used by the entire R process.
   This normal approximation can be
-  less accurate at sparse boundary targets in small samples. Two-dimensional
+  less accurate at sparse boundary targets in small samples. Higher-order beta
+  marginal coverage can also be low at individual targets in multimodal
+  distributions, especially with small selected bandwidths; favorable average
+  coverage is not a uniform pointwise guarantee. This admission does not provide
+  normal Bonferroni or simultaneous bands. Two-dimensional
   Gaussian normal intervals, bootstrap pmzsd, estimated bounds and literal
   support endpoints are not admitted by this additional construction. See
   \code{\link{np_udens_bias_control}} for its assumptions and limitations.
@@ -652,7 +844,7 @@ Further plotting controls are passed through \code{\dots} to the relevant plot m
   bandwidths, higher orders and multivariate calibrated compact correction
   are not admitted by this construction.
   With \code{errors="asymptotic"}, omitted \code{band} or
-  \code{band="pmzsd"} instead uses the same corrected center and complete
+  \code{interval="normal-sd", band="pointwise"} instead uses the same corrected center and complete
   normalized ratio-pilot influence variance with normal critical values.
   Guide and cross-covariance contributions are included. These marginal
   intervals require no simulated draws; they are distinct from the calibrated
@@ -670,18 +862,19 @@ Further plotting controls are passed through \code{\dots} to the relevant plot m
   recompute their own compact-support quadrature; the complete requested grid
   is retained within the 192 MiB plot-workspace bound. Normal intervals remain
   marginal and keep their separate construction. A separate fixed-bound q2
-  addition supports asymptotic pointwise and Bonferroni calibrated intervals,
+  addition supports asymptotic pointwise, simultaneous, Bonferroni and all-band calibrated intervals,
   and independent symmetric-sd/asymmetric-sd intervals with all four explicit
   band types. These require omitted density bias controls and the same interior
   data/target restrictions. For SD bands explicitly select \code{bootstrap="inid"}
-  and the calibration in \code{boot_control}. Asymptotic simultaneous/all and
-  bootstrap pmzsd are not admitted by this addition. See
+  and the construction in \code{interval}. Bootstrap pmzsd is not admitted
+  by this addition. Asymptotic simultaneous bands use the complete pilot and
+  empirical Gaussian covariances, including all cross-coordinate guide terms. See
   \code{\link{np_udens_bias_control}} for the distinct uncertainty constructions
   and their conservative, finite-grid evidence.
   For corrected bootstrap bands, supply \code{errors="bootstrap"}, explicit
   \code{bootstrap="inid"}, an explicit band, and
-  \code{boot_control=np_boot_control(calibration="symmetric-sd")} or
-  \code{boot_control=np_boot_control(calibration="asymmetric-sd")}.
+  \code{interval="symmetric-sd"} or
+  \code{interval="asymmetric-sd"}.
   Each literal resample refits the guide; the residual functional, rather than
   the complete corrected curve, is bootstrapped at the original empirical
   residual scale. The original nonlinear guide region is included once.
@@ -696,6 +889,176 @@ Further plotting controls are passed through \code{\dots} to the relevant plot m
   not guarantee nominal coverage for arbitrary densities or very small samples.
   Low finite-draw tail resolution, particularly for Bonferroni bands, is reported
   without changing \code{B}; defined finite limits are retained.
+
+  Fixed unbounded second-order Epanechnikov density plots with one continuous
+  variable support corrected asymptotic pointwise and raw Bonferroni normal
+  intervals through the M4 complete-covariance construction. The existing
+  Gaussian-maximum simultaneous band is unchanged; \code{band="all"} returns
+  those same three components. Bonferroni uses the number of unique supplied
+  targets, without enlarging its limits to contain the simultaneous band.
+  These experimental normal companions have useful average coverage in the
+  retained study, but local undercoverage remains possible. This does not select
+  M4 for \code{pmzsd} or bootstrap bands; see
+  \code{\link{np_udens_bias_control}}. Core estimators are unchanged.
+  Under the same one-continuous-variable, fixed-bandwidth, unbounded order-two
+  specification, uniform density plots support corrected asymptotic pointwise
+  and raw Bonferroni normal intervals using the complete positive-reference Q6
+  covariance. Its reference is the empirical mixture plus bandwidth-scaled
+  Student-six noise. This asymptotic normal calculation does not draw smoothed
+  bootstrap samples and does not admit uniform asymptotic simultaneous or
+  \code{all} bands. Explicit \code{bootstrap="smoothed-q6"}, existing
+  \code{pmzsd} and other methods retain their contracts. Neither reference
+  guarantees nominal coverage at every location, especially in sparse tails.
+
+
+  For a univariate order-four, order-six or order-eight Epanechnikov density with known finite
+  \code{ckerbound="fixed"} bounds, \code{errors="asymptotic"},
+  \code{center="bias-corrected"} uses a
+  degree-(order+1) support-reproducing plot correction with a fitted beta guide.
+  The native fit and its bandwidth remain unchanged; the plotted
+  corrected center is distinct from that fit. The normal pointwise scale uses
+  the complete positive-reference influence covariance, including guide and
+  cross terms. Data and evaluation coordinates must be strictly interior;
+  exact support endpoints, range bounds, bootstrap and q>1 are not admitted by
+  this construction. Normal pointwise (including \code{pmzsd}) and Bonferroni
+  bands use the complete marginal scale. Simultaneous bands calibrate a
+  standardized Gaussian maximum from the complete influence Gram factor,
+  retaining all directions through full QR. \code{band="all"} returns the
+  same three component bands; Bonferroni uses its analytic normal quantile
+  without a simulated hull. Covariance and process error, rather than identical
+  finite draws from different factors, define numerical qualification. No bandwidth selection occurs during this correction.
+  In a 2,048-original fixed-grid CVLS study, mean pointwise coverage was
+  90.42/95.16/98.97 percent at nominal 90/95/99 percent. Local mixture deficits
+  remain; these averages do not imply uniform coverage over all locations.
+
+
+  The explicit experimental \code{bootstrap="smoothed-beta-binomial"} law
+  supports only one continuous numeric variable, a retained fixed bandwidth,
+  an order-four, -six or -eight Epanechnikov kernel and supplied finite
+  \code{ckerbound="fixed"} bounds. It requires \code{errors="bootstrap"},
+  \code{center="bias-corrected"}, an explicit \code{band="pointwise"},
+  \code{"simultaneous"}, \code{"bonferroni"} or \code{"all"}, and
+  \code{interval="symmetric-sd"}. Observations
+  and targets must be strictly inside the bounds. Range or one-sided bounds,
+  nearest-neighbor bandwidths, mixed data, other kernel orders, two-dimensional
+  data, asymmetric calibration and \code{pmzsd} are not supported by this law.
+  The beta distribution describes its resampling guide, not the density kernel.
+
+  On the unit support, fit the positive beta guide with shapes \eqn{a,b}, set
+  \eqn{k=\lceil 2n^{2/5}\rceil}, and assign mixture weight
+  \eqn{w_j=n^{-1}\sum_i {k\choose j}x_i^j(1-x_i)^{k-j}} for \eqn{j=0,\ldots,k}.
+  Draw a component with these weights and then a \eqn{\mathrm{Beta}(a+j,b+k-j)}
+  observation. Each replicate refits the guide for the same complete
+  degree-five, -seven or -nine support-reproducing correction for kernel orders
+  four, six or eight respectively; bandwidth and target coordinates
+  are held fixed. Roots subtract the complete corrected functional under this
+  resampling law and use the original complete-influence scale, including guide
+  and cross terms. Pointwise bands use marginal absolute-root quantiles;
+  simultaneous bands use a maximum over the unique supplied finite grid.
+  Bonferroni uses the marginal quantile at alpha divided by the family size
+  with the explicit simultaneous hull; raw Bonferroni endpoints remain in the
+  inference record. Type-7 quantiles and finite-draw resolution warnings apply.
+  All component bands reuse one draw plan. Signed corrected curves and raw
+  endpoints remain available without truncation. This explicit law does not
+  change the meaning of \code{"inid"}, \code{"smoothed-q6"}, existing beta-kernel
+  bands or estimator standard errors. Coverage remains experimental and is not
+  guaranteed uniformly over distributions or boundary shapes.
+
+  The explicit experimental \code{bootstrap="smoothed-q6"} law supports
+  \code{errors="bootstrap"}, \code{center="bias-corrected"},
+  \code{band="pointwise"}, \code{band="simultaneous"},
+  \code{band="bonferroni"} or \code{band="all"}, and
+  \code{interval="symmetric-sd"} together.
+  It is restricted to one or two continuous numeric variables, positive retained
+  fixed bandwidth, whole-line second-order uniform or Epanechnikov kernels,
+  at least ten finite observations and positive guide variance (positive definite
+  full guide covariance for two variables). It leaves the
+  fitted estimator and all existing inference choices unchanged. Normal-scale \code{pmzsd},
+  asymptotic errors, bounds, nearest-neighbor bandwidths,
+  custom bias controls and dependent-data controls are not admitted by this law.
+
+  Symmetric Q6 resamples complete observations from the empirical distribution and adds
+  independent \eqn{h\sqrt{2/3}t_6} smoothing noise. The corrected plot curve uses
+  the frozen sixth-order compact operator with a fitted normal guide. Each
+  replicate refits that guide. Roots are centered at the complete corrected
+  functional under Q6, rather than at the observed curve or Q6 density, and
+  divided by the fixed original complete-influence standard errors. A single
+  absolute maximum over the unique supplied finite grid is calibrated with the
+  type-7 empirical quantile for simultaneous bands. Pointwise intervals instead
+  use the marginal absolute root quantile at each original supplied coordinate;
+  targets do not change within a replicate. Bonferroni uses the type-7 marginal
+  absolute quantile at alpha divided by the number of unique targets, combined
+  with the simultaneous hull. Raw Bonferroni endpoints are retained separately
+  in the inference record. All component bands use the same primitive draw plan;
+  no extra draws or target deletion improves finite-B resolution. Signed corrected centers and raw endpoints are
+  retained; nonnegative intersections may be reported separately. This is a
+  different law and calibration from \code{smoothed-percentile}.
+
+  For two variables, \code{interval="asymmetric-sd"} also supports
+  pointwise and simultaneous bands under the same explicit Q6 law. Both
+  directional scales are estimated from centered conditional corrected roots,
+  while calibration retains the uncentered roots relative to the complete Q6
+  functional. Positive root deviations use the positive scale for the lower
+  endpoint, and negative deviations use the negative scale for the upper endpoint.
+  A single directional maximum over the unique supplied targets calibrates
+  simultaneous bands. Constant conditional rows are rejected without a variance
+  floor. Bonferroni and all bands are not admitted for this q=2 asymmetric route.
+  A 256-original empirical-grid confirmation gave conservative 95-percent
+  pointwise cell means of 95.08--97.70 percent and simultaneous coverage of
+  98.44--100 percent; this is not a guarantee for arbitrary distributions or grids.
+  The inference record separates the two directional scales and their pooled
+  conditional standard deviation from the original reference standard errors.
+
+  For two variables, the symmetric construction resamples a common observation
+  donor for both coordinates and adds independent coordinate smoothing noise.
+  It uses the product corrected operator, refits the full bivariate normal guide,
+  and retains all five guide influence directions and their cross terms. The
+  shared paired draws preserve joint dependence without storing a dense target
+  covariance matrix. A bounded 512-original, 100-target confirmation found
+  conservative 95-percent simultaneous coverage (99.61/100 percent for uniform/
+  Epanechnikov); this is not a general near-nominal coverage guarantee.
+
+  Explicit \code{interval="asymmetric-sd"} with this law remains restricted
+  to one continuous variable and instead supports
+  pointwise, simultaneous, Bonferroni and all bands on the full empirical-range grid only (the default
+  \code{xtrim=0}, or \code{grid.control=np_grid_control(xtrim=c(0,1))}). Its center and original fixed-coordinate influence
+  scale are unchanged. In each complete resample the same equally spaced grid
+  fractions are rebuilt between that resample's minimum and maximum. The root
+  subtracts the Q6 density at that selected coordinate, rather than the
+  corrected fixed-coordinate functional. The original scale is a fixed
+  weighting function here, not a claimed variance for the random-coordinate
+  statistic. Separate signed maxima and type-7 quantiles at \eqn{1-\alpha/2}
+  form the lower and upper endpoints; signed critical values are not clipped
+  to zero. Pointwise intervals use the signed marginal roots and equal-tail
+  type-7 quantiles. Bonferroni uses alpha/(2m) in each tail and the explicit
+  simultaneous hull; raw Bonferroni endpoints remain in the inference record.
+  All components share one primitive draw plan. The marginal scale is not a
+  random-grid standard error. Nondefault trimming, fixed physical grids and
+  multivariate requests remain unqualified for this new calibration.
+  In a 1,024-original own-CVML study, empirical-grid 95-percent simultaneous
+  coverage was 96.88 percent for uniform and 96.29 percent for Epanechnikov.
+  These bands were wider than the symmetric alternative; the Epanechnikov
+  skew-mixture cell covered 88.28 percent at n=100 and 93.75 percent at n=400.
+  Mean pointwise 95-percent coverage in the same bank was94.46 percent for
+  uniform and95.68 percent for Epanechnikov; local mixture deficits remain.
+  The Bonferroni hull covered97.36/97.75 percent, while raw tails at999 draws
+  and50 targets are resolution-limited. These are finite-grid results, not a
+  continuum-coverage guarantee.
+
+  Finite-draw resolution is reported without increasing \code{B}; the inherited
+  default is unchanged. Quadrature and finite-workspace certificates can reject
+  an unrepresentable geometry rather than regularizing or downsampling it.
+  The private confirmation used own-CVML bandwidths, four distributions and
+  n=100/400: empirical-grid 95-percent simultaneous coverage was 98.14 percent
+  for uniform and 96.83 percent for Epanechnikov. This does not guarantee
+  continuum or arbitrary-density coverage: the fixed-domain skew-mixture
+  Epanechnikov n=100 cell covered 89.84 percent (95-percent binomial interval
+  85.53--92.97 percent), improving to 95.31 percent at n=400. Other retained
+  positive fixed-bandwidth origins are accepted conditionally without a new
+  bandwidth search, but do not inherit that CVML coverage evidence.
+  Mean pointwise coverage at 90/95/99 percent was 91.18/95.83/99.15 percent
+  for uniform and 90.42/95.25/98.98 percent for Epanechnikov. Local sparse-tail
+  deficits remain: these averages are not uniform-in-location guarantees.
 
   Default bias-corrected unconditional unbounded Gaussian density plots use the D8
   positive-pilot construction for eligible asymptotic requests; see
@@ -740,7 +1103,7 @@ Further plotting controls are passed through \code{\dots} to the relevant plot m
   NA simultaneous limits, preserving other available bands. Unexpected
   calculation errors and material target reconstruction failures remain errors.
 
-  The separately named plot argument \code{gaussian_draws} has a fixed default
+  The separately named plot argument \code{gaussian.draws} has a fixed default
   of 9999 and accepts positive integer counts subject to representability and
   workspace limits, without a fixed one-million upper cap. It applies only to asymptotic
   simultaneous/all requests; \code{B} remains bootstrap-only.
@@ -794,7 +1157,7 @@ Further plotting controls are passed through \code{\dots} to the relevant plot m
   These checks are bounded: other reconstruction and RNG replay cases remain
   unqualified; non-refusal is not a general RNG safety certificate.
 
-  \code{random_seed} (default 42) controls reproducible calibration. Before
+  \code{random.seed} (default 42) controls reproducible calibration. Before
   changing the seed, a temporary seed scope checks that caller state can be
   restored. It refuses Box--Muller and uncertifiable user-supplied generator
   state, including hidden state absent from \code{.Random.seed}; it never
@@ -808,7 +1171,7 @@ Further plotting controls are passed through \code{\dots} to the relevant plot m
   These guarantees do not certify arbitrary RNG changes made by user callbacks.
   For the standard asymptotic Gaussian calibration described above (excluding
   the fixed-bound beta and FG-D guide-region constructions), a
-  \code{gaussian_draws} count below
+  \code{gaussian.draws} count below
   \code{ceiling(qnorm(.975)^2 * (1-alpha) / (.1^2 * alpha))} warns and is used
   unchanged. This is an approximate 95 percent Monte Carlo target for relative
   error within 10 percent in the simulated maximum's upper-tail probability.
@@ -824,7 +1187,7 @@ Further plotting controls are passed through \code{\dots} to the relevant plot m
   tail-rank resolution when \eqn{\lfloor B\alpha/2\rfloor<20} for symmetric-SD
   bootstrap or asymptotic simultaneous calibration, or when
   \eqn{\lfloor B\alpha/4\rfloor<20} for asymmetric-SD bootstrap. Here \eqn{B}
-  denotes the requested \code{gaussian_draws} for asymptotic simulation and
+  denotes the requested \code{gaussian.draws} for asymptotic simulation and
   the requested bootstrap \code{B} otherwise. At \eqn{\alpha=0.05}, these
   warnings occur below 800 and 1600 draws, respectively. Their asymptotic
   pointwise calculation uses a normal quantile without simulated draws.
@@ -834,7 +1197,7 @@ Further plotting controls are passed through \code{\dots} to the relevant plot m
   Simulation uses bounded blocks and the bootstrap progress mechanism to
   report completed draws, elapsed time and estimated time remaining during
   interactive computation. It uses a conservative 64 MiB workspace budget;
-  reduce \code{neval} or \code{gaussian_draws} if the workspace is too large.
+  reduce \code{neval} or \code{gaussian.draws} if the workspace is too large.
   Regression, single-index and smooth-coefficient slice covariance calibration
   is limited to 512 grid points. Density-family plots switch to an
   observation-level factor above 512 points and budget up to 128 MiB for
@@ -855,7 +1218,7 @@ Further plotting controls are passed through \code{\dots} to the relevant plot m
   For regression derivatives, replace \eqn{L} by the corresponding derivative
   influence map; the training smoother and normalized residuals remain those
   of the fitted mean. Available higher-order continuous partials use the
-  existing \code{gradient_order} contract. For categorical regression
+  existing \code{gradient.order} contract. For categorical regression
   gradients, use the difference of the two endpoint influence rows. Unordered
   factors compare each level with the first retained level; ordered factors
   use adjacent-level differences, with the first forward difference repeated
@@ -901,7 +1264,7 @@ Further plotting controls are passed through \code{\dots} to the relevant plot m
   bootstrap intervals before scaling.
   They retain the scalar-index regression standard-error convention. Smooth-coefficient bands describe the
   noniterated plotted mean or existing slope-coefficient gradient selected by
-  \code{coef_index}, and use fitted raw training residuals in place
+  \code{coef.index}, and use fitted raw training residuals in place
   of the normalized residuals above. These gradients hold the smoothing
   coordinates fixed, including when explanatory and smoothing variables
   overlap; they are not total derivatives through those coordinates.
@@ -948,7 +1311,7 @@ Further plotting controls are passed through \code{\dots} to the relevant plot m
 
   On an eligible single-panel plot rendered by base graphics,
   a missing \code{sub} argument allows the plot method to add a concise
-  variability subtitle after finite bounds have actually been drawn. This
+  inference subtitle after finite bounds have actually been drawn. This
   includes individual figures in a sequence with
   \code{options(plot.par.mfrow=FALSE)} when the active graphics layout is
   a full-frame single panel. Levels and supported gradients/effects follow
@@ -960,7 +1323,19 @@ Further plotting controls are passed through \code{\dots} to the relevant plot m
   \code{"95\% symmetric variability band (normal quantile × asymptotic SE)"}
   and
   \code{"95\% pointwise bootstrap variability band (quantiles)"}.
-  Bias-corrected bootstrap labels also identify their center.
+  With \code{center="estimate"}, these are labelled variability bands:
+  smoothing bias is not removed. With \code{center="bias-corrected"},
+  the labels instead say confidence bands or intervals, and identify
+  pointwise, Bonferroni-adjusted or simultaneous scope. With \code{band="all"},
+  the subtitle describes confidence bands and the legend distinguishes their
+  scopes. Detailed labels identify the corrected center; compact fallbacks
+  retain construction and family instead of repeating that explanation.
+  Simultaneous coverage concerns the method's documented finite family,
+  usually the evaluation grid within a panel. \code{interval="normal-sd", band="pointwise"}
+  is pointwise, not simultaneous. Confidence terminology describes the
+  inferential target; all bias-corrected methods remain experimental
+  alpha/pre-beta, incomplete, and without a general nominal-coverage guarantee.
+  Their construction-specific and finite-family qualifications still apply.
 
   The automatic subtitle uses the effective subtitle typography (including
   \code{cex.sub}) and only appears when an approved one-line wording fits
@@ -1023,6 +1398,18 @@ Further plotting controls are passed through \code{\dots} to the relevant plot m
   \code{\link{np_bias_control}}. The plot result records the corrected values, requested endpoints and
   compact construction metadata; internal process workspaces are not returned.
   Pointwise, simultaneous and Bonferroni bands share this construction.
+  Fixed-bandwidth second-order Gaussian correction supports known fixed
+  bounds for continuous predictors, including one-sided and partially bounded
+  support. Gaussian generalized/adaptive NN local-constant, local-linear and GLP
+  fits with main degrees at most one also support known fixed bounds, including
+  supported mixed predictors. Existing Gaussian defaults
+  and explicit methods are unchanged. NN radii remain frozen for derivatives;
+  bounded ANN retains donor-specific support normalization. Derivatives above a
+  coordinate's degree retain their existing refusal or unavailable-panel behavior.
+  Higher-degree bounded Gaussian NN, fixed-bandwidth mixed Gaussian models and
+  range bounds remain unqualified. Existing adaptation and
+  fitted-row precision rules are preserved. The two saved NN samples do not
+  establish nominal coverage.
   The following legacy centering discussion applies to the other supported
   families and to explicit regression \code{construction="legacy"}.
 
@@ -1152,8 +1539,10 @@ Further plotting controls are passed through \code{\dots} to the relevant plot m
   Fixed-bandwidth beta kernels of orders 4, 6 and 8 also support these
   estimate-centered joint variability bands in one or two continuous
   dimensions with finite known fixed bounds. Their signed observation
-  contributions are retained; this does not extend beta bias-corrected
-  methods or change the native marginal standard errors.
+  contributions are retained; native marginal standard errors are unchanged.
+  The separate beta corrected construction described above accepts these orders
+  for calibrated bands in one or two dimensions, and marginal asymptotic
+  \code{pmzsd} in one dimension only.
   This higher-order addition does not admit CDFs, conditional estimators,
   nearest-neighbour bandwidths, range bounds or bias-corrected requests.
 
@@ -1192,16 +1581,16 @@ Further plotting controls are passed through \code{\dots} to the relevant plot m
   inid/fixed/geom : fast direct helper path (no internal bandwidth search)
   }
   Raw asymmetric iterated regression bands are available with
-  \code{boot_control=np_boot_control(calibration="separate-tails")};
-  \code{calibration="tail-envelope"} adds empirical absolute-root protection.
+  \code{interval="asymmetric-sd"};
+  \code{interval="asymmetric-sd-envelope"} adds empirical absolute-root protection.
   These options require bootstrap bias-corrected empirical bands and retain
   the selected wild/inid/fixed/geom law. See \code{\link{np_boot_control}}
   for scope and finite-sample limitations.
 
   For non-fixed density/distribution bootstrap, an explicit experimental
   approximation is available via
-  \code{boot_control = np_boot_control(nonfixed = "exact")} or
-  \code{boot_control = np_boot_control(nonfixed = "frozen")}. The default
+  \code{boot.control = np_boot_control(nonfixed = "exact")} or
+  \code{boot.control = np_boot_control(nonfixed = "frozen")}. The default
   \code{"exact"} route recomputes the non-fixed geometry for each resample.
   The experimental \code{"frozen"} route reuses the original-sample
   non-fixed geometry throughout the bootstrap run. This option is currently
@@ -1293,14 +1682,89 @@ Further plotting controls are passed through \code{\dots} to the relevant plot m
   plot(fit, errors="bootstrap", bootstrap="inid")
   }
 
-  Compound public plot argument names use snake_case. Retired dotted plot
+  Compound public plot argument names use dotted spellings. Retired snake_case plot
   spellings are rejected with migration guidance. Non-plot APIs and control
   constructor arguments retain their existing names. Use \code{errors},
   \code{bootstrap}, \code{B}, \code{band}, \code{alpha}, \code{center},
-  \code{output}, \code{data_overlay}, \code{data_rug}, \code{layout}, and the
+  \code{output}, \code{data.overlay}, \code{data.rug}, \code{layout}, and the
   control constructors documented in \code{\link{np_boot_control}},
   \code{\link{np_grid_control}}, and \code{\link{np_render_control}}.
 
+}
+
+\section{Interval constructions across families}{
+For a marginal normal interval use \code{interval="normal-sd", band="pointwise"}.
+For ordinary empirical bootstrap intervals on eligible estimate-centered or legacy
+routes use \code{interval="percentile"} with the desired \code{band}. For an
+ordinary Gaussian simultaneous band use \code{errors="asymptotic"},
+\code{interval="symmetric-sd"} and \code{band="simultaneous"}.
+
+An explicit construction selects an existing provider. Density and distribution
+correction depend on the kernel, support, bandwidth type, resampling law and
+center. See \code{\link{np_udens_bias_control}}, \code{\link{np_udist_bias_control}}
+and \code{\link{np_conditional_bias_control}} for eligibility. For example,
+\code{interval="asymmetric-sd"} can select transported percentile tails in an
+unbounded Gaussian density plot or signed residual inversion in a bounded beta
+density plot. \code{asymmetric-sd-envelope} requests the protected tail envelope
+where supported. \code{outer-calibrated-percentile} requests the qualified outer
+calibration. Density also accepts the literal \code{absolute}, \code{separate-tails}
+and \code{percentile-tails} choices where the provider supports them. The CDF
+asymptotic score envelope can be selected with \code{interval="score-envelope"}.
+Inspect the inference record for the fitted provider and each returned component.
+
+To migrate a saved bootstrap control, create a fresh \code{np_boot_control()}
+with its original \code{nonfixed}, \code{wild} and \code{blocklen}. Keep the
+original \code{bootstrap} and \code{B}. Move an explicit construction to
+\code{interval} and omit \code{interval} for the historical default. The
+former \code{band="pmzsd"} becomes \code{interval="normal-sd", band="pointwise"}.
+Saved plot data can be replayed and extracted with their original component names.
+}
+
+\section{Regression interval constructions}{
+For an \code{npreg} fit or regression bandwidth object, \code{errors} chooses
+the source of uncertainty, \code{bootstrap} its resampling law, \code{interval}
+the construction, and \code{band} the coverage scope. The following choices
+use the corresponding fitted geometry, correction and draws.
+\describe{
+\item{\code{"normal-sd"}}{A normal critical value times the applicable
+standard error or bootstrap SD. Use pointwise scope for the former
+\code{interval="normal-sd", band="pointwise"} display. An ordinary asymptotic Bonferroni interval
+also admits this construction.}
+\item{\code{"symmetric-sd"}}{The absolute-root construction in qualified
+iterated corrected fits, or the Gaussian simultaneous construction in
+supported estimate-centered asymptotic fits.}
+\item{\code{"asymmetric-sd"} and \code{"asymmetric-sd-envelope"}}{Signed
+corrected bootstrap root inversion, with absolute-root protection when the
+envelope is selected. These replace the explicit regression calibrations
+\code{"separate-tails"} and \code{"tail-envelope"}, respectively.}
+\item{\code{"basic-envelope"} and \code{"basic-local-envelope"}}{The
+qualified basic root constructions for the specified fit, target and
+resampling law. The local version also protects against locally scaled roots.}
+\item{\code{"percentile"}}{Empirical bootstrap curve quantiles for
+estimate-centered fits and the explicit legacy corrected bootstrap.
+Joint requests use the existing family rank procedure.}
+\item{\code{"outer-calibrated-percentile"}}{The experimental fixed Gaussian
+residual procedure. On a grid with multiple rows, the mean pointwise interval
+uses nominal marginal quantiles. The derivative marginal and joint components
+use their corresponding outer calibrations. See \code{\link{np_boot_control}}.}
+}
+For example, \code{plot(fit, errors="bootstrap", center="bias-corrected",
+interval="basic-local-envelope", band="simultaneous")} requests the local
+envelope when the fit and law support it. Use
+\code{bias.control=np_bias_control(construction="legacy")} for legacy correction.
+Rebuild saved regression bootstrap controls that contain a \code{calibration}
+field. Retain their intended law, multiplier and block settings and pass
+the construction through \code{interval}. Each returned component records
+its actual construction in \code{\link{np_plot_data}}.
+}
+\section{Empty conditional-density windows}{
+For ordinary local-constant conditional-density plots with nonnegative kernels,
+finite empty empirical response windows do not establish zero uncertainty.
+Asymptotic and fixed-bandwidth bootstrap marginal limits are unavailable there.
+The estimates and all requested grid rows are retained; if any member lacks
+uncertainty, the full requested simultaneous band is unavailable. Available
+pointwise and Bonferroni limits are retained. This disclosure does not alter raw
+estimation, corrected inference, derivatives, or declared outside-support zeros.
 }
 
 \value{
@@ -1505,7 +1969,7 @@ bw <- npregbw(xdat=cps71$age, ydat=cps71$logwage,
               regtype="ll", bwmethod="cv.aic")
 fit <- npreg(bws=bw)
 plot.out <- plot(fit, perspective=FALSE, errors="bootstrap",
-                 B=25, band="pointwise", output="plot-data")
+                 band="pointwise", output="plot-data")
 d <- as.data.frame(plot.out, panel=1, target=1)
 age.eval <- d$eval_1
 logwage.eval <- d$estimate
@@ -1514,14 +1978,14 @@ logwage.upper.ci <- d$upper
 
 # Corrected values are descriptive targets, not offsets to add to endpoints.
 p <- plot(fit, perspective=FALSE, errors="bootstrap",
-          center="bias-corrected", B=25, band="pointwise", output="data")
+          center="bias-corrected", band="pointwise", output="data")
 d <- as.data.frame(p, panel=1, target=1)
 logwage.bc <- d$bias_corrected
 logwage.bias <- d$estimate - d$bias_corrected
 
 # The same extraction works for derivatives. Inspect the target identity.
 g <- plot(fit, perspective=FALSE, gradients=TRUE, errors="bootstrap",
-          B=25, band="pointwise", output="data")
+          band="pointwise", output="data")
 g$targets
 grad <- as.data.frame(g, panel=1, target=1)
 plot(g)
@@ -1538,7 +2002,7 @@ Italy2 <- within(Italy, {
 # Plot only: make the plotted surface proper on the plot evaluation grid.
 
 fhat <- npcdens(gdp ~ year, data = Italy2,
-                regtype = "lp", degree = 3, nmulti = 1)
+                regtype = "lp", degree = 3)
 
 plot(fhat, proper = TRUE)
 
@@ -1556,7 +2020,6 @@ fhat_fit <- npcdens(
   data = Italy2,
   regtype = "lp",
   degree = 3,
-  nmulti = 1,
   proper = TRUE,
   proper.control = ctrl_fit
 )
@@ -1616,7 +2079,6 @@ fhat_both <- npcdens(
   data = Italy2,
   regtype = "lp",
   degree = 3,
-  nmulti = 1,
   proper = TRUE,
   proper.control = ctrl_both
 )
@@ -1652,7 +2114,7 @@ failures must be considered when experimenting with these bounds.
 A known limitation concerns pilot-based normal-scale, bias-corrected density
 intervals, including the fixed-support beta and Gaussian constructions and
 the one- and two-dimensional uniform and Epanechnikov normal constructions. These use normal critical values for
-\code{band="pmzsd"} (also selected when \code{band} is omitted on these
+\code{interval="normal-sd", band="pointwise"} (also selected when \code{band} is omitted on these
 routes). The fitted pilot reference law can substantially understate
 uncertainty even when all joint bias-correction covariance terms are included.
 Residual smoothing bias and sparse information can also cause poor coverage

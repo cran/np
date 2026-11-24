@@ -72,7 +72,16 @@
   args
 }
 
-.np_semihat_make_regbw_state <- function(source, xdat, ydat, bw) {
+.np_semihat_kernel_choice <- function(value, choices, where = "regression preparation") {
+  kernel <- if (is.null(value) || !length(value)) "gaussian" else as.character(value)[1L]
+  if (!kernel %in% choices)
+    stop(sprintf("kernel '%s' is not supported by this %s", kernel, where),
+         call. = FALSE)
+  kernel
+}
+
+.np_semihat_make_regbw_state <- function(source, xdat, ydat, bw,
+                                          kernel.choices = c("gaussian", "epanechnikov", "uniform")) {
   resolve_choice <- function(value, choices, default = choices[1L]) {
     if (is.null(value) || !length(value))
       return(default)
@@ -97,8 +106,9 @@
                            c("cv.ls", "cv.aic"))
   bwtype <- resolve_choice(if (!is.null(args$bwtype)) args$bwtype else source$type,
                            c("fixed", "generalized_nn", "adaptive_nn"))
-  ckertype <- resolve_choice(if (!is.null(args$ckertype)) args$ckertype else source$ckertype,
-                             c("gaussian", "epanechnikov", "uniform"))
+  # Kernel support belongs to the caller; never substitute another kernel.
+  kernel <- if (!is.null(args$ckertype)) args$ckertype else source$ckertype
+  ckertype <- .np_semihat_kernel_choice(kernel, kernel.choices)
   ckerorder <- if (!is.null(args$ckerorder)) args$ckerorder else source$ckerorder
   ckerbound <- resolve_choice(if (!is.null(args$ckerbound)) args$ckerbound else source$ckerbound,
                               c("none", "range", "fixed"))
@@ -207,6 +217,7 @@
 
 .np_indexhat_scalar_source <- function(bws) {
   source <- bws
+  source[["ckertype"]] <- .np_index_kernel(bws)
   if (identical(as.character(source$ckerbound)[1L], "range")) {
     # The scalar index has its own range; original predictor-space bounds do not collapse.
     source$ckerlb <- NULL
@@ -257,7 +268,7 @@
   }
 
   bwtype <- resolve_choice(bws$type, c("fixed", "generalized_nn", "adaptive_nn"))
-  ckertype <- resolve_choice(bws$ckertype, c("gaussian", "epanechnikov", "uniform"))
+  ckertype <- .np_index_kernel(bws)
   ckerbound <- resolve_choice(bws$ckerbound, c("none", "range", "fixed"))
   ukertype <- resolve_choice(bws$ukertype, c("aitchisonaitken", "liracine"))
   okertype <- resolve_choice(bws$okertype, c("liracine", "wangvanryzin", "racineliyan", "nliracine"))
@@ -425,7 +436,7 @@
     bws = if (!is.null(kernel.bws)) kernel.bws else if (identical(bws$type, "adaptive_nn"))
       .np_indexhat_kbw(bws, idx.train) else bws$bw,
     bwtype = bws$type,
-    ckertype = bws$ckertype,
+    ckertype = .np_index_kernel(bws),
     ckerorder = bws$ckerorder,
     ckerbound = bws$ckerbound,
     ckerlb = if (identical(bws$ckerbound, "fixed"))
@@ -1220,6 +1231,16 @@ npindexhat <-
     (out.plus - out.minus) / (2.0 * step)
   }
 
+# A training regressor's fitted mean sets the scale of the partial-linear rank
+# check. Applying reconstructed hat rows can lose exact polynomial reproduction.
+.np_plreghat_training_mean <- function(bws, z, x) {
+  if (.npreghat_fitted_capture_scope(bws) && !anyNA(z) && !anyNA(x)) {
+    as.vector(.np_regression_direct(bws, z, x)$mean)
+  } else {
+    as.vector(.npreghat_complete(bws = bws, txdat = z, y = x, output = "apply"))
+  }
+}
+
 npplreghat <-
   function(bws,
            txdat = stop("training data 'txdat' missing"),
@@ -1295,12 +1316,7 @@ npplreghat <-
       )
 
       for (j in seq_len(p)) {
-        xhat.train <- as.vector(.npreghat_complete(
-          bws = bws$bw[[j + 1L]],
-          txdat = tzdat,
-          y = x.train.num[, j],
-          output = "apply"
-        ))
+        xhat.train <- .np_plreghat_training_mean(bws$bw[[j + 1L]], tzdat, x.train.num[, j])
         xhat.eval <- as.vector(.npreghat_complete(
           bws = bws$bw[[j + 1L]],
           txdat = tzdat,
@@ -1335,12 +1351,7 @@ npplreghat <-
       stop("number of rows in 'y' must equal number of training rows")
 
     for (j in seq_len(p)) {
-      xhat.train <- .npreghat_complete(
-        bws = bws$bw[[j + 1L]],
-        txdat = tzdat,
-        y = x.train.num[, j],
-        output = "apply"
-      )
+      xhat.train <- .np_plreghat_training_mean(bws$bw[[j + 1L]], tzdat, x.train.num[, j])
       xhat.eval <- .npreghat_complete(
         bws = bws$bw[[j + 1L]],
         txdat = tzdat,

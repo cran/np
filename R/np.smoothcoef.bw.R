@@ -85,10 +85,10 @@ npscoefbw.formula <-
     dots <- list(...)
     .np_formula_frame_store(dots[[".np.formula.state", exact = TRUE]], mf)
     dots$.np.formula.state <- NULL
-    tbw <- do.call(npscoefbw, c(bw.args, dots))
+    tbw <- do.call(npscoefbw, c(bw.args, .np_formula_options(dots, "npscoefbw.formula")))
 
     ## clean up (possible) inconsistencies due to recursion ...
-    tbw$call <- .np_formula_call_public(match.call(expand.dots = FALSE))
+    tbw$call <- .np_public_replay_call(match.call(expand.dots = FALSE), "npscoefbw")
     environment(tbw$call) <- parent.frame()
     tbw$formula <- formula
     tbw$rows.omit <- as.vector(attr(mf,"na.action"))
@@ -128,12 +128,12 @@ npscoefbw.NULL <-
     bw.args <- list(xdat = xdat, ydat = ydat, bws = bws)
     if (!miss.z)
       bw.args$zdat <- zdat
-    tbw <- do.call(npscoefbw.default, c(bw.args, list(...)))
+    tbw <- do.call(npscoefbw.default, c(bw.args, .np_formula_dispatch_args(NULL, substitute(list(...))[-1L], environment(), omit.subset = FALSE)))
 
     ## clean up (possible) inconsistencies due to recursion ...
     mc <- match.call(expand.dots = FALSE)
     environment(mc) <- parent.frame()
-    tbw$call <- mc
+    tbw$call <- .np_public_replay_call(mc, "npscoefbw")
 
     tbw <-
       updateBwNameMetadata(nameList = list(ynames = deparse(substitute(ydat))),
@@ -575,7 +575,7 @@ npscoefbw.scbandwidth <-
 
 
     nomad.opts <- .np_nomad_normalize_user_opts(nomad.opts, "npscoefbw")
-    dots <- list(...)
+    dots <- .np_formula_dispatch_args(NULL, substitute(list(...))[-1L], environment(), omit.subset = FALSE)
     if (length(nomad.opts))
       dots$nomad.opts <- nomad.opts
     npRejectUnsupportedBwsolver(dots, "npscoefbw")
@@ -673,11 +673,11 @@ npscoefbw.scbandwidth <-
     if (!any(keep.rows))
       stop("Data has no rows without NAs")
 
-    xdat <- xdat[keep.rows,,drop = FALSE]
-    ydat <- ydat[keep.rows]
+    xdat <- .np_data_rows(xdat, keep.rows)
+    ydat <- .np_data_rows(ydat, keep.rows, frame = FALSE)
 
     if(!miss.z)
-      zdat <- zdat[keep.rows,, drop = FALSE]
+      zdat <- .np_data_rows(zdat, keep.rows)
     
     nrow = dim(xdat)[1]
     ncol = dim(xdat)[2]
@@ -2120,10 +2120,10 @@ npscoefbw.scbandwidth <-
   if (!any(keep.rows))
     stop("Data has no rows without NAs")
 
-  xdat <- xdat[keep.rows, , drop = FALSE]
-  ydat <- ydat[keep.rows]
+  xdat <- .np_data_rows(xdat, keep.rows)
+  ydat <- .np_data_rows(ydat, keep.rows, frame = FALSE)
   if (!miss.z)
-    zdat <- zdat[keep.rows, , drop = FALSE]
+    zdat <- .np_data_rows(zdat, keep.rows)
 
   yvec <- if (is.factor(ydat)) {
     dlev(ydat)[as.integer(ydat)]
@@ -2985,7 +2985,7 @@ npscoefbw.default <-
 
 
     nomad.opts <- .np_nomad_normalize_user_opts(nomad.opts, "npscoefbw")
-    dots <- list(...)
+    dots <- .np_formula_dispatch_args(NULL, substitute(list(...))[-1L], environment(), omit.subset = FALSE)
     if (length(nomad.opts))
       dots$nomad.opts <- nomad.opts
     npRejectUnsupportedBwsolver(dots, "npscoefbw")
@@ -3177,9 +3177,9 @@ npscoefbw.default <-
       keep.rows <- rep_len(TRUE, NROW(xdat))
       if (length(rows.omit)) keep.rows[as.integer(rows.omit)] <- FALSE
       if (!any(keep.rows)) stop("Data has no rows without NAs")
-      search.xdat <- xdat[keep.rows, , drop = FALSE]
-      search.ydat <- ydat[keep.rows]
-      search.zdat <- if (miss.z) NULL else zdat[keep.rows, , drop = FALSE]
+      search.xdat <- .np_data_rows(xdat, keep.rows)
+      search.ydat <- .np_data_rows(ydat, keep.rows, frame = FALSE)
+      search.zdat <- if (miss.z) NULL else .np_data_rows(zdat, keep.rows)
       degree.search$nobs <- sum(keep.rows)
 
       eval_fun <- function(degree.vec) {
@@ -3259,7 +3259,7 @@ npscoefbw.default <-
     }
 
     environment(mc) <- parent.frame()
-    tbw$call <- mc
+    tbw$call <- .np_public_replay_call(mc, "npscoefbw")
     tbw <- .np_attach_nomad_shortcut(tbw, nomad.shortcut$metadata)
 
     return(.np_bws_retain_native_training(tbw, xdat = xdat, ydat = ydat,

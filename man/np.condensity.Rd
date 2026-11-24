@@ -445,6 +445,16 @@ Further arguments are passed to \code{\link{npcdensbw}} when bandwidths are comp
   \code{se = FALSE}, the additional uncertainty pass is not performed.
 
 }
+\section{Missing-value policies with stored bandwidths}{
+An existing bandwidth object retains its training omission policy. Explicit
+\code{na.action} overrides are supported only by the formula replacement-data
+or replacement-response routes that already own that policy, and by documented
+regression and single-index prediction policies. Unsupported stored native or
+formula evaluation overrides are rejected rather than silently ignored.
+For replacement native inputs, prepare the desired complete data explicitly.
+Reusing retained training does not re-run its missing-value callback.
+}
+
 \value{
   The \code{se} component records whether uncertainty was requested.
   \code{conderr} and \code{congerr} are \code{NULL} when \code{se = FALSE}.
@@ -624,7 +634,7 @@ with(Italy, {
 # First, compute the bandwidths... note that this may take a minute or
 # two depending on the speed of your computer.
 
-bw <- npcdensbw(formula=gdp~ordered(year), nmulti=1)
+bw <- npcdensbw(formula=gdp~ordered(year))
 
 # Next, compute the condensity object...
 
@@ -664,7 +674,7 @@ with(Italy, {
 X <- data.frame(year=ordered(year))
 y <- data.frame(gdp)
 
-bw <- npcdensbw(xdat=X, ydat=y, nmulti=1)
+bw <- npcdensbw(xdat=X, ydat=y)
 
 # Next, compute the condensity object...
 
@@ -693,7 +703,7 @@ with(faithful, {
 # Note - this may take a few minutes depending on the speed of your
 # computer...
 
-bw <- npcdensbw(formula=eruptions~waiting, nmulti=1)
+bw <- npcdensbw(formula=eruptions~waiting)
 
 summary(bw)
 
@@ -723,7 +733,7 @@ with(faithful, {
 X <- data.frame(waiting)
 y <- data.frame(eruptions)
 
-bw <- npcdensbw(xdat=X, ydat=y, nmulti=1)
+bw <- npcdensbw(xdat=X, ydat=y)
 
 summary(bw)
 
@@ -762,7 +772,7 @@ data.train <- data.frame(y = factor(y), x1 = x1, x2 = x2)
 # Generate data-driven bandwidths (likelihood cross-validation). Note -
 # this may take a few minutes depending on the speed of your computer...
 
-bw <- npcdensbw(formula=y~x1+x2, data=data.train, nmulti=1)
+bw <- npcdensbw(formula=y~x1+x2, data=data.train)
 
 # Next, create the evaluation data in order to generate a perspective
 # plot
@@ -832,7 +842,7 @@ y.factor <- factor(y)
 # Generate data-driven bandwidths (likelihood cross-validation). Note -
 # this may take a few minutes depending on the speed of your computer...
 
-bw <- npcdensbw(xdat=X, ydat=y.factor, nmulti=1)
+bw <- npcdensbw(xdat=X, ydat=y.factor)
 
 # Next, create the evaluation data in order to generate a perspective
 # plot
@@ -882,7 +892,7 @@ Italy2 <- within(Italy, {
 # Plot only: make the plotted surface proper on the plot evaluation grid.
 
 fhat <- npcdens(gdp ~ year, data = Italy2,
-                regtype = "lp", degree = 3, nmulti = 1)
+                regtype = "lp", degree = 3)
 
 plot(fhat, proper = TRUE)
 
@@ -900,7 +910,6 @@ fhat_fit <- npcdens(
   data = Italy2,
   regtype = "lp",
   degree = 3,
-  nmulti = 1,
   proper = TRUE,
   proper.control = ctrl_fit
 )
@@ -960,7 +969,6 @@ fhat_both <- npcdens(
   data = Italy2,
   regtype = "lp",
   degree = 3,
-  nmulti = 1,
   proper = TRUE,
   proper.control = ctrl_both
 )

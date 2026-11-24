@@ -56,13 +56,13 @@ npcopula(bws, \dots)
               "empirical", "all"),
      renderer = c("base", "rgl"),
      errors = c("none", "bootstrap", "asymptotic"),
-     band = c("pointwise", "pmzsd", "bonferroni",
+     band = c("pointwise", "bonferroni",
               "simultaneous", "all"),
      alpha = 0.05,
      bootstrap = c("inid", "fixed", "geom"),
      B = 9999,
      center = c("estimate", "bias-corrected"),
-     boot_control = np_boot_control(),
+     boot.control = np_boot_control(),
      output = c("plot", "data", "plot-data"),
      legend = TRUE,
      theta = 0.0,
@@ -74,9 +74,9 @@ npcopula(bws, \dots)
      col = NULL,
      border = .np_plot_color("surface_border"),
      zlim = NULL,
-     gaussian_draws = 9999L,
-     random_seed = 42L,
-     \dots)
+     gaussian.draws = 9999L,
+     random.seed = 42L,
+     \dots, interval = NULL)
 }
 
 \arguments{
@@ -142,6 +142,9 @@ estimated and where it is evaluated.
     \code{evaluation="grid"}, and \code{u} is omitted.
     This is a constructor argument; \code{plot} uses the object's stored
     probability coordinates and rejects plot-level \code{neval}.
+    Nonempty \code{grid.control}, \code{xtrim} and \code{xq} requests
+    are also rejected; specify probability coordinates with \code{u} in
+    \code{npcopula()}. Saved plot-data replay cannot change these coordinates.
   }
 
   \item{target}{
@@ -287,9 +290,12 @@ surface plots.
     number of bootstrap replications when \code{errors="bootstrap"}.
   }
 
+  \item{interval}{Interval construction for a supported plot. Omission retains
+    the copula default. Use \code{"normal-sd"} for a marginal normal interval or
+    \code{"percentile"} for empirical bootstrap bands.}
   \item{band}{
     interval type for plotted surfaces. Supported values are
-    \code{"pointwise"}, \code{"pmzsd"}, \code{"bonferroni"},
+    \code{"pointwise"}, \code{"bonferroni"},
     \code{"simultaneous"}, and \code{"all"}. The \code{"all"} option
     overlays pointwise, simultaneous, and Bonferroni wireframes where
     available.
@@ -301,7 +307,7 @@ surface plots.
     \code{"geom"}. Wild bootstrap is not defined for copula surfaces.
   }
 
-  \item{boot_control}{
+  \item{boot.control}{
     optional \code{\link{np_boot_control}} object. For copula surfaces
     the block length is used by the \code{"fixed"} and \code{"geom"}
     block bootstrap routes.
@@ -314,7 +320,7 @@ surface plots.
     bootstrap bias-correction combinations fail clearly.
   }
 
-  \item{gaussian_draws, random_seed}{
+  \item{gaussian.draws, random.seed}{
     Gaussian maximum simulation count and reproducible seed for asymptotic
     \code{band="simultaneous"} or \code{band="all"}. Before changing the
     seed, the temporary seed scope refuses Box--Muller and uncertifiable
@@ -633,7 +639,7 @@ grid.dat <- data.frame(u1 = grid.seq, u2 = grid.seq)
 
 ## Estimate the copula distribution from an npudistbw() object.
 
-bw.cdf <- npudistbw(~ x + y, data = mydat, nmulti = 1)
+bw.cdf <- npudistbw(~ x + y, data = mydat)
 copula <- npcopula(bws = bw.cdf, data = mydat, u = grid.dat)
 summary(copula)
 
@@ -657,7 +663,7 @@ plot(copula, view = "all")
 
 ## Estimate and plot the copula density from an npudensbw() object.
 
-bw.pdf <- npudensbw(~ x + y, data = mydat, nmulti = 1)
+bw.pdf <- npudensbw(~ x + y, data = mydat)
 copula.dens <- npcopula(bws = bw.pdf, data = mydat, u = grid.dat)
 summary(copula.dens)
 plot(copula.dens, view = "fixed")
@@ -668,7 +674,7 @@ plot(copula.dens)
 ## Intervals are available for two-dimensional grid surfaces.
 
 plot(copula, errors = "asymptotic", band = "pointwise")
-plot(copula, errors = "bootstrap", bootstrap = "inid", B = 399,
+plot(copula, errors = "bootstrap", bootstrap = "inid",
      band = "pointwise")
 
 ## Prediction evaluates the retained bandwidth object on a supplied
@@ -693,7 +699,7 @@ mydat <- data.frame(x = xy[, 1], y = xy[, 2])
 grid.seq <- seq(0, 1, length.out = n.eval)
 grid.dat <- data.frame(u1 = grid.seq, u2 = grid.seq)
 
-bw.cdf <- npudistbw(~ x + y, data = mydat, nmulti = 1)
+bw.cdf <- npudistbw(~ x + y, data = mydat)
 copula <- npcopula(bws = bw.cdf, data = mydat, u = grid.dat)
 summary(copula)
 
@@ -706,7 +712,7 @@ plot(copula)
 plot(copula, view = "empirical")
 plot(copula, view = "all")
 
-bw.pdf <- npudensbw(~ x + y, data = mydat, nmulti = 1)
+bw.pdf <- npudensbw(~ x + y, data = mydat)
 copula.dens <- npcopula(bws = bw.pdf, data = mydat, u = grid.dat)
 summary(copula.dens)
 plot(copula.dens, view = "fixed", zlim = c(0, 40))
@@ -718,8 +724,7 @@ plot(copula.dens, zlim = c(0, 40))
 ## The formula interface is a shorter route when bandwidths do not need
 ## to be reused explicitly.
 
-copula.short <- npcopula(~ x + y, data = mydat, neval = n.eval,
-                         nmulti = 1)
+copula.short <- npcopula(~ x + y, data = mydat, neval = n.eval)
 plot(copula.short, view = "all")
 } % enddontrun
 }

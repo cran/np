@@ -732,10 +732,86 @@
       sprintf("%s %s guide + residual envelope%s", level, band, scope))
   }
 
+  if (identical(construction, "smoothed-q6")) {
+    candidates <- c(sprintf("%s simultaneous Q6 smoothed bootstrap; corrected center, fixed scale; finite grid", level),
+      sprintf("%s simultaneous Q6; corrected center, finite grid", level))
+  }
+
+  if (identical(construction,"smoothed-beta-binomial")) {
+    candidates <- c(sprintf("%s %s beta-binomial bootstrap; corrected center, fixed scale",level,band),
+      sprintf("%s %s beta-binomial; corrected center",level,band))
+  }
+
   if (identical(construction,"conditional-pilot")) {
     candidates <- c(sprintf("%s %s conditional-pilot band; corrected center with score safeguard%s", level, band,
       if(band %in% c("simultaneous","all")) "; finite grid within panel" else ""),
       sprintf("%s %s conditional-pilot; corrected center, score safeguard",level,band))
+  }
+  if (identical(center, "bias-corrected")) {
+    # Scope is supplied by the caller, including for construction overrides.
+    scope <- switch(band, pmzsd = "pointwise", pointwise = "pointwise",
+                    bonferroni = "Bonferroni", simultaneous = "simultaneous")
+    display.scope <- if (is.null(scope))
+      "pointwise, Bonferroni and simultaneous" else scope
+    if (identical(construction, "smoothed-q6")) {
+      candidates <- sub(" simultaneous ", paste0(" ", display.scope, " "),
+                        candidates, fixed = TRUE)
+    } else if (isTRUE(construction %in% c("guide-region", "smoothed-beta-binomial",
+                                          "conditional-pilot"))) {
+      candidates <- sub(paste0(" ", band, " "), paste0(" ", display.scope, " "),
+                        candidates, fixed = TRUE)
+    }
+    # Apply after construction overrides so categorical/shared nouns survive.
+    entity <- if (isTRUE(shared) || !isTRUE(continuous)) "intervals" else
+      if (identical(band, "all")) "bands" else "band"
+    if (entity == "intervals")
+      candidates <- gsub("\\bbands?\\b", "intervals", candidates)
+    else if (entity == "bands")
+      candidates <- gsub("\\bband\\b", "bands", candidates)
+    candidates <- gsub("variability", "confidence", candidates, fixed = TRUE)
+    missing.kind <- !grepl("confidence", candidates, fixed = TRUE)
+    candidates[missing.kind] <- sub("\\b(bands?|intervals?)\\b", "confidence \\1",
+                                    candidates[missing.kind])
+    missing.kind <- !grepl("confidence", candidates, fixed = TRUE)
+    candidates[missing.kind] <- sub("(;|$)", paste0(" confidence ", entity, "\\1"),
+                                    candidates[missing.kind])
+    candidates <- gsub("bonferroni", "Bonferroni", candidates, fixed = TRUE)
+    if (!is.null(scope)) {
+      missing.scope <- !grepl(scope, candidates, fixed = TRUE)
+      candidates[missing.scope] <- sub("^([^ ]+) ", paste0("\\1 ", scope, " "),
+                                       candidates[missing.scope])
+    }
+    # A final compact label keeps target, construction and family visible on
+    # ordinary devices. Detailed candidates retain the centering explanation.
+    compact.method <- if (method == "bootstrap") {
+      if (band == "pmzsd") "bootstrap z x SD" else
+        if (band == "simultaneous") "bootstrap rank" else
+          if (band == "all") "bootstrap" else "bootstrap quantile"
+    } else {
+      if (band %in% c("pmzsd", "pointwise", "bonferroni"))
+        "asymptotic z x SE" else "Gaussian"
+    }
+    if (isTRUE(construction %in% c("iterated", "positive-covariance"))) {
+      if (method == "bootstrap" && band == "simultaneous")
+        compact.method <- "bootstrap maximum"
+      if (method == "bootstrap" && band == "pmzsd")
+        compact.method <- "bootstrap z x SE"
+      if (method == "asymptotic" && identical(construction, "iterated") && band != "pmzsd")
+        compact.method <- if (band == "simultaneous") "Gaussian max-t" else "Gaussian t"
+    }
+    if (!is.null(construction)) compact.method <- switch(construction,
+      "guide-region" = "guide/residual", "smoothed-percentile" = "smoothed-percentile",
+      "smoothed-q6" = "Q6 bootstrap", "smoothed-beta-binomial" = "beta-binomial bootstrap",
+      "conditional-pilot" = "conditional-pilot", compact.method)
+    family <- if (band %in% c("simultaneous", "bonferroni", "all") && isTRUE(per.quantile))
+      "; within each quantile curve" else
+      if (band %in% c("simultaneous", "all") && identical(construction, "guide-region"))
+        "; supplied family" else
+        if (band %in% c("simultaneous", "all")) "; panel grid" else
+          if (band == "bonferroni" && isTRUE(shared)) "; within each panel" else ""
+    compact <- paste0(level, " ", if (!is.null(scope)) paste0(scope, " ") else "",
+                      compact.method, " confidence ", entity, family)
+    candidates <- c(candidates, compact)
   }
   list(
     method = method,
@@ -985,7 +1061,8 @@
                                       plot.errors.alpha,
                                       plot.errors.type,
                                       plot.errors.center,
-                                      bootstrap_raw = NULL) {
+                                      bootstrap_raw = NULL,
+                                      family_size = length(estimate)) {
   err <- matrix(data = se, nrow = length(estimate), ncol = 3)
   err[,3] <- NA_real_
   all.err <- NULL
@@ -1005,7 +1082,7 @@
       se = se,
       alpha = plot.errors.alpha,
       band.type = plot.errors.type,
-      m = length(estimate)
+      m = family_size
     )
     err[,1:2] <- asym.obj$err
     all.err <- asym.obj$all.err
@@ -3385,7 +3462,7 @@
 
   if (isTRUE(xi.factor)) {
     stop(
-      "boot_control = np_boot_control(nonfixed = \"frozen\") currently supports nonfixed regression means and continuous gradients only; use nonfixed = \"exact\" for categorical slices",
+      "boot.control = np_boot_control(nonfixed = \"frozen\") currently supports nonfixed regression means and continuous gradients only; use nonfixed = \"exact\" for categorical slices",
       call. = FALSE
     )
   }
@@ -3393,7 +3470,7 @@
   if (identical(regtype, "lc")) {
     if (isTRUE(gradients)) {
       stop(
-        "boot_control = np_boot_control(nonfixed = \"frozen\") currently supports nonfixed local-constant regression means only; use nonfixed = \"exact\" for local-constant gradients",
+        "boot.control = np_boot_control(nonfixed = \"frozen\") currently supports nonfixed local-constant regression means only; use nonfixed = \"exact\" for local-constant gradients",
         call. = FALSE
       )
     }
@@ -5337,7 +5414,7 @@
 
 .np_make_kbandwidth_unconditional <- function(bws, xdat) {
   xdat <- toFrame(xdat)
-  kbandwidth.numeric(
+  .np_retained_uniform_constructor(kbandwidth.numeric,
     bw = .np_physical_bandwidth(bws),
     bwscaling = FALSE,
     # npksum helper constructors require raw bandwidths; bwscaling flags are
@@ -7186,6 +7263,19 @@ gen.label = function(label, altlabel){
   fallback
 }
 
+# A display-only expansion, also used by constant clamped quantile surfaces.
+# Call only for automatic limits; explicit user limits retain their contract.
+.np_plot_expand_surface_range <- function(limits) {
+  if (length(limits) == 2L && all(is.finite(limits)) &&
+      limits[1L] == limits[2L]) {
+    pad <- .04 * max(1, abs(limits[1L]))
+    expanded <- limits + c(-pad, pad)
+    expanded[!is.finite(expanded)] <- limits[!is.finite(expanded)]
+    return(expanded)
+  }
+  limits
+}
+
 draw.error.bands = function(ex, ely, ehy, lty = .np_plot_lty("interval"), col = par("col")){
   lines(ex,ely,lty=lty,col=col)
   lines(ex,ehy,lty=lty,col=col)
@@ -7355,7 +7445,7 @@ plotFactor <- function(f, y, ...){
     base.args$lty <- "blank"
   if (is.fac && !has.user.pch)
     base.args$pch <- .np_plot_pch("factor_estimate")
-  do.call(graphics::plot.default, base.args)
+  do.call(graphics::plot.default, .np_plot_literal_labels(base.args))
   if (add.axis)
     axis(1, at = seq_along(levels(f)), labels = levels(f))
 
@@ -7397,12 +7487,12 @@ plotFactor <- function(f, y, ...){
     return(FALSE)
   if (isTRUE(gradients)) {
     if (!isTRUE(plot.data.overlay.missing))
-      .np_warning("data_overlay is available only for regression surfaces, not derivatives")
+      .np_warning("data.overlay is available only for regression surfaces, not derivatives")
     return(FALSE)
   }
   if (isTRUE(coef)) {
     if (!isTRUE(plot.data.overlay.missing))
-      .np_warning("data_overlay is available only for regression surfaces, not coefficient plots")
+      .np_warning("data.overlay is available only for regression surfaces, not coefficient plots")
     return(FALSE)
   }
   TRUE
@@ -7520,7 +7610,7 @@ plotFactor <- function(f, y, ...){
                                           supported.route = FALSE,
                                           renderer = "base",
                                           reason = "supported plot routes for the selected renderer") {
-  plot.rug <- .np_plot_match_flag(plot.rug, "data_rug")
+  plot.rug <- .np_plot_match_flag(plot.rug, "data.rug")
 
   if (!isTRUE(plot.rug))
     return(FALSE)
@@ -7716,7 +7806,29 @@ plotFactor <- function(f, y, ...){
                                                ylim,
                                                zlim,
                                                grid.args = list()) {
-  persp.mat <- do.call(graphics::persp, persp.args)
+  # Establish the projection without painting data. A second persp call adds
+  # the unchanged surface above the grid; it must not advance a panel or run
+  # the public graphics hooks twice.
+  without.hooks <- function(names, code) {
+    previous <- lapply(names, getHook)
+    on.exit(for (i in seq_along(names))
+      setHook(names[i], previous[[i]], action = "replace"), add = TRUE)
+    for (name in names) setHook(name, NULL, action = "replace")
+    force(code)
+  }
+  if (!is.null(persp.args$xlim)) xlim <- persp.args$xlim
+  if (!is.null(persp.args$ylim)) ylim <- persp.args$ylim
+  if (!is.null(persp.args$zlim)) zlim <- persp.args$zlim
+  background <- persp.args
+  background$x <- range(persp.args$x)
+  background$y <- range(persp.args$y)
+  background$z <- matrix(NA_real_, 2L, 2L)
+  if (is.null(background$xlim)) background$xlim <- range(persp.args$x)
+  if (is.null(background$ylim)) background$ylim <- range(persp.args$y)
+  if (is.null(background$zlim)) background$zlim <- range(persp.args$z, finite = TRUE)
+  background$box <- background$axes <- FALSE
+  background$main <- background$sub <- NULL
+  persp.mat <- without.hooks("persp", do.call(graphics::persp, .np_plot_literal_labels(background)))
   .np_plot_draw_box_grid_persp(
     xlim = xlim,
     ylim = ylim,
@@ -7724,7 +7836,10 @@ plotFactor <- function(f, y, ...){
     persp.mat = persp.mat,
     grid.args = grid.args
   )
-  persp.mat
+  graphics::par(new = TRUE)
+  on.exit(graphics::par(new = FALSE), add = TRUE)
+  without.hooks(c("before.plot.new", "plot.new"),
+    do.call(graphics::persp, .np_plot_literal_labels(persp.args)))
 }
 
 .np_plot_match_renderer <- function(renderer) {
@@ -8190,6 +8305,14 @@ plotFactor <- function(f, y, ...){
   out <- dots[hits]
   names(out) <- substring(names(out), nchar(prefix) + 1L)
   out
+}
+
+# Forward only supplied limits; NULL must not erase a computed automatic range.
+.np_plot_apply_limits <- function(args, xlim = NULL, ylim = NULL, zlim = NULL) {
+  if (!is.null(xlim)) args$xlim <- xlim
+  if (!is.null(ylim)) args$ylim <- ylim
+  if (!is.null(zlim)) args$zlim <- zlim
+  args
 }
 
 .np_plot_merge_user_args <- function(base.args, user.args) {
@@ -8683,7 +8806,7 @@ plotFactor <- function(f, y, ...){
     cex.main = scalar_default(cex.main, graphics::par()$cex.main),
     cex.sub = scalar_default(cex.sub, graphics::par()$cex.sub)
   )
-  if (!xi.factor && !is.null(xlim))
+  if (!is.null(xlim))
     plot.args$xlim <- xlim
   plot.args <- .np_plot_merge_user_args(plot.args, plot.user.args)
 
@@ -8696,7 +8819,7 @@ plotFactor <- function(f, y, ...){
       data.args$lty <- NULL
       data.args$lwd <- NULL
       data.args$col <- NULL
-      do.call(graphics::plot, data.args)
+      do.call(graphics::plot, .np_plot_literal_labels(data.args))
     } else {
       overlay.args <- plot.args
       overlay.args$x <- overlay.x
@@ -8707,7 +8830,7 @@ plotFactor <- function(f, y, ...){
       overlay.args$pch <- scalar_default(overlay.args$pch, 20)
       overlay.args$cex <- scalar_default(overlay.args$cex, 0.5)
       overlay.args$col <- .np_plot_color("data_overlay")
-      do.call(graphics::plot, overlay.args)
+      do.call(graphics::plot, .np_plot_literal_labels(overlay.args))
     }
   } else {
     empty.args <- plot.args
@@ -8715,7 +8838,7 @@ plotFactor <- function(f, y, ...){
     empty.args$y <- value[, 1L]
     empty.args$type <- "n"
     empty.args$xaxt <- if (xi.factor) "n" else "s"
-    do.call(graphics::plot, empty.args)
+    do.call(graphics::plot, .np_plot_literal_labels(empty.args))
     if (xi.factor)
       graphics::axis(1, at = mat.x, labels = as.character(ei[seq_len(nkeep)]))
   }
@@ -9145,7 +9268,7 @@ plotFactor <- function(f, y, ...){
         exdat = data.frame(index = index.eval),
         bws = bws$bw,
         bwtype = bws$type,
-        ckertype = bws$ckertype,
+        ckertype = .np_index_kernel(bws),
         ckerorder = bws$ckerorder,
         regtype = regtype,
         gradients = gradients,
@@ -9204,9 +9327,9 @@ plotFactor <- function(f, y, ...){
     if (!any(keep.rows))
       stop("Training data has no rows without NAs")
 
-    xdat <- xdat[keep.rows, , drop = FALSE]
-    ydat <- ydat[keep.rows]
-    zdat <- zdat[keep.rows, , drop = FALSE]
+    xdat <- .np_data_rows(xdat, keep.rows)
+    ydat <- .np_data_rows(ydat, keep.rows, frame = FALSE)
+    zdat <- .np_data_rows(zdat, keep.rows)
 
     exdat <- toFrame(exdat)
     ezdat <- toFrame(ezdat)
@@ -9219,8 +9342,8 @@ plotFactor <- function(f, y, ...){
     if (!any(keep.eval))
       stop("Evaluation data has no rows without NAs")
 
-    exdat <- exdat[keep.eval, , drop = FALSE]
-    ezdat <- ezdat[keep.eval, , drop = FALSE]
+    exdat <- .np_data_rows(exdat, keep.eval)
+    ezdat <- .np_data_rows(ezdat, keep.eval)
 
     fit <- npplreg(
       bws = bws,
@@ -9754,8 +9877,8 @@ plotFactor <- function(f, y, ...){
       if (!any(keep.rows))
         stop("Training data has no rows without NAs")
 
-      xdat <- xdat[keep.rows, , drop = FALSE]
-      ydat <- ydat[keep.rows, , drop = FALSE]
+      xdat <- .np_data_rows(xdat, keep.rows)
+      ydat <- .np_data_rows(ydat, keep.rows)
 
       eval.omit <- NULL
       if (!no.ex) {
@@ -9763,7 +9886,7 @@ plotFactor <- function(f, y, ...){
         eval.omit <- .np_current_rows_omit(exdat)
         if (length(eval.omit) > 0L)
           keep.eval[as.integer(eval.omit)] <- FALSE
-        exdat <- exdat[keep.eval, , drop = FALSE]
+        exdat <- .np_data_rows(exdat, keep.eval)
       }
 
       tnrow <- nrow(xdat)
@@ -11089,7 +11212,9 @@ compute.default.error.range <- function(center, err) {
                                              allow_asymptotic_bias = FALSE,
                                              defer_block_selection = FALSE,
                                                allow_residual = FALSE,
-                                               allow_conditional_pilot = FALSE) {
+                                               allow_conditional_pilot = FALSE,
+                                               allow_smoothed_q6 = FALSE,
+                                               allow_smoothed_beta_binomial = FALSE) {
   scalar_choice <- function(value, default) {
     if (is.null(value) || length(value) < 1L || is.na(value[1L])) default else value[1L]
   }
@@ -11105,7 +11230,9 @@ compute.default.error.range <- function(center, err) {
   plot.errors.boot.method <- match.arg(
     scalar_choice(plot.errors.boot.method, "wild"),
     c("wild", "inid", "fixed", "geom", if (isTRUE(allow_residual)) "residual",
-      if (isTRUE(allow_conditional_pilot)) "conditional-pilot")
+      if (isTRUE(allow_conditional_pilot)) "conditional-pilot",
+      if (isTRUE(allow_smoothed_q6)) "smoothed-q6",
+      if (isTRUE(allow_smoothed_beta_binomial)) "smoothed-beta-binomial")
   )
   plot.errors.boot.nonfixed <- match.arg(
     scalar_choice(plot.errors.boot.nonfixed, "exact"),

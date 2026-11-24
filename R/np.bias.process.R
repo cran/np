@@ -210,6 +210,16 @@
   out
 }
 
+# Positive generation variance used by the saved fixed-factor wild process.
+.np_bias_generation_scale <- function(state) {
+  variance <- if (!is.null(state$local.inference))
+    state$local.inference$generation else state$variance
+  if (!is.numeric(variance) || length(variance) != nrow(state$x) ||
+      any(!is.finite(variance)) || any(variance < 0))
+    stop("invalid wild-envelope generation variance", call.=FALSE)
+  sqrt(variance)
+}
+
 .np_bias_inference <- function(state, grid, targets="mean", alpha=.05,
                                B=9999L, law="gaussian", blocklen=NULL, fit=NULL,
                                studentize=TRUE, main.capture=NULL,
@@ -221,7 +231,28 @@
   pilot.block <- identical(refinement,"pilot-block")
   if (pilot.block && !law %in% c("fixed","geom"))
     stop("pilot-block refinement requires fixed or geom",call.=FALSE)
-  tail.calibration <- calibration %in% c("tail-envelope","separate-tails")
+  if (is.character(calibration)) attributes(calibration) <- NULL
+  if (!is.character(calibration) || length(calibration)!=1L || is.na(calibration))
+    stop("invalid private regression calibration",call.=FALSE)
+  admission <- state[["settings"]][["kernel.admission"]]
+  if (!is.null(admission) && !identical(calibration, admission[["calibration"]]))
+    stop(paste0("prepared regression kernel state requires its admitted ",
+      admission[["calibration"]], " calibration"),call.=FALSE)
+  .np_bias_regression_kernel_law(admission, law,
+    if (isTRUE(state[["pooled"]])) state[["bw"]] else state[["bws"]])
+  local.envelope <- identical(calibration,"basic-local-envelope")
+  wild.local <- local.envelope && identical(law,"mammen")
+  basic.envelope <- calibration %in% c("basic-envelope","basic-local-envelope")
+  if(basic.envelope && !law %in% c("inid","fixed","geom") && !wild.local)
+    stop("basic-envelope requires inid, fixed or geom; basic-local-envelope also supports Mammen",call.=FALSE)
+  if(wild.local && isTRUE(state$categorical.only))
+    stop("Mammen basic-local-envelope is not qualified for categorical-only regression",call.=FALSE)
+  generation.scale <- if(wild.local) .np_bias_generation_scale(state) else NULL
+  if(basic.envelope && law %in% c("fixed","geom") && !pilot.block)
+    stop("basic-envelope block inference requires refinement='pilot-block'",call.=FALSE)
+  # Pairs basic roots use the observed block scale; neither basic branch re-studentizes.
+  if(basic.envelope) studentize <- FALSE
+  tail.calibration <- calibration %in% c("tail-envelope","separate-tails","basic-envelope","basic-local-envelope")
   if(tail.calibration && !law %in% c("mammen","rademacher","inid","fixed","geom"))
     stop("private separate-tail regression requires a supported bootstrap law",call.=FALSE)
   rank.calibration <- identical(calibration,"rank") || tail.calibration
@@ -229,7 +260,12 @@
     stop("unknown private regression calibration",call.=FALSE)
   if(identical(calibration,"rank") && (!identical(law,"mammen") || !isTRUE(studentize)))
     stop("private signed-rank regression requires studentized Mammen",call.=FALSE)
-  if ((!is.null(state$local.inference) || !is.null(state$main.capture) || !is.null(main.capture)) && !law %in% c("gaussian","mammen"))
+  pairs.capture <- .np_bias_pairs_capture(state)
+  if (pairs.capture && !identical(law,state[["main.capture"]][["law"]]))
+    stop("captured pairs calibration must match its prepared law",call.=FALSE)
+  if ((!is.null(state$local.inference) ||
+       (!pairs.capture && (!is.null(state$main.capture) || !is.null(main.capture)))) &&
+      !law %in% c("gaussian","mammen"))
     stop("captured local calibration requires Gaussian or Mammen; prepare the state for the selected law",call.=FALSE)
   if ((!is.null(state$local.inference) || !is.null(state$main.capture)) && is.null(main.capture))
     main.capture <- .np_bias_capture_prepare(state,fit,grid,targets)
@@ -238,7 +274,7 @@
     stop("categorical-only bias correction does not support this calibration law",call.=FALSE)
   if (!is.null(state$mixed) && !law %in% c("gaussian","mammen"))
     stop("mixed local-to-global adaptation supports Gaussian or Mammen calibration; use adaptation='none' for incumbent laws",call.=FALSE)
-  higher <- !is.null(state$gradient.order) && any(vapply(targets,function(t)
+  higher <- !is.null(state[["gradient.order"]]) && any(vapply(targets,function(t)
     startsWith(t,"d") && .np_bias_derivative_order(state,as.integer(substring(t,2L)))>1L,logical(1)))
   if (higher && !law %in% c("gaussian","mammen","inid","rademacher","fixed","geom"))
     stop("higher-order bias correction does not support this calibration law",call.=FALSE)
@@ -247,6 +283,8 @@
     stop("pooled mixed-data bias correction currently supports Gaussian, Mammen, Rademacher, fixed, geom or inid calibration only",call.=FALSE)
   if(!is.numeric(B)||length(B)!=1L||!is.finite(B)||B<1||B!=floor(B)||B>.Machine$integer.max)
     stop("bias calibration draws must be a positive integer",call.=FALSE)
+  if(basic.envelope && B<2)
+    stop("basic-envelope requires at least two draws",call.=FALSE)
   if(B<2 && law %in% c("inid","fixed","geom") &&
      !(isTRUE(state$pooled) && law %in% c("fixed","geom")))
     stop("score-bootstrap variance requires at least two draws",call.=FALSE)
@@ -257,12 +295,13 @@
   if(!is.character(targets)||!length(targets)||anyNA(targets)||anyDuplicated(targets))
     stop("invalid or duplicate bias target family",call.=FALSE)
   if(rank.calibration &&
-     8*as.double(B)*(length(targets)+10*min(8L,length(targets)))>128*1024^2)
+     8*as.double(B)*(length(targets)+(if(local.envelope)22 else 10)*min(8L,length(targets)))>128*1024^2)
     stop("rank workspace exceeds declared byte budget before allocation",call.=FALSE)
   blocks <- .np_bias_target_blocks(nrow(grid),length(targets))
   map <- expand.grid(row=seq_len(nrow(grid)),target=targets,stringsAsFactors=FALSE)
   M <- nrow(map);B <- as.integer(B)
   center <- original <- se <- score.se <- numeric(M)
+  generation.se <- if(wild.local) numeric(M) else NULL
   student <- isTRUE(studentize) && (law %in% c("gaussian","mammen") ||
     (isTRUE(state$pooled) && law=="rademacher"))
   score.calibration <- isTRUE(state$pooled) && law %in% c("fixed","geom")
@@ -278,12 +317,16 @@
   rng <- get(".Random.seed",.GlobalEnv,inherits=FALSE);rng.kind <- RNGkind();end <- rng
   innovations <- .np_bias_gaussian_cache(nrow(state$x),B,law,rng.kind)
   rank.results <- if(rank.calibration)vector("list",length(targets)) else NULL
+  local.results <- if(local.envelope)vector("list",length(targets)) else NULL
   families <- if(rank.calibration)split(seq_along(targets),ceiling(seq_along(targets)/8L)) else list(1L)
   for(family in families) {
    if(rank.calibration) {
     rank.states <- lapply(family,function(g)
       (if(tail.calibration).np_band_tail_prepare else .np_band_rank_prepare)(B,map[map$target==targets[g],,drop=FALSE],alpha,
         byte.limit=128*1024^2/length(family)))
+    local.states <- if(local.envelope)lapply(family,function(g)
+      .np_band_local_prepare(B,map[map$target==targets[g],,drop=FALSE],alpha,
+        byte.limit=128*1024^2/length(family))) else NULL
     family.rows <- which(map$target %in% targets[family])
     # One capped signed tile can span several existing 25-anchor row blocks.
     # If it fits, retain this tile only and avoid recomputing the process.
@@ -291,8 +334,8 @@
     retain.tile <- !tail.calibration && length(family.rows)<=128L &&
       16*as.double(length(family.rows))*B+80*as.double(B)*length(family)<=128*1024^2
     signed.tile <- if(retain.tile)matrix(0,length(family.rows),B) else NULL
-    tile.rows <- floor((128*1024^2-(if(tail.calibration)96 else 72)*as.double(B)*length(family)-
-      if(tail.calibration)48*M*length(alpha) else 0)/(8*B))
+    tile.rows <- floor((128*1024^2-(if(local.envelope)192 else if(tail.calibration)96 else 72)*as.double(B)*length(family)-
+      if(tail.calibration)(if(local.envelope)80 else 48)*M*length(alpha) else 0)/(8*B))
     if(tile.rows<length(family))stop("rank workspace exceeds declared byte budget before allocation",call.=FALSE)
     family.blocks <- .np_bias_target_blocks(nrow(grid),length(family),
       anchors=min(25L,tile.rows %/% length(family)),rows=min(500L,tile.rows))
@@ -333,7 +376,14 @@
       se[rr] <- score.se[rr] <- part$value$se
       part$value <- if(rank.calibration) part$value$signed else part$value$absolute
     } else {
-      F <- if(score)sweep(value$W,2L,state$residual,"*") else value$factor
+      F <- if(wild.local) sweep(value$W,2L,generation.scale,"*") else
+        if(score)sweep(value$W,2L,state$residual,"*") else value$factor
+      if(wild.local) {
+        generation.se[rr] <- sqrt(rowSums(F^2))
+        if(any(!is.finite(generation.se[rr])) ||
+           any((generation.se[rr]==0)!=(value$se==0)))
+          stop("wild-envelope generation and observed scales have incompatible zero targets",call.=FALSE)
+      }
       if(score)F <- F-rowMeans(F)
       part <- .np_bias_stream(rng,
         .np_bias_process_draws(F,B,law,if(is.null(selection))NULL else selection$length,innovations=innovations))
@@ -354,13 +404,20 @@
       }
     }
     if(rank.calibration) {
-      if(!student && !score.calibration) part$value <- part$value/divisor
+      if(!student && !score.calibration && !wild.local) part$value <- part$value/divisor
       # A zero target may share nonzero family cutoffs, but never nonzero draws.
       for(zero in which(se[rr]==0)) if(any(part$value[zero,]!=0))
         stop("zero target scale with nonzero signed process draws",call.=FALSE)
+      # Align in endpoint units before taking family extrema.  Complete rows
+      # and count draws have already been reused across all B replicates.
+      if(basic.envelope && !wild.local) part$value <- part$value*se[rr]
       if(retain.tile)signed.tile[match(rr,family.rows),] <- part$value
       for(g in seq_along(family)) {
         local <- which(map$target[rr]==targets[family[g]])
+        if(local.envelope && length(local)) local.states[[g]] <-
+          .np_band_local_update(local.states[[g]],part$value[local,,drop=FALSE],
+            if(wild.local)generation.se[rr[local]] else se[rr[local]],
+            map[rr[local],,drop=FALSE],seq_len(B))
         if(length(local)) rank.states[[g]] <- if(tail.calibration)
           .np_band_tail_update(rank.states[[g]],part$value[local,,drop=FALSE],
             map[rr[local],,drop=FALSE],seq_len(B)) else
@@ -381,6 +438,8 @@
     }
     signed.tile <- NULL
    }
+   if(local.envelope)for(g in seq_along(family))local.results[[family[g]]] <-
+     .np_band_local_finish(local.states[[g]])
    if(rank.calibration)for(g in seq_along(family))rank.results[[family[g]]] <-
       (if(tail.calibration).np_band_tail_finish else .np_band_rank_finish)(rank.states[[g]])
   }
@@ -392,11 +451,29 @@
     root.limits <- calibrated$limits
     for(g in seq_along(targets))for(band in names(root.limits))
       root.limits[[band]][map$target==targets[g],,] <- rank.results[[g]]$limits[[band]]
-    calibrated <- if(identical(calibration,"tail-envelope"))
+    calibrated <- if(identical(calibration,"tail-envelope") || basic.envelope)
       c(.np_band_tail_protect(root.limits,absolute.reference$limits),list(families=rank.results)) else
       list(limits=root.limits,families=rank.results)
   }
-  bands <- if(rank.calibration).np_band_rank_invert(center,se,calibrated$limits,deterministic=se==0) else lapply(calibrated$limits,function(x) {
+  if(local.envelope) {
+    # expanded retains its absolute-versus-raw meaning; local.reference records the added envelope.
+    calibrated$limits <- .np_band_local_protect(calibrated$limits,local.results,map,
+      if(wild.local)generation.se else se)
+    if(wild.local) {
+      local.results <- lapply(local.results,function(x) {
+        x$units <- "generation-SD standardized signed roots"
+        x
+      })
+      calibrated$limits <- .np_band_tail_symmetrize(calibrated$limits)
+      calibrated$symmetry <- "symmetric hull of protected raw and generation-SD local limits"
+    }
+    calibrated$local.reference <- local.results
+    calibrated$protection <- paste(calibrated$protection,
+      if(wild.local) "and the generation-SD local signed/absolute family envelope; symmetrized" else
+        "and the observed-SE local signed/absolute family envelope")
+  }
+  bands <- if(rank.calibration).np_band_rank_invert(center,
+    if(basic.envelope)ifelse(se==0,0,1) else se,calibrated$limits,deterministic=se==0) else lapply(calibrated$limits,function(x) {
     for(k in seq_along(alpha))for(side in 1:2)x[,side,k] <- center+se*x[,side,k]
     x
   })
@@ -444,13 +521,29 @@
     scope="finite grid within each scalar-target family",owner="bounded corrected observation factors")
   if (pilot.block) {
     result$provider.refinement <- list(method=refinement,
-      owner=if(score.calibration)"unchanged pooled score studentizer" else "pilot times selected-block to iid covariance ratio",
+      owner=if(score.calibration) {
+        if(basic.envelope)"exact conditional pooled block score variance" else "unchanged pooled score studentizer"
+      } else "pilot times selected-block to iid covariance ratio",
       blocks=block.refinement)
     if (!score.calibration) result$covariance$variance <- "pilot-anchored exact selected-block relative covariance"
   }
   if(rank.calibration) {
     result$absolute.reference <- absolute.reference
     result$calibration.method <- calibration
+    if(wild.local) {
+      result$generation.se <- generation.se
+      result$covariance$variance <- if(!is.null(state$local.inference))
+        "positive neighbourhood generation variance" else "positive smoothed P0 residual variance"
+      result$covariance$studentization <- "none; fixed generation-SD local envelope"
+      result$endpoint.construction <- calibrated$symmetry
+      result$marginal.scale <- "generation SD for bands; observed SE retained separately"
+      result$covariance.provenance <- result$covariance$variance
+    }
+    if(basic.envelope) result$root.units <- if(wild.local)
+      "endpoint units; positive-variance Mammen generation roots" else if(score.calibration)
+      "endpoint units; raw centered pooled block scores" else if(pilot.block)
+      "endpoint units; pilot-anchored block residual scores" else
+      "endpoint units; observed-SE aligned residual scores"
     if(any(se==0)) result$deterministic.targets <- which(se==0)
   }
   result
@@ -458,10 +551,34 @@
 
 .np_bias_plot_errors <- function(state, grid, target, method, bootstrap, wild,
                                  alpha, B, gaussian.draws, blocklen, band, fit=NULL,
-                                 resolution.context=NULL, calibration="default") {
+                                 resolution.context=NULL, calibration="default",
+                                 effective.calibration=NULL) {
   law <- if(method=="asymptotic")"gaussian" else if(bootstrap=="wild")wild else bootstrap
-  effective <- if(calibration=="default")"absolute" else
+  effective <- if(!is.null(effective.calibration))effective.calibration else
+    if(calibration=="default")"absolute" else
     .np_plot_calibration_method(calibration, "regression")
+  main <- state[["settings"]][["main"]]
+  if (isTRUE(state[["beta.gnn.mean"]]) &&
+      (!identical(target, "mean") || !identical(law, "mammen") ||
+       !band %in% c("pointwise", "simultaneous") ||
+       !effective %in% c("absolute", "basic-local-envelope")))
+    stop("experimental positive-degree beta GNN mean bands require pointwise or simultaneous Mammen inference", call.=FALSE)
+  if (startsWith(target, "d") && identical(main[["kernel"]], "beta") &&
+      main[["type"]] %in% c("generalized_nn", "adaptive_nn")) {
+    qualified <- switch(law, inid = "basic-local-envelope", gaussian = "absolute",
+                        mammen = "basic-local-envelope", rademacher = "tail-envelope", NULL)
+    qualified.scope <- (band %in% c("pointwise", "simultaneous") && identical(effective, qualified)) ||
+      (band %in% c("bonferroni", "all") && identical(law, "mammen") &&
+       identical(effective, "basic-local-envelope")) ||
+      (identical(band, "pmzsd") && law %in% c("mammen", "gaussian") && identical(effective, "absolute"))
+    if (!identical(target, "d1") || !identical(state$d, 1L) ||
+        length(state$factor.cols) || !is.null(state[["gradient.order"]]) ||
+        !.np_bias_regression_nn_zero(state$bws, "beta") ||
+        !identical(state$bws[["ckerbound"]], "fixed") ||
+        !qualified.scope)
+      stop("experimental beta NN first-derivative bands require one bounded continuous predictor, degree zero and a qualified combination of band, law and interval", call. = FALSE)
+    state[["beta.nn.first.derivative"]] <- TRUE
+  }
   refinement <- if(law %in% c("fixed","geom") && band!="pmzsd")"pilot-block" else "none"
   inference <- .np_plot_corrected_activity_run("Constructing bias-corrected intervals",
     if (identical(effective, "smoothed-percentile"))
@@ -475,7 +592,7 @@
       resolution.warn=is.null(resolution.context),calibration=effective,refinement=refinement))
   inference$calibration.requested <- calibration
   inference$calibration.method <- effective
-  if (effective %in% c("separate-tails","tail-envelope")) {
+  if (effective %in% c("separate-tails","tail-envelope","basic-envelope","basic-local-envelope")) {
     inference$root.orientation <- "estimate minus truth; root-inverted endpoints"
     inference$resolution$calibration <- effective
   }

@@ -87,9 +87,11 @@ Further arguments are passed to the bandwidth-selection routines used by the tes
   greater than or equal to the observed statistic. Ties count as at least as
   extreme, giving the conservative tie convention for discrete statistics.
   This is the ordinary bootstrap proportion, without an add-one correction;
-  a reported zero is possible with a finite number of replications.
+  a zero is displayed as \samp{0 (0 of B)}, with the actual number of draws.
 }
 \value{
+  The result includes \code{total.time}, the elapsed wall-clock time in
+  seconds for the test call, displayed by \code{summary}.
   \code{npunitest} returns an object of type \code{unitest} with the
   following components
 
@@ -217,7 +219,7 @@ if (interactive()) Sys.sleep(5)
 
 ## Conduct the test for this data
 
-npunitest(x,y,B=99)
+npunitest(x,y)
 
 if (interactive()) Sys.sleep(5)
 
@@ -231,7 +233,7 @@ mean(y)
 sd(x)
 sd(y)
 
-npunitest(x,y,B=99)
+npunitest(x,y)
 
 if (interactive()) Sys.sleep(5)
 
@@ -248,8 +250,10 @@ fx <- density(x)
 fy <- density(y)
 xlim <- c(min(fx$x,fy$x),max(fx$x,fy$x))
 ylim <- c(min(fx$y,fy$y),max(fx$y,fy$y))
-if (interactive()) plot(fx,xlim=xlim,ylim=ylim,xlab="Data",main="f(x), f(y)")
-lines(fy$x,fy$y,col="red")
+if (interactive()) {
+  plot(fx,xlim=xlim,ylim=ylim,xlab="Data",main="f(x), f(y)")
+  lines(fy$x,fy$y,col="red")
+}
 
 if (interactive()) Sys.sleep(5)
 
@@ -260,7 +264,7 @@ with(wage1, {
 lwage.male <- lwage[female=="Male"]
 lwage.female <- lwage[female=="Female"]
 
-npunitest(lwage.male,lwage.female,B=99)
+npunitest(lwage.male,lwage.female)
 
 if (interactive()) Sys.sleep(5)
 
@@ -287,7 +291,7 @@ if (interactive()) Sys.sleep(5)
 x <- factor(rbinom(n,2,.5))
 y <- factor(rbinom(n,2,.1))
 
-npunitest(x,y,B=99)
+npunitest(x,y)
 } % enddontrun
 }
 \keyword{ univar }

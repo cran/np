@@ -217,8 +217,11 @@ These arguments control automatic local-polynomial degree search.
 
   \item{degree.restarts}{
     non-negative integer giving the number of additional deterministic
-    coordinate-search restarts. Ignored for \code{"manual"} and
-    \code{"exhaustive"} degree selection.
+    restarts used by coordinate search with \code{search.engine="cell"}.
+    For a non-singleton candidate grid, an error is reported if the requested
+    number exceeds the distinct admissible starts remaining after exclusions.
+    Ignored for \code{degree.select="manual"}, \code{"exhaustive"}, a singleton
+    candidate grid, and the NOMAD search engines.
   }
 
   \item{degree.select}{
@@ -237,6 +240,8 @@ These arguments control automatic local-polynomial degree search.
     optional starting degree vector for automatic coordinate search. If
     omitted, the search starts from the degree-zero local-constant
     baseline on the continuous \code{z} variables.
+    For cell-based searches, the starting degree and initial baseline are
+    restricted to the requested \code{degree.min} and \code{degree.max} bounds.
   }
 
   \item{degree.verify}{

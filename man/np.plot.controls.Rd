@@ -16,11 +16,7 @@ section below.
 \usage{
 np_boot_control(nonfixed = c("exact", "frozen"),
                 wild = c("mammen", "rademacher"),
-                blocklen = NULL,
-                calibration = c("default", "absolute", "separate-tails",
-                                "tail-envelope", "percentile-tails",
-                                "symmetric-sd", "asymmetric-sd",
-                                     "smoothed-percentile", "legacy"))
+                blocklen = NULL, ...)
 
 np_grid_control(xtrim = NULL, xq = NULL, slices = NULL)
 
@@ -39,14 +35,9 @@ np_render_control(style = c("band", "bar"),
   Corrected density providers reject fixed blocks whose length equals the
   training sample size: each resample then contains every observation exactly
   once and has no resampling variation. Geometric blocks are unaffected.}
-  \item{calibration}{For bias-corrected bootstrap empirical bands,
-    \code{"symmetric-sd"} selects the existing absolute-root construction and
-    \code{"asymmetric-sd"} selects separate empirical tails with the family's
-    existing scale treatment. These names apply to regression, unconditional
-    density and unconditional distribution estimation. The experimental option
-    \code{"smoothed-percentile"} selects calibrated unshifted corrected
-    bootstrap curves, with family-specific resampling described below. Existing defaults and older names retain their
-    meanings. See Details for supported configurations.}
+  \item{...}{Reserved. Select the interval construction with \code{interval}
+    in the plot call. Older controls containing \code{calibration} must be
+    rebuilt with their original resampling settings.}
   \item{xtrim}{Optional two-element trim range for evaluation grids.}
   \item{xq}{Optional evaluation quantiles.}
   \item{slices}{Optional slice specification for routes that support it.}
@@ -55,6 +46,11 @@ np_render_control(style = c("band", "bar"),
   \item{bar.num}{Optional number of bars.}
 }
 \details{
+The explicit density plot law \code{bootstrap="smoothed-beta-binomial"}
+requires \code{interval="symmetric-sd"}; it does not select a law implicitly.
+Its fixed-bound, univariate, order-four/six/eight Epanechnikov restrictions and complete
+corrected-root construction are described in \code{\link{plot.np}}.
+
 The descriptive bootstrap choices require \code{errors="bootstrap"},
 \code{center="bias-corrected"} and \code{band="pointwise"},
 \code{"simultaneous"}, \code{"bonferroni"}, or \code{"all"}.
@@ -62,28 +58,250 @@ The descriptive bootstrap choices require \code{errors="bootstrap"},
 \code{"asymmetric-sd"} retains \code{"separate-tails"} for regression and
 CDFs, and transported \code{"percentile-tails"} for density. The suffix
 \code{sd} does not imply normal critical values: these empirical bands use
-bootstrap calibration. Existing \code{"tail-envelope"} remains the conservative
+bootstrap calibration. \code{interval="asymmetric-sd-envelope"} selects the conservative
 hull with the absolute-root interval; it is distinct from the raw asymmetric
-choice. Omitted/default controls preserve their earlier behavior.
+choice. Regression defaults follow the kernel/law policy below.
 
-The \code{"legacy"} selection retains the pre-iterated regression and
-pre-joint density/CDF bias-corrected bootstrap constructions. It is shorthand
-for the corresponding family \code{bias_control} with
-\code{construction="legacy"}; it is not a fourth new calibration algorithm.
-It requires corrected bootstrap inference, preserves that legacy route's
-supported bands, laws and returned-error conventions, and rejects an explicitly
-supplied nonlegacy bias control. Omitted calibration remains unchanged.
+Fixed-bandwidth second-order Epanechnikov kernels with none/fixed support
+and second-order beta kernels with declared finite fixed support admit explicit
+\code{"asymmetric-sd"} and
+\code{"asymmetric-sd-envelope"} with \code{"inid"}, \code{"fixed"}, \code{"geom"} or Mammen/Rademacher wild resampling.
+These existing standardized-root constructions are experimental alternatives.
+They can be substantially narrower than the default local envelope and need not
+retain its finite-sample coverage; saved degree-two beta derivative examples
+miss features covered by the local envelope. The local-envelope default is
+unchanged. Explicit tail controls still require empirical bands; they do not
+select asymptotic errors or \code{interval="normal-sd"}.
 
-For known-fixed-bound beta density plots with omitted \code{bias_control},
+The same fixed second-order kernel configurations support ordinary iterated
+bias-corrected asymptotic and \code{interval="normal-sd"} calls. Asymptotic finite-grid
+bands use the existing Gaussian multiplier process with replicate residual-pilot
+studentization; \code{interval="normal-sd"} uses a normal critical value times the observed
+corrected-process SD and is not a simultaneous band. Explicit
+\code{"symmetric-sd"} supports pairs, Mammen and Rademacher
+resampling. The auxiliary pilots remain Gaussian. These SD constructions retain
+finite-sample limitations, including saved degree-two derivative misses;
+Mammen and pairs empirical defaults continue to select the more protective
+local envelope. For Rademacher wild resampling, omitted/default calibration
+selects \code{"asymmetric-sd-envelope"} for these fixed configurations, preserving both
+its signed and absolute intervals; explicit controls are unchanged. Nonpooled
+Rademacher targets retain observed corrected-process scaling, while pooled
+mixed-predictor targets retain replicate residual-pilot studentization for
+empirical bands. This does not extend either basic envelope to Rademacher or
+alter Gaussian defaults; the saved derivative limitations still apply.
+
+For fixed-bandwidth raw Epanechnikov GLP fits with a quadratic component,
+and fixed-bandwidth beta derivatives with a positive main degree, the
+supported iterated empirical bands require explicit
+\code{interval="basic-local-envelope"} with pairs or
+Mammen resampling. Saved cases show numerical sensitivity in the fitted rows.
+
+Fixed uniform-kernel models with \code{ckerbound="none"} or \code{"fixed"}
+support iterated mean correction for local-constant fits and GLP fits with
+degree zero in every continuous predictor, including mean panels
+for mixed continuous/categorical predictors. Their empirical default is \code{"basic-local-envelope"} for
+Mammen or pairs resampling and \code{"asymmetric-sd-envelope"} for Rademacher;
+asymptotic and \code{interval="normal-sd"} calls retain absolute calibration. The same
+explicit fixed-kernel calibration/law combinations above apply to these mean
+targets. Continuous uniform derivatives remain unqualified under iterated
+correction, including local-constant auxiliary-only derivatives. For mixed
+uniform models, \code{gradients=TRUE} requests continuous derivatives along
+with categorical contrasts and is therefore refused as a whole; the public
+plot interface does not offer a contrast-only iterated route. The existing
+explicit \code{bias.control=np_bias_control(construction="legacy")} routes
+retain their previous supported behavior. The main kernel remains uniform
+and the auxiliary pilots remain Gaussian. Saved mean comparisons are limited
+to eight reused original samples and do not establish general nominal coverage.
+Uniform LC and GLP fits with degree zero in every continuous predictor also
+support these mean constructions with generalized or adaptive nearest-neighbour
+bandwidths and unbounded or declared fixed support. Their defaults follow the
+same declared-law mapping; explicit methods remain available. Neighbour counts
+and Gaussian auxiliary fits remain fixed, and bounded ANN retains donor-specific
+support normalization. The additional NN comparison uses only two saved
+original samples and does not establish nominal coverage. Higher-degree uniform
+NN correction and continuous uniform derivatives remain unqualified.
+
+
+The experimental \code{interval="basic-envelope"} is available for
+fixed-bandwidth regression means, derivatives and categorical contrasts with \code{bootstrap="inid"}, \code{"fixed"}
+or \code{"geom"} and iterated
+bias correction. Applicable main kernels are second-order Gaussian under its
+existing support restrictions, second-order Epanechnikov with none/fixed
+support, and second-order beta with declared finite fixed support.
+The more protective local envelope remains the default for the admitted
+Epanechnikov and beta pairs/Mammen empirical-band combinations; requesting
+\code{"basic-envelope"} explicitly retains its own construction and can give
+narrower intervals. It reuses the complete corrected observation rows and
+the selected row/block multiplicities; it does not refit resampled pairs.
+For inid, signed residual-score draws are aligned to the observed corrected
+standard error,
+then expressed in endpoint units before taking marginal quantiles or
+finite-grid extrema. For the corrected target estimate \eqn{\widehat\theta_{bc}}{theta_bc},
+basic inversion maps root limits \eqn{[L,U]} to
+\eqn{[\widehat\theta_{bc}-U,\widehat\theta_{bc}-L]}{[theta_bc-U,theta_bc-L]}.
+Each interval is expanded to contain the empirical absolute-root interval
+from the same draws. Thus pointwise, simultaneous and Bonferroni envelopes
+are nested. The simultaneous envelope has constant lower and upper offsets
+across each nondegenerate plotted family; a high-variance target can widen
+it substantially elsewhere. Relative to standardized SD bands it can be
+narrower at the most variable targets; it is conservative only relative to
+its raw separate-tail construction. For inid and non-pooled block rows,
+pointwise results equal the existing
+\code{"asymmetric-sd-envelope"} pointwise results. Its behavior depends on the full
+displayed grid.
+Bandwidths and polynomial degrees remain fixed. No Gaussian critical value
+or replicate-specific studentizer is used by this option. For inid and
+non-pooled block rows, the score-SD alignment is estimated from
+\code{B} draws, so it has Monte Carlo error.
+For fixed and geometric blocks, ordinary and categorical-only rows retain
+pilot-anchored block scaling. Pooled multi-level/multiple-factor profiles retain
+the existing exact conditional block-score variance and raw centered score
+sums; they are not aligned to the pilot SE and can differ from inid even at
+block length one. This distinction is intentional. Block lengths and the
+existing automatic selector are retained; fixed blocks of length n have no
+resampling variation and are refused. At least two draws are required.
+For iterated bias-corrected regression with fixed bandwidths and at least one
+continuous predictor, omitted control, \code{np_boot_control()} and
+\code{interval=NULL} follow the declared kernel and resampling law.
+For the admitted Epanechnikov, fixed-support beta and degree-zero uniform
+targets described above, empirical inid/fixed/geom or Mammen bands use \code{"basic-local-envelope"};
+Rademacher bands use \code{"asymmetric-sd-envelope"}. Asymptotic and \code{interval="normal-sd"}
+calls use absolute calibration. Each choice matches its explicit construction
+and is resolved once before the target families are evaluated. Gaussian and
+nearest-neighbour defaults retain their existing policy; explicit nondefault
+controls retain their own meanings and admission rules. Returned inference
+records the effective calibration and marks a default-resolved local or tail
+envelope as requested by default. This policy does not broaden coverage
+evidence or numerical admission rules. A supplied control must still be an
+\code{np_boot_control} object; \code{boot.control=NULL} is not a control object.
+
+For pairs resampling, experimental \code{interval="basic-local-envelope"} has the same
+fixed-bandwidth admission rules and also supports generalized and adaptive
+nearest-neighbour bandwidths with second-order Gaussian regression: unbounded
+support, or local-constant, local-linear or GLP fits with main degrees at most one and declared
+fixed support. It reuses exactly the
+same corrected centers, observed standard
+errors and signed draws. It also takes signed and absolute family extrema after
+standardizing each target by its observed standard error, then returns the hull
+of this local envelope and the existing \code{"basic-envelope"} simultaneous
+and Bonferroni bounds. Pointwise bounds are unchanged. Local offsets can vary
+across the grid; this is not replicate-studentized bootstrap-t. Zero standard
+error requires zero process draws. This option never narrows the existing
+basic envelope, but does not guarantee nominal coverage or correct remaining
+bias. Like all bias-corrected bounds it remains experimental, pre-beta and
+incomplete. With fixed bandwidths, this explicit option also admits second-order
+Epanechnikov kernels with \code{ckerbound="none"} or \code{"fixed"}, and
+second-order beta kernels with declared finite fixed support, for means,
+supported derivatives and categorical contrasts. The existing Gaussian
+auxiliary fits are retained; automatic adaptation is inactive for these
+extensions and explicit unsupported adaptation remains an error. Declared
+fixed support validates the data and targets; for Epanechnikov it does not
+define a different regression weight formula. Beta data, metric bandwidths
+and bounds are transformed together. Native beta derivative precision
+limitations and refusals for undefined canonical rows (including some exact
+support endpoints) remain. For inid, fixed and geometric pairs resampling,
+this option also admits unbounded second-order Epanechnikov nearest-neighbour
+bandwidths. Adaptive NN retains the existing derivative construction; generalized
+NN is restricted to main polynomial degrees at most one in every continuous
+predictor. Neighbour counts remain fixed during inference. Second-order
+Epanechnikov LC, local-linear and GLP fits with unbounded or declared fixed support
+and main degrees at most one in every continuous predictor also admit explicit \code{"basic-envelope"}, \code{"asymmetric-sd"}
+(including \code{"asymmetric-sd"}) and \code{"asymmetric-sd-envelope"} pairs bands
+for either NN type. Their omitted/default pairs calibration is the unchanged,
+more protective local envelope. Means, frozen-radius first derivatives and
+categorical contrasts retain their existing corrected rows. The comparisons
+use only two saved original samples and do not establish nominal coverage.
+For that degree-zero or first-order Epanechnikov NN class, ordinary asymptotic and \code{interval="normal-sd"} calls
+also use the established corrected-process SD construction. Explicit
+\code{"symmetric-sd"} or \code{"symmetric-sd"} admits pairs, Mammen and Rademacher;
+separate tails and the tail envelope additionally admit both wild laws.
+The Mammen empirical default uses the local envelope and the Rademacher default
+uses its containing tail envelope. Gaussian auxiliary fits and all fitted
+neighbour counts remain fixed. As elsewhere, \code{interval="normal-sd"} is a normal
+critical value times the observed corrected SD, not a simultaneous band.
+The two saved-sample comparisons do not establish nominal coverage or remove
+finite-sample uncertainty. Explicit narrower methods retain their definitions.
+Known bounds transform with the data; bounded ANN retains donor-specific
+support normalizers and the existing frozen-radius derivative convention.
+The qualified extension is limited to main degree components zero or one.
+Higher-degree Epanechnikov NN admissions are unchanged. Second-order beta
+GNN/ANN LC or GLP degree-zero means with known finite fixed support, including
+supported mixed mean panels and categorical mean contrasts, use these same
+established SD, pairs and wild constructions and defaults. For the experimental univariate beta NN derivative scopes and the
+degree-one and degree-two Bernstein beta GNN mean scopes, see \code{\link{plot.np}}; requested
+panels are never silently omitted. The beta comparison reuses two saved original
+samples and does not establish nominal coverage. Higher-degree bounded/wild
+Epanechnikov NN and higher-order kernels remain unqualified.
+Inherited numerical limitations of fitted and derivative rows remain.
+These experimental extensions do not guarantee nominal coverage.
+Second-order Gaussian correction supports known fixed support for continuous
+fixed-bandwidth fits and for generalized/adaptive NN local-constant, local-linear or GLP fits
+with main degrees at most one, including supported mixed predictors. Gaussian defaults and existing explicit calibrations
+are unchanged. NN radii stay frozen for derivatives; bounded ANN retains its
+donor-specific support normalization. Partial-degree models retain the existing
+refusal or unavailable-panel behavior for derivatives above a coordinate's degree.
+Higher-degree bounded Gaussian NN, fixed-bandwidth mixed Gaussian models and
+range bounds remain unqualified. The two saved NN samples provide
+limited availability evidence and do not establish nominal coverage. The existing adaptation and accepted fitted-row
+precision rules are retained. Zero nearest-neighbour radii and
+unqualified regularized main rows retain their existing refusals.
+The original \code{"basic-envelope"} public option supports fixed bandwidths
+and qualified degree-zero or first-order Epanechnikov NN models, or degree-zero
+uniform or known-fixed-support beta NN mean models; it remains pairs-only.
+
+For fixed-bandwidth second-order Gaussian (unbounded, or known fixed support
+with continuous predictors only), Epanechnikov
+(unbounded or fixed support), or beta (known finite fixed support) regression
+with at least one continuous predictor,
+\code{basic-local-envelope} also supports
+\code{bootstrap="wild"} with \code{wild="mammen"} in
+\code{np_boot_control()}. This is a fixed-factor multiplier
+construction, not a refitted or replicate-studentized bootstrap. It uses
+complete corrected rows times the positive generation standard deviation;
+for the univariate captured local owner this is the neighbourhood generation
+variance, and otherwise the existing smoothed residual variance. Raw and
+locally generation-SD-standardized signed-tail limits are protected by their
+absolute-root references, enveloped, and symmetrized. The returned observed
+standard error is preserved and can differ from the scale driving these bands.
+Pointwise wild bounds are also symmetric. Categorical-only designs,
+Rademacher multipliers and other unqualified nearest-neighbour wild models
+remain outside this option; existing methods remain available. The row construction
+supports the existing derivative and mixed-design targets, but empirical
+coverage evidence for this experimental wild variant is limited to
+univariate mean targets. No general coverage guarantee is implied.
+
+Dependent-data coverage evidence is limited; pooled and mixed layouts have
+structural qualification rather than a broad dependent-data coverage study.
+Existing regularization and pilot-admission restrictions remain in force.
+Existing derivative-order restrictions also remain in force. Each derivative
+or categorical contrast has its own finite-grid simultaneous family; there is
+no joint coverage assertion over all panels. The reference-level unordered
+contrast has deterministic zero bounds. Derivative bands can be much wider
+in low-variance regions while still being narrower than standardized SD bands
+at the most variable target, often a sparse boundary. Trimming the displayed
+grid changes the family and does not guarantee better protection at the new
+endpoints.
+Derivative coverage, especially for higher orders and dependent observations,
+is incompletely characterized; structural qualification is not a coverage
+guarantee. The existing asymptotic and SD constructions remain available.
+The original \code{"basic-envelope"} does not support wild resampling or
+nearest-neighbour bandwidths. Neither envelope supports \code{interval="normal-sd"}. Existing methods and
+defaults are unchanged. Like all corrected bounds, this option is pre-beta
+research, with limited coverage evidence rather than a general guarantee.
+
+For legacy corrected bootstrap plots, set \code{construction="legacy"} in
+the corresponding \code{np_bias_control()}, \code{np_udens_bias_control()} or
+\code{np_udist_bias_control()} passed to \code{bias.control}. The legacy provider
+determines its supported laws and scopes.
+
+For known-fixed-bound beta density plots with omitted \code{bias.control},
 \code{"symmetric-sd"} and \code{"asymmetric-sd"} select the separate refitted
 residual construction described in \code{\link{np_udens_bias_control}}.
 It requires independent resampling and explicit pointwise or simultaneous
 bands. The asymmetric rule inverts signed residual roots; the symmetric rule
-adds the guide region and takes a containing symmetric hull once. Gaussian
-density tail transport and all existing calibration aliases retain their
-meanings; omitted calibration does not silently select a beta SD variant.
+adds the guide region and takes a containing symmetric hull once. Omitting \code{interval} uses the existing default for the fitted kernel.
 
-For fixed-bound order-2 Gaussian density plots with omitted \code{bias_control},
+For fixed-bound order-2 Gaussian density plots with omitted \code{bias.control},
 the same two SD selections use FG-D: construct complete signed or symmetric
 intervals under the pilot and empirical residual scales, then take their outward
 union. The original empirical residual denominator remains fixed across actual
@@ -92,7 +310,7 @@ explicit pointwise/simultaneous bands are required. Range bounds are rejected;
 \code{"legacy"} retains its existing route. See
 \code{\link{np_udens_bias_control}}.
 
-For density, \code{"smoothed-percentile"} uses complete unshifted corrected
+For density, \code{interval="outer-calibrated-percentile"} uses complete unshifted corrected
 curves, a data-selected outer smoothing pilot and 39 outer calibration samples.
 The complete density and its correction vary jointly. The original fitted
 object and selected bandwidth remain unchanged. Fresh outer samples repeat the
@@ -140,7 +358,7 @@ Symmetric/asymmetric density SD methods retain their existing admitted
 require explicit block lengths. Asymmetric CDF bands support admitted fixed
 bandwidth joint-process \code{inid}/\code{fixed}/\code{geom} inference;
 numeric nearest-neighbor asymmetric CDF inference remains unqualified.
-The experimental CDF \code{"smoothed-percentile"} option uses a
+The experimental CDF \code{interval="outer-calibrated-percentile"} option uses a
 Gaussian derivative-three smoothing pilot, 39 fresh outer-sample fits using
 the same bandwidth-procedure policy described above,
 complete bias-corrected CDF curves and calibrated family ranks. Its current
@@ -152,7 +370,17 @@ Useful population coverage for this CDF prototype has not been established;
 it is exposed for experimentation. Fresh outer CV may select slightly different
 bandwidths across serial and MPI fits, as with the existing estimator.
 
-For regression, the common \code{"smoothed-percentile"} label selects the
+For continuous regression with fixed second-order Gaussian kernels, unbounded
+or with known fixed support, and inactive adaptation, the experimental \code{inid}, \code{fixed} and
+\code{geom} corrected-row methods use the original accepted fitted observation
+rows for means and first derivatives, including regularized main rows. The fitted
+model and its rank/ridge policy are unchanged; auxiliary pilots retain their
+identification requirements. Capture uses bounded row tiles without introducing
+a fixed capture-memory ceiling for these pairs methods. Matching the fitted
+operator does not establish nominal coverage at sparse or extreme-leverage
+targets. These methods remain experimental and incomplete.
+
+For regression, \code{interval="outer-calibrated-percentile"} selects the
 E1 mean / E6 first-derivative calibrated percentile construction. This is a
 fixed-design standardized empirical-residual bootstrap: residual innovations
 are centered and normalized, then resampled with replacement and multiplied by
@@ -171,7 +399,7 @@ the simultaneous envelope; singleton equality is enforced.
 Selecting this regression option with \code{bootstrap} omitted uses
 \code{bootstrap="residual"}; explicitly choosing a different bootstrap law is
 an error. The residual law is exclusive to this option and does not replace
-wild/Mammen or the existing pairs/block laws. With \code{bias_control} omitted,
+wild/Mammen or the existing pairs/block laws. With \code{bias.control} omitted,
 the option uses \code{np_bias_control(adaptation="none")}. Initial scope is
 fixed Gaussian2, one or two numeric predictors, local constant, local linear,
 or Bernstein local polynomial degrees at most three, first derivatives,
@@ -207,10 +435,11 @@ and estimator-specific qualifications.
   Rademacher), \code{inid}, \code{fixed}, and \code{geom} routes. Existing
   kernel, regularization and auxiliary-space restrictions still apply.
   Estimate-centered, legacy, normal-scale \code{pmzsd} and Gaussian asymptotic
-  inference do not accept an explicit calibration selector. Families other
+  inference have their own supported constructions. Families other
   than the regression, density and distribution routes described here retain their existing
   selection contracts. The Gaussian approximation is reflection-symmetric.
-  Omitted selectors in previously saved controls retain their meaning.
+  To reuse older bootstrap settings, rebuild the control without its \code{calibration}
+  field. Omit \code{interval} for the fitted method's default.
 
   The raw method uses marginal lower/upper order statistics for pointwise
   bands and separate lower/upper family-extremum quantiles for simultaneous
@@ -257,15 +486,15 @@ and estimator-specific qualifications.
   accepted as substitutes, so misspelled detailed controls fail before plot
   computation begins.
 
-  Compound public plot arguments use snake_case. The control constructors
+  Compound public plot arguments use dotted spellings. The control constructors
   retain their existing arguments; only the plot-facing argument names change.
   Returned plot data use the common \code{\link{np_plot_data}} schema. Common rendering
-  controls such as \code{data_overlay}, \code{data_rug}, \code{layout}, and
+  controls such as \code{data.overlay}, \code{data.rug}, \code{layout}, and
   \code{output} are supplied directly to \code{plot(...)} rather than through
   \code{np_render_control()}.
 
   Gaussian simultaneous variability bands use the direct plot argument
-  \code{gaussian_draws} (default 9999), including supported density and
+  \code{gaussian.draws} (default 9999), including supported density and
   distribution plots. This controls Gaussian calibration only; \code{B} and
   \code{np_boot_control()} continue to control bootstrap resampling. See
   \code{\link{plot.np}} for supported targets, covariance contracts and
@@ -283,6 +512,13 @@ and estimator-specific qualifications.
 }
 
 \section{Experimental status of bias-corrected inference}{
+Plot annotations call estimate-centered bounds variability intervals or bands
+and bias-corrected bounds confidence intervals or bands. Pointwise, Bonferroni
+and simultaneous refer to coverage scope, independently of asymptotic or
+bootstrap construction. Simultaneous scope is the method's documented finite
+family; \code{interval="normal-sd", band="pointwise"} is pointwise. Confidence
+wording does not establish nominal coverage for experimental methods.
+
 \strong{All bias-corrected confidence intervals and bands are experimental
 (pre-beta research), incomplete, and not recommended for general-purpose
 inference.} This status remains in effect unless the documentation explicitly
@@ -304,9 +540,8 @@ failures must be considered when experimenting with these bounds.
 plot(fit,
      errors = "bootstrap",
      bootstrap = "inid",
-     B = 9999,
      band = "pointwise",
-     boot_control = np_boot_control(nonfixed = "exact"))
+     boot.control = np_boot_control(nonfixed = "exact"))
 }
 }
 \keyword{hplot}

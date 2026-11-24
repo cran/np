@@ -8,7 +8,7 @@ test_that("density surface boxes enclose the endpoints actually drawn", {
     args <- list(fit, errors = "asymptotic", center = center, view = "fixed",
                  neval = 7L, output = "plot-data", zlim = zlim)
     if (band != "default") args$band <- band
-    if (band %in% c("simultaneous", "all")) args$gaussian_draws <- 199L
+    if (band %in% c("simultaneous", "all")) args$gaussian.draws <- 199L
     seed <- .Random.seed
     out <- suppressWarnings(do.call(plot, args))
     expect_identical(.Random.seed, seed)
@@ -16,11 +16,12 @@ test_that("density surface boxes enclose the endpoints actually drawn", {
     boxes <- lapply(display, function(e) {
       z <- e[[2L]]
       if (identical(tryCatch(z[[1L]]$name, error = function(e) ""), "C_persp"))
-        as.double(z[[7L]]) else NULL
+        list(limits = as.double(z[[7L]]), background = all(is.na(z[[4L]]))) else NULL
     })
     boxes <- Filter(Negate(is.null), boxes)
-    expect_length(boxes, 1L)
-    list(out = out, box = boxes[[1L]])
+    expect_identical(vapply(boxes, "[[", logical(1), "background"), c(TRUE, FALSE))
+    expect_identical(boxes[[1L]]$limits, boxes[[2L]]$limits)
+    list(out = out, box = boxes[[2L]]$limits)
   }
   for (center in c("estimate", "bias-corrected")) {
     for (band in c("default", "pointwise", "bonferroni", "simultaneous", "all")) {

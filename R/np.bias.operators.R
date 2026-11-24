@@ -185,14 +185,37 @@ function (spec, grid, map, op)
     out
 }
 
-.np_bias_pilot_qr <- function(Q, k, v) {
+.np_bias_pilot_qr <- function(Q, k, v, coordinate = NULL) {
     # Keep the established auxiliary identification/ridge policy. QR changes
     # arithmetic only; it must not admit a system rejected by the fitted policy.
     .np_bias_solve(Q, k, v, "P1 auxiliary pilot")
     if (any(!is.finite(k)) || any(k < 0))
         stop("P1 auxiliary pilot requires finite nonnegative weights")
     root.weight <- sqrt(k)
-    A <- Q * root.weight
+    derivative <- NULL
+    if (is.null(coordinate)) {
+        A <- Q * root.weight
+    } else {
+        # Weighted Leja nodes give a Newton basis for the same univariate
+        # polynomial space. Scale each product before extending it so the
+        # weighted columns stay resolved even for concentrated kernels.
+        width <- max(abs(coordinate))
+        p <- ncol(Q)
+        A <- matrix(0, length(coordinate), p)
+        A[, 1L] <- root.weight
+        v <- derivative <- numeric(p)
+        v[1L] <- 1
+        for (j in seq_len(p - 1L)) {
+            col <- A[, j]
+            pivot <- which.max(abs(col))
+            size <- abs(col[pivot])
+            node <- coordinate[pivot]
+            A[, j + 1L] <- (col / size) * ((coordinate - node) / width)
+            difference <- -node / width
+            v[j + 1L] <- (v[j] / size) * difference
+            derivative[j + 1L] <- (v[j] / width + difference * derivative[j]) / size
+        }
+    }
     scale <- sqrt(colSums(A * A))
     if (any(!is.finite(scale)) || any(scale <= 0) || nrow(A) < ncol(A))
         stop("P1 auxiliary pilot requires an identified weighted design")
@@ -209,11 +232,11 @@ function (spec, grid, map, op)
         if (length(z) > p) z[seq.int(p + 1L, length(z))] <- 0
         drop(qr.qy(factor, z))
     }
-    list(root.weight = root.weight, value = apply.value, project = project)
+    list(root.weight = root.weight, mean = apply.value(v), value = apply.value,
+         derivative = derivative, project = project)
 }
 
 # P1-specific same-system recurrence in fixed orthonormal QR coordinates.
-# Generic derivative owners, first derivatives and training rows are retained.
 # Differentiate in fixed orthonormal coordinates at the evaluation point.
 # The zeroth augmented Gram matrix is identity; only observation rows enter
 # its derivatives. This avoids repeatedly applying an ill-conditioned Gram
@@ -260,21 +283,31 @@ function (spec, at, derivatives = TRUE, orders = NULL, .training = FALSE)
     x <- spec$xcon[ii, , drop = FALSE]
     u <- x
     for (d in seq_len(spec$d)) u[[d]] <- (x[[d]] - at[[spec$numeric.cols[d]]])/spec$b[d]
-    zero <- u[1, , drop = FALSE]
-    zero[, ] <- 0
+    if (.training && derivatives) stop("training P1 owner requests mean rows only")
     basis <- W.lp
     Q <- basis(u, degree = spec$q, basis = "glp", bernstein.basis = spec$bernstein)
-    v <- drop(basis(u, exdat = zero, degree = spec$q, basis = "glp", bernstein.basis = spec$bernstein))
+    # A univariate training target already occurs at zero in this local design.
+    index <- if (.training && spec$d == 1L) match(0, u[[1L]], nomatch = 0L) else 0L
+    if (index > 0L) {
+        v <- Q[index, ]
+    } else {
+        zero <- u[1, , drop = FALSE]
+        zero[, ] <- 0
+        v <- drop(basis(u, exdat = zero, degree = spec$q, basis = "glp", bernstein.basis = spec$bernstein))
+    }
     k <- drop(.np_kernel_weights_direct(spec$pilot.bws, txdat = x, exdat = at[spec$numeric.cols], bandwidth.divide = TRUE))
-    # Retain training and univariate arithmetic. This bounded precision path
-    # is qualified for multivariate evaluation targets, including sparse tails.
-    precise <- !.training && spec$d > 1L
-    if (.training && derivatives) stop("training P1 owner requests mean rows only")
+    # The QR uses the same weighted design after the canonical zero-ridge check.
+    # It supplies univariate training means as well as derivative targets.
+    # A singular support has no equivalent full-rank polynomial basis. Keep
+    # its original solve, including the incumbent rank and ridge decision.
+    univariate <- spec$d == 1L && ncol(Q) > 1L &&
+        length(unique(u[[1L]][k > 0])) >= ncol(Q)
+    precise <- univariate || (!.training && spec$d > 1L)
     if (!precise) {
         h <- .np_bias_solve(Q, k, v, "P1 auxiliary pilot")
     } else {
-        factor <- .np_bias_pilot_qr(Q, k, v)
-        value <- factor$value(v)
+        factor <- .np_bias_pilot_qr(Q, k, v, if (univariate) u[[1L]])
+        value <- factor$mean
         h <- factor$root.weight * value
     }
     dh <- list()
@@ -293,8 +326,12 @@ function (spec, at, derivatives = TRUE, orders = NULL, .training = FALSE)
             }
             nu <- integer(spec$d)
             nu[d] <- 1L
-            dv <- drop(basis(u, exdat = zero, degree = spec$q, gradient.vec = nu, basis = "glp",
-                bernstein.basis = spec$bernstein))/spec$b[d]
+            if (univariate) {
+                dv <- factor$derivative / spec$b[d]
+            } else {
+                dv <- drop(basis(u, exdat = zero, degree = spec$q, gradient.vec = nu, basis = "glp",
+                    bernstein.basis = spec$bernstein))/spec$b[d]
+            }
             if (precise) {
                 w <- value * u[[d]]/spec$b[d]
                 dh[[d]] <- factor$root.weight * (factor$value(dv) + w - factor$project(w))
@@ -304,6 +341,17 @@ function (spec, at, derivatives = TRUE, orders = NULL, .training = FALSE)
                 dh[[d]] <- coefficient + w - .np_bias_solve(Q, k, drop(crossprod(Q, w)), "P1 auxiliary derivative pilot")
             }
         }
+    if (!.training && univariate && !is.null(spec[["gaussian.pilot.range"]]) &&
+        (!derivatives || is.null(orders) || orders[1L] == 1L)) {
+        limits <- spec[["gaussian.pilot.range"]]
+        e <- at[[spec$numeric.cols[1L]]]
+        if ((e < limits[1L] || e > limits[2L]) && all(k > 0)) {
+            row <- .Call("C_np_bias_gaussian_extrapolate", x[[1L]], e, spec$b[1L],
+                         as.integer(spec$q), k, PACKAGE = "np")
+            h <- row[, 1L]
+            if (derivatives) dh[[1L]] <- row[, 2L]
+        }
+    }
     if (any(!is.finite(h)) || any(!is.finite(unlist(dh))))
         stop("P1 auxiliary pilot produced non-finite rows")
     list(indices = ii, mean = h, derivatives = dh)
@@ -332,6 +380,10 @@ function (W, row_owner, block = 16L)
 .np_bias_pilot_owner <-
 function (spec)
 {
+    # All streamed P1 rows use the same fixed kernel bandwidth descriptor.
+    if (spec$d == 1L && identical(spec$pilot.bws[["type"]], "fixed") &&
+        !inherits(spec$pilot.bws, "kbandwidth"))
+        spec$pilot.bws <- kbandwidth(spec$pilot.bws)
     force(spec)
     function(ii) {
         if (length(ii) > 16L || anyNA(ii) || any(ii < 1L | ii > nrow(spec$x)) || any(ii != floor(ii)))
@@ -346,7 +398,7 @@ function (spec)
 }
 
 .np_bias_residual_apply <-
-function (owner, responses, block = 16L)
+function (owner, responses, block = 16L, centered = NULL)
 {
     if (!is.function(owner) || !is.matrix(responses) || !is.numeric(responses) || nrow(responses) < 2L ||
         ncol(responses) < 1L || ncol(responses) > 9999L || any(!is.finite(responses)) || length(block) !=
@@ -360,9 +412,15 @@ function (owner, responses, block = 16L)
         H <- owner(ii)
         if (!is.matrix(H) || !identical(dim(H), c(length(ii), n)) || any(!is.finite(H)))
             stop("invalid residual row owner")
-        raw[ii, ] <- responses[ii, , drop = FALSE] - H %*% responses
+        # A nonzero hat entry certifies participation of that donor. Leave
+        # partial-support rows with the incumbent residual arithmetic.
+        if (!is.null(centered)) complete <- rowSums(H == 0) == 0L
+        if (is.null(centered) || !all(complete))
+            raw[ii, ] <- responses[ii, , drop = FALSE] - H %*% responses
         leverage[ii] <- H[cbind(seq_along(ii), ii)]
         H[cbind(seq_along(ii), ii)] <- H[cbind(seq_along(ii), ii)] - 1
+        if (!is.null(centered) && any(complete))
+            raw[ii[complete], ] <- -(H[complete, , drop = FALSE] %*% centered)
         row_variance[ii] <- rowSums(H^2)
     }
     if (any(!is.finite(row_variance)) || any(row_variance <= 0))
@@ -370,8 +428,25 @@ function (owner, responses, block = 16L)
     list(raw = raw, residual = raw/sqrt(row_variance), leverage = leverage, row_variance = row_variance)
 }
 
+# The zero-ridge P0 residual eliminates every polynomial of degree <= q.
+# Remove a bounded interpolating polynomial before applying the same hat row.
+# Chebyshev nodes require no second fit or rank decision. Evaluate in two
+# doubles so rounding the subtracted trend does not enter the residual.
+.np_bias_gaussian_center <- function(x, y, degree, limits) {
+    theta <- pi * (seq_len(degree + 1L) - 0.5) / (degree + 1L)
+    nodes <- limits[1L] + (cos(theta) + 1) * (diff(limits) / 2)
+    cosine <- cos(outer(theta, 0:degree))
+    magnitude <- max(abs(y))
+    values <- stats::approx(x, y / magnitude, xout = nodes, rule = 2L,
+                            ties = mean)$y
+    co <- drop(crossprod(cosine, values)) * (2 / (degree + 1L))
+    co[1L] <- co[1L] / 2
+    .Call("C_np_bias_gaussian_center", x, y, co,
+          limits, magnitude, PACKAGE = "np")
+}
+
 .np_bias_p0_residuals <-
-function (spec, responses, block = 16L)
+function (spec, responses, block = 16L, centered = NULL)
 {
     if (!is.matrix(responses) || !is.numeric(responses) || nrow(responses) != nrow(spec$x) || ncol(responses) <
         1L || ncol(responses) > 9999L || any(!is.finite(responses)))
@@ -389,7 +464,8 @@ function (spec, responses, block = 16L)
                 stop("P0 residual fit requires regularization at a training observation; trimming the evaluation grid cannot repair it. Inspect training tails and p0.bandwidth/p0.scale or the auxiliary degree", call. = FALSE)
             H
         }
-        v <- .np_bias_residual_apply(owner, responses[ii, , drop = FALSE], block)
+        v <- .np_bias_residual_apply(owner, responses[ii, , drop = FALSE], block,
+                                    if (!is.null(centered)) centered[ii])
         out[ii, ] <- v$residual
         raw[ii, ] <- v$raw
         leverage[ii] <- v$leverage

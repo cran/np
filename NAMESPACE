@@ -2,7 +2,7 @@ useDynLib(np, .registration = TRUE)
 import(stats, boot)
 importFrom("grDevices", "boxplot.stats", "dev.cur", "extendrange", "n2mfrow", "grey", "rgb", "trans3d")
 importFrom("graphics", "axis", "legend", "lines", "mtext", "par", "persp", "plot", "points", "plot.new", "plot.window", "polygon", "arrows", "barplot", "bxp")
-importFrom("utils", "combn", "flush.console", "head", "object.size", "tail")
+importFrom("utils", "combn", "flush.console", "getS3method", "head", "object.size", "tail")
 importFrom("methods", "is")
 importFrom("quantreg", "rq")
 importFrom("quadprog", "solve.QP")
@@ -43,6 +43,8 @@ export(b.star
        ,npqreg
        ,npquantile
        ,npcmstest
+       ,npindextest
+       ,nppltest
        ,npconmode
        ,npdeneqtest
        ,npindex
@@ -84,6 +86,8 @@ S3method(print,condistribution)
 S3method(print,npkernelsum)
 S3method(print,qregression)
 S3method(print, cmstest)
+S3method(print, indextest)
+S3method(print, pltest)
 S3method(print, npregiv)
 S3method(print, npregivderiv)
 S3method(print, summary.npregiv)
@@ -201,6 +205,8 @@ S3method(summary, lsqregression)
 S3method(summary, npregiv)
 S3method(summary, npregivderiv)
 S3method(summary, cmstest)
+S3method(summary, indextest)
+S3method(summary, pltest)
 S3method(summary, conmode)
 S3method(summary,npcopula)
 S3method(summary, deptest)

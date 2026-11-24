@@ -170,8 +170,11 @@ These arguments control automatic local-polynomial degree search.
 
   \item{degree.restarts}{
     non-negative integer giving the number of additional deterministic
-    coordinate-search restarts. Ignored for \code{"manual"} and
-    \code{"exhaustive"} degree selection.
+    restarts used by coordinate search with \code{search.engine="cell"}.
+    For a non-singleton candidate grid, an error is reported if the requested
+    number exceeds the distinct admissible starts remaining after exclusions.
+    Ignored for \code{degree.select="manual"}, \code{"exhaustive"}, a singleton
+    candidate grid, and the NOMAD search engines.
   }
 
   \item{degree.select}{
@@ -190,6 +193,8 @@ These arguments control automatic local-polynomial degree search.
     optional starting degree vector for automatic coordinate search. If
     omitted, the search starts from the degree-zero local-constant
     baseline on the continuous \code{zdat} predictors.
+    For cell-based searches, the starting degree and initial baseline are
+    restricted to the requested \code{degree.min} and \code{degree.max} bounds.
   }
 
   \item{degree.verify}{
@@ -368,6 +373,8 @@ These arguments collect remaining controls passed through S3 methods.
 }
 
 \details{
+  Use \code{\link{nppltest}} to test whether the designated parametric regressors enter linearly and additively given the nuisance covariates.
+
   The primary response must be a one-dimensional numeric (integer or double)
   vector. Factors and ordered factors are not accepted as primary responses,
   including retained responses used in a new fit or bandwidth search.
@@ -626,6 +633,7 @@ or standard-deviation factors.
 }
 
 \seealso{
+  \code{\link{nppltest}},
   \code{\link{np.kernels}}, \code{\link{np.options}}, \code{\link{plot}}, \code{\link{plot.np}}
   \code{\link{npregbw}}, \code{\link{npreg}} }
 \examples{

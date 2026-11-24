@@ -2,6 +2,8 @@ npudist <-
   function(bws, ...){
     mc <- match.call(expand.dots = FALSE)
     .np_validate_public_dots(mc[["..."]], "npudist")
+    if (!missing(bws) && "na.action" %in% names(mc[["..."]]))
+      .np_fit_na_preflight(bws, substitute(list(...))[-1L], environment(), "npudist")
     args <- .np_formula_dispatch_args(
       NULL, substitute(list(...))[-1L], environment(),
       data.roles = c("tdat"),
@@ -29,9 +31,11 @@ npudist <-
 npudist.formula <-
   function(bws, data = NULL, newdata = NULL, ...){
     .np_reject_fit_subset(substitute(list(...))[-1L])
+    .np_fit_na_preflight(bws, substitute(list(...))[-1L], environment(), "npudist", data = data, newdata = newdata)
 
 
-    dots <- list(...)
+    dots <- .np_formula_dispatch_args(
+      NULL, substitute(list(...))[-1L], environment(), omit.subset = FALSE)
     frame.state <- dots[[".np.formula.state", exact = TRUE]]
     dots$.np.formula.state <- NULL
     dots$formula <- NULL
@@ -67,7 +71,8 @@ npudist.formula <-
     if (has.eval)
       ud.args$edat <- edat
     ud.args$bws <- bws
-    ev <- do.call(npudist, c(ud.args, dots))
+    dots$na.action <- NULL
+    ev <- do.call(npudist, c(ud.args, .np_formula_options(dots, "npudist.formula")))
 
     ev$omit <- .np_formula_output_action(ev, umf, has.eval)
     ev$rows.omit <- as.vector(ev$omit)
@@ -83,11 +88,12 @@ npudist.formula <-
 npudist.call <-
   function(bws, ...) {
     .np_reject_fit_subset(substitute(list(...))[-1L])
+    .np_fit_na_preflight(bws, substitute(list(...))[-1L], environment(), "npudist", native = TRUE)
 
   .np_reject_native_data(substitute(list(...))[-1L])
 
     do.call(npudist, .np_retained_training_args(
-      bws, c(tdat = "dat"), list(...), npudist.dbandwidth))
+      bws, c(tdat = "dat"), .np_formula_dispatch_args(NULL, substitute(list(...))[-1L], environment(), omit.subset = FALSE), npudist.dbandwidth))
   }
 
 npudist.dbandwidth <-
@@ -95,6 +101,7 @@ npudist.dbandwidth <-
            tdat = stop("invoked without training data 'tdat'"),
            edat, ..., se = FALSE){
     .np_reject_fit_subset(substitute(list(...))[-1L])
+    .np_fit_na_preflight(bws, substitute(list(...))[-1L], environment(), "npudist", native = TRUE)
 
   .np_reject_native_data(substitute(list(...))[-1L])
 
@@ -102,7 +109,7 @@ npudist.dbandwidth <-
     se <- npValidateScalarLogical(se, "se")
     ann.se <- se && identical(bws[["type", exact = TRUE]], "adaptive_nn") &&
       bws[["ncon", exact = TRUE]] > 0L
-    dots <- list(...)
+    dots <- .np_formula_dispatch_args(NULL, substitute(list(...))[-1L], environment(), omit.subset = FALSE)
     fit.start <- proc.time()[3]
     fit.progress.handoff <- isTRUE(dots$.np_fit_progress_handoff)
 
@@ -385,7 +392,8 @@ npudist.default <- function(bws, tdat, ..., se = FALSE){
   if (!has.explicit.bws)
     call.args$.np_fit_progress_handoff <- TRUE
   fit.dots <- if (!is.null(tbw[["formula", exact = TRUE]]))
-    .np_formula_dispatch_args(NULL, substitute(list(...))[-1L], environment())
-  else list(...)
+    .np_formula_options(.np_formula_dispatch_args(
+      NULL, substitute(list(...))[-1L], environment()), "npudist.default")
+  else .np_formula_dispatch_args(NULL, substitute(list(...))[-1L], environment(), omit.subset = FALSE)
   do.call(npudist, c(call.args, fit.dots))
 }

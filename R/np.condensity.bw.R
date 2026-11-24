@@ -49,10 +49,10 @@ npcdensbw.formula <-
     dots <- list(...)
     .np_formula_frame_store(dots[[".np.formula.state", exact = TRUE]], mf)
     dots$.np.formula.state <- NULL
-    tbw <- do.call(npcdensbw, c(list(xdat = xdat, ydat = ydat), dots))
+    tbw <- do.call(npcdensbw, c(list(xdat = xdat, ydat = ydat), .np_formula_options(dots, "npcdensbw.formula")))
 
     ## clean up (possible) inconsistencies due to recursion ...
-    tbw$call <- .np_formula_call_public(match.call(expand.dots = FALSE))
+    tbw$call <- .np_public_replay_call(match.call(expand.dots = FALSE), "npcdensbw")
     environment(tbw$call) <- parent.frame()
     tbw$formula <- formula
     tbw$rows.omit <- as.vector(attr(mf,"na.action"))
@@ -381,7 +381,7 @@ npcdensbw.conbandwidth <-
     .np_density_bw_progress(bandwidth.compute, bwsolver, FALSE, {
 
     nomad.opts <- .np_nomad_normalize_user_opts(nomad.opts, "npcdensbw")
-    dot.args <- list(...)
+    dot.args <- .np_formula_dispatch_args(NULL, substitute(list(...))[-1L], environment(), omit.subset = FALSE)
     if (length(nomad.opts))
       dot.args$nomad.opts <- nomad.opts
     elapsed.start <- proc.time()[3]
@@ -1573,8 +1573,8 @@ npPreparedObjectiveDestroyConditionalDensity <- function() {
   if (length(rows.omit) > 0L)
     keep.rows[as.integer(rows.omit)] <- FALSE
 
-  xdat <- xdat[keep.rows,, drop = FALSE]
-  ydat <- ydat[keep.rows,, drop = FALSE]
+  xdat <- .np_data_rows(xdat, keep.rows)
+  ydat <- .np_data_rows(ydat, keep.rows)
 
   ymat <- toMatrix(ydat)
   xmat <- toMatrix(xdat)
@@ -3599,7 +3599,7 @@ npcdensbw.NULL <-
            bws, ...){
   .np_reject_native_data(substitute(list(...))[-1L])
 
-    dots <- list(...)
+    dots <- .np_formula_dispatch_args(NULL, substitute(list(...))[-1L], environment(), omit.subset = FALSE)
     .np_nomad_native_reject_unsupported_options_from_dots(
       dots,
       "native npcdens NOMAD route"
@@ -3620,7 +3620,7 @@ npcdensbw.NULL <-
     ## clean up (possible) inconsistencies due to recursion ...
     mc <- match.call(expand.dots = FALSE)
     environment(mc) <- parent.frame()
-    tbw$call <- mc
+    tbw$call <- .np_public_replay_call(mc, "npcdensbw")
 
     tbw
   }
@@ -3868,7 +3868,7 @@ npcdensbw.default <-
                        lp = "Local-Polynomial")
 
     search.mc.names <- names(mc)
-    lp.dot.args <- list(...)
+    lp.dot.args <- .np_formula_dispatch_args(NULL, substitute(list(...))[-1L], environment(), omit.subset = FALSE)
     if (length(nomad.opts))
       lp.dot.args$nomad.opts <- nomad.opts
     .np_degree_reject_unknown_dots(
@@ -4023,8 +4023,8 @@ npcdensbw.default <-
       keep.rows <- rep_len(TRUE, NROW(xdat))
       if (length(rows.omit)) keep.rows[as.integer(rows.omit)] <- FALSE
       if (!any(keep.rows)) stop("Data has no rows without NAs")
-      search.xdat <- xdat[keep.rows, , drop = FALSE]
-      search.ydat <- ydat[keep.rows, , drop = FALSE]
+      search.xdat <- .np_data_rows(xdat, keep.rows)
+      search.ydat <- .np_data_rows(ydat, keep.rows)
       degree.search$nobs <- sum(keep.rows)
 
       eval_fun <- function(degree.vec) {
@@ -4113,7 +4113,7 @@ npcdensbw.default <-
 
     mc <- match.call(expand.dots = FALSE)
     environment(mc) <- parent.frame()
-    tbw$call <- mc
+    tbw$call <- .np_public_replay_call(mc, "npcdensbw")
     tbw <- .np_attach_nomad_shortcut(tbw, nomad.shortcut$metadata)
 
     return(.np_bws_retain_native_training(tbw, xdat = xdat, ydat = ydat))

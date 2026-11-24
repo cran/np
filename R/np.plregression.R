@@ -2,6 +2,8 @@ npplreg <-
   function(bws, ...){
     mc <- match.call(expand.dots = FALSE)
     .np_validate_public_dots(mc[["..."]], "npplreg")
+    if (!missing(bws) && "na.action" %in% names(mc[["..."]]))
+      .np_fit_na_preflight(bws, substitute(list(...))[-1L], environment(), "npplreg")
     args <- .np_formula_dispatch_args(
       NULL, substitute(list(...))[-1L], environment(),
       data.roles = c("txdat", "tydat", "tzdat"),
@@ -28,9 +30,11 @@ npplreg <-
 npplreg.formula <-
   function(bws, data = NULL, newdata = NULL, y.eval = FALSE, ..., se = FALSE){
     .np_reject_fit_subset(substitute(list(...))[-1L])
+    .np_fit_na_preflight(bws, substitute(list(...))[-1L], environment(), "npplreg", data = data, newdata = newdata)
 
     se <- npValidateScalarLogical(se, "se")
-    dots <- list(...)
+    dots <- .np_formula_dispatch_args(
+      NULL, substitute(list(...))[-1L], environment(), omit.subset = FALSE)
     frame.state <- dots[[".np.formula.state", exact = TRUE]]
     dots$.np.formula.state <- NULL
     frame <- if (is.null(frame.state)) .np_plreg_formula_frame(bws, data, overrides = dots)
@@ -68,7 +72,9 @@ npplreg.formula <-
         pl.args$eydat <- model.response(evaluation$yz)
     }
     pl.args$bws <- bws
-    ev <- do.call(npplreg, c(pl.args, dots))
+    dots$na.action <- NULL
+    ev <- do.call(npplreg, c(pl.args, .np_formula_options(dots, "npplreg.formula")))
+    ev$call <- .np_public_replay_call(match.call(expand.dots = FALSE), "npplreg")
 
     if (length(response.name) == 1L && !is.na(response.name) && nzchar(response.name)) {
       if (!is.null(ev$bws))
@@ -92,11 +98,14 @@ npplreg.formula <-
 npplreg.call <-
   function(bws, ...) {
     .np_reject_fit_subset(substitute(list(...))[-1L])
+    .np_fit_na_preflight(bws, substitute(list(...))[-1L], environment(), "npplreg", native = TRUE)
 
   .np_reject_native_data(substitute(list(...))[-1L])
 
-    do.call(npplreg, .np_retained_training_args(
-      bws, c(txdat = "xdat", tydat = "ydat", tzdat = "zdat"), list(...), npplreg.plbandwidth))
+    ev <- do.call(npplreg, .np_retained_training_args(
+      bws, c(txdat = "xdat", tydat = "ydat", tzdat = "zdat"), .np_formula_dispatch_args(NULL, substitute(list(...))[-1L], environment(), omit.subset = FALSE), npplreg.plbandwidth))
+    ev$call <- .np_public_replay_call(match.call(expand.dots = FALSE), "npplreg")
+    ev
   }
 
 .np_plreg_fit_progress_targets <- function(xnames) {
@@ -237,9 +246,9 @@ npplreg.call <-
     if (!any(keep.rows))
       stop("Training data has no rows without NAs")
 
-    xdat <- xdat[keep.rows, , drop = FALSE]
-    ydat <- ydat[keep.rows]
-    zdat <- zdat[keep.rows, , drop = FALSE]
+    xdat <- .np_data_rows(xdat, keep.rows)
+    ydat <- .np_data_rows(ydat, keep.rows, frame = FALSE)
+    zdat <- .np_data_rows(zdat, keep.rows)
 
     no.exz <- missing(exdat)
     if (!no.exz) {
@@ -255,8 +264,8 @@ npplreg.call <-
       if (!any(keep.eval))
         stop("Evaluation data has no rows without NAs")
 
-      exdat <- exdat[keep.eval, , drop = FALSE]
-      ezdat <- ezdat[keep.eval, , drop = FALSE]
+      exdat <- .np_data_rows(exdat, keep.eval)
+      ezdat <- .np_data_rows(ezdat, keep.eval)
     }
 
     tmp.ty <- .np_plreg_numeric_response(ydat, bws$bw$yzbw$ydati)
@@ -501,6 +510,7 @@ npplreg.plbandwidth <-
            tzdat = stop("training data tzdat missing"),
            exdat, eydat, ezdat, residuals = FALSE, ..., se = FALSE){
     .np_reject_fit_subset(substitute(list(...))[-1L])
+    .np_fit_na_preflight(bws, substitute(list(...))[-1L], environment(), "npplreg", native = TRUE)
 
   .np_reject_native_data(substitute(list(...))[-1L])
 
@@ -508,7 +518,7 @@ npplreg.plbandwidth <-
     fit.start <- proc.time()[3]
     residuals <- npValidateScalarLogical(residuals, "residuals")
     se <- npValidateScalarLogical(se, "se")
-    dots <- list(...)
+    dots <- .np_formula_dispatch_args(NULL, substitute(list(...))[-1L], environment(), omit.subset = FALSE)
     fit.progress.handoff <- isTRUE(dots$.np_fit_progress_handoff)
 
     txdat = toFrame(txdat)
@@ -532,9 +542,9 @@ npplreg.plbandwidth <-
     if (!any(keep.rows))
       stop("Training data has no rows without NAs")
 
-    txdat <- txdat[keep.rows,,drop = FALSE]
-    tydat <- tydat[keep.rows]
-    tzdat <- tzdat[keep.rows,,drop = FALSE]
+    txdat <- .np_data_rows(txdat, keep.rows)
+    tydat <- .np_data_rows(tydat, keep.rows, frame = FALSE)
+    tzdat <- .np_data_rows(tzdat, keep.rows)
 
     native.newdata <- dots[["newdata", exact = TRUE]]
     if (missing(exdat) && missing(ezdat) && !is.null(native.newdata)) {
@@ -550,7 +560,7 @@ npplreg.plbandwidth <-
     if (no.exz && !no.ey) {
       if (length(eydat) != length(keep.rows))
         stop("'eydat' must have one value per original training row", call. = FALSE)
-      eydat <- eydat[keep.rows]
+      eydat <- .np_data_rows(eydat, keep.rows, frame = FALSE)
     }
 
     if (!no.exz){
@@ -575,10 +585,10 @@ npplreg.plbandwidth <-
       if (!any(keep.eval))
         stop("Evaluation data has no rows without NAs")
 
-      exdat <- exdat[keep.eval,,drop = FALSE]
+      exdat <- .np_data_rows(exdat, keep.eval)
       if (!no.ey)
-        eydat <- eydat[keep.eval]
-      ezdat <- ezdat[keep.eval,,drop = FALSE]
+        eydat <- .np_data_rows(eydat, keep.eval, frame = FALSE)
+      ezdat <- .np_data_rows(ezdat, keep.eval)
     }
 
     ## tmp.ty and tmp.ey are the numeric representations of tydat and eydat
@@ -750,13 +760,13 @@ npplreg.plbandwidth <-
     ev$powell.time <- if (!is.null(bws$powell.time) && is.finite(bws$powell.time)) as.double(bws$powell.time) else NA_real_
 
     
-    ev$call <- match.call(expand.dots = FALSE)
+    ev$call <- .np_public_replay_call(match.call(expand.dots = FALSE), "npplreg")
     environment(ev$call) <- parent.frame()
     fit.progress <- .np_progress_end(fit.progress)
     fit.progress.active <- FALSE
     return(.npreg_finish_empty_rows(ev, empty.state$rows,
       omitted = if(no.exz) integer(0) else which(!keep.eval),
-      defer = isTRUE(list(...)[[".np.defer.empty.rows", exact = TRUE]]),
+      defer = isTRUE(.np_formula_dispatch_args(NULL, substitute(list(...))[-1L], environment(), omit.subset = FALSE)[[".np.defer.empty.rows", exact = TRUE]]),
       owner = "npplreg", row.labels = if(no.exz) NULL else row.names(exdat)))
   }
 
@@ -886,7 +896,11 @@ npplreg.default <- function(bws, txdat, tydat, tzdat, nomad = FALSE, ..., se = F
   if (!has.explicit.bws)
     call.args$.np_fit_progress_handoff <- TRUE
   fit.dots <- if (!is.null(tbw[["formula", exact = TRUE]]))
-    .np_formula_dispatch_args(NULL, substitute(list(...))[-1L], environment())
-  else list(...)
-  do.call(npplreg, c(call.args, fit.dots))
+    .np_formula_options(.np_formula_dispatch_args(
+      NULL, substitute(list(...))[-1L], environment()), "npplreg.default")
+  else .np_formula_dispatch_args(NULL, substitute(list(...))[-1L], environment(), omit.subset = FALSE)
+  ev <- do.call(npplreg, c(call.args, fit.dots))
+  ev$call <- .np_public_replay_call(match.call(definition = function(...) NULL,
+    call = sys.call(), expand.dots = FALSE, envir = parent.frame()), "npplreg")
+  ev
 }

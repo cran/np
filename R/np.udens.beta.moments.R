@@ -1,8 +1,10 @@
 # Invocation-owned preparation is shared by target blocks and all required laws.
 .np_udens_beta_q2_moment_prepare <- function(x,h,grid,theta,inner,outer,state=NULL,
-                                             axis.cache=.np_udens_beta_axis_cache) {
+                                             axis.cache=.np_udens_beta_axis_cache,prepared.axes=NULL) {
   n<-nrow(x);st<-if(is.null(state)).np_udens_beta_joint_rule(theta,32L) else state
-  axes<-list(.np_udens_beta_marginal_rule(theta[1:2],outer),.np_udens_beta_marginal_rule(theta[3:4],outer))
+  axes<-if(is.null(prepared.axes))
+    list(.np_udens_beta_marginal_rule(theta[1:2],outer),.np_udens_beta_marginal_rule(theta[3:4],outer)) else
+    .np_udens_beta_q2_axes_check(prepared.axes,theta,h,grid,outer)
   nodes<-vapply(axes,`[[`,integer(1),'nodes')
   if(max(nodes)>1600L||prod(nodes)>2560000L)stop("beta plot joint refinement node cap",call.=FALSE)
   cache<-axis.cache(grid,axes,h,n^(-13/54),inner)
@@ -34,7 +36,10 @@
   mu<-guide$mean[ix];B<-guide$cross[ix,,drop=FALSE];K<-B%*%prep$Iinv
   x<-prep$x;grid<-prep$grid[rows,,drop=FALSE]
   da<-list(list(lv=log(x[,1]),l1v=log1p(-x[,1])),list(lv=log(x[,2]),l1v=log1p(-x[,2])))
-  obs<-.np_udens_beta_joint_block_native(prep$axis.cache(grid,da,prep$h,n^(-13/54),prep$inner),seq_len(n),seq_len(n))
+  observed.cache<-if(is.null(prep[['observed.axis',exact=TRUE]]))
+    prep$axis.cache(grid,da,prep$h,n^(-13/54),prep$inner) else prep$observed.axis(rows)
+  obs<-.np_udens_beta_joint_block_native(observed.cache,seq_len(n),seq_len(n))
+  rm(observed.cache)
   Td<-sweep(prep$Td,2,colMeans(prep$Td));residual<-obs-rowMeans(obs)-K%*%t(Td)
   ve<-rowSums(residual^2)/(n*(n-1));emp<-if(full)tcrossprod(residual)/(n*(n-1)) else NULL
   covs<-variances<-identities<-list();Tg<-.np_udens_beta_basis(grid)

@@ -479,7 +479,8 @@ npcopula <- function(bws, ...) {
                                         xlab,
                                         ylab,
                                         dots) {
-  persp.args <- .np_plot_user_args(dots, "persp")
+  persp.args <- .np_plot_apply_limits(
+      .np_plot_user_args(dots, "persp"), dots$xlim, dots$ylim)
   z <- .npcopula_clip_z_for_display(grid$z, zlim)
   persp.col <- grDevices::adjustcolor(
     .np_plot_persp_surface_colors(z = z, col = col),
@@ -527,10 +528,10 @@ npcopula <- function(bws, ...) {
   old.par <- graphics::par(no.readonly = TRUE)
   on.exit(graphics::par(old.par), add = TRUE)
   graphics::par(mfrow = c(2L, 2L))
-  do.call(graphics::contour, c(list(x = grid$u1, y = grid$u2, z = grid$z,
+  do.call(graphics::contour, .np_plot_literal_labels(c(list(x = grid$u1, y = grid$u2, z = grid$z,
                                     xlab = xlab, ylab = ylab,
                                     main = "Copula Contour"),
-                               dots))
+                               dots)))
   .npcopula_draw_surface_base(
     grid = grid,
     zlab = "Copula",
@@ -544,10 +545,10 @@ npcopula <- function(bws, ...) {
     ylab = ylab,
     dots = dots
   )
-  do.call(graphics::plot, c(list(x = empirical$u1, y = empirical$u2,
+  do.call(graphics::plot, .np_plot_literal_labels(c(list(x = empirical$u1, y = empirical$u2,
                                  xlab = xlab, ylab = ylab, cex = .np_plot_cex("copula_pair"),
                                  main = "Empirical Copula"),
-                            dots))
+                            dots)))
   .npcopula_draw_surface_base(
     grid = density.grid,
     zlab = "Copula Density",
@@ -988,13 +989,13 @@ plot.npcopula <- function(x,
                                    "empirical", "all"),
                           renderer = c("base", "rgl"),
                           errors = c("none", "bootstrap", "asymptotic"),
-                          band = c("pointwise", "pmzsd", "bonferroni",
+                          band = c("pointwise", "bonferroni",
                                    "simultaneous", "all"),
                           alpha = 0.05,
                           bootstrap = c("inid", "fixed", "geom"),
                           B = 9999,
                           center = c("estimate", "bias-corrected"),
-                          boot_control = np_boot_control(),
+                          boot.control = np_boot_control(),
                           output = c("plot", "data", "plot-data"),
                           legend = TRUE,
                           theta = 0.0,
@@ -1006,28 +1007,33 @@ plot.npcopula <- function(x,
                           col = NULL,
                           border = .np_plot_color("surface_border"),
                           zlim = NULL,
-                          gaussian_draws = 9999L,
-                          random_seed = 42L,
-                          ...) {
-  boot.control <- boot_control
-  gaussian.draws <- gaussian_draws
-  random.seed <- random_seed
+                          gaussian.draws = 9999L,
+                          random.seed = 42L,
+                          ..., interval = NULL) {
   .np_plot_check_public_names(.np_plot_dot_names(substitute(list(...))[-1L]))
   .np_plot_stop_unused_args(
     intersect(.np_plot_dot_names(substitute(list(...))[-1L]), "neval"),
     character()
   )
   bootstrap.supplied <- !missing(bootstrap) || !missing(B)
-  interval.supplied <- !missing(band) || !missing(alpha)
+  supplied <- list()
+  if (!missing(band)) supplied["band"] <- list(band)
+  if (!missing(interval)) supplied["interval"] <- list(interval)
+  if (!missing(boot.control)) supplied["boot.control"] <- list(boot.control)
+  if (!missing(errors)) supplied$errors <- errors
+  if (!missing(center)) supplied$center <- center
+  if (!missing(random.seed)) supplied["random.seed"] <- list(NULL)
+  translated <- .np_plot_family_interval_request(supplied, "npcopula")
+  interval.supplied <- !missing(band) || !missing(alpha) || !is.null(interval)
   center.argument.supplied <- !missing(center)
   view <- match.arg(view)
   surface.view <- view %in% c("rotate", "fixed", "surface")
   rotate.surface <- identical(view, "rotate")
   renderer <- .np_plot_match_renderer(renderer)
   errors <- match.arg(errors)
-  band <- match.arg(band)
+  band <- if (is.null(interval)) match.arg(band) else translated$band
   joint.request <- identical(errors, "asymptotic") && band %in% c("simultaneous", "all")
-  if ((!missing(gaussian_draws) || !missing(random_seed)) && !joint.request)
+  if ((!missing(gaussian.draws) || !missing(random.seed)) && !joint.request)
     stop("Gaussian controls require asymptotic simultaneous or all bands", call. = FALSE)
   if (joint.request) {
     gaussian.draws <- .np_plot_gaussian_integer(gaussian.draws, "gaussian.draws")
@@ -1038,7 +1044,8 @@ plot.npcopula <- function(x,
   finish.data <- function(value, selected.view = view) .np_plot_data_from_copula(
     value, list(errors = errors, band = band, alpha = alpha, center = center,
                 bootstrap = bootstrap, B = B, gaussian_draws = gaussian.draws,
-                random_seed = random.seed), density = isTRUE(x$density), view = selected.view)
+                random_seed = random.seed), density = isTRUE(x$density), view = selected.view,
+    style = plot.limit.style, interval.request = translated$.np.interval.request)
   output <- match.arg(output)
   if (!is.numeric(alpha) || length(alpha) != 1L ||
       is.na(alpha) || alpha <= 0 || alpha >= 0.5)
@@ -1047,7 +1054,7 @@ plot.npcopula <- function(x,
     stop("B must be a positive numeric scalar", call. = FALSE)
   zlim <- .npcopula_validate_zlim(zlim)
   if (!inherits(boot.control, "np_boot_control"))
-    stop("boot_control must be created by np_boot_control()", call. = FALSE)
+    stop("boot.control must be created by np_boot_control()", call. = FALSE)
   if (isTRUE(boot.control[["calibration", exact = TRUE]] %in%
       c("percentile-tails", "symmetric-sd", "asymmetric-sd", "smoothed-percentile")))
     stop("this calibration requires supported bias-corrected density, distribution or regression inference", call. = FALSE)
@@ -1059,7 +1066,14 @@ plot.npcopula <- function(x,
     stop("band and alpha require errors != \"none\"", call. = FALSE)
   if (identical(errors, "bootstrap"))
     .np_plot_reject_wild_unsupervised(bootstrap, "copula estimators")
-  dots <- .np_plot_internal_names(list(...))
+  dots <- .np_plot_unique_args(list(...))
+  .np_plot_reject_unconstructed_grid(dots, "plot.npcopula",
+                                    "set probability coordinates with u in npcopula()")
+  plot.limit.style <- dots[intersect(names(dots), c("xlim", "ylim"))]
+  # Height limits belong only to the fresh perspective surface. In view="all"
+  # the saved panels are contour, empirical pairs and an automatic-range density.
+  if (isTRUE(perspective) && surface.view && !identical(x$evaluation, "sample"))
+    plot.limit.style <- .np_plot_apply_limits(plot.limit.style, zlim = zlim)
   if (!is.null(dots[["bias.control", exact = TRUE]]))
     .np_udist_score_scope(dots[["bias.control", exact = TRUE]], FALSE)
   sub.supplied <- "sub" %in% names(dots)
@@ -1112,10 +1126,10 @@ plot.npcopula <- function(x,
     empirical <- .npcopula_empirical_eval(x)
     if (identical(output, "data"))
       return(finish.data(empirical, "empirical"))
-    do.call(graphics::plot, c(list(x = empirical$u1, y = empirical$u2,
+    do.call(graphics::plot, .np_plot_literal_labels(c(list(x = empirical$u1, y = empirical$u2,
                                    xlab = xlab, ylab = ylab, cex = .np_plot_cex("copula_pair"),
                                    main = main),
-                              dots))
+                              dots)))
     if (identical(output, "plot-data"))
       return(finish.data(empirical, "empirical"))
     return(invisible(NULL))
@@ -1131,9 +1145,9 @@ plot.npcopula <- function(x,
            call. = FALSE)
     if (identical(output, "data"))
       return(finish.data(as.data.frame(x), "sample"))
-    do.call(graphics::plot, c(list(x = x$u1, y = x$u2,
+    do.call(graphics::plot, .np_plot_literal_labels(c(list(x = x$u1, y = x$u2,
                                    xlab = xlab, ylab = ylab, main = main),
-                              dots))
+                              dots)))
     if (identical(output, "plot-data"))
       return(finish.data(as.data.frame(x), "sample"))
     return(invisible(NULL))
@@ -1216,6 +1230,10 @@ plot.npcopula <- function(x,
       rgl.view <- .np_plot_rgl_view_angles(theta = theta, phi = phi)
       rgl.controls <- .np_plot_rgl_controls(dots, legend = legend)
       rgl.out <- .np_plot_render_surface_rgl(
+        automatic.limits = .np_plot_rgl_automatic_limits(list(
+          xlim = dots$xlim, ylim = dots$ylim,
+          zlim = plot.limit.style[["zlim", exact = TRUE]])),
+        xlim = dots$xlim, ylim = dots$ylim,
         x = u1,
         y = u2,
         z = z.display,
@@ -1256,7 +1274,8 @@ plot.npcopula <- function(x,
         plot.data = if (identical(output, "plot-data")) finish.data(plot.data) else NULL
       ))
     }
-    persp.args <- .np_plot_user_args(dots, "persp")
+    persp.args <- .np_plot_apply_limits(
+      .np_plot_user_args(dots, "persp"), dots$xlim, dots$ylim)
     persp.col <- grDevices::adjustcolor(
       .np_plot_persp_surface_colors(z = z.display, col = col),
       alpha.f = .np_plot_surface_alpha("base")
@@ -1329,9 +1348,9 @@ plot.npcopula <- function(x,
     if (identical(renderer, "rgl"))
       stop("renderer='rgl' is supported only for surface views in plot.npcopula",
            call. = FALSE)
-    do.call(graphics::contour, c(list(x = u1, y = u2, z = z,
+    do.call(graphics::contour, .np_plot_literal_labels(c(list(x = u1, y = u2, z = z,
                                       xlab = xlab, ylab = ylab, main = main),
-                                 dots))
+                                 dots)))
   } else {
     if (identical(renderer, "rgl"))
       stop("renderer='rgl' is supported only for surface views in plot.npcopula",
@@ -1341,10 +1360,10 @@ plot.npcopula <- function(x,
     } else {
       col
     }
-    do.call(graphics::image, c(list(x = u1, y = u2, z = z,
+    do.call(graphics::image, .np_plot_literal_labels(c(list(x = u1, y = u2, z = z,
                                     xlab = xlab, ylab = ylab, main = main,
                                     col = image.col),
-                               dots))
+                               dots)))
   }
   if (identical(output, "plot-data"))
     return(finish.data(plot.data))
@@ -1480,11 +1499,11 @@ npcopula.default <- function(bws,
            u.auto = prepared$u.auto,
            se = se)
     )
-    return(do.call(npcopula.default, args))
+    return(do.call(npcopula.default, .np_formula_options(args, "npcopula.default")))
   }
 
   # Preserve ordinary native-dot forcing when no formula owns subset.
-  list(...)
+  .np_formula_dispatch_args(NULL, substitute(list(...))[-1L], environment(), omit.subset = FALSE)
   evaluation <- .npcopula_validate_evaluation(evaluation)
   neval <- .npcopula_validate_neval(neval)
   start.time <- proc.time()[3]

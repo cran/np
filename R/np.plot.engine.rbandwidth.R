@@ -62,13 +62,18 @@
         main = main, sub = sub, xlim = xlim, ylim = ylim, col = col,
         lty = lty, lwd = lwd, type = type,
         theta = theta, phi = phi, zlab = zlab, zlim = zlim)
-    publish.plot <- function(value) .np_plot_data_publish_display(value,
+    publish.plot <- function(value) {
+      attr(value,"np.reg.recipe") <- list(method=plot.errors.method, band=plot.errors.type,
+        iterated=new.bias, calibration=effective.calibration,
+        bootstrap=plot.errors.boot.method, wild=plot.errors.boot.wild)
+      .np_plot_data_publish_display(value,
       coordinates = xdat, roles = rep("X", ncol(xdat)), response = ydat,
       overlay = isTRUE(plot.data.overlay) && !gradients, rug = plot.rug,
       style = utils::modifyList(plot.user.args, saved.plot.style),
       points_args = points.user.args, boxplot = plot.bxp,
       interval_style = list(style = plot.errors.style, bar = plot.errors.bar,
         bar_num = plot.errors.bar.num, boxplot_outliers = plot.bxp.out))
+    }
 
     sub.supplied <- !missing(sub)
 
@@ -188,8 +193,8 @@
       if (!any(keep.rows))
         stop("Data has no rows without NAs")
 
-      xdat <- xdat[keep.rows,,drop = FALSE]
-      ydat <- ydat[keep.rows]
+      xdat <- .np_data_rows(xdat, keep.rows)
+      ydat <- .np_data_rows(ydat, keep.rows, frame = FALSE)
     }
 
     ## ydat = as.double(ydat)
@@ -215,9 +220,9 @@
     bias.control <- .np_plot_legacy_bias_control(plot.errors.boot.calibration,
       bias.control, "regression", as.character(plot.errors.center)[1L], error.request$method)
     if (!is.null(bias.control) && !inherits(bias.control,"np_bias_control"))
-      stop("bias_control must be created by np_bias_control()",call.=FALSE)
+      stop("bias.control must be created by np_bias_control()",call.=FALSE)
     if (!is.null(bias.control) && !bias.request)
-      stop("bias_control requires center='bias-corrected' and inference errors",call.=FALSE)
+      stop("bias.control requires center='bias-corrected' and inference errors",call.=FALSE)
     percentile.request <- identical(plot.errors.boot.calibration, "smoothed-percentile")
     if (percentile.request && missing(plot.errors.boot.method)) plot.errors.boot.method <- "residual"
     if (bias.request && is.null(bias.control)) bias.control <- if (percentile.request)
@@ -226,15 +231,35 @@
     new.bias <- bias.request && identical(bias.control[["construction"]],"iterated")
     if (!is.character(plot.errors.boot.calibration) || length(plot.errors.boot.calibration)!=1L ||
         is.na(plot.errors.boot.calibration) ||
-        !plot.errors.boot.calibration %in% c("default","absolute","separate-tails","tail-envelope","symmetric-sd","asymmetric-sd","smoothed-percentile","legacy"))
+        !plot.errors.boot.calibration %in% c("default","absolute","separate-tails","tail-envelope","basic-envelope","basic-local-envelope","symmetric-sd","asymmetric-sd","smoothed-percentile","legacy"))
       stop("invalid bootstrap calibration control",call.=FALSE)
     if (!plot.errors.boot.calibration %in% c("default","legacy") &&
         (!new.bias || error.request$method!="bootstrap" || error.request$type=="pmzsd"))
       stop("explicit bootstrap calibration requires iterated bias-corrected regression and empirical bands",call.=FALSE)
+    effective.calibration <- if (new.bias) .np_bias_regression_calibration(bws,
+      plot.errors.boot.calibration, error.request$method, error.request$type,
+      as.character(plot.errors.boot.method)[1L], as.character(plot.errors.boot.wild)[1L],
+      gradients = gradients) else
+      plot.errors.boot.calibration
+    wild.local.envelope <- identical(effective.calibration,"basic-local-envelope") &&
+      as.character(plot.errors.boot.method)[1L]=="wild" &&
+      as.character(plot.errors.boot.wild)[1L]=="mammen"
+    if (effective.calibration %in% c("basic-envelope", "basic-local-envelope") &&
+        !((as.character(plot.errors.boot.method)[1L] %in% c("inid", "fixed", "geom") &&
+           (identical(bws[["type", exact=TRUE]], "fixed") ||
+            (.np_bias_regression_nn_zero(bws, c("epanechnikov", "uniform", "beta")) ||
+             .np_bias_regression_nn_first_order(bws, "epanechnikov")) ||
+            (identical(effective.calibration, "basic-local-envelope") &&
+             bws[["type", exact=TRUE]] %in% c("generalized_nn", "adaptive_nn")))) ||
+          (wild.local.envelope &&
+           (.np_bias_beta_gnn_mean(bws) || identical(bws[["type", exact=TRUE]], "fixed") ||
+            (.np_bias_regression_nn_zero(bws, c("epanechnikov", "uniform", "beta")) ||
+             .np_bias_regression_nn_first_order(bws, "epanechnikov"))))))
+      stop("basic-envelope requires inid, fixed or geom and fixed-bandwidth regression, degree-zero Epanechnikov/uniform/beta NN or first-order Epanechnikov NN; basic-local-envelope also supports other qualified NN pairs or qualified fixed/NN Mammen", call.=FALSE)
     if (bias.request && !new.bias && error.request$method=="asymptotic")
       stop("legacy bias correction requires errors='bootstrap'",call.=FALSE)
     if (new.bias && plot.bxp)
-      stop("factor_boxplot is unavailable for iterated bias-corrected intervals",call.=FALSE)
+      stop("factor.boxplot is unavailable for iterated bias-corrected intervals",call.=FALSE)
     if (new.bias && as.character(plot.errors.boot.nonfixed)[1L]!="exact")
       stop("nonfixed='frozen' controls legacy resampling; omit it for iterated correction",call.=FALSE)
     if (percentile.request) {
@@ -248,7 +273,7 @@
     joint.request <- identical(error.request$method, "asymptotic") &&
       error.request$type %in% c("simultaneous", "all") && !new.bias
     if (!missing(gaussian.draws) && !joint.request && !(new.bias && error.request$method=="asymptotic"))
-      stop("gaussian_draws requires asymptotic simultaneous or all bands", call. = FALSE)
+      stop("gaussian.draws requires asymptotic simultaneous or all bands", call. = FALSE)
     joint.eligible <- FALSE
     joint.residual <- NULL
     if (joint.request) {
@@ -294,6 +319,7 @@
     plot.errors <- normalized.opts$plot.errors
     bias.state <- if(new.bias).np_plot_activity_run("Preparing regression bias correction",
       .np_bias_regression_prepare(bws,xdat,ydat,bias.control,adapt=TRUE,
+        calibration=effective.calibration,
         gradient.order=if(gradients)plot.gradient.order.label[which(bws$icon)] else NULL,
          law=if(percentile.request)"mammen" else if(plot.errors.method=="asymptotic")"gaussian" else
            if(plot.errors.boot.method=="wild")plot.errors.boot.wild else plot.errors.boot.method)) else NULL
@@ -408,7 +434,8 @@
       if (new.bias || plot.errors.method == "bootstrap"){
         terr.obj <- if(new.bias).np_bias_plot_errors(bias.state,setNames(x.eval,names(xdat)),"mean",plot.errors.method,
           plot.errors.boot.method,plot.errors.boot.wild,plot.errors.alpha,plot.errors.boot.num,
-          gaussian.draws,plot.errors.boot.blocklen,plot.errors.type,fit=tobj,resolution.context=resolution.context,calibration=plot.errors.boot.calibration) else compute.bootstrap.errors(xdat = xdat, ydat = ydat,
+          gaussian.draws,plot.errors.boot.blocklen,plot.errors.type,fit=tobj,resolution.context=resolution.context,calibration=plot.errors.boot.calibration,
+          effective.calibration=effective.calibration) else compute.bootstrap.errors(xdat = xdat, ydat = ydat,
           exdat = x.eval,
           fit.mean.train = fit.mean.train,
           gradients = FALSE,
@@ -502,9 +529,9 @@
               }
               else
                   c(min(tobj$mean),max(tobj$mean))
+        if (overlay.ok)
+          zlim <- .np_plot_overlay_range(zlim, ydat)
       }
-      if (overlay.ok)
-        zlim <- .np_plot_overlay_range(zlim, ydat)
         
       if (plot.behavior != "plot"){
         r1 = npregression(bws = bws,
@@ -554,6 +581,8 @@
           overlay.x2 <- (bws$xdati$all.dlev[[2]])[as.integer(overlay.x2)]
         .np_plot_first_render_begin(first.render)
         rgl.out <- .np_plot_render_surface_rgl(
+          automatic.limits = .np_plot_rgl_automatic_limits(saved.plot.style),
+          xlim = xlim, ylim = ylim,
           x = x1.eval,
           y = x2.eval,
           z = treg,
@@ -655,6 +684,7 @@
                              phi = phi,
                              main = main.val)
           persp.args <- .np_plot_merge_user_args(persp.args, persp.user.args)
+          persp.args <- .np_plot_apply_limits(persp.args, xlim, ylim)
           persp.mat <- .np_plot_render_surface_base_frame(
             persp.args = persp.args,
             xlim = range(x1.eval, finite = TRUE),
@@ -758,7 +788,7 @@
 
       plot.out = list()
 
-      temp.err = matrix(data = NA, nrow = maxneval, ncol = 3)
+      temp.err = matrix(data = NA_real_, nrow = maxneval, ncol = 3)
       temp.mean = replicate(maxneval, NA)
 
       ## plotting expressions
@@ -815,7 +845,8 @@
             corrected <- .np_bias_plot_errors(bias.state,
               subcol(exdat,ei,i)[seq_len(xi.neval),,drop=FALSE],target,plot.errors.method,
               plot.errors.boot.method,plot.errors.boot.wild,plot.errors.alpha,plot.errors.boot.num,
-              gaussian.draws,plot.errors.boot.blocklen,plot.errors.type,fit=tr,resolution.context=resolution.context,calibration=plot.errors.boot.calibration)
+              gaussian.draws,plot.errors.boot.blocklen,plot.errors.type,fit=tr,resolution.context=resolution.context,calibration=plot.errors.boot.calibration,
+              effective.calibration=effective.calibration)
             temp.err[seq_len(xi.neval),] <- corrected[["boot.err"]]
             temp.all.err <- corrected[["boot.all.err"]]
             bias.inference <- corrected[["inference"]]
@@ -918,12 +949,11 @@
           } else {
             plot
           }
-          plot.args <- list()
+          plot.args <- .np_plot_apply_limits(list(), xlim = xlim)
           if (xi.factor) {
             if (plot.bootstrap && plot.bxp) plot.args$z <- temp.boot else plot.args$f <- ei
           } else {
             plot.args$x <- ei
-            if (!is.null(xlim)) plot.args$xlim <- xlim
           }
           if (!(xi.factor && plot.bootstrap && plot.bxp))
             plot.args$y <- .np_plot_geometry_values(temp.mean)
@@ -989,7 +1019,7 @@
             type.val <- plot.args$type
             plot.args$type <- "n"
             .np_plot_first_render_begin(first.render)
-            do.call(plot.fun, plot.args)
+            do.call(plot.fun, .np_plot_literal_labels(plot.args))
             .np_plot_first_render_end(first.render)
             do.call(.np_plot_overlay_points_1d,
                     c(list(x = xdat[,i], y = ydat),
@@ -1028,7 +1058,7 @@
               base.args$xaxt <- "n"
             base.args <- .np_plot_merge_user_args(base.args, plot.user.args)
             .np_plot_first_render_begin(first.render)
-            do.call(graphics::plot.default, base.args)
+            do.call(graphics::plot.default, .np_plot_literal_labels(base.args))
             .np_plot_first_render_end(first.render)
             if (add.axis)
               axis(1, at = axis.at, labels = axis.labels)
@@ -1055,7 +1085,7 @@
             }
           } else {
             .np_plot_first_render_begin(first.render)
-            do.call(plot.fun, plot.args)
+            do.call(plot.fun, .np_plot_literal_labels(plot.args))
             .np_plot_first_render_end(first.render)
             if (plot.rug && !xi.factor)
               .np_plot_draw_rug_1d(xdat[,i])
@@ -1179,6 +1209,9 @@
             widths = temp.err[seq_len(xi.neval), 1:2, drop = FALSE])
           if (identical(plot.errors.method, "asymptotic"))
             plot.out[[i]][[".plot_std_error"]] <- if (gradients) tr$gerr[, i] else tr$merr
+          if (plot.errors && !component.available && identical(plot.errors.type, "all"))
+            temp.all.err <- setNames(rep(list(matrix(NA_real_, xi.neval, 2L)), 3L),
+              c("pointwise", "simultaneous", "bonferroni"))
           if (identical(plot.errors.type, "all"))
             plot.out[[i]][[".plot_band_widths"]] <- temp.all.err
           if (!is.null(bias.inference)) {
@@ -1243,12 +1276,11 @@
           } else {
             plot
           }
-          plot.args <- list()
+          plot.args <- .np_plot_apply_limits(list(), xlim = xlim)
           if (xi.factor) {
             if (plot.bootstrap && plot.bxp) plot.args$z <- all.bxp[[i]] else plot.args$f <- allei[,i]
           } else {
             plot.args$x <- allei[,i]
-            if (!is.null(xlim)) plot.args$xlim <- xlim
           }
           if (!(xi.factor && plot.bootstrap && plot.bxp))
             plot.args$y <- .np_plot_geometry_values(data.eval[,i])
@@ -1297,7 +1329,7 @@
             type.val <- plot.args$type
             plot.args$type <- "n"
             .np_plot_first_render_begin(first.render)
-            do.call(plot.fun, plot.args)
+            do.call(plot.fun, .np_plot_literal_labels(plot.args))
             .np_plot_first_render_end(first.render)
             do.call(.np_plot_overlay_points_1d,
                     c(list(x = xdat[,i], y = ydat),
@@ -1335,7 +1367,7 @@
             }
             base.args <- .np_plot_merge_user_args(base.args, plot.user.args)
             .np_plot_first_render_begin(first.render)
-            do.call(graphics::plot.default, base.args)
+            do.call(graphics::plot.default, .np_plot_literal_labels(base.args))
             .np_plot_first_render_end(first.render)
             if (add.axis)
               axis(1, at = axis.at, labels = axis.labels)
@@ -1362,7 +1394,7 @@
             }
           } else {
             .np_plot_first_render_begin(first.render)
-            do.call(plot.fun, plot.args)
+            do.call(plot.fun, .np_plot_literal_labels(plot.args))
             .np_plot_first_render_end(first.render)
             if (plot.rug && !xi.factor)
               .np_plot_draw_rug_1d(xdat[,i])

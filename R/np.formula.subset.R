@@ -1,3 +1,50 @@
+# Unsupported NA controls must be rejected before dots are materialized. The
+# few supported controls remain owned by the existing formula/prediction code.
+.np_fit_na_preflight <- function(bws, expressions, frame, family,
+                                 native = FALSE, data = NULL, newdata = NULL,
+                                 native.eval = FALSE) {
+  if (!("na.action" %in% names(expressions)) ||
+      !is.list(bws) || inherits(bws, "formula") ||
+      length(.np_missing_na_dots(expressions, frame)))
+    return(invisible(NULL))
+  value <- function(name) {
+    index <- match(name, names(expressions))
+    if (is.na(index)) return(NULL)
+    eval(substitute(...elt(INDEX), list(INDEX = index)), envir = frame)
+  }
+  # The generic dispatches to formula only in the absence of native training.
+  training <- if (family %in% c("npudens", "npudist")) "tdat" else "txdat"
+  formula <- !native && !is.null(bws[["formula", exact = TRUE]]) &&
+    is.null(value(training))
+  if (formula) {
+    if (!is.null(value(".np.formula.state")) ||
+        !is.null(data) || !is.null(value("data")) ||
+        (family %in% c("npreg", "npindex", "npcdens", "npcdist",
+                       "npqreg", "npconmode", "npscoef", "npplreg") &&
+         "tydat" %in% names(expressions)))
+      return(invisible(NULL))
+    external <- !is.null(newdata) || !is.null(value("newdata"))
+    native.names <- if (family %in% c("npudens", "npudist")) "edat" else
+      if (family %in% c("npcdens", "npcdist")) c("exdat", "eydat") else
+        if (family %in% c("npscoef", "npplreg")) c("exdat", "ezdat") else "exdat"
+    formula.eval <- external && !any(native.names %in% names(expressions))
+    if (family == "npindex" && formula.eval)
+      return(invisible(NULL))
+  }
+  # Regression prediction already restores omitted evaluation rows for this
+  # exact policy. Resolve its value, not the callback; do not broaden it to
+  # arbitrary functions or apply it to retained training.
+  if (family == "npreg" &&
+      (native.eval || "exdat" %in% names(expressions) ||
+       !is.null(newdata) || !is.null(value("newdata")))) {
+    action <- value("na.action")
+    if (identical(action, stats::na.exclude) || identical(action, "na.exclude"))
+      return(invisible(NULL))
+  }
+  stop("na.action override is not supported for this stored-fit route; use the retained omission policy, preprocess replacement native data, or supply replacement formula data",
+       call. = FALSE)
+}
+
 # A stored fit owns its training sample. Inspect supplied syntax only: unused
 # replacement subsets must never be forced outside the original data mask.
 .np_reject_fit_subset <- function(expressions) {
@@ -14,10 +61,31 @@
   substitute(base::evalq(EXPRESSION, FRAME), list(EXPRESSION = expression, FRAME = frame))
 }
 
+# missing() must inspect the original formal/dots promise. Evaluating its value
+# or its substituted expression would lose omission or run a policy factory.
+.np_na_promise_missing <- function(name, frame) {
+  eval(substitute(base::missing(ARG), list(ARG = as.name(name))), envir = frame)
+}
+
+.np_missing_na_dots <- function(expressions, frame) {
+  indices <- which(names(expressions) == "na.action")
+  # Duplicate names keep their existing argument-admission failure.
+  if (length(indices) != 1L || !exists("...", frame, inherits = FALSE))
+    return(integer())
+  indices[vapply(indices, function(i)
+    .np_na_promise_missing(paste0("..", i), frame), logical(1L))]
+}
+
 .np_formula_frame_promises <- function(args, frame,
                                         map = c(data = "data", na.action = "na.action")) {
-  for (name in intersect(names(map), names(args)))
+  for (name in intersect(names(map), names(args))) {
+    if (identical(name, "na.action") &&
+        .np_na_promise_missing(map[[name]], frame)) {
+      args[[name]] <- NULL
+      next
+    }
     args[[name]] <- .np_formula_promise_expression(as.name(map[[name]]), frame)
+  }
   args
 }
 
@@ -98,10 +166,24 @@
   indices
 }
 
+.np_omit_missing_na_call <- function(call, frame) {
+  if (!"na.action" %in% c(names(call), names(call[["..."]]))) return(call)
+  dots <- eval(quote(substitute(list(...))), envir = frame)[-1L]
+  if (!length(.np_missing_na_dots(dots, frame))) return(call)
+  if ("na.action" %in% names(call)) call[["na.action"]] <- NULL
+  if ("na.action" %in% names(call[["..."]])) {
+    dots <- as.list(call[["..."]])
+    dots <- dots[names(dots) != "na.action"]
+    call[["..."]] <- if (length(dots)) as.pairlist(dots) else NULL
+  }
+  call
+}
+
 .np_formula_dispatch_args <- function(method, expressions, promise.frame,
                                       data.roles = character(), call = NULL,
                                       caller = NULL, omit.subset = TRUE) {
   omitted <- if (omit.subset) .np_formula_subset_indices(method, expressions) else integer()
+  omitted <- union(omitted, .np_missing_na_dots(expressions, promise.frame))
   diagnose <- length(data.roles) && "data" %in% names(expressions)
   if (!length(omitted) && !diagnose)
     return(eval(quote(list(...)), envir = promise.frame))
@@ -118,6 +200,35 @@
   args
 }
 
+# Only materialized option values are inspected here. An ordinary caller
+# expression has already evaluated in its original owner; it is not syntax
+# for us to evaluate again. Structural formulas/subset/NA policies are handled
+# separately. Inert lists and expression vectors are deliberately not walked.
+.np_formula_options <- function(args, where) {
+  unsafe <- vapply(args, function(value)
+    is.call(value) || is.symbol(value) || typeof(value) == "bytecode", logical(1L))
+  # Named formula construction can retain the structural formula in dots.
+  # Accept only a real tilde form, never an executable call with a spoofed class.
+  for (i in which(names(args) == "formula")) {
+    value <- args[[i]]
+    if (inherits(value, "formula") && is.call(value) &&
+        length(value) %in% c(2L, 3L) && identical(value[[1L]], quote(`~`)))
+      unsafe[i] <- FALSE
+  }
+  if (any(unsafe)) {
+    labels <- names(args)
+    if (is.null(labels)) labels <- rep.int("", length(args))
+    empty <- is.na(labels) | !nzchar(labels)
+    labels[empty] <- paste0("#", which(empty))
+    stop(paste0(where, ": executable option value(s) ",
+      paste(shQuote(labels[unsafe]), collapse = ", "),
+      " cannot be evaluated again inside a formula handoff; evaluate these ",
+      "options in the caller and pass their resulting values instead."),
+      call. = FALSE)
+  }
+  args
+}
+
 # Existing value-list constructor calls still need the original subset syntax.
 # The constructor's model.frame, not this helper, evaluates that expression.
 .np_formula_dispatch_call <- function(fun, args, expressions, envir) {
@@ -127,6 +238,11 @@
   # and original scope instead of splicing syntax into the formula's scope.
   subsets <- stats::setNames(lapply(indices, function(i)
     as.name(paste0("..", i))), names(expressions)[indices])
+  # This helper is used only for formula entry, before the model-frame owner.
+  # Keep structural syntax and supported NA policies out of option admission.
+  structural <- names(args) %in% c("formula", "bws", "data", "newdata", "na.action")
+  if (!length(structural)) structural <- rep.int(FALSE, length(args))
+  .np_formula_options(args[!structural], "formula dispatch")
   do.call(fun, c(args, subsets), envir = envir)
 }
 
@@ -214,7 +330,9 @@
     vapply(auxiliary, NROW, integer(1L)) != NROW(aligned[[1L]]) else logical()
   frame.call <- match.call()
   frame.call[[1L]] <- quote(stats::model.frame)
-  frame.call[["formula"]] <- tt
+  # Preserve already prepared column values when evaluating the terms object.
+  # Use the base primitive so caller bindings cannot replace this value handoff.
+  frame.call[["formula"]] <- as.call(list(base::quote, tt))
   frame.call["data"] <- list(data)
   frame.call$.np.capture <- NULL
   frame.call$.np.auxiliary <- NULL
@@ -257,7 +375,7 @@
   attr(frame, "terms") <- retained
   if (!is.null(.np.capture)) frame <- .np_formula_complete_training_frame(frame)
   if (!is.null(.np.capture)) attr(frame, ".np.subset") <- subset.spec
-  frame
+  .np_formula_share_prepared_columns(frame, aligned)
 }
 
 # Native training owners use complete cases even when a model-frame policy
@@ -706,4 +824,28 @@
   roles <- .np_plreg_formula_split(frame, bws$terms, bws$xterms)
   list(txdat = roles$x, tydat = model.response(roles$yz),
        tzdat = roles$yz[, .np_formula_term_names(bws$chromoly[[3L]]), drop = FALSE])
+}
+
+# Stored public calls are syntax, not a second evaluation of user arguments.
+.np_public_replay_call <- function(call, generic, frame = parent.frame()) {
+  call <- .np_formula_call_public(call)
+  if ("na.action" %in% c(names(call), names(call[["..."]]))) {
+    if ("na.action" %in% names(call) &&
+        exists("na.action", envir = frame, inherits = FALSE) &&
+        .np_na_promise_missing("na.action", frame))
+      call[["na.action"]] <- NULL
+    call <- .np_omit_missing_na_call(call, frame)
+  }
+  parts <- as.list(call)
+  index <- match("...", names(parts), nomatch = 0L)
+  if (index) {
+    parts <- c(parts[seq_len(index - 1L)], as.list(parts[[index]]),
+      if (index < length(parts)) parts[seq.int(index + 1L, length(parts))])
+  }
+  parts[[1L]] <- as.call(list(as.name("::"), as.name("np"),
+                             as.name(generic)))
+  out <- as.call(parts)
+  for (name in setdiff(names(attributes(call)), "names"))
+    attr(out, name) <- attr(call, name, exact = TRUE)
+  out
 }

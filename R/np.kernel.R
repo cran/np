@@ -1,3 +1,38 @@
+# Validate syntax without forcing extra argument promises. Public kernel-sum
+# controls and constructor controls retain R's ordinary argument matching.
+.np_ksum_validate_dots <- function(dots, public = FALSE, frame = NULL) {
+  if (!length(dots)) return(invisible(NULL))
+  dots <- as.list(dots)
+  if (is.environment(frame)) {
+    omitted <- .np_missing_na_dots(dots, frame)
+    if (length(omitted)) dots <- dots[-omitted]
+  }
+  if (public) {
+    matched <- match.call(npksum.numeric,
+      as.call(c(list(quote(npksum.numeric)), dots)), expand.dots = FALSE)
+    dots <- as.list(matched[["..."]])
+  }
+  internal <- c("return.derivative.kernel.weights", ".np.internal.power12",
+    ".np.internal.power12.weighted", ".np.internal.bandwidth.divide.weights",
+    ".np.internal.eval.train.index", ".np.internal.fold.geometry",
+    ".np.internal.fold.train.index", ".np.internal.tree.outer.blas")
+  nms <- names(dots)
+  if (!is.null(nms)) dots <- dots[!nms %in% internal]
+  if (!length(dots)) return(invisible(NULL))
+  matched <- match.call(kbandwidth.numeric,
+    as.call(c(list(quote(kbandwidth.numeric), bw = quote(.np.bandwidth)), dots)),
+    expand.dots = FALSE)
+  unused <- matched[["..."]]
+  if (length(unused)) {
+    labels <- names(unused)
+    if (is.null(labels)) labels <- rep("", length(unused))
+    labels[!nzchar(labels)] <- "<unnamed>"
+    stop(sprintf("unused npksum argument(s): %s", paste(labels, collapse = ", ")),
+         call. = FALSE)
+  }
+  invisible(NULL)
+}
+
 npksum <-
   function(...){
     mc <- match.call(expand.dots = FALSE)
@@ -9,6 +44,7 @@ npksum <-
 
 npksum.formula <-
   function(formula, data, newdata, subset, na.action, ...){
+    .np_ksum_validate_dots(substitute(list(...))[-1L], public = TRUE, frame = environment())
 
     dots <- list(...)
     mf <- match.call(expand.dots = FALSE)
@@ -44,7 +80,7 @@ npksum.formula <-
     if (!miss.new)
       call_args$exdat <- exdat
 
-    tobj <- do.call(npksum, c(call_args, dots))
+    tobj <- do.call(npksum, c(call_args, .np_formula_options(dots, "npksum.formula")))
 
     tobj$formula <- formula
     tobj$na.action <- attr(mf, "na.action")
@@ -70,7 +106,8 @@ npksum.numeric <-
   .np_reject_native_data(substitute(list(...))[-1L])
   .np_reject_native_frame_args(substitute(list(...))[-1L])
 
-    dots <- list(...)
+    .np_ksum_validate_dots(substitute(list(...))[-1L], frame = environment())
+    dots <- .np_formula_dispatch_args(NULL, substitute(list(...))[-1L], environment(), omit.subset = FALSE)
     return.derivative.kernel.weights <- isTRUE(dots$return.derivative.kernel.weights)
     dots$return.derivative.kernel.weights <- NULL
     # Computation controls must survive numeric-bandwidth redispatch, not be
@@ -157,7 +194,8 @@ npksum.default <-
   .np_reject_native_data(substitute(list(...))[-1L])
   .np_reject_native_frame_args(substitute(list(...))[-1L])
 
-    dots <- list(...)
+    .np_ksum_validate_dots(substitute(list(...))[-1L], frame = environment())
+    dots <- .np_formula_dispatch_args(NULL, substitute(list(...))[-1L], environment(), omit.subset = FALSE)
     internal.power12 <- isTRUE(dots$.np.internal.power12)
     dots$.np.internal.power12 <- NULL
     internal.power12.weighted <-
@@ -175,6 +213,8 @@ npksum.default <-
     internal.tree.outer.blas <- isTRUE(dots$.np.internal.tree.outer.blas)
     dots$.np.internal.tree.outer.blas <- NULL
     return.derivative.kernel.weights <- isTRUE(dots$return.derivative.kernel.weights)
+    lc.nn.derivative <- return.derivative.kernel.weights &&
+      isTRUE(attr(bws, "np.lc.nn.derivative", exact = TRUE))
 
     bandwidth.divide <- npValidateScalarLogical(bandwidth.divide, "bandwidth.divide")
     compute.ocg <- npValidateScalarLogical(compute.ocg, "compute.ocg")
@@ -335,7 +375,7 @@ npksum.default <-
     if (!any(keep.rows))
       stop("Data has no rows without NAs")
 
-    txdat <- txdat[keep.rows,,drop = FALSE]
+    txdat <- .np_data_rows(txdat, keep.rows)
 
     if (!miss.ty)
       tydat <- tydat[keep.rows,, drop = FALSE]
@@ -548,6 +588,7 @@ npksum.default <-
     cker.bounds.c <- npKernelBoundsMarshal(bws$ckerlb[bws$icon], bws$ckerub[bws$icon])
     if (fold.geometry) myopti$leave.one.out <- FALSE
     myopti <- as.integer(myopti)
+    if (lc.nn.derivative) attr(myopti, "np.lc.nn.derivative") <- TRUE
     if (fold.geometry) {
       # Private estimator contract: delete the occurrence before constructing
       # its NN geometry. Public leave.one.out keeps its zero-diagonal meaning.

@@ -78,9 +78,11 @@ These arguments control bootstrap execution and reproducibility settings.
   greater than or equal to the observed statistic. Ties count as at least as
   extreme, giving the conservative tie convention for discrete statistics.
   This is the ordinary bootstrap proportion, without an add-one correction;
-  a reported zero is possible with a finite number of replications.
+  a zero is displayed as \samp{0 (0 of B)}, with the actual number of draws.
 }
 \value{
+  The result includes \code{total.time}, the elapsed wall-clock time in
+  seconds for the test call, displayed by \code{summary}.
   \code{npsdeptest} returns an object of type \code{deptest} with the
   following components
 
@@ -196,26 +198,26 @@ n <- 100
 ## Stationary persistent time-series
 
 yt <- ar.series(0.95,rnorm(n))
-npsdeptest(yt,lag.num=2,B=99,method="summation")
+npsdeptest(yt,lag.num=2,method="summation")
 
 if (interactive()) Sys.sleep(5)
 
 ## Stationary independent time-series
 
 yt <- ar.series(0.0,rnorm(n))
-npsdeptest(yt,lag.num=2,B=99,method="summation")
+npsdeptest(yt,lag.num=2,method="summation")
 
 ## Stationary persistent time-series
 
 yt <- ar.series(0.95,rnorm(n))
-npsdeptest(yt,lag.num=2,B=99,method="integration")
+npsdeptest(yt,lag.num=2,method="integration")
 
 if (interactive()) Sys.sleep(5)
 
 ## Stationary independent time-series
 
 yt <- ar.series(0.0,rnorm(n))
-npsdeptest(yt,lag.num=2,B=99,method="integration")
+npsdeptest(yt,lag.num=2,method="integration")
 
 } % enddontrun
 

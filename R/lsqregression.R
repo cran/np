@@ -912,9 +912,9 @@ predict.lsqregression <- function(object, se.fit = FALSE, ..., tau = NULL) {
 }
 
 plot.lsqregression <- function(x, tau = NULL, gradients = FALSE,
-                               data_overlay = NULL,
+                               data.overlay = NULL,
                                xlab = NULL, ylab = NULL, ylim = NULL, ...) {
-  plot.data.overlay <- data_overlay
+  plot.data.overlay <- data.overlay
   dots.call <- match.call(expand.dots = FALSE)$...
   .np_plot_validate_public_dots(
     dots.call,
@@ -970,10 +970,13 @@ plot.lsqregression <- function(x, tau = NULL, gradients = FALSE,
     ),
     dots
   )
+  family.request <- args[[".np.interval.request", exact = TRUE]]
+  args$.np.interval.request <- NULL
+  attr(args, "np.family.interval") <- family.request
   publisher <- .npreg_plot_empty_publisher("plot.nplsqreg")
   args$.np.empty.report <- publisher$record
   value <- .npreg_finish_plot_call(
-    .np_with_seed(random.seed, do.call(.np_plot_condbandwidth_engine, args)), publisher)
+    .np_with_seed(random.seed, do.call(.np_plot_condbandwidth_engine, .np_plot_literal_labels(args))), publisher)
   .np_plot_data_finish(value, x$bws, args, .np_plot_condbandwidth_engine, random.seed)
 }
 

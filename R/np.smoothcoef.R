@@ -2,6 +2,8 @@ npscoef <-
   function(bws, ...){
     mc <- match.call(expand.dots = FALSE)
     .np_validate_public_dots(mc[["..."]], "npscoef")
+    if (!missing(bws) && "na.action" %in% names(mc[["..."]]))
+      .np_fit_na_preflight(bws, substitute(list(...))[-1L], environment(), "npscoef")
     args <- .np_formula_dispatch_args(
       NULL, substitute(list(...))[-1L], environment(),
       data.roles = c("txdat", "tydat", "tzdat"),
@@ -30,9 +32,11 @@ npscoef.formula <-
   function(bws, data = NULL, newdata = NULL, y.eval = FALSE,
            se = FALSE, ...){
     .np_reject_fit_subset(substitute(list(...))[-1L])
+    .np_fit_na_preflight(bws, substitute(list(...))[-1L], environment(), "npscoef", data = data, newdata = newdata)
 
 
-    dots <- list(...)
+    dots <- .np_formula_dispatch_args(
+      NULL, substitute(list(...))[-1L], environment(), omit.subset = FALSE)
     npRejectLegacyBooleanErrors(dots, "npscoef")
     se <- npValidateScalarLogical(se, "se")
 
@@ -100,7 +104,8 @@ npscoef.formula <-
         sc.args$ezdat <- ezdat
     }
     sc.args$bws <- bws
-    ev <- do.call(npscoef, c(sc.args, list(se = se), dots))
+    dots$na.action <- NULL
+    ev <- do.call(npscoef, c(sc.args, list(se = se), .np_formula_options(dots, "npscoef.formula")))
 
     if (length(response.name) == 1L && !is.na(response.name) && nzchar(response.name)) {
       if (!is.null(ev$bws))
@@ -132,13 +137,14 @@ npscoef.formula <-
 npscoef.call <-
   function(bws, ...) {
     .np_reject_fit_subset(substitute(list(...))[-1L])
+    .np_fit_na_preflight(bws, substitute(list(...))[-1L], environment(), "npscoef", native = TRUE)
 
   .np_reject_native_data(substitute(list(...))[-1L])
 
     roles <- c(txdat = "xdat", tydat = "ydat")
     if (!is.null(bws$zdati))
       roles <- c(roles, tzdat = "zdat")
-    do.call(npscoef, .np_retained_training_args(bws, roles, list(...), npscoef.scbandwidth))
+    do.call(npscoef, .np_retained_training_args(bws, roles, .np_formula_dispatch_args(NULL, substitute(list(...))[-1L], environment(), omit.subset = FALSE), npscoef.scbandwidth))
   }
 
 .np_scoef_fit_progress_begin <- function(handoff = FALSE, detail = NULL) {
@@ -295,8 +301,9 @@ npscoef.default <- function(bws, txdat, tydat, tzdat, nomad = FALSE,
   if (!has.explicit.bws)
     call.args$.np_fit_progress_handoff <- TRUE
   fit.dots <- if (!is.null(tbw[["formula", exact = TRUE]]))
-    .np_formula_dispatch_args(NULL, substitute(list(...))[-1L], environment())
-  else list(...)
+    .np_formula_options(.np_formula_dispatch_args(
+      NULL, substitute(list(...))[-1L], environment()), "npscoef.default")
+  else .np_formula_dispatch_args(NULL, substitute(list(...))[-1L], environment(), omit.subset = FALSE)
   do.call(npscoef, c(call.args, list(se = se), fit.dots))
 
 }
@@ -335,7 +342,7 @@ npscoef.default <- function(bws, txdat, tydat, tzdat, nomad = FALSE,
     maxiter <- as.integer(maxiter)
     tol <- as.double(tol)
     regtype <- if (is.null(bws$regtype)) "lc" else bws$regtype
-    dots <- list(...)
+    dots <- .np_formula_dispatch_args(NULL, substitute(list(...))[-1L], environment(), omit.subset = FALSE)
     fit.progress.allow <- !isFALSE(dots$.np_fit_progress_allow) &&
       isTRUE(.np_progress_enabled(domain = "bandwidth"))
     fit.progress.handoff <- fit.progress.allow && isTRUE(dots$.np_fit_progress_handoff)
@@ -451,12 +458,12 @@ npscoef.default <- function(bws, txdat, tydat, tzdat, nomad = FALSE,
     if (!any(keep.rows))
       stop("Training data has no rows without NAs")
 
-    txdat <- txdat[keep.rows,,drop = FALSE]
-    tydat <- tydat[keep.rows]
+    txdat <- .np_data_rows(txdat, keep.rows)
+    tydat <- .np_data_rows(tydat, keep.rows, frame = FALSE)
     if (miss.ex && !miss.ey)
-      eydat <- eydat[keep.rows]
+      eydat <- .np_data_rows(eydat, keep.rows, frame = FALSE)
     if (!miss.z)
-      tzdat <- tzdat[keep.rows,, drop = FALSE]
+      tzdat <- .np_data_rows(tzdat, keep.rows)
 
     if (!miss.ex){
       keep.eval <- rep_len(TRUE, nrow(exdat))
@@ -469,11 +476,11 @@ npscoef.default <- function(bws, txdat, tydat, tzdat, nomad = FALSE,
       if (length(rows.omit) > 0L)
         keep.eval[as.integer(rows.omit)] <- FALSE
 
-      exdat <- exdat[keep.eval,,drop = FALSE]
+      exdat <- .np_data_rows(exdat, keep.eval)
       if (!miss.ey)
-        eydat <- eydat[keep.eval]
+        eydat <- .np_data_rows(eydat, keep.eval, frame = FALSE)
       if (eval.z)
-        ezdat <- ezdat[keep.eval,, drop = FALSE]
+        ezdat <- .np_data_rows(ezdat, keep.eval)
 
       if (!any(keep.eval))
         stop("Evaluation data has no rows without NAs")
@@ -1396,10 +1403,11 @@ npscoef.scbandwidth <-
            tol = .Machine$double.eps,
            ...){
     .np_reject_fit_subset(substitute(list(...))[-1L])
+    .np_fit_na_preflight(bws, substitute(list(...))[-1L], environment(), "npscoef", native = TRUE)
 
   .np_reject_native_data(substitute(list(...))[-1L])
 
-    npRejectLegacyBooleanErrors(list(...), "npscoef")
+    npRejectLegacyBooleanErrors(.np_formula_dispatch_args(NULL, substitute(list(...))[-1L], environment(), omit.subset = FALSE), "npscoef")
     .np_require_numeric_response(tydat, "npscoef", "tydat")
     if (!missing(eydat))
       .np_require_numeric_response(eydat, "npscoef", "eydat")

@@ -47,10 +47,10 @@ npindexbw.formula <-
     ydat <- model.response(mf)
     xdat <- .np_index_formula_xdat(mf)
 
-    tbw <- do.call(npindexbw, c(list(xdat = xdat, ydat = quote(ydat)), list(...)))
+    tbw <- do.call(npindexbw, c(list(xdat = xdat, ydat = quote(ydat)), .np_formula_options(list(...), "npindexbw.formula")))
 
     ## clean up (possible) inconsistencies due to recursion ...
-    tbw$call <- match.call(expand.dots = FALSE)
+    tbw$call <- .np_public_replay_call(match.call(expand.dots = FALSE), "npindexbw")
     environment(tbw$call) <- parent.frame()
     tbw$formula <- formula
     tbw$rows.omit <- as.vector(attr(mf,"na.action"))
@@ -82,7 +82,7 @@ npindexbw.NULL <-
     ## clean up (possible) inconsistencies due to recursion ...
     mc <- match.call(expand.dots = FALSE)
     environment(mc) <- parent.frame()
-    tbw$call <- mc
+    tbw$call <- .np_public_replay_call(mc, "npindexbw")
 
     tbw <- updateBwNameMetadata(nameList =
                                 list(ynames = deparse(substitute(ydat))),
@@ -671,7 +671,7 @@ npindexbw.NULL <-
   if (!identical(ckerbound, "none"))
     return(FALSE)
 
-  ckertype <- as.character(bws$ckertype)[1L]
+  ckertype <- .np_index_kernel(bws)
   ckerorder <- as.integer(bws$ckerorder)[1L]
   if (!identical(ckertype, "uniform") &&
       (!is.finite(ckerorder) || ckerorder != 2L))
@@ -1247,8 +1247,8 @@ npindexbw.NULL <-
   rows.omit <- attr(na.omit(data.frame(xdat, ydat)), "na.action")
   if (length(rows.omit) > 0L)
     keep.rows[as.integer(rows.omit)] <- FALSE
-  x.clean <- toMatrix(xdat[keep.rows, , drop = FALSE])
-  y.clean <- ydat[keep.rows]
+  x.clean <- toMatrix(.np_data_rows(xdat, keep.rows))
+  y.clean <- .np_data_rows(ydat, keep.rows, frame = FALSE)
   if (is.factor(y.clean))
     y.clean <- dlev(y.clean)[as.integer(y.clean)]
   else
@@ -1896,7 +1896,7 @@ npindexbw.default <-
     p <- ncol(xdat)
     mc <- match.call(expand.dots = FALSE)
     mc.names <- names(mc)
-    dots <- list(...)
+    dots <- .np_formula_dispatch_args(NULL, substitute(list(...))[-1L], environment(), omit.subset = FALSE)
     if (length(nomad.opts))
       dots$nomad.opts <- nomad.opts
     npRejectUnsupportedBwsolver(dots, "npindexbw")
@@ -2185,7 +2185,7 @@ npindexbw.default <-
 
     mc <- match.call(expand.dots = FALSE)
     environment(mc) <- parent.frame()
-    tbw$call <- mc
+    tbw$call <- .np_public_replay_call(mc, "npindexbw")
     tbw <- .np_attach_nomad_shortcut(tbw, nomad.shortcut$metadata)
 
     if (!is.null(prepared)) tbw[["index.design"]] <- prepared$schema
@@ -2212,12 +2212,13 @@ npindexbw.sibandwidth <-
            scale.factor.search.lower = NULL,
            .restore.first.start = TRUE,
            ...,
+           .indextest.leaf = NULL,
            .fixed.h.lower = NULL){
   .np_reject_native_data(substitute(list(...))[-1L])
   .np_reject_native_frame_args(substitute(list(...))[-1L])
 
 
-    dots <- list(...)
+    dots <- .np_formula_dispatch_args(NULL, substitute(list(...))[-1L], environment(), omit.subset = FALSE)
     npRejectUnsupportedBwsolver(dots, "npindexbw")
 
     ## Save seed prior to setting
@@ -2287,8 +2288,8 @@ npindexbw.sibandwidth <-
     if (!any(keep.rows))
       stop("Data has no rows without NAs")
 
-    xdat <- xdat[keep.rows,,drop = FALSE]
-    ydat <- ydat[keep.rows]
+    xdat <- .np_data_rows(xdat, keep.rows)
+    ydat <- .np_data_rows(ydat, keep.rows, frame = FALSE)
     if (bws$method == "kleinspady")
       .npindex_check_binary_response(ydat, "npindexbw()", require.both = TRUE)
 
@@ -2378,6 +2379,8 @@ npindexbw.sibandwidth <-
           ichimuraMaxPenalty <- .npindexbw_ichimura_outer_penalty(ydat)
           kleinspadyMaxPenalty <- .npindexbw_kleinspady_outer_penalty(ydat)
 
+          ichimura.leaf <- if (is.null(.indextest.leaf))
+            .npindexbw_eval_ichimura_lp_via_npreg else .indextest.leaf
           ichimura <- function(param) {
             bandwidth_progress_step()
 
@@ -2402,7 +2405,7 @@ npindexbw.sibandwidth <-
             sum.squares.leave.one.out <- function(beta, h) {
               ## Normalize beta_1 = 1 hence multiply X by c(1,beta)
               index <- xmat %*% c(1, beta)
-              objective <- .npindexbw_eval_ichimura_lp_via_npreg(
+              objective <- ichimura.leaf(
                 index = index,
                 ydat = ydat,
                 h = h,
@@ -2441,6 +2444,8 @@ npindexbw.sibandwidth <-
           ## objective function use c(1,beta). However, we do indeed return
           ## c(1,beta) which can be used in the index.model function above.
 
+          kleinspady.leaf <- if (is.null(.indextest.leaf))
+            .npindexbw_eval_kleinspady_lp_via_npreg else .indextest.leaf
           kleinspady <- function(param) {
             bandwidth_progress_step()
 
@@ -2465,7 +2470,7 @@ npindexbw.sibandwidth <-
             sum.log.leave.one.out <- function(beta, h) {
               ## Normalize beta_1 = 1 hence multiply X by c(1,beta)
               index <- xmat %*% c(1, beta)
-              objective <- .npindexbw_eval_kleinspady_lp_via_npreg(
+              objective <- kleinspady.leaf(
                 index = index,
                 ydat = ydat,
                 h = h,
@@ -2730,7 +2735,7 @@ npindexbw.sibandwidth <-
           bws$numimp <- numimp
           bws$fval.vector <- fval.value
         }
-      })[["elapsed"]]
+      }, gcFirst = is.null(.indextest.leaf))[["elapsed"]]
     ## Return a list with beta (we append the restricted value of
     ## beta_1=1), the bandwidth h, the value of the objective function at
     ## its minimum, the number of restarts that resulted in an improved

@@ -170,8 +170,8 @@
       if (!any(keep.rows))
         stop("Data has no rows without NAs")
 
-      xdat <- xdat[keep.rows,,drop = FALSE]
-      ydat <- ydat[keep.rows,,drop = FALSE]
+      xdat <- .np_data_rows(xdat, keep.rows)
+      ydat <- .np_data_rows(ydat, keep.rows)
 
     }
 
@@ -212,7 +212,7 @@
     joint.request <- identical(error.request$method, "asymptotic") &&
       error.request$type %in% c("simultaneous", "all")
     if (!missing(gaussian.draws) && !joint.request && !new.conditional)
-      stop("gaussian_draws requires asymptotic simultaneous or all bands", call. = FALSE)
+      stop("gaussian.draws requires asymptotic simultaneous or all bands", call. = FALSE)
     joint.eligible <- joint.request && !quantreg && !isTRUE(proper) && !new.conditional
     quantile.joint <- joint.request && isTRUE(quantreg)
     if (joint.request)
@@ -373,6 +373,10 @@
                       "dens" = tobj$condens)
       tcerr <- if (quantreg) tobj$quanterr else tobj$conderr
       if (is.null(tcerr)) tcerr <- rep.int(NA_real_, length(tcomp))
+      empty.uncertainty <- .np_plot_conditional_empty_mask(bws, tcomp,
+        x.eval[,2L,drop=FALSE], plot.errors.center, gradients,
+        proper.args$proper.requested, plot.errors.method)
+      if (identical(plot.errors.method, "asymptotic")) tcerr[empty.uncertainty] <- NA_real_
       tex <- if (quantreg) x.eval else x.eval[,1]
       tey <- if (quantreg) NA else x.eval[,2]
 
@@ -422,6 +426,9 @@
           bws = bws)
         terr <- terr.obj[["boot.err"]]
         terr.all <- terr.obj[["boot.all.err"]]
+        disclosed <- .np_plot_conditional_empty_bands(terr, terr.all,
+          empty.uncertainty, plot.errors.type)
+        terr <- disclosed$err; terr.all <- disclosed$all.err
 
         pc = (.np_plot_center_is_bias_corrected(plot.errors.center))
         center.val <- if(pc) terr[,3] else tcomp
@@ -486,6 +493,7 @@
                     .np_plot_finite_range(c(tcomp, lerr, herr))
               } else
                 .np_plot_finite_range(tcomp)
+          zlim <- .np_plot_expand_surface_range(zlim)
       }
 
       if (plot.behavior != "plot"){
@@ -548,6 +556,8 @@
         main.val <- if (!is.null(main)) main else NULL
         .np_plot_first_render_begin(rgl.first.render)
         rgl.out <- .np_plot_render_surface_rgl(
+          automatic.limits = .np_plot_rgl_automatic_limits(saved.plot.style),
+          xlim = xlim, ylim = ylim,
           x = x1.eval,
           y = x2.eval,
           z = tdens,
@@ -635,6 +645,7 @@
             phi = phi,
             main = scalar_default(main, "")
           )
+          persp.args <- .np_plot_apply_limits(persp.args, xlim, ylim)
           persp.mat <- .np_plot_render_surface_base_frame(
             persp.args = persp.args,
             xlim = range(x1.eval, finite = TRUE),
@@ -838,7 +849,13 @@
         }
 
         
-        ## if there are gradients then we need to repeat the process for each component
+        empty.uncertainty <- .np_plot_conditional_empty_mask(bws, tobj$condens,
+          eydat[seq_len(xi.neval),,drop=FALSE], plot.errors.center, gradients,
+          proper.args$proper.requested, plot.errors.method)
+        if (identical(plot.errors.method, "asymptotic"))
+          tobj$conderr[empty.uncertainty] <- NA_real_
+
+        ## Repeat each gradient component when requested
 
         eval.extract <- function(obj, jj){
           if (gradients) {
@@ -949,6 +966,9 @@
                         bws = bws)
               temp.err[seq_len(xi.neval),] <- temp.boot[["boot.err"]]
               temp.all.err <- temp.boot[["boot.all.err"]]
+              disclosed <- .np_plot_conditional_empty_bands(temp.err, temp.all.err,
+                empty.uncertainty, plot.errors.type)
+              temp.err <- disclosed$err; temp.all.err <- disclosed$all.err
               temp.boot <- temp.boot[["bxp"]]
               if (!plot.bxp.out){
                 temp.boot$out <- numeric()
@@ -976,7 +996,7 @@
             } else {
               plot
             }
-            plot.args <- list()
+            plot.args <- .np_plot_apply_limits(list(), xlim = xlim)
             if (xi.factor) {
               if (plot.bootstrap && plot.bxp) plot.args$z <- temp.boot else plot.args$f <- ei
             } else {
@@ -1021,7 +1041,7 @@
               plot.args,
               if (xi.factor && plot.bootstrap && plot.bxp) bxp.args else plot.user.args
             )
-            do.call(plot.fun, plot.args)
+            do.call(plot.fun, .np_plot_literal_labels(plot.args))
             if (plot.rug && !xi.factor)
               .np_plot_draw_rug_1d(if (xOrY == "x") xdat[,i] else ydat[,i])
 
@@ -1171,7 +1191,13 @@
           }
 
           
-          ## if there are gradients then we need to repeat the process for each component
+            empty.uncertainty <- .np_plot_conditional_empty_mask(bws, tobj$condens,
+            subcol(eydat,ei,i)[seq_len(xi.neval),,drop=FALSE], plot.errors.center, gradients,
+            proper.args$proper.requested, plot.errors.method)
+          if (identical(plot.errors.method, "asymptotic"))
+            tobj$conderr[empty.uncertainty] <- NA_real_
+
+          ## Repeat each gradient component when requested
 
           eval.extract <- function(obj, jj){
             if (gradients) {
@@ -1274,6 +1300,9 @@
                           bws = bws)
                 temp.err[seq_len(xi.neval),] <- temp.boot[["boot.err"]]
                 temp.all.err <- temp.boot[["boot.all.err"]]
+              disclosed <- .np_plot_conditional_empty_bands(temp.err, temp.all.err,
+                empty.uncertainty, plot.errors.type)
+              temp.err <- disclosed$err; temp.all.err <- disclosed$all.err
                 temp.boot <- temp.boot[["bxp"]]
                 if (!plot.bxp.out){
                   temp.boot$out <- numeric()
@@ -1301,7 +1330,7 @@
               } else {
                 plot
               }
-              plot.args <- list()
+              plot.args <- .np_plot_apply_limits(list(), xlim = xlim)
               if (xi.factor) {
                 if (plot.bootstrap && plot.bxp) plot.args$z <- temp.boot else plot.args$f <- ei
               } else {
@@ -1346,7 +1375,7 @@
                 plot.args,
                 if (xi.factor && plot.bootstrap && plot.bxp) bxp.args else plot.user.args
               )
-              do.call(plot.fun, plot.args)
+              do.call(plot.fun, .np_plot_literal_labels(plot.args))
               if (plot.rug && !xi.factor)
                 .np_plot_draw_rug_1d(if (xOrY == "x") xdat[,i] else ydat[,i])
 
@@ -1510,7 +1539,7 @@
             } else {
               plot
             }
-            plot.args <- list()
+            plot.args <- .np_plot_apply_limits(list(), xlim = xlim)
             if (xi.factor) {
               if (plot.bootstrap && plot.bxp) plot.args$z <- all.bxp[[plot.index]] else plot.args$f <- allei[,plot.index]
             } else {
@@ -1541,7 +1570,7 @@
               plot.args,
               if (xi.factor && plot.bootstrap && plot.bxp) bxp.args else plot.user.args
             )
-            do.call(plot.fun, plot.args)
+            do.call(plot.fun, .np_plot_literal_labels(plot.args))
             if (plot.rug && !xi.factor)
               .np_plot_draw_rug_1d(if (xOrY == "x") xdat[,i] else ydat[,i])
 

@@ -1202,7 +1202,7 @@ test_that("plot bootstrap supports wild for sc/pl/si bandwidth objects", {
       output = "data",
       errors = "bootstrap",
       bootstrap = "wild",
-      boot_control = np_boot_control(wild = "rademacher"),
+      boot.control = np_boot_control(wild = "rademacher"),
       band = "pointwise",
       B = 19
     )
@@ -1210,7 +1210,7 @@ test_that("plot bootstrap supports wild for sc/pl/si bandwidth objects", {
   expect_type(sc.out.rad, "list")
   expect_true(length(sc.out.rad) > 0)
   expect_false(isTRUE(all.equal(
-    plot_band(sc.out, "pmzsd"),
+    plot_band(sc.out, "pointwise"),
     plot_band(sc.out.rad, "pointwise"),
     tolerance = 0,
     check.attributes = FALSE
@@ -1310,9 +1310,9 @@ test_that("plot bootstrap supports wild for sc/pl/si bandwidth objects", {
   )
   expect_type(si.out, "list")
   expect_true(length(si.out) > 0)
-  expect_true(is.matrix(plot_band(si.out, "pmzsd")))
-  expect_equal(ncol(plot_band(si.out, "pmzsd")), 2L)
-  expect_false(all(is.na(plot_band(si.out, "pmzsd"))))
+  expect_true(is.matrix(plot_band(si.out, "pointwise")))
+  expect_equal(ncol(plot_band(si.out, "pointwise")), 2L)
+  expect_false(all(is.na(plot_band(si.out, "pointwise"))))
 })
 
 test_that("partial linear wild plot bootstrap apply helper matches dense hat contract", {

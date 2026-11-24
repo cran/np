@@ -2,6 +2,8 @@ npconmode <-
   function(bws, ...){
     mc <- match.call(expand.dots = FALSE)
     .np_validate_public_dots(mc[["..."]], "npconmode")
+    if (!missing(bws) && "na.action" %in% names(mc[["..."]]))
+      .np_fit_na_preflight(bws, substitute(list(...))[-1L], environment(), "npconmode")
     args <- .np_formula_dispatch_args(
       NULL, substitute(list(...))[-1L], environment(),
       data.roles = c("txdat", "tydat"),
@@ -40,9 +42,11 @@ npconmode <-
 npconmode.formula <-
   function(bws, data = NULL, newdata = NULL, ..., se = FALSE){
     .np_reject_fit_subset(substitute(list(...))[-1L])
+    .np_fit_na_preflight(bws, substitute(list(...))[-1L], environment(), "npconmode", data = data, newdata = newdata)
 
     se <- npValidateScalarLogical(se, "se")
-    dots <- list(...)
+    dots <- .np_formula_dispatch_args(
+      NULL, substitute(list(...))[-1L], environment(), omit.subset = FALSE)
     frame.state <- dots[[".np.formula.state", exact = TRUE]]
     dots$.np.formula.state <- NULL
     dots$formula <- NULL
@@ -100,7 +104,8 @@ npconmode.formula <-
         cm.args$eydat <- eydat
     }
     cm.args$bws <- bws
-    ev <- do.call(npconmode, c(cm.args, dots))
+    dots$na.action <- NULL
+    ev <- do.call(npconmode, c(cm.args, .np_formula_options(dots, "npconmode.formula")))
 
     output.omit <- .np_formula_output_action(ev, umf, has.eval, native.restored = TRUE)
     ev <- .npConmodeRecordSampleOmissions(ev, train.omit,
@@ -113,11 +118,12 @@ npconmode.formula <-
 npconmode.call <-
   function(bws, ...) {
     .np_reject_fit_subset(substitute(list(...))[-1L])
+    .np_fit_na_preflight(bws, substitute(list(...))[-1L], environment(), "npconmode", native = TRUE)
 
   .np_reject_native_data(substitute(list(...))[-1L])
 
     do.call(npconmode, .np_retained_training_args(
-      bws, c(txdat = "xdat", tydat = "ydat"), list(...), npconmode.conbandwidth))
+      bws, c(txdat = "xdat", tydat = "ydat"), .np_formula_dispatch_args(NULL, substitute(list(...))[-1L], environment(), omit.subset = FALSE), npconmode.conbandwidth))
   }
 
 npconmode.condbandwidth <-
@@ -518,6 +524,7 @@ npconmode.conbandwidth <-
             level = NULL,
             ..., se = FALSE){
     .np_reject_fit_subset(substitute(list(...))[-1L])
+    .np_fit_na_preflight(bws, substitute(list(...))[-1L], environment(), "npconmode", native = TRUE)
 
   .np_reject_native_data(substitute(list(...))[-1L])
 
@@ -530,7 +537,7 @@ npconmode.conbandwidth <-
     .np_require_paired_rows(txdat, tydat, "txdat", "tydat")
     bws <- .np_bws_retain_native_training(bws, xdat = txdat, ydat = tydat)
 
-    native.newdata <- list(...)[["newdata", exact = TRUE]]
+    native.newdata <- .np_formula_dispatch_args(NULL, substitute(list(...))[-1L], environment(), omit.subset = FALSE)[["newdata", exact = TRUE]]
     if (missing(exdat) && !is.null(native.newdata)) {
       native.eval <- .np_native_newdata_parts(
         native.newdata, list(exdat = bws$xnames), "npconmode")
@@ -562,8 +569,8 @@ npconmode.conbandwidth <-
     if (!any(keep.rows))
       stop("Training data has no rows without NAs")
 
-    txdat <- txdat[keep.rows,,drop = FALSE]
-    tydat <- tydat[keep.rows,,drop = FALSE]
+    txdat <- .np_data_rows(txdat, keep.rows)
+    tydat <- .np_data_rows(tydat, keep.rows)
 
     if (!no.ex){
       keep.eval <- rep_len(TRUE, nrow(exdat))
@@ -572,10 +579,10 @@ npconmode.conbandwidth <-
       if (.npConmodeOmitLength(eval.omit) > 0L)
         keep.eval[as.integer(eval.omit)] <- FALSE
 
-      exdat <- exdat[keep.eval,,drop = FALSE]
+      exdat <- .np_data_rows(exdat, keep.eval)
 
       if (!no.ey)
-        eydat <- eydat[keep.eval,,drop = FALSE]
+        eydat <- .np_data_rows(eydat, keep.eval)
 
       if (!any(keep.eval))
         stop("Evaluation data has no rows without NAs")
@@ -932,7 +939,10 @@ npconmode.default <- function(bws, txdat, tydat,
   call.args$se <- se
   call.args$level <- level
   fit.dots <- if (!is.null(tbw[["formula", exact = TRUE]]))
-    .np_formula_dispatch_args(NULL, substitute(list(...))[-1L], environment())
-  else list(...)
+    .np_formula_options(.np_formula_dispatch_args(
+      NULL, substitute(list(...))[-1L], environment()), "npconmode.default")
+  else .np_formula_dispatch_args(NULL, substitute(list(...))[-1L], environment(), omit.subset = FALSE)
+  if (!is.null(tbw[["formula", exact = TRUE]]))
+    call.args <- .np_formula_options(call.args, "npconmode.default")
   do.call(npconmode, c(call.args, fit.dots))
 }

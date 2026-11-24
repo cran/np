@@ -175,9 +175,11 @@ Further arguments are passed to the bandwidth-selection routines used by the tes
   greater than or equal to the observed statistic. Ties count as at least as
   extreme, giving the conservative tie convention for discrete statistics.
   This is the ordinary bootstrap proportion, without an add-one correction;
-  a reported zero is possible with a finite number of replications.
+  a zero is displayed as \samp{0 (0 of B)}, with the actual number of draws.
 }
 \value{
+  The result includes \code{total.time}, the elapsed wall-clock time in
+  seconds for the test call, displayed by \code{summary}.
   \code{npcmstest} returns an object of type \code{cmstest} with the
   following components, components will contain information
   related to \code{Jn} or \code{In} depending on the value of \code{pivot}:
@@ -273,27 +275,31 @@ with(cps71, {
 
 model <- lm(logwage~age+I(age^2), x=TRUE, y=TRUE)
 
-if (interactive()) plot(age, logwage)
-lines(age, fitted(model))
+if (interactive()) {
+  plot(age, logwage)
+  lines(age, fitted(model))
+}
 
 # Note - this may take a few minutes depending on the speed of your
 # computer...
 
-npcmstest(model = model, xdat = age, ydat = logwage, B=9, nmulti = 1)
+npcmstest(model = model, xdat = age, ydat = logwage)
 
 # Next try Murphy & Welch's (1990) suggested quintic specification.
 
 model <- lm(logwage~age+I(age^2)+I(age^3)+I(age^4)+I(age^5), x=TRUE, y=TRUE)
 
-if (interactive()) plot(age, logwage)
-lines(age, fitted(model))
+if (interactive()) {
+  plot(age, logwage)
+  lines(age, fitted(model))
+}
 
 X <- data.frame(age)
 
 # Note - this may take a few minutes depending on the speed of your
 # computer...
 
-npcmstest(model = model, xdat = age, ydat = logwage, B=9, nmulti = 1)
+npcmstest(model = model, xdat = age, ydat = logwage)
 
 # Note - you can pass in multiple arguments to this function. For
 # instance, to use local linear rather than local constant regression,
@@ -328,7 +334,7 @@ model <- lm(growth ~ oecd +
 
 X <- data.frame(factor(oecd), factor(year), initgdp, popgro, inv, humancap)
 
-npcmstest(model = model, xdat = X, ydat = growth, B=9, nmulti = 1)
+npcmstest(model = model, xdat = X, ydat = growth)
 
 })
 } % enddontrun

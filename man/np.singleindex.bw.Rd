@@ -83,6 +83,7 @@ npindexbw(\dots)
           scale.factor.search.lower = NULL,
           .restore.first.start = TRUE,
           \dots,
+          .indextest.leaf = NULL,
           .fixed.h.lower = NULL)
 
 }
@@ -109,6 +110,11 @@ These arguments identify the data, formula interface, method label, and whether 
     internal logical control enabling bounded restoration of eligible
     automatically generated raw-invalid first optimizer evaluations.
     It is used by package search owners and is not intended for direct user control.
+  }
+
+  \item{.indextest.leaf}{
+    Internal CV objective evaluator prepared by \code{\link{npindextest}} for
+    repeated bootstrap refits. The default uses the model's usual evaluator.
   }
 
   \item{.fixed.h.lower}{
@@ -216,8 +222,11 @@ These arguments control automatic local-polynomial degree search.
 
   \item{degree.restarts}{
     non-negative integer giving the number of additional deterministic
-    coordinate-search restarts. Ignored for \code{"manual"} and
-    \code{"exhaustive"} degree selection.
+    restarts used by coordinate search with \code{search.engine="cell"}.
+    For a non-singleton candidate grid, an error is reported if the requested
+    number exceeds the distinct admissible starts remaining after exclusions.
+    Ignored for \code{degree.select="manual"}, \code{"exhaustive"}, a singleton
+    candidate grid, and the NOMAD search engines.
   }
 
   \item{degree.select}{
@@ -235,6 +244,8 @@ These arguments control automatic local-polynomial degree search.
     optional starting degree vector for automatic coordinate search. If
     omitted, the search starts from the degree-zero local-constant
     baseline for the index smoother.
+    For cell-based searches, the starting degree and initial baseline are
+    restricted to the requested \code{degree.min} and \code{degree.max} bounds.
   }
 
   \item{degree.verify}{
@@ -535,6 +546,8 @@ These arguments collect remaining controls passed through S3 methods.
 }
 
 \details{
+  Use \code{\link{npindextest}} to test whether the conditional mean (or binary success probability) depends on the covariates through a single linear index with unknown coefficients and link.
+
   The primary response must be a one-dimensional numeric (integer or double)
   vector. Factors and ordered factors are not accepted as primary responses,
   including retained responses used in a new fit or bandwidth search.
@@ -876,6 +889,7 @@ or standard-deviation factors.
   clustered computing environment to facilitate computation involving
   large datasets.  }
 
+\seealso{\code{\link{npindextest}}, \code{\link{npindex}}}
 \examples{
 \dontrun{
 # EXAMPLE 1 (INTERFACE=FORMULA): Generate a simple linear model then

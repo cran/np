@@ -81,9 +81,11 @@ Further arguments are passed to the bandwidth-selection routines used by the tes
   greater than or equal to the observed statistic. Ties count as at least as
   extreme, giving the conservative tie convention for discrete statistics.
   This is the ordinary bootstrap proportion, without an add-one correction;
-  a reported zero is possible with a finite number of replications.
+  a zero is displayed as \samp{0 (0 of B)}, with the actual number of draws.
 }
 \value{
+  The result includes \code{total.time}, the elapsed wall-clock time in
+  seconds for the test call, displayed by \code{summary}.
   \code{npsymtest} returns an object of type \code{symtest} with the
   following components
 
@@ -214,28 +216,28 @@ n <- 100
 ## Asymmetric discrete probability distribution function
 
 x <- factor(rbinom(n,2,.8))
-npsymtest(x,B=99)
+npsymtest(x)
 
 if (interactive()) Sys.sleep(5)
 
 ## Symmetric discrete probability distribution function
 
 x <- factor(rbinom(n,2,.5))
-npsymtest(x,B=99)
+npsymtest(x)
 
 if (interactive()) Sys.sleep(5)
 
 ## Asymmetric continuous distribution function
 
 y <- rchisq(n,df=2)
-npsymtest(y,B=99)
+npsymtest(y)
 
 if (interactive()) Sys.sleep(5)
 
 ## Symmetric continuous distribution function
 
 y <- rnorm(n)
-npsymtest(y,B=99)
+npsymtest(y)
 
 ## Time-series bootstrap
 
@@ -252,12 +254,12 @@ ar.series <- function(phi,epsilon) {
 ## Asymmetric time-series
 
 yt <- ar.series(0.5,rchisq(n,df=3))
-npsymtest(yt,B=99,boot.method="geom")
+npsymtest(yt,boot.method="geom")
 
 ## Symmetric time-series
 
 yt <- ar.series(0.5,rnorm(n))
-npsymtest(yt,B=99,boot.method="geom")
+npsymtest(yt,boot.method="geom")
 
 } % enddontrun
 

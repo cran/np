@@ -2,9 +2,17 @@
   identical(bws[["type",exact=TRUE]],"fixed") &&
     identical(bws[["ckertype",exact=TRUE]],"gaussian") &&
     identical(as.integer(bws[["ckerorder",exact=TRUE]]),2L) &&
-    bws[["ncon",exact=TRUE]]>0L && bws[["nuno",exact=TRUE]]==0L && bws[["nord",exact=TRUE]]==0L &&
-    all(is.infinite(bws[["ckerlb",exact=TRUE]]) & bws[["ckerlb",exact=TRUE]]<0) &&
-    all(is.infinite(bws[["ckerub",exact=TRUE]]) & bws[["ckerub",exact=TRUE]]>0)
+    bws[["ncon",exact=TRUE]]>0L && bws[["nuno",exact=TRUE]]==0L && bws[["nord",exact=TRUE]]==0L
+}
+
+# Capture scope is distinct from the kernel-weight precision capability.
+.npreghat_fitted_capture_scope <- function(bws) {
+  .np_regression_precision_scope(bws) ||
+    (identical(bws[["type",exact=TRUE]],"generalized_nn") &&
+     bws[["ckertype",exact=TRUE]] %in% c("gaussian","epanechnikov","beta") &&
+     identical(as.integer(bws[["ckerorder",exact=TRUE]]),2L) &&
+     bws[["ncon",exact=TRUE]]>0L && bws[["nuno",exact=TRUE]]==0L &&
+     bws[["nord",exact=TRUE]]==0L)
 }
 
 npreghat <-
@@ -313,6 +321,57 @@ npreghat <-
   list(v = v, ridge = ridge)
 }
 
+# Replay the fitted owner's accepted rows, without residual/SE preparation.
+# Apply consumes tiles; only matrix/constraint requests retain the full hat.
+.npreghat_fitted_capture <- function(bws, txdat, exdat, s, y=NULL,
+                                     apply=FALSE, allow.empty.rows=FALSE) {
+  training <- is.null(exdat)
+  evaluation <- if(training) txdat else exdat
+  n <- nrow(txdat); m <- nrow(evaluation)
+  direction <- which(s>0L)
+  order <- rep.int(1L,bws$ncon)
+  if(length(direction)) order[direction] <- s[direction]
+  captured <- .np_plot_lsq_gradient_projection(bws,txdat,numeric(n),evaluation,
+    gradient.order=order,capture.gradient=TRUE,allow.empty.rows=allow.empty.rows,
+    capture.mean.only=!length(direction),training=training)
+  projection <- captured$fit.projection
+  width <- ncol(projection[[1L]])
+  constant <- isTRUE(projection[[3L]])
+  empty <- captured$empty.rows
+  valid <- if(is.null(empty)) seq_len(m) else which(empty==0L)
+  # The public hat has no plot allocation ceiling. Geometry and tile sizes are
+  # checked by their owners; R handles output allocation and length overflow.
+  budget <- .Machine$double.xmax
+  geometry <- .np_plot_lsq_gate_geometry(bws,txdat,evaluation,max.bytes=budget)
+  if(identical(bws[['type',exact=TRUE]],'fixed'))
+    attr(geometry,'.np.fit.gate') <- captured$gate
+  rows <- max(1L,min(m,floor((4*1024^2)/(16*as.double(n)))))
+  if(apply && is.null(y)) stop("argument 'y' is required when output='apply'")
+  out <- matrix(NA_real_,m,if(apply)ncol(y) else n)
+  projected.y <- if(constant && apply) crossprod(projection[[1L]],y) else NULL
+  if(length(valid)) for(start in seq.int(1L,length(valid),by=rows)) {
+    index <- valid[start:min(length(valid),start+rows-1L)]
+    P <- if(length(direction))
+      .np_plot_projection_slice(captured$gradient.projection,index,
+        (direction-1L)*width+seq_len(width)) else
+      .np_plot_projection_slice(projection[[2L]],index)
+    if(constant && apply) {
+      out[index,] <- P %*% projected.y
+      next
+    }
+    if(!constant) attr(P,'.np.fit.accepted') <- TRUE
+    weights <- if(constant) NULL else if(identical(bws[["ckertype",exact=TRUE]],"beta"))
+      .np_plot_lsq_beta_moment_weights(bws,txdat,numeric(n),projection[[1L]],
+        ex=if(training)NULL else evaluation,index=index,max.bytes=budget) else
+      .np_plot_lsq_gate_weights(bws,geometry,index,training=training,max.bytes=budget)
+    block <- .Call('C_np_plot_projection_apply',projection[[1L]],P,weights,PACKAGE='np')
+    out[index,] <- if(apply)block%*%y else block
+  }
+  attr(out,'ridge.used') <- captured$ridge
+  if(!is.null(empty) && any(empty!=0L)) attr(out,'.np.empty.rows') <- empty
+  out
+}
+
 .npreghat_exact_matrix_from_core <- function(bws, txdat, exdat = NULL, s = NULL, allow.empty.rows = FALSE) {
   miss.ex <- is.null(exdat)
   neval <- if (miss.ex) nrow(txdat) else nrow(exdat)
@@ -419,6 +478,9 @@ npreghat <-
   ntrain <- nrow(txdat)
   neval <- nrow(eval.data)
   beta.kernel <- identical(bws[["ckertype", exact = TRUE]], "beta")
+  if (beta.kernel && bws$ckerorder == 2L && ncol(txdat) == 1L &&
+      bws$type %in% c("generalized_nn", "adaptive_nn"))
+    attr(bws, "np.lc.nn.derivative") <- TRUE
 
   if (identical(bws$type, "adaptive_nn")) {
     call <- quote(npksum.default(
@@ -447,12 +509,18 @@ npreghat <-
       pkw <- as.matrix(pkw)
     }
 
+    # The derivative slice is training rows by evaluation points, even for one query.
+    if (!is.matrix(pkw))
+      pkw <- matrix(pkw, nrow = ntrain, ncol = neval)
+
     sk <- as.vector(out$ksum)
     dsk <- out$p.ksum
     if (length(dim(dsk)) == 3L) {
       dsk <- dsk[, 1L, target.cont, drop = TRUE]
     } else if (is.matrix(dsk)) {
       dsk <- dsk[, target.cont, drop = TRUE]
+    } else if (neval == 1L && length(dsk) == bws$ncon) {
+      dsk <- dsk[[target.cont]]
     }
     dsk <- as.vector(dsk)
 
@@ -939,7 +1007,11 @@ npreghat <-
     bernstein.basis = bernstein.basis
   )
 
-  precision.eligible <- .np_regression_precision_scope(bws)
+  precision.eligible <- .np_regression_precision_scope(bws) ||
+    (identical(bws[["type"]], "adaptive_nn") && identical(degree, 2L) &&
+     identical(bws[["ckertype"]], "gaussian") && identical(bws[["ckerbound"]], "fixed") &&
+     identical(as.integer(bws[["ckerorder"]]), 2L) && bws$ncon == 1L &&
+     bws$nuno == 0L && bws$nord == 0L)
   if(precision.eligible) attr(kw,".np.precision.eligible") <- TRUE
   matprod.mode <- getOption("matprod")
   H.fast <- if (ncol(W.train) == 1L ||
@@ -1715,8 +1787,10 @@ npreghat <-
         !identical(bws[["type", exact=TRUE]], "fixed") ||
         !identical(bws[["ckertype", exact=TRUE]], "gaussian") ||
         bws[["ckerorder", exact=TRUE]] != 2L ||
-        !identical(bws[["ckerbound", exact=TRUE]], "none") || bws$ncon < 1L)
-      stop("compact regression inference requires an external fixed unbounded second-order Gaussian SE fit",call.=FALSE)
+        (!identical(bws[["ckerbound", exact=TRUE]], "none") &&
+         (bws[["nuno", exact=TRUE]] != 0L || bws[["nord", exact=TRUE]] != 0L)) ||
+        bws$ncon < 1L)
+      stop("compact regression inference requires an external fixed second-order Gaussian SE fit; bounded kernels require continuous predictors only",call.=FALSE)
     attr(output.request,".np.inference.width") <- as.integer(
       if (npIsCanonicalLp0Spec(reg.spec,bws$ncon)) 1L else
         npLpBasisNcol(reg.spec$basis.engine,degree.c))
@@ -1803,7 +1877,7 @@ npreghat.formula <-
     .np_reject_fit_subset(substitute(list(...))[-1L])
 
 
-    dots <- list(...)
+    dots <- .np_formula_dispatch_args(NULL, substitute(list(...))[-1L], environment(), omit.subset = FALSE)
     tt <- terms(bws)
     m <- match(c("formula", "data", "subset", "na.action"),
                names(bws$call), nomatch = 0)
@@ -1839,7 +1913,7 @@ npreghat.formula <-
     if (has.eval)
       hat.args$exdat <- exdat
 
-    ev <- do.call(npreghat, c(hat.args, dots))
+    ev <- do.call(npreghat, c(hat.args, .np_formula_options(dots, "npreghat.formula")))
     attr(ev, "call") <- match.call(expand.dots = FALSE)
     ev
   }
@@ -1850,7 +1924,7 @@ npreghat.call <-
 
   .np_reject_native_data(substitute(list(...))[-1L])
 
-    dots <- list(...)
+    dots <- .np_formula_dispatch_args(NULL, substitute(list(...))[-1L], environment(), omit.subset = FALSE)
     args <- .np_retained_training_args(
       bws, c(txdat = "xdat", y = "ydat"), dots, npreghat.rbandwidth,
       training = "txdat")
@@ -1903,7 +1977,7 @@ npreghat.rbandwidth <-
       stop("'ridge' must be one finite nonnegative number", call. = FALSE)
     constraint.output <- identical(output, "constraint")
     matrix.output <- identical(output, "matrix") || constraint.output
-    dots <- list(...)
+    dots <- .np_formula_dispatch_args(NULL, substitute(list(...))[-1L], environment(), omit.subset = FALSE)
     npRejectLegacyLpArgs(names(dots), where = "npreghat")
 
     allow.empty.rows <- !missing(exdat) &&
@@ -1963,7 +2037,7 @@ npreghat.rbandwidth <-
     if (!any(keep.rows))
       stop("Training data has no rows without NAs")
 
-    txdat <- txdat[keep.rows, , drop = FALSE]
+    txdat <- .np_data_rows(txdat, keep.rows)
     if (!is.null(y))
       y <- y[keep.rows, , drop = FALSE]
 
@@ -1974,7 +2048,7 @@ npreghat.rbandwidth <-
         keep.eval[as.integer(rows.omit.eval)] <- FALSE
       if (!any(keep.eval))
         stop("Evaluation data has no rows without NAs")
-      exdat <- exdat[keep.eval, , drop = FALSE]
+      exdat <- .np_data_rows(exdat, keep.eval)
     }
 
     base.spec <- npValidatedConditionalRegSpec(
@@ -2088,7 +2162,12 @@ npreghat.rbandwidth <-
       leave.one.out = leave.one.out
     )
 
-    exact.core.route <- native.loo.route ||
+    fitted.capture.route <- .npreghat_fitted_capture_scope(bws) &&
+      !isTRUE(leave.one.out) && ridge==0 &&
+      identical(reg.spec$regtype.engine,"lp") && !constant.basis &&
+      sum(s>0L)<=1L && !direct.apply
+
+    exact.core.route <- fitted.capture.route || native.loo.route ||
       (!isTRUE(leave.one.out) &&
        simple.operator.request &&
        (
@@ -2134,6 +2213,17 @@ npreghat.rbandwidth <-
           leave.one.out)))
       stop("npreghat: nonzero 'ridge' is not supported for this operator; use ridge = 0 for the existing automatic numerical ridging policy",
            call. = FALSE)
+
+    if(fitted.capture.route && identical(output,"apply")) {
+      out <- .npreghat_fitted_capture(bws,txdat,
+        if(no.ex)NULL else exdat,s,y=y,apply=TRUE,allow.empty.rows=allow.empty.rows)
+      empty.rows <- attr(out,".np.empty.rows",exact=TRUE)
+      attr(out,".np.empty.rows") <- NULL
+      attr(out,"ridge.used") <- NULL
+      colnames(out) <- .npreghat_apply_colnames(y)
+      if(ncol(out)==1L) out <- as.vector(out)
+      return(finish.empty.rows(out,empty.rows))
+    }
 
     if (native.loo.route && identical(output, "apply")) {
       out <- .npreghat_exact_lp_apply_from_regression_core(
@@ -2242,7 +2332,10 @@ npreghat.rbandwidth <-
     }
 
     if (exact.core.route) {
-      H <- if (exact.beta.native.route || native.lp.mean.matrix.route ||
+      H <- if(fitted.capture.route) {
+        .npreghat_fitted_capture(bws,txdat,
+          if(no.ex)NULL else exdat,s,allow.empty.rows=allow.empty.rows)
+      } else if (exact.beta.native.route || native.lp.mean.matrix.route ||
                    native.loo.route ||
                    (lc.derivative.exact.route && !beta.kernel)) {
         .npreghat_exact_lp_matrix_from_regression_core(
@@ -2309,7 +2402,7 @@ npreghat.rbandwidth <-
         return(finish.empty.rows(
           .np_hat_constraint_from_matrix(H, y, "npreghat"), empty.rows))
 
-      ridge.used <- if (native.lp.mean.matrix.route || native.loo.route) {
+      ridge.used <- if (fitted.capture.route || native.lp.mean.matrix.route || native.loo.route) {
         .npreghat_native_ridge_used(
           H, nrow(H), "npreghat(..., output = 'matrix')", empty.rows
         )

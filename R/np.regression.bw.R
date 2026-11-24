@@ -31,10 +31,10 @@ npregbw.formula <-
     dots <- list(...)
     .np_formula_frame_store(dots[[".np.formula.state", exact = TRUE]], mf)
     dots$.np.formula.state <- NULL
-    tbw <- do.call(npregbw, c(list(xdat = xdat, ydat = quote(ydat)), dots))
+    tbw <- do.call(npregbw, c(list(xdat = xdat, ydat = quote(ydat)), .np_formula_options(dots, "npregbw.formula")))
 
     ## clean up (possible) inconsistencies due to recursion ...
-    tbw$call <- .np_formula_call_public(match.call(expand.dots = FALSE))
+    tbw$call <- .np_public_replay_call(match.call(expand.dots = FALSE), "npregbw")
     environment(tbw$call) <- parent.frame()
     tbw$formula <- formula
     tbw$rows.omit <- as.vector(attr(mf,"na.action"))
@@ -67,7 +67,7 @@ npregbw.NULL <-
   .np_reject_native_data(.np.context$dots)
   .np_reject_native_frame_args(.np.context$dots)
 
-    dots <- list(...)
+    dots <- .np_formula_dispatch_args(NULL, substitute(list(...))[-1L], environment(), omit.subset = FALSE)
     .np_nomad_native_reject_unsupported_options_from_dots(
       dots,
       "native npreg NOMAD route"
@@ -78,12 +78,18 @@ npregbw.NULL <-
     bws = double(dim(xdat)[2])
     
     tbw <- do.call(if (.np.context$public) npregbw.default else .npregbw_auxiliary,
-                   c(list(xdat = xdat, ydat = ydat, bws = bws), dots))
+                   c(list(xdat = xdat,
+                          ydat = if (is.language(ydat) || typeof(ydat) == "bytecode" ||
+                                     any(vapply(dots, function(value)
+                                       is.language(value) || typeof(value) == "bytecode",
+                                       logical(1)))) ydat else quote(ydat),
+                          bws = bws), dots))
 
     ## clean up (possible) inconsistencies due to recursion ...
     mc <- .np.context$call
     environment(mc) <- .np.context$caller
-    tbw$call <- mc
+    tbw$call <- if (isTRUE(.np.context$public))
+      .np_public_replay_call(mc, "npregbw") else mc
 
     tbw <- updateBwNameMetadata(nameList =
                                 list(ynames = deparse(.np.context$response)),
@@ -222,8 +228,8 @@ npregbw.NULL <-
   if (length(rows.omit) > 0L)
     keep.rows[as.integer(rows.omit)] <- FALSE
 
-  xdat <- xdat[keep.rows,, drop = FALSE]
-  ydat <- ydat[keep.rows]
+  xdat <- .np_data_rows(xdat, keep.rows)
+  ydat <- .np_data_rows(ydat, keep.rows, frame = FALSE)
 
   if (is.factor(ydat))
     ydat <- dlev(ydat)[as.integer(ydat)]
@@ -477,7 +483,7 @@ npregbw.rbandwidth <-
   .np_reject_native_frame_args(.np.context$dots)
 
     nomad.opts <- .np_nomad_normalize_user_opts(nomad.opts, "npregbw")
-    dots <- list(...)
+    dots <- .np_formula_dispatch_args(NULL, substitute(list(...))[-1L], environment(), omit.subset = FALSE)
     if (length(nomad.opts))
       .np_nomad_native_reject_unsupported_options_for_route(
         opts = nomad.opts,
@@ -543,8 +549,8 @@ npregbw.rbandwidth <-
     if (!any(keep.rows))
       stop("Data has no rows without NAs")
 
-    xdat <- xdat[keep.rows,,drop = FALSE]
-    ydat <- ydat[keep.rows]
+    xdat <- .np_data_rows(xdat, keep.rows)
+    ydat <- .np_data_rows(ydat, keep.rows, frame = FALSE)
     
     nrow = dim(xdat)[1]
     ncol = dim(xdat)[2]
@@ -997,7 +1003,8 @@ npregbw.rbandwidth <-
                                             transform.bounds = FALSE,
                                             scale.factor.search.lower = NULL,
                                             eval.only = FALSE,
-                                            objective = c("ls", "ks")) {
+                                            objective = c("ls", "ks"),
+                                            .prepare.index = FALSE) {
   invalid.penalty <- match.arg(invalid.penalty)
   objective <- match.arg(objective)
   penalty.multiplier <-
@@ -1032,8 +1039,8 @@ npregbw.rbandwidth <-
   if (length(rows.omit) > 0L)
     keep.rows[as.integer(rows.omit)] <- FALSE
 
-  xdat <- xdat[keep.rows,, drop = FALSE]
-  ydat <- ydat[keep.rows]
+  xdat <- .np_data_rows(xdat, keep.rows)
+  ydat <- .np_data_rows(ydat, keep.rows, frame = FALSE)
 
   if (is.factor(ydat))
     ydat <- dlev(ydat)[as.integer(ydat)]
@@ -1133,6 +1140,18 @@ npregbw.rbandwidth <-
 
   cker.bounds.c <- npKernelBoundsMarshal(bws$ckerlb[bws$icon], bws$ckerub[bws$icon])
 
+  # The test refits the same complete Gaussian LC design repeatedly. Keep
+  # the canonical native option vectors; index, response, scale and h vary.
+  if (isTRUE(.prepare.index)) {
+    stopifnot(isTRUE(eval.only), bws$ncon == 1L, bws$nuno + bws$nord == 0L,
+              identical(bws$type, "fixed"), identical(bws$ckerbound, "none"),
+              identical(reg.spec$regtype.engine, "lc"), !isTRUE(bws$scaling))
+    return(list(opti = as.integer(myopti), optd = as.double(myoptd),
+                degree = as.integer(degree.c), basis = as.integer(npLpBasisCode(reg.spec$basis.engine)),
+                bernstein = as.integer(isTRUE(reg.spec$bernstein.basis.engine)),
+                lo = as.double(cker.bounds.c$lb), hi = as.double(cker.bounds.c$ub),
+                support = .np_native_categorical_support(bws)))
+  }
   if (isTRUE(eval.only)) {
     out <- .Call(
       C_np_regression_bw_eval,
@@ -2783,7 +2802,7 @@ npregbw.default <-
   .np_reject_native_frame_args(.np.context$dots)
 
     nomad.opts <- .np_nomad_normalize_user_opts(nomad.opts, "npregbw")
-    lp.dot.args <- list(...)
+    lp.dot.args <- .np_formula_dispatch_args(NULL, substitute(list(...))[-1L], environment(), omit.subset = FALSE)
     if (length(nomad.opts))
       .np_nomad_native_reject_unsupported_options_for_route(
         opts = nomad.opts,
@@ -2987,8 +3006,8 @@ npregbw.default <-
       keep.rows <- rep_len(TRUE, NROW(xdat))
       if (length(rows.omit)) keep.rows[as.integer(rows.omit)] <- FALSE
       if (!any(keep.rows)) stop("Data has no rows without NAs")
-      search.xdat <- xdat[keep.rows, , drop = FALSE]
-      search.ydat <- ydat[keep.rows]
+      search.xdat <- .np_data_rows(xdat, keep.rows)
+      search.ydat <- .np_data_rows(ydat, keep.rows, frame = FALSE)
       degree.search$nobs <- sum(keep.rows)
 
       eval_fun <- function(degree.vec) {
@@ -3062,7 +3081,8 @@ npregbw.default <-
       tbw <- .np_attach_nomad_shortcut(tbw, nomad.shortcut$metadata)
       mc <- .np.context$call
       environment(mc) <- .np.context$caller
-      tbw$call <- mc
+      tbw$call <- if (isTRUE(.np.context$public))
+      .np_public_replay_call(mc, "npregbw") else mc
       return(.np_bws_retain_native_training(tbw, xdat = xdat, ydat = ydat))
     }
 
@@ -3083,7 +3103,8 @@ npregbw.default <-
 
     mc <- .np.context$call
     environment(mc) <- .np.context$caller
-    tbw$call <- mc
+    tbw$call <- if (isTRUE(.np.context$public))
+      .np_public_replay_call(mc, "npregbw") else mc
 
     return(.np_bws_retain_native_training(tbw, xdat = xdat, ydat = ydat))
     

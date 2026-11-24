@@ -10,13 +10,24 @@
   identical(state[['construction',exact=TRUE]],'density-fixed-beta-guide-residual-v1')
 }
 
+# The existing R9 plot operator is independent of the fitted native order.
+# Higher orders share calibrated bands in q1/q2. Marginal normal pmzsd
+# remains a separate q1-only higher-order contract and requires asymptotic inference.
+.np_udens_beta_order_request <- function(bws, band) {
+  isTRUE(bws[['ckerorder', exact=TRUE]] == 2L) ||
+    (isTRUE(bws[['ckerorder', exact=TRUE]] %in% c(4L, 6L, 8L)) &&
+     ((isTRUE(bws[['ndim', exact=TRUE]] %in% 1:2) &&
+       isTRUE(band %in% c('pointwise', 'simultaneous', 'bonferroni', 'all'))) ||
+      (isTRUE(bws[['ndim', exact=TRUE]] == 1L) && identical(band, 'pmzsd'))))
+}
+
 .np_udens_beta_public_prepare <- function(bws,x,method,bootstrap,band,calibration,alpha,seed) {
   if(!identical(bws[['ckerbound',exact=TRUE]],'fixed'))
     stop("beta corrected bands require known ckerbound='fixed' bounds; range bounds are not supported",call.=FALSE)
-  if(!identical(bws[['type',exact=TRUE]],'fixed') || !isTRUE(bws[['ckerorder',exact=TRUE]]==2L) ||
+  if(!identical(bws[['type',exact=TRUE]],'fixed') || !.np_udens_beta_order_request(bws,band) ||
      !isTRUE(bws[['ndim',exact=TRUE]]%in%1:2) ||
      !isTRUE(bws[['ncon',exact=TRUE]]==bws[['ndim',exact=TRUE]]))
-    stop('beta corrected bands require fixed order-2 bandwidths and one or two continuous coordinates',call.=FALSE)
+    stop('beta corrected bands require fixed bandwidths: orders 2/4/6/8 for one or two continuous coordinates with a calibrated band; higher-order asymptotic pmzsd requires one coordinate',call.=FALSE)
   normal <- .np_udens_bounded_normal_request(bws,method,band,calibration,alpha)
   if(!normal && !band%in%c('pointwise','simultaneous','bonferroni','all'))
     stop("beta corrected bands require explicit band='pointwise', 'simultaneous', 'bonferroni' or 'all'",call.=FALSE)
@@ -25,7 +36,7 @@
     stop('beta asymptotic bands do not accept bootstrap calibration',call.=FALSE)
   if(identical(method,'bootstrap') && (!identical(bootstrap,'inid') ||
      is.null(variant) || !variant%in%c('symmetric-sd','asymmetric-sd')))
-    stop("beta bootstrap bands require bootstrap='inid' and calibration='symmetric-sd' or 'asymmetric-sd'",call.=FALSE)
+    stop("beta bootstrap bands require bootstrap='inid' and interval='symmetric-sd' or interval='asymmetric-sd'",call.=FALSE)
   if(!is.data.frame(x) || nrow(x)<10L || ncol(x)!=bws[['ndim',exact=TRUE]] ||
      anyDuplicated(names(x)) || any(!nzchar(names(x))) ||
      !all(vapply(x,is.numeric,logical(1L))) || any(!is.finite(as.matrix(x))))

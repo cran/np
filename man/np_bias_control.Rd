@@ -54,7 +54,9 @@ np_bias_control(construction = c("iterated", "legacy"),
     Actual local rank checks also apply.}
   \item{bernstein.basis}{Logical. Must be \code{TRUE} for auxiliary degree
     greater than one. The canonical stable GLP representation (degree-graded shifted Legendre)
-    is used for the auxiliary polynomial space, including derivative rows.
+    defines the auxiliary polynomial space and its local rank check. For an
+    identified univariate profile-specific P1 fit, weighted QR evaluates the
+    training mean and first derivative in an equivalent polynomial basis.
     This control never changes the fitted main model basis.}
   \item{p0.scale, p1.scale, operator.scale, variance.scale}{Positive auxiliary
     bandwidth scale factors. Each may be a scalar, an unnamed vector in
@@ -66,7 +68,15 @@ np_bias_control(construction = c("iterated", "legacy"),
     exclusive. Raw bandwidths must be transformed when predictor units change.}
 }
 \details{
-  Supply \code{bias_control=np_bias_control(...)} to the regression plot.
+  For one-sided Gaussian degree-zero nearest-neighbour regression with one
+  continuous predictor, inactive adaptation and auxiliary degree five, the P0
+  residual removes a
+  polynomial trend before applying an identified full-support hat row.
+  That row reproduces the polynomial exactly in exact arithmetic. At an
+  extrapolated target, full-support P1 means and first derivatives use a
+  compensated Gaussian calculation after the ordinary zero-ridge check.
+
+  Supply \code{bias.control=np_bias_control(...)} to the regression plot.
   Omitting this argument with \code{center="bias-corrected"} uses the iterated
   defaults. \code{center="estimate"} remains the ordinary plot default.
 
@@ -117,7 +127,7 @@ np_bias_control(construction = c("iterated", "legacy"),
   fixtures. This does not establish uniform finite-sample coverage or qualify
   near-singular auxiliary or main-fit geometry.
 
-  The implementation admits an unbounded second-order Gaussian kernel,
+  The original regression construction admits an unbounded second-order Gaussian kernel,
   LC, LL and package-admissible GLP main degree vectors, including mixed
   degrees, with any positive number of continuous predictors. Fixed,
   adaptive-neighbour and generalized-neighbour bandwidths are supported.
@@ -132,8 +142,9 @@ np_bias_control(construction = c("iterated", "legacy"),
   It supports means, pure partial derivatives and categorical first
   differences, with the higher-order qualifications described below.
   Categorical differences have numerical operator validation; coverage evidence
-  must be interpreted for the configurations actually studied. Other kernels,
-  additive and tensor main bases remain outside this construction.
+  must be interpreted for the configurations actually studied. Additional kernel and support combinations are available only for the
+  constructions described in \code{\link{np_boot_control}}. Additive and
+  tensor main bases remain outside this construction.
 
   Other categorical layouts use a partially pooled auxiliary for fixed,
   adaptive-neighbour or generalized-neighbour bandwidths, supporting means,
@@ -217,6 +228,10 @@ np_bias_control(construction = c("iterated", "legacy"),
   neighborhoods remain edge stresses rather than primary qualification cases.
   Pooled main rows requiring a positive numerical ridge remain unsupported.
 
+  Experimental first-derivative bands for degree-zero beta nearest-neighbour
+  regression with one bounded continuous predictor use the four law-specific
+  pointwise and simultaneous constructions described in \code{\link{plot.np}}.
+
   Fixed-bandwidth local-constant models with categorical predictors only use an exact
   finite-profile reduction: the corrected means are observed joint-profile
   sample means, and contrasts subtract those complete profile-average rows.
@@ -283,7 +298,7 @@ np_bias_control(construction = c("iterated", "legacy"),
   row resample. Inid uses the smoothed variance refinement; fixed and geom use
   their score-bootstrap scale. On pooled fixed and geom paths the scale is
   the exact conditional covariance and bootstrap-t uses a replicate-specific
-  selected-block scale. The \code{pmzsd} display uses a normal multiple of the
+  selected-block scale. The \code{interval="normal-sd"} display uses a normal multiple of the
   observed scale, with no bootstrap-t coverage claim. Degenerate resampling
   variance for an active target is an error, not a zero-width interval.
   Automatic block selection uses raw P0 residuals
@@ -291,18 +306,23 @@ np_bias_control(construction = c("iterated", "legacy"),
   The legacy \code{nonfixed="frozen"} resampling switch is not applicable.
   Explicit block lengths are retained as overrides.
 
+  The opt-in \code{interval="basic-envelope"} uses an
+  endpoint-unit basic envelope for inid/fixed/geometric fixed-bandwidth means, derivatives and categorical contrasts. It retains the
+  corrected center, variance owner and bounded corrected-row computation; see
+  \code{\link{np_boot_control}} for its construction and restrictions.
+
   \code{band="pointwise"}, \code{"simultaneous"}, \code{"bonferroni"}
   and \code{"all"} share the corrected center and scale. Simultaneous
   coverage refers to the finite displayed grid within each scalar target
   family. Bands are nested and coincide for a singleton family. Gaussian
   and bootstrap marginal limits use absolute studentized draws and an outward
-  Bonferroni envelope. \code{band="pmzsd"} retains
-  its normal-quantile times standard-error meaning. Use \code{gaussian_draws}
+  Bonferroni envelope. \code{interval="normal-sd"} retains
+  its normal-quantile times standard-error meaning. Use \code{gaussian.draws}
   or \code{B} to control calibration precision. Increasing the number of
   draws can be necessary for remote empirical Bonferroni tails on large grids.
   If \eqn{\alpha/m < 1/B}, the empirical marginal Bonferroni quantile reaches
   the largest simulated absolute statistic before the outward envelope is
-  applied. Here \eqn{B} denotes \code{gaussian_draws} for Gaussian
+  applied. Here \eqn{B} denotes \code{gaussian.draws} for Gaussian
   calibration or \code{B} for bootstrap calibration. Increasing the draw
   count improves tail resolution; the default count does not ensure precise
   Bonferroni tails for every grid size.
@@ -430,9 +450,9 @@ failures must be considered when experimenting with these bounds.
 \examples{
 \dontrun{
 plot(fit, errors="asymptotic", center="bias-corrected",
-     band="simultaneous", bias_control=np_bias_control(), output="data")
+     band="simultaneous", bias.control=np_bias_control(), output="data")
 plot(fit, errors="bootstrap", center="bias-corrected", bootstrap="wild",
-     band="all", bias_control=np_bias_control(iterations=32L), output="data")
+     band="all", bias.control=np_bias_control(iterations=32L), output="data")
 }
 }
 \keyword{hplot}

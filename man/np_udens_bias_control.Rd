@@ -10,7 +10,7 @@ Selects joint-scale bias-corrected density intervals, the earlier positive-covar
 \arguments{\item{construction}{The joint-scale envelope, earlier positive-covariance construction, or existing smooth-bootstrap centering route.}}
 \details{
 With \code{center="bias-corrected"}, \code{errors="asymptotic"}, and
-omitted or \code{NULL} \code{bias_control}, fixed unbounded second-order
+omitted or \code{NULL} \code{bias.control}, fixed unbounded second-order
 Gaussian density plots with one to three continuous numeric variables use the
 D8 positive-pilot construction described below, for \eqn{10^{-4}<\alpha<0.5}.
 Other previously supported requests retain their existing construction and
@@ -36,20 +36,67 @@ coverage guarantee.
 Regression iterations and residual/pilot assumptions do not apply.
 
 For the joint-scale construction, omitting \code{band}, or selecting
-\code{band="pmzsd"}, uses the existing
+\code{interval="normal-sd", band="pointwise"}, uses the existing
 normal-quantile convention: the corrected center plus or minus
 \eqn{z_{1-\alpha/2}} times the returned \code{std_error}. The family provider supplies
 the corrected scale; its pointwise calibration work and RNG contract are
 retained. These normal intervals do not apply the joint-scale uncertainty
 envelope and do not inherit its empirical coverage results. Their endpoints
-are in the interval rows with \code{band="pmzsd"}. Explicit \code{"pointwise"}, \code{"simultaneous"},
+are in the interval rows with \code{interval="normal-sd", band="pointwise"}. Explicit \code{"pointwise"}, \code{"simultaneous"},
 \code{"bonferroni"} and \code{"all"} retain their calibrated constructions.
 
 
+
+\subsection{Whole-line compact normal and simultaneous bands}{
+With omitted or \code{NULL} \code{bias.control}, fixed unbounded second-order
+Epanechnikov density plots support \code{errors="asymptotic"},
+\code{center="bias-corrected"} and explicit pointwise, Bonferroni, simultaneous
+or \code{all} bands for one continuous variable and at least ten finite
+observations.
+The M4 plot correction uses an order-six compact operator with a fitted normal
+guide. Its covariance includes the complete guide influence and cross terms
+under a positive, equally weighted Gaussian-mixture reference distribution at
+the original fitted bandwidth. A full, unstudentized absolute Gaussian maximum
+calibrates the supplied finite grid at \eqn{1-\alpha}, using type-7 quantiles.
+Negative corrected values and interval endpoints are retained.
+
+Pointwise intervals use the corrected center plus or minus
+\eqn{z_{1-\alpha/2}} times the complete M4 standard error. Raw Bonferroni
+intervals replace that quantile with \eqn{z_{1-\alpha/(2m)}}, where \eqn{m}
+is the number of unique supplied targets; no simultaneous containing hull is
+applied. \code{all} returns those same normal components and the unchanged
+Gaussian-maximum simultaneous component.
+
+Under the same q=1, fixed-bandwidth, whole-line order-two specification, uniform
+kernels support asymptotic pointwise and raw Bonferroni normal intervals through
+the complete Q6 covariance, including fitted-guide influence and cross terms.
+Its positive reference is the empirical mixture plus
+\eqn{h\sqrt{2/3}} times Student-six noise. The normal calculation draws no
+bootstrap samples and does not admit uniform asymptotic simultaneous or
+\code{all} bands. Explicit \code{bootstrap="smoothed-q6"} remains a distinct
+conditional bootstrap procedure.
+
+These additions remain experimental. The retained comparison gives useful
+average marginal coverage, but local sparse-tail undercoverage persists; good
+average coverage does not guarantee coverage at every target. Neither addition
+selects normal \code{pmzsd} or changes bootstrap bands. Higher requested orders,
+bounds, nearest-neighbour bandwidths, mixed data and multiple coordinates do
+not select these q=1 constructions. Existing constructions,
+explicit controls, original fitted values, estimator standard errors,
+bandwidth selection and \code{se=FALSE} remain unchanged. Its numerical
+refinement checks, bounded workspace and existing temporary-RNG safeguards
+fail explicitly when their contracts cannot be met; no generator, grid,
+draw count, tolerance or statistical method is substituted.
+
+The coverage experiments condition on the selected bandwidth and supplied
+finite grid. They do not establish a continuum or a universal finite-sample
+coverage guarantee. The experimental-status warning applies to this method.
+}
+
 \subsection{Known-bound beta density inference}{
-With omitted or \code{NULL} \code{bias_control}, fixed second-order beta
-kernels support \code{errors="asymptotic"} and independent bootstrap
-\code{calibration="symmetric-sd"} or \code{"asymmetric-sd"}. Request
+With omitted or \code{NULL} \code{bias.control}, fixed beta
+kernels of orders 2, 4, 6 and 8 in one or two continuous dimensions support \code{errors="asymptotic"} and independent bootstrap
+\code{interval="symmetric-sd"} or \code{"asymmetric-sd"}. Request
 \code{center="bias-corrected"} and explicitly select \code{band="pointwise"}
 or \code{"simultaneous"}, \code{"bonferroni"} or \code{"all"}. This plot-only construction supports one or two
 continuous variables, at least ten observations and known finite coordinatewise
@@ -59,6 +106,18 @@ literal support endpoints are rejected; no jittering or target deletion occurs.
 Bandwidths, bounds and targets stay fixed during inference. Core fitted values,
 estimator standard errors, bandwidth selection and \code{se=FALSE} are unchanged.
 An object fitted with \code{se=FALSE} can receive explicitly requested plot bands.
+The same plot correction below is used at every admitted native order, with
+the fitted physical bandwidth retained. Higher-order native fits are not
+replaced or coerced to order 2. Higher-order normal \code{pmzsd} remains
+restricted to the separate one-dimensional asymptotic construction below.
+Saved-sample coverage at each native order's own bandwidth was conservative.
+For higher-order two-dimensional calibrated bands, the retained study used
+192 originals and 576 own-order requests: at nominal 95\%, average marginal
+coverage was 99.67--99.94\%, with every supplied grid covered by simultaneous
+bands. There were only 32 originals per distribution/sample-size cell; this
+is evidence of strong conservatism, not nominal efficiency, a universal
+guarantee or untouched independent confirmation. No additional tail draws,
+variance floor or target trimming is used to obtain these intervals.
 
 On normalized support, write \eqn{L_r=4K_r-6K_{2r}+4K_{3r}-K_{4r}}.
 Here \eqn{r} is the dimensionless Chen kernel scale, not a distance
@@ -162,7 +221,7 @@ or renormalization. Stored plotting reuses those limits. The selected RNG kind
 and literal resampling law are retained, including Box--Muller continuation.
 Low tail-draw resolution warns and returns finite limits; failed numerical
 certificates and workspace limits are errors. The requested \code{B} or
-\code{gaussian_draws} is never reduced. The current implementation uses bounded
+\code{gaussian.draws} is never reduced. The current implementation uses bounded
 resident workspaces and invocation-owned temporary files, with limits of
 256 MiB aggregate inference workspace and 512 MiB temporary storage. These
 limits are distinct from total R-process memory.
@@ -178,7 +237,7 @@ calibration stream. This statement does not certify arbitrary custom state
 for other plotting constructions.
 
 For a workspace or owned-file budget refusal, reduce the requested grid size
-and/or the explicit \code{B} or \code{gaussian_draws}, as applicable to the
+and/or the explicit \code{B} or \code{gaussian.draws}, as applicable to the
 reported allocation. Reducing draws changes simulation resolution, not the
 requested nominal level. No draw count, grid or method is reduced automatically.
 Temporary-file creation also requires a writable temporary directory with
@@ -199,9 +258,9 @@ Explicit saved density controls keep their original construction and scope.
 
 
 \subsection{Known-bound univariate normal intervals}{
-With omitted or \code{NULL} \code{bias_control}, known-fixed-bound order-2 beta
+With omitted or \code{NULL} \code{bias.control}, known-fixed-bound order-2 beta
 and Gaussian density plots support \code{errors="asymptotic"},
-\code{center="bias-corrected"} and omitted \code{band} or \code{band="pmzsd"}
+\code{center="bias-corrected"} and omitted \code{band} or \code{interval="normal-sd", band="pointwise"}
 for one continuous variable. Fixed bandwidths, at least ten observations,
 strictly interior data and targets, and \code{0 < alpha < 0.5} are required.
 The original corrected center, observation operator and fitted bandwidth are
@@ -235,9 +294,9 @@ deviation of iid bootstrap refits.
 }
 
 \subsection{Known-bound compact normal intervals in two dimensions}{
-With omitted or \code{NULL} \code{bias_control}, fixed second-order uniform and
+With omitted or \code{NULL} \code{bias.control}, fixed second-order uniform and
 Epanechnikov kernels support corrected asymptotic normal intervals for exactly
-two continuous coordinates. Request omitted \code{band} or \code{band="pmzsd"}.
+two continuous coordinates. Request omitted \code{band} or \code{interval="normal-sd", band="pointwise"}.
 The fixed bandwidth, finite coordinatewise bounds, strictly interior data and
 evaluation targets, at least ten observations and \code{0 < alpha < 0.5} are
 required. The product local-cubic observation operator and corrected center are
@@ -266,12 +325,11 @@ standard errors and \code{se=FALSE} are unchanged.
 
 \subsection{Two-dimensional compact calibrated and SD bands}{
 With omitted density bias controls, fixed second-order uniform and Epanechnikov
-kernels support corrected asymptotic \code{band="pointwise"} and
-\code{"bonferroni"}, and independent \code{"symmetric-sd"} or
+kernels support corrected asymptotic \code{band="pointwise"},
+\code{"simultaneous"}, \code{"bonferroni"} and \code{"all"}, and independent \code{"symmetric-sd"} or
 \code{"asymmetric-sd"} calibration with explicit \code{"pointwise"},
 \code{"simultaneous"}, \code{"bonferroni"} or \code{"all"} bands.
-The SD route requires explicit \code{bootstrap="inid"} and calibration in
-\code{np_boot_control()}; an omitted or different bootstrap law is not remapped.
+The SD route requires explicit \code{bootstrap="inid"} and an explicit \code{interval}; an omitted or different bootstrap law is not remapped.
 Use two continuous variables, known finite coordinatewise fixed bounds,
 fixed bandwidths, at least ten strictly interior observations and interior
 evaluation points, and \code{0 < alpha < 0.5}. Range bounds, literal support
@@ -284,7 +342,14 @@ both the complete ratio-pilot and empirical influence variances; endpoints take
 their containing envelope and include a separate nonlinear guide region. The
 risk allocation remains alpha/2 for the guide and alpha/2 for the residual.
 Analytic pointwise and Bonferroni bands do not require Gaussian draws or a full
-covariance matrix. Asymptotic simultaneous/all calibration is not admitted here.
+covariance matrix. Simultaneous calibration uses the complete covariance under
+each reference measure, the maintained full Gaussian correlation factor and
+one shared normal stream. It uses the type-7 empirical quantile of the absolute
+finite-grid maximum at probability \eqn{1-\alpha/2}. All-band output includes
+the unchanged pointwise and Bonferroni companions. Near-null covariance
+directions are retained without a positive-eigenvalue cutoff or added jitter.
+Different floating-point covariance factorizations need not give identical
+finite-stream endpoints even when they represent the same Gaussian law.
 
 SD bands use literal shared multinomial counts and one actual joint-guide refit
 per draw. Roots are standardized by the original empirical residual scale;
@@ -311,7 +376,7 @@ coverage or protect arbitrary sparse-tail distributions.
 }
 
 \subsection{Known-bound Gaussian density inference}{
-With omitted or \code{NULL} \code{bias_control}, fixed second-order Gaussian
+With omitted or \code{NULL} \code{bias.control}, fixed second-order Gaussian
 kernels with known \code{ckerbound="fixed"} bounds use the FG-D plot
 construction for corrected asymptotic and independent symmetric-sd/asymmetric-sd
 intervals. Request explicit pointwise, simultaneous, Bonferroni or
@@ -440,10 +505,10 @@ require an explicit \code{np_boot_control(blocklen=...)} while automatic mixed
 block-length selection remains unqualified. Dependent-data coverage has not been
 established by the independent-data evidence below.
 
-Select bootstrap calibration through \code{\link{np_boot_control}}:
+Select the bootstrap construction with \code{interval} in the plot call.
 \code{"symmetric-sd"} retains absolute-root bands;
 \code{"asymmetric-sd"} retains transported asymmetric tail bands;
-\code{"smoothed-percentile"} uses outer-calibrated percentiles of complete
+\code{"outer-calibrated-percentile"} uses outer-calibrated percentiles of complete
 unshifted corrected smoothed-bootstrap curves, with companion-band nesting and
 certified full-support completion. The last method is the refined OP1+SC1
 construction with multivariate/mixed-data and categorical-kernel extensions;
@@ -523,7 +588,7 @@ set.seed(123)
 x <- data.frame(x = rnorm(80))
 bw <- npudensbw(dat = x, bws = 0.45, bandwidth.compute = FALSE)
 z <- plot(bw, xdat = x, errors = "bootstrap", bootstrap = "inid",
-          center = "bias-corrected", band = "all", B = 399,
+          center = "bias-corrected", band = "all",
           neval = 3, output = "data")
 z$inference[[1]]$primary
 }

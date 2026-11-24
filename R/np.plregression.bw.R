@@ -34,9 +34,9 @@ npplregbw.formula <-
     tbw <- do.call(npplregbw,
                   c(list(xdat = roles$x, ydat = model.response(roles$yz),
                          zdat = roles$yz[, .np_formula_term_names(spec$chromoly[[3L]]), drop = FALSE]),
-                    dots))
+                    .np_formula_options(dots, "npplregbw.formula")))
 
-    tbw$call <- .np_formula_call_public(match.call(expand.dots = FALSE))
+    tbw$call <- .np_public_replay_call(match.call(expand.dots = FALSE), "npplregbw")
     environment(tbw$call) <- parent.frame()
     tbw$formula <- formula
     tbw$rows.omit <- as.vector(attr(frame, "na.action"))
@@ -77,7 +77,7 @@ npplregbw.NULL =
     ## clean up (possible) inconsistencies due to recursion ...
     mc <- match.call(expand.dots = FALSE)
     environment(mc) <- parent.frame()
-    tbw$call <- mc
+    tbw$call <- .np_public_replay_call(mc, "npplregbw")
 
     tbw <-
       updateBwNameMetadata(nameList = list(ynames = .npplregbw_sanitize_yname(deparse(substitute(ydat)))),
@@ -119,9 +119,9 @@ npplregbw.plbandwidth =
     if (!any(keep.rows))
       stop("Training data has no rows without NAs")
 
-    xdat <- xdat[keep.rows,,drop = FALSE]
-    ydat <- ydat[keep.rows]
-    zdat <- zdat[keep.rows,,drop = FALSE]
+    xdat <- .np_data_rows(xdat, keep.rows)
+    ydat <- .np_data_rows(ydat, keep.rows, frame = FALSE)
+    zdat <- .np_data_rows(zdat, keep.rows)
 
     ## y on z
     total.groups <- 1L + ncol(xdat)
@@ -186,7 +186,8 @@ npplregbw.plbandwidth =
 
   }
 
-.npplregbw_retain_child_training <- function(children, xdat, ydat, zdat) {
+.npplregbw_retain_child_training <- function(children, xdat, ydat, zdat,
+                                           literal.response.call = FALSE) {
   # These calls were made inside package activations, not user formula frames.
   # Keep the native samples needed by an extracted child without serializing
   # an enclosing namespace and the constructor's transient search state.
@@ -194,6 +195,13 @@ npplregbw.plbandwidth =
     children[[i]] <- .np_bws_retain_native_training(
       children[[i]], xdat = zdat,
       ydat = if (i == 1L) ydat else xdat[, i - 1L])
+    # Compact constructor expressions must not become caller-data fallbacks.
+    # Restore only an existing response argument, without creating a call.
+    if (literal.response.call && !is.null(children[[i]]$call) &&
+        "ydat" %in% names(children[[i]]$call) &&
+        is.language(children[[i]]$call[["ydat"]]))
+      children[[i]]$call[["ydat"]] <-
+        children[[i]][[".np.native.training", exact = TRUE]][["ydat", exact = TRUE]]
   }
   children
 }
@@ -221,7 +229,8 @@ npplregbw.plbandwidth =
     child.reg.args$degree <- child.degree[[1L]]
   plband$yzbw <- do.call(
     .npregbw_auxiliary,
-    c(list(xdat = zdat, ydat = ydat, bws = bws[1, ]), child.reg.args)
+    c(list(xdat = zdat, ydat = if (any(vapply(child.reg.args, function(value)
+      is.language(value) || typeof(value) == "bytecode", logical(1)))) ydat else quote(ydat), bws = bws[1, ]), child.reg.args)
   )
 
   for (i in seq_len(dim(xdat)[2])) {
@@ -230,13 +239,15 @@ npplregbw.plbandwidth =
       child.reg.args$degree <- child.degree[[i + 1L]]
     plband[[i + 1L]] <- do.call(
       .npregbw_auxiliary,
-      c(list(xdat = zdat, ydat = xdat[, i], bws = bws[i + 1L, ]), child.reg.args)
+      c(list(xdat = zdat, ydat = if (any(vapply(child.reg.args, function(value)
+      is.language(value) || typeof(value) == "bytecode", logical(1)))) xdat[, i] else quote(xdat[, i]), bws = bws[i + 1L, ]), child.reg.args)
     )
   }
 
   plbw.args <- c(
     list(
-      bws = .npplregbw_retain_child_training(plband, xdat, ydat, zdat),
+      bws = .npplregbw_retain_child_training(plband, xdat, ydat, zdat,
+                                           literal.response.call = TRUE),
       nobs = dim(xdat)[1],
       fval = {
         fv <- unlist(lapply(plband, function(bwi) bwi$fval))
@@ -589,6 +600,9 @@ npplregbw.plbandwidth =
         nomad.inner.nmulti = nomad.inner.nmulti,
         random.seed = random.seed
       )
+      if (!any(vapply(child.args, function(value)
+        is.language(value) || typeof(value) == "bytecode", logical(1))))
+        child.args$ydat <- quote(child.responses[[i]]$values)
       do.call(.npregbw_auxiliary, child.args)
     }, finally = {
       .np_progress_bandwidth_set_context(old.context)
@@ -625,7 +639,8 @@ npplregbw.plbandwidth =
 
   plbw.args <- c(
     list(
-      bws = .npplregbw_retain_child_training(child.list, xdat, ydat, zdat),
+      bws = .npplregbw_retain_child_training(child.list, xdat, ydat, zdat,
+                                           literal.response.call = TRUE),
       nobs = dim(xdat)[1],
       fval = if (all(!is.finite(child.fval))) NA_real_ else sum(child.fval[is.finite(child.fval)]),
       num.feval = sum(child.feval),
@@ -743,7 +758,7 @@ npplregbw.default =
     zdat <- toFrame(zdat)
     .np_require_numeric_response(ydat, "npplregbw", "ydat")
 
-    dots <- list(...)
+    dots <- .np_formula_dispatch_args(NULL, substitute(list(...))[-1L], environment(), omit.subset = FALSE)
     npRejectUnsupportedBwsolver(dots, "npplregbw")
     dot.names <- names(dots)
     mc <- match.call(expand.dots = FALSE)
@@ -934,9 +949,9 @@ npplregbw.default =
         keep.rows <- rep_len(TRUE, NROW(xdat))
         if (length(rows.omit)) keep.rows[as.integer(rows.omit)] <- FALSE
         if (!any(keep.rows)) stop("Data has no rows without NAs")
-        search.xdat <- xdat[keep.rows, , drop = FALSE]
-        search.ydat <- ydat[keep.rows]
-        search.zdat <- zdat[keep.rows, , drop = FALSE]
+        search.xdat <- .np_data_rows(xdat, keep.rows)
+        search.ydat <- .np_data_rows(ydat, keep.rows, frame = FALSE)
+        search.zdat <- .np_data_rows(zdat, keep.rows)
         degree.search$nobs <- sum(keep.rows)
 
         eval_fun <- function(degree.vec) {
@@ -1013,7 +1028,7 @@ npplregbw.default =
         tbw$nobs.omit <- length(rows.omit)
         mc <- match.call(expand.dots = FALSE)
         environment(mc) <- parent.frame()
-        tbw$call <- mc
+        tbw$call <- .np_public_replay_call(mc, "npplregbw")
         tbw <- .np_attach_nomad_shortcut(tbw, nomad.shortcut$metadata)
         return(.np_bws_retain_native_training(tbw, xdat = xdat, ydat = ydat, zdat = zdat))
       }
@@ -1026,9 +1041,9 @@ npplregbw.default =
       stored.data <- list(xdat = xdat, ydat = ydat, zdat = zdat)
       keep <- complete.cases(xdat, ydat, zdat)
       if (!any(keep)) stop("Data has no rows without NAs")
-      xdat <- xdat[keep, , drop = FALSE]
-      ydat <- ydat[keep]
-      zdat <- zdat[keep, , drop = FALSE]
+      xdat <- .np_data_rows(xdat, keep)
+      ydat <- .np_data_rows(ydat, keep, frame = FALSE)
+      zdat <- .np_data_rows(zdat, keep)
     }
     tbw <- .npplregbw_build_plbandwidth(
       xdat = xdat,
@@ -1050,7 +1065,7 @@ npplregbw.default =
 
     mc <- match.call(expand.dots = FALSE)
     environment(mc) <- parent.frame()
-    tbw$call <- mc
+    tbw$call <- .np_public_replay_call(mc, "npplregbw")
     tbw <- .np_attach_nomad_shortcut(tbw, nomad.shortcut$metadata)
 
     if (!is.null(stored.data)) {

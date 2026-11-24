@@ -74,7 +74,11 @@ npregivderiv <- function(y, ...) {
 .np_iv_deriv_adjoint_dots <- function(dots) {
   dot.names <- names(dots)
   if(is.null(dot.names)) return(dots)
-  owned <- c("bandwidth.divide", "ukertype", "okertype")
+  # Upstream regression selects the bandwidth. Its optimization controls have
+  # no meaning in the CDF-weighted adjoint, which uses that fitted bandwidth.
+  kernel <- c(names(formals(npksum.numeric)), names(formals(kbandwidth.numeric)))
+  search.only <- setdiff(names(formals(npregbw.default)), kernel)
+  owned <- c("bandwidth.divide", "ukertype", "okertype", search.only)
   dots[!(!is.na(dot.names) & dot.names %in% owned)]
 }
 
@@ -634,15 +638,15 @@ summary.npregivderiv <- function(object, ...) {
 
 plot.npregivderiv <- function(x,
                               gradients = TRUE,
-                              data_overlay = TRUE,
-                              data_rug = FALSE,
+                              data.overlay = TRUE,
+                              data.rug = FALSE,
                               output = c("plot", "data", "plot-data"),
                          ...) {
-  .np_plot_check_public_names(names(list(...)))
+  .np_plot_check_public_names(.np_plot_dot_names(substitute(list(...))[-1L]))
   matched.call <- match.call(expand.dots = FALSE)
   .np_plot_validate_npregiv_call(
     sys.call(),
-    method_args = c("gradients", "data_overlay", "data_rug", "output"),
+    method_args = c("gradients", "data.overlay", "data.rug", "output"),
     context = "plot.npregivderiv",
     dots_call = matched.call[["..."]]
   )
@@ -650,8 +654,8 @@ plot.npregivderiv <- function(x,
     object = x,
     family = "npregivderiv",
     gradients = gradients,
-    data_overlay = data_overlay,
-    data_rug = data_rug,
+    data_overlay = data.overlay,
+    data_rug = data.rug,
     dots = list(...)
   )
   output <- match.arg(output)

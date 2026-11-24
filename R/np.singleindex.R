@@ -17,6 +17,8 @@ npindex <-
   function(bws, ..., B = 399){
     mc <- match.call(expand.dots = FALSE)
     .np_validate_public_dots(mc[["..."]], "npindex")
+    if (!missing(bws) && "na.action" %in% names(mc[["..."]]))
+      .np_fit_na_preflight(bws, substitute(list(...))[-1L], environment(), "npindex")
     args <- .np_formula_dispatch_args(
       NULL, substitute(list(...))[-1L], environment(),
       data.roles = c("txdat", "tydat"),
@@ -71,13 +73,15 @@ npindex.formula <-
              se = TRUE, ..., se.type = c("asymptotic", "bootstrap")){
     if (!inherits(bws, "formula"))
       .np_reject_fit_subset(substitute(list(...))[-1L])
+    .np_fit_na_preflight(bws, substitute(list(...))[-1L], environment(), "npindex", data = data, newdata = newdata)
 
 
         if (!is.null(y.eval)) y.eval <- npValidateScalarLogical(y.eval, "y.eval")
         raw.formula <- inherits(bws, "formula")
         dots <- if (raw.formula)
           .np_formula_dispatch_args(NULL, substitute(list(...))[-1L], environment())
-        else list(...)
+        else .np_formula_dispatch_args(
+          NULL, substitute(list(...))[-1L], environment(), omit.subset = FALSE)
         # Preserve an explicit evaluation policy before training-response
         # replacement consumes its control arguments. Retained training and
         # native evaluation routes keep their existing separate owners.
@@ -191,10 +195,9 @@ npindex.formula <-
         # The raw formula owner has already applied the training NA policy
         # and retained the evaluation policy above. Native constructors must
         # not receive this consumed formula-only argument a second time.
-        if (raw.formula)
-          dots$na.action <- NULL
-        ev <- do.call(npindex, c(si.args, list(se = se, se.type = se.type), dots))
-        ev$call <- mc
+        dots$na.action <- NULL
+        ev <- do.call(npindex, c(si.args, list(se = se, se.type = se.type), .np_formula_options(dots, "npindex.formula")))
+        ev$call <- .np_public_replay_call(mc, "npindex")
         environment(ev$call) <- .np_call_owner_environment(
           parent.frame(), replacement = environment(tt))
 
@@ -240,17 +243,23 @@ npindex.formula <-
 npindex.call <-
   function(bws, ...) {
     .np_reject_fit_subset(substitute(list(...))[-1L])
+    .np_fit_na_preflight(bws, substitute(list(...))[-1L], environment(), "npindex", native = TRUE)
 
   .np_reject_native_data(substitute(list(...))[-1L])
 
     do.call(npindex, .np_retained_training_args(
-      bws, c(txdat = "xdat", tydat = "ydat"), list(...), npindex.sibandwidth))
+      bws, c(txdat = "xdat", tydat = "ydat"), .np_formula_dispatch_args(NULL, substitute(list(...))[-1L], environment(), omit.subset = FALSE), npindex.sibandwidth))
   }
+
+.np_index_kernel <- function(bws) {
+  .np_semihat_kernel_choice(bws[["ckertype", exact = TRUE]],
+    c("gaussian", "epanechnikov", "uniform"), "single-index preparation")
+}
 
 .np_index_kernel_args <- function(bws) {
   args <- list(
     bwtype = bws$type,
-    ckertype = bws$ckertype,
+    ckertype = .np_index_kernel(bws),
     ckerorder = bws$ckerorder
   )
   if (!is.null(bws$ckerbound))
@@ -367,7 +376,7 @@ npindex.default <- function(bws, txdat, tydat, nomad = FALSE,
   nomad <- npValidateNomadControl(nomad, "nomad")
   dots <- if (!missing(bws) && inherits(bws, "formula"))
     .np_formula_dispatch_args(NULL, substitute(list(...))[-1L], environment())
-  else list(...)
+  else .np_formula_dispatch_args(NULL, substitute(list(...))[-1L], environment(), omit.subset = FALSE)
   npRejectLegacyBooleanErrors(dots, "npindex")
   se <- npValidateScalarLogical(se, "se")
   se.type <- match.arg(se.type)
@@ -405,6 +414,8 @@ npindex.default <- function(bws, txdat, tydat, nomad = FALSE,
     bw.dots$.np_fit_progress_handoff <- NULL
     if (bws.formula)
       bw.dots[c("subset", "na.action")] <- NULL
+    if (bws.formula)
+      bw.dots <- .np_formula_options(bw.dots, "npindex.default")
     bw.args <- c(list(xdat = txdat, ydat = tydat, nomad = nomad), bw.dots)
     tbw <- do.call(
       npindexbw,
@@ -423,6 +434,8 @@ npindex.default <- function(bws, txdat, tydat, nomad = FALSE,
           caller_env = parent.frame()
         )
     }
+    if (bws.formula)
+      fit.dots <- .np_formula_options(fit.dots, "npindex.default")
     return(do.call(npindex, c(fit.args, list(se = se, se.type = se.type), fit.dots)))
   }
 
@@ -501,6 +514,8 @@ npindex.default <- function(bws, txdat, tydat, nomad = FALSE,
   }
   if (no.bws || bws.formula || is.call(bws))
     call.args$.np_fit_progress_handoff <- TRUE
+  if (!is.null(tbw[["formula", exact = TRUE]]))
+    dots <- .np_formula_options(dots, "npindex.default")
   do.call(npindex, c(call.args, list(se = se, se.type = se.type), dots))
 }
 
@@ -516,6 +531,7 @@ npindex.sibandwidth <-
            residuals = FALSE, ..., se.type = c("asymptotic", "bootstrap"),
            y.eval = NULL) {
     .np_reject_fit_subset(substitute(list(...))[-1L])
+    .np_fit_na_preflight(bws, substitute(list(...))[-1L], environment(), "npindex", native = TRUE)
 
   .np_reject_native_data(substitute(list(...))[-1L])
 
@@ -525,7 +541,7 @@ npindex.sibandwidth <-
     se.type <- match.arg(se.type)
     asymptotic.se <- isTRUE(se) && identical(se.type, "asymptotic")
     bootstrap.se <- isTRUE(se) && identical(se.type, "bootstrap")
-    dots <- list(...)
+    dots <- .np_formula_dispatch_args(NULL, substitute(list(...))[-1L], environment(), omit.subset = FALSE)
     npRejectLegacyBooleanErrors(dots, "npindex")
     npRejectLegacyBootstrapCount(names(dots), "npindex")
     fit.progress.handoff <- isTRUE(dots$.np_fit_progress_handoff)
@@ -620,10 +636,10 @@ npindex.sibandwidth <-
     if (!any(keep.rows))
       stop("Training data has no rows without NAs")
 
-    txdat <- txdat[keep.rows,,drop = FALSE]
-    tydat <- tydat[keep.rows]
+    txdat <- .np_data_rows(txdat, keep.rows)
+    tydat <- .np_data_rows(tydat, keep.rows, frame = FALSE)
     if (no.ex && !no.ey)
-      eydat <- eydat[keep.rows]
+      eydat <- .np_data_rows(eydat, keep.rows, frame = FALSE)
 
     if (!no.ex){
       keep.eval <- rep_len(TRUE, nrow(exdat))
@@ -635,9 +651,9 @@ npindex.sibandwidth <-
       if (!any(keep.eval))
         stop("Evaluation data has no rows without NAs")
 
-      exdat <- exdat[keep.eval,,drop = FALSE]
+      exdat <- .np_data_rows(exdat, keep.eval)
       if (!no.ey)
-        eydat <- eydat[keep.eval]
+        eydat <- .np_data_rows(eydat, keep.eval, frame = FALSE)
     }
 
     ## Convert eydat to numeric, from a factor with levels from the y-data
@@ -806,7 +822,7 @@ npindex.sibandwidth <-
             exdat = index.eval.df[1L, , drop = FALSE],
             bws = bws$bw,
             bwtype = bws$type,
-            ckertype = bws$ckertype,
+            ckertype = .np_index_kernel(bws),
             ckerorder = bws$ckerorder,
             ckerbound = bws$ckerbound,
             ckerlb = kernel.args$ckerlb,
@@ -825,7 +841,7 @@ npindex.sibandwidth <-
               exdat = index.df[1L, , drop = FALSE],
               bws = bws$bw,
               bwtype = bws$type,
-              ckertype = bws$ckertype,
+              ckertype = .np_index_kernel(bws),
               ckerorder = bws$ckerorder,
               ckerbound = bws$ckerbound,
               ckerlb = kernel.args$ckerlb,
@@ -873,7 +889,7 @@ npindex.sibandwidth <-
                         exdat=index.eval.df,
                         bws=bws$bw,
                         bwtype = bws$type,
-                        ckertype = bws$ckertype,
+                        ckertype = .np_index_kernel(bws),
                         ckerorder = bws$ckerorder,
                         ckerbound = bws$ckerbound,
                         ckerlb = kernel.args$ckerlb,
@@ -898,7 +914,7 @@ npindex.sibandwidth <-
                           exdat=index.df,
                           bws=bws$bw,
                           bwtype = bws$type,
-                          ckertype = bws$ckertype,
+                          ckertype = .np_index_kernel(bws),
                           ckerorder = bws$ckerorder,
                           ckerbound = bws$ckerbound,
                           ckerlb = kernel.args$ckerlb,
@@ -1002,7 +1018,7 @@ npindex.sibandwidth <-
       moments <- .np_retained_uniform_constructor(.np_index_kernel_moments,y = W, txdat = index.df,
                         bws = bws$bw,
                         bwtype = bws$type,
-                        ckertype = bws$ckertype,
+                        ckertype = .np_index_kernel(bws),
                         ckerorder = bws$ckerorder,
                         ckerbound = bws$ckerbound,
                         ckerlb = kernel.args$ckerlb,
@@ -1051,7 +1067,7 @@ npindex.sibandwidth <-
       W <- txdat[, -1L, drop = FALSE]
       moments <- .np_retained_uniform_constructor(.np_index_kernel_moments,
         y = W, txdat = index.df, bws = bws$bw, bwtype = bws$type,
-        ckertype = bws$ckertype, ckerorder = bws$ckerorder,
+        ckertype = .np_index_kernel(bws), ckerorder = bws$ckerorder,
         ckerbound = bws$ckerbound, ckerlb = kernel.args$ckerlb,
         ckerub = kernel.args$ckerub)
       centered <- W - t(sweep(moments$numerator, 2L,
@@ -1081,7 +1097,7 @@ npindex.sibandwidth <-
           exdat = index.eval.df,
           bws = bws$bw,
           bwtype = bws$type,
-          ckertype = bws$ckertype,
+          ckertype = .np_index_kernel(bws),
           ckerorder = bws$ckerorder,
           ckerbound = bws$ckerbound,
           ckerlb = kernel.args$ckerlb,
@@ -1113,7 +1129,7 @@ npindex.sibandwidth <-
                         exdat = index.eval.df,
                         bws = bws$bw,
                         bwtype = bws$type,
-                        ckertype = bws$ckertype,
+                        ckertype = .np_index_kernel(bws),
                         ckerorder = bws$ckerorder,
                         ckerbound = bws$ckerbound,
                         ckerlb = kernel.args$ckerlb,
@@ -1130,7 +1146,7 @@ npindex.sibandwidth <-
             exdat = index.eval.df,
             bws = bws$bw,
             bwtype = bws$type,
-            ckertype = bws$ckertype,
+            ckertype = .np_index_kernel(bws),
             ckerorder = bws$ckerorder,
             ckerbound = bws$ckerbound,
             regtype = regtype,

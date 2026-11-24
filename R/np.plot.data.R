@@ -74,8 +74,11 @@
 
 .np_plot_data_validate <- function(x) {
   fail <- function(message) stop(paste0("invalid np_plot_data: ", message), call. = FALSE)
-  if (!is.list(x) || !identical(x$schema_version, 1L) ||
-      !is.character(x$family) || length(x$family) != 1L || is.na(x$family))
+  if (!is.list(x) || !is.character(x$family) || length(x$family) != 1L || is.na(x$family) ||
+      !(identical(x$schema_version, 1L) ||
+        (identical(x$schema_version, 2L) &&
+         x$family %in% c("npreg", unname(.np_plot_interval_families)) &&
+         "interval" %in% names(x$request))))
     fail("unknown schema or family")
   if (!is.list(x$panels) || is.null(names(x$panels)) ||
       anyNA(names(x$panels)) || any(!nzchar(names(x$panels))) ||
@@ -123,6 +126,17 @@
     intervals <- panel$intervals
     if (!identical(names(intervals), names(.np_plot_data_empty_intervals())))
       fail("unexpected interval fields")
+    if (identical(x$schema_version,2L) && nrow(intervals)) {
+      keys <- unique(intervals[c("target_id","band")])
+      owners <- x$targets$inference_id[match(keys$target_id,x$targets$target_id)]
+      for (i in seq_len(nrow(keys))) {
+        part <- x$inference[[owners[i]]]$components[[keys$band[i]]]
+        if (!is.list(part) || !all(c("interval","calibration","endpoint_construction","studentization") %in% names(part)) ||
+            !is.character(part$interval) || length(part$interval)!=1L ||
+            !keys$band[i] %in% c("pointwise","bonferroni","simultaneous"))
+          fail("interval has no valid construction component")
+      }
+    }
     finite <- is.finite(intervals$lower) & is.finite(intervals$upper)
     if (any(intervals$lower[finite] > intervals$upper[finite]))
       fail("reversed interval endpoints")
@@ -153,21 +167,24 @@
 }
 
 .np_plot_data <- function(family, request, panels, targets, inference = list(),
-                          coverage_families = list(), diagnostics = list()) {
-  out <- structure(list(schema_version = 1L, family = family, request = request,
+                          coverage_families = list(), diagnostics = list(),
+                          family_exclusions = list()) {
+  schema <- if (family %in% c("npreg", unname(.np_plot_interval_families)) && "interval" %in% names(request)) 2L else 1L
+  out <- structure(list(schema_version = schema, family = family, request = request,
     panels = panels, targets = targets, inference = inference,
     coverage_families = coverage_families, diagnostics = diagnostics),
     class = "np_plot_data")
-  out <- .np_plot_data_family_events(out)
+  out <- .np_plot_data_family_events(out, family_exclusions)
   .np_plot_data_validate(out)
   out
 }
 
-.np_plot_data_family_events <- function(x) {
+.np_plot_data_family_events <- function(x, exclusions = list()) {
   records <- list()
   for (panel_id in names(x$panels)) {
     d <- x$panels[[panel_id]]$intervals
-    keep <- which(d$status != "display_only")
+    keep <- which(d$status != "display_only" &
+                    !d$row_id %in% exclusions[[panel_id]])
     x$panels[[panel_id]]$intervals$family_id[] <- NA_character_
     if (!length(keep)) next
     d <- d[keep, , drop = FALSE]

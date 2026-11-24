@@ -219,6 +219,8 @@ Further arguments are passed to \code{\link{npplregbw}} and its component \code{
   }
 }
 \details{
+  Use \code{\link{nppltest}} to test whether the designated parametric regressors enter linearly and additively given the nuisance covariates.
+
   The primary response must be a one-dimensional numeric (integer or double)
   vector. Factors and ordered factors are not accepted as primary responses,
   including retained responses used in a new fit or bandwidth search.
@@ -320,6 +322,16 @@ Further arguments are passed to \code{\link{npplregbw}} and its component \code{
  \code{npplreg(..., nomad=TRUE)} and \code{npplregbw(..., nomad=TRUE)}
  expand missing settings to the same documented preset. Explicit
  incompatible settings fail fast rather than being silently rewritten.
+}
+
+\section{Missing-value policies with stored bandwidths}{
+An existing bandwidth object retains its training omission policy. Explicit
+\code{na.action} overrides are supported only by the formula replacement-data
+or replacement-response routes that already own that policy, and by documented
+regression and single-index prediction policies. Unsupported stored native or
+formula evaluation overrides are rejected rather than silently ignored.
+For replacement native inputs, prepare the desired complete data explicitly.
+Reusing retained training does not re-run its missing-value callback.
 }
 
 \value{
@@ -482,6 +494,7 @@ failures must be considered when experimenting with these bounds.
 }
 
 \seealso{
+  \code{\link{nppltest}},
   \code{\link{np.kernels}}, \code{\link{np.options}}, \code{\link{plot}}, \code{\link{plot.np}}
   \code{\link{npregbw}}, \code{\link{npreg}} }
 \examples{
@@ -545,16 +558,9 @@ if (interactive()) Sys.sleep(5)
 
 if (interactive()) plot(bw)
 
-# Note - to plot regression surfaces with variability bounds constructed
-# from bootstrapped standard errors, use the following (note that this
-# may take a minute or two depending on the speed of your computer as
-# the bootstrapping is done in real time, and note also that we override
-# the default number of bootstrap replications (9999) reducing them to 25
-# in order to quickly compute standard errors in this instance - don't
-# of course do this in general)
+# Plot the regression surfaces with variability bounds based on bootstrap standard errors.
 
 plot(bw,
-     B=25,
      errors="bootstrap")
 
 
@@ -620,16 +626,9 @@ if (interactive()) Sys.sleep(5)
 
 if (interactive()) plot(bw)
 
-# Note - to plot regression surfaces with variability bounds constructed
-# from bootstrapped standard errors, use the following (note that this
-# may take a minute or two depending on the speed of your computer as
-# the bootstrapping is done in real time, and note also that we override
-# the default number of bootstrap replications (9999) reducing them to 25
-# in order to quickly compute standard errors in this instance - don't
-# of course do this in general)
+# Plot the regression surfaces with variability bounds based on bootstrap standard errors.
 
 plot(bw,
-     B=25,
      errors="bootstrap")
 } % enddontrun
 }

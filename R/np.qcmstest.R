@@ -13,6 +13,7 @@ npqcmstest <- function(formula,
                        density.weighted = TRUE,
                        random.seed = 42,
                        ...) {
+  started <- proc.time()[["elapsed"]]
   if (missing(formula) && !missing(xdat) && !missing(ydat)) {
     frame.args <- substitute(list(...))[-1L]
     if (!missing(subset)) frame.args <- c(list(subset = quote(subset)), frame.args)
@@ -25,7 +26,8 @@ npqcmstest <- function(formula,
 
 
   if (...length())
-    npRejectLegacyBootstrapCount(names(list(...)), "npqcmstest")
+    npRejectLegacyBootstrapCount(names(.np_formula_dispatch_args(NULL, substitute(list(...))[-1L],
+      environment(), omit.subset = FALSE)), "npqcmstest")
 
   .np_cms_validate_model(model, quantile = TRUE)
 
@@ -72,8 +74,8 @@ npqcmstest <- function(formula,
     if (!any(keep.rows))
       stop("Data has no rows without NAs")
 
-    xdat <- xdat[keep.rows,,drop = FALSE]
-    ydat <- ydat[keep.rows]
+    xdat <- .np_data_rows(xdat, keep.rows)
+    ydat <- .np_data_rows(ydat, keep.rows, frame = FALSE)
 
     na.index <- which(!keep.rows)
   }
@@ -348,7 +350,7 @@ npqcmstest <- function(formula,
 
   .np_rng_scope_restore(seed.state)
   
-  cmstest(Jn = tJn$Jn,
+  result <- cmstest(Jn = tJn$Jn,
           In = tJn$In,
           Omega.hat = tJn$Omega.hat,
           sd = s.d,
@@ -365,4 +367,5 @@ npqcmstest <- function(formula,
           boot.method = boot.method,
           boot.num = B,
           na.index = na.index)
+  .np_test_timed_result(result, started)
 }

@@ -5,6 +5,8 @@
 /* Routine registration for the serial np shared library. */
 
 /* .Call calls */
+extern SEXP C_np_pltest_angles(SEXP);
+extern SEXP C_np_indextest_score(SEXP, SEXP, SEXP, SEXP, SEXP);
 extern SEXP C_np_plot_fgd_evaluate(SEXP, SEXP, SEXP, SEXP, SEXP);
 extern SEXP C_np_plot_udens_beta_rule(SEXP, SEXP);
 extern SEXP C_np_plot_udens_beta_axis(SEXP, SEXP, SEXP, SEXP, SEXP);
@@ -16,6 +18,8 @@ extern SEXP C_np_plot_udens_beta_joint_block(SEXP, SEXP, SEXP, SEXP);
 extern SEXP C_np_plot_udens_beta_joint_moments(SEXP, SEXP, SEXP, SEXP, SEXP, SEXP);
 extern SEXP C_np_plot_udens_beta_series_means(SEXP, SEXP, SEXP, SEXP, SEXP, SEXP);
 extern SEXP C_np_plot_udens_beta_joint_covariance(SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP);
+extern SEXP C_np_plot_udens_compact_q2_moments(SEXP, SEXP, SEXP, SEXP, SEXP, SEXP);
+extern SEXP C_np_plot_udens_compact_q2_covariance(SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP);
 extern SEXP C_np_plot_udens_beta_factor(SEXP);
 extern SEXP C_np_plot_udens_beta_region_objective(SEXP, SEXP, SEXP, SEXP, SEXP);
 extern SEXP C_np_plot_udens_d8_column(SEXP, SEXP, SEXP, SEXP, SEXP);
@@ -96,6 +100,8 @@ extern SEXP C_np_release_static_buffers(void);
 
 extern SEXP C_np_plot_alllarge_derivative(SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP);
 extern SEXP C_np_plot_gate_dispatch(SEXP, SEXP, SEXP);
+extern SEXP C_np_bias_gaussian_extrapolate(SEXP, SEXP, SEXP, SEXP, SEXP);
+extern SEXP C_np_bias_gaussian_center(SEXP, SEXP, SEXP, SEXP, SEXP);
 extern SEXP C_np_plot_projection_apply(SEXP, SEXP, SEXP);
 
 extern SEXP C_np_plot_regression_gradient_projection(SEXP);
@@ -110,7 +116,21 @@ extern SEXP C_np_plot_ann_rank_decode(SEXP, SEXP);
 extern SEXP C_np_rng_scope_materialize(void);
 extern SEXP C_np_rng_scope_restore_absent(void);
 
+extern SEXP C_np_plot_udens_bb_log_moments(SEXP, SEXP, SEXP);
+extern SEXP C_np_plot_udens_bb_factor(SEXP, SEXP, SEXP, SEXP, SEXP, SEXP);
+extern SEXP C_np_plot_udens_bb_guide(SEXP, SEXP, SEXP, SEXP, SEXP, SEXP);
+extern SEXP C_np_plot_udens_bb_guide_order(SEXP,SEXP,SEXP,SEXP,SEXP,SEXP,SEXP);
+
+extern SEXP C_np_plot_udens_bb_draw(SEXP, SEXP);
+
 static const R_CallMethodDef CallEntries[] = {
+  {"C_np_pltest_angles", (DL_FUNC) &C_np_pltest_angles, 1},
+    {"C_np_indextest_score", (DL_FUNC) &C_np_indextest_score, 5},
+    {"C_np_plot_udens_bb_draw", (DL_FUNC) &C_np_plot_udens_bb_draw, 2},
+  {"C_np_plot_udens_bb_log_moments", (DL_FUNC) &C_np_plot_udens_bb_log_moments, 3},
+  {"C_np_plot_udens_bb_factor", (DL_FUNC) &C_np_plot_udens_bb_factor, 6},
+  {"C_np_plot_udens_bb_guide", (DL_FUNC) &C_np_plot_udens_bb_guide, 6},
+    {"C_np_plot_udens_bb_guide_order", (DL_FUNC) &C_np_plot_udens_bb_guide_order, 7},
     {"C_np_rng_scope_materialize", (DL_FUNC) &C_np_rng_scope_materialize, 0},
     {"C_np_rng_scope_restore_absent", (DL_FUNC) &C_np_rng_scope_restore_absent, 0},
     {"C_np_plot_fgd_evaluate", (DL_FUNC) &C_np_plot_fgd_evaluate, 5},
@@ -124,6 +144,8 @@ static const R_CallMethodDef CallEntries[] = {
     {"C_np_plot_udens_beta_joint_moments", (DL_FUNC) &C_np_plot_udens_beta_joint_moments, 6},
     {"C_np_plot_udens_beta_series_means", (DL_FUNC) &C_np_plot_udens_beta_series_means, 6},
     {"C_np_plot_udens_beta_joint_covariance", (DL_FUNC) &C_np_plot_udens_beta_joint_covariance, 8},
+    {"C_np_plot_udens_compact_q2_moments", (DL_FUNC) &C_np_plot_udens_compact_q2_moments, 6},
+    {"C_np_plot_udens_compact_q2_covariance", (DL_FUNC) &C_np_plot_udens_compact_q2_covariance, 8},
     {"C_np_plot_udens_beta_factor", (DL_FUNC) &C_np_plot_udens_beta_factor, 1},
     {"C_np_plot_udens_beta_region_objective", (DL_FUNC) &C_np_plot_udens_beta_region_objective, 5},
     {"C_np_plot_udens_d8_column", (DL_FUNC) &C_np_plot_udens_d8_column, 5},
@@ -136,6 +158,8 @@ static const R_CallMethodDef CallEntries[] = {
     {"C_np_plot_nn_response_jet", (DL_FUNC) &C_np_plot_nn_response_jet, 7},
     {"C_np_plot_alllarge_derivative", (DL_FUNC) &C_np_plot_alllarge_derivative, 10},
     {"C_np_plot_gate_dispatch", (DL_FUNC) &C_np_plot_gate_dispatch, 3},
+    {"C_np_bias_gaussian_extrapolate", (DL_FUNC) &C_np_bias_gaussian_extrapolate, 5},
+    {"C_np_bias_gaussian_center", (DL_FUNC) &C_np_bias_gaussian_center, 5},
     {"C_np_plot_projection_apply", (DL_FUNC) &C_np_plot_projection_apply, 3},
     {"C_np_nomad_condition_raise", (DL_FUNC) &C_np_nomad_condition_raise, 1},
     {"C_np_ordered_rly_matrix", (DL_FUNC) &C_np_ordered_rly_matrix, 4},

@@ -9,7 +9,7 @@
 }
 
 .npreg_complete <- function(...) {
-  args <- list(...)
+  args <- .np_formula_dispatch_args(NULL, substitute(list(...))[-1L], environment(), omit.subset = FALSE)
   args[[".np.require.complete"]] <- TRUE
   do.call(npreg, args)
 }
@@ -102,6 +102,8 @@ npreg <-
   function(bws, ...){
     mc <- match.call(expand.dots = FALSE)
     .np_validate_public_dots(mc[["..."]], "npreg")
+    if (!missing(bws) && "na.action" %in% names(mc[["..."]]))
+      .np_fit_na_preflight(bws, substitute(list(...))[-1L], environment(), "npreg")
     args <- .np_formula_dispatch_args(
       NULL, substitute(list(...))[-1L], environment(),
       data.roles = c("txdat", "tydat"),
@@ -243,9 +245,11 @@ npreg.formula <-
   function(bws, data = NULL, newdata = NULL, y.eval = FALSE,
            se = FALSE, ...){
     .np_reject_fit_subset(substitute(list(...))[-1L])
+    .np_fit_na_preflight(bws, substitute(list(...))[-1L], environment(), "npreg", data = data, newdata = newdata)
 
 
-    dots <- list(...)
+    dots <- .np_formula_dispatch_args(
+      NULL, substitute(list(...))[-1L], environment(), omit.subset = FALSE)
     npRejectLegacyBooleanErrors(dots, "npreg")
     se <- npValidateScalarLogical(se, "se")
     explicit.eval.exclude <- .npreg_explicit_eval_exclude(dots)
@@ -314,8 +318,9 @@ npreg.formula <-
       if (y.eval)
         reg.args$eydat <- eydat
     }
-    ev <- do.call(npreg, c(reg.args, list(se = se), dots))
-    ev$call <- .np_formula_call_public(match.call(expand.dots = FALSE))
+    dots$na.action <- NULL
+    ev <- do.call(npreg, c(reg.args, list(se = se), .np_formula_options(dots, "npreg.formula")))
+    ev$call <- .np_public_replay_call(match.call(expand.dots = FALSE), "npreg")
     environment(ev$call) <- parent.frame()
 
     if (length(response.name) == 1L && !is.na(response.name) && nzchar(response.name)) {
@@ -382,12 +387,13 @@ npreg.formula <-
 npreg.call <-
   function(bws, ...) {
     .np_reject_fit_subset(substitute(list(...))[-1L])
+    .np_fit_na_preflight(bws, substitute(list(...))[-1L], environment(), "npreg", native = TRUE)
 
   .np_reject_native_data(substitute(list(...))[-1L])
 
     ev <- do.call(npreg, .np_retained_training_args(
-      bws, c(txdat = "xdat", tydat = "ydat"), list(...), npreg.rbandwidth))
-    ev$call <- match.call(expand.dots = FALSE)
+      bws, c(txdat = "xdat", tydat = "ydat"), .np_formula_dispatch_args(NULL, substitute(list(...))[-1L], environment(), omit.subset = FALSE), npreg.rbandwidth))
+    ev$call <- .np_public_replay_call(match.call(expand.dots = FALSE), "npreg")
     environment(ev$call) <- parent.frame()
     return(ev)
   }
@@ -412,6 +418,7 @@ npreg.rbandwidth <-
            residuals = FALSE, se = FALSE,
            ...){
     .np_reject_fit_subset(substitute(list(...))[-1L])
+    .np_fit_na_preflight(bws, substitute(list(...))[-1L], environment(), "npreg", native = TRUE, native.eval = !missing(exdat))
 
   .np_regression_forward(.npreg_fit_impl, environment(),
     match.call(expand.dots = FALSE), match.call(), parent.frame(),
@@ -429,7 +436,7 @@ npreg.rbandwidth <-
 
     fit.start <- proc.time()[3]
 
-    dots <- list(...)
+    dots <- .np_formula_dispatch_args(NULL, substitute(list(...))[-1L], environment(), omit.subset = FALSE)
     native.newdata <- dots[["newdata", exact = TRUE]]
     output.request <- .np_regression_output_request(
       se, gradients, dots[[".np.gradient.errors", exact = TRUE]])
@@ -640,10 +647,10 @@ npreg.rbandwidth <-
     if (!any(keep.rows))
       stop("Training data has no rows without NAs")
 
-    txdat <- txdat[keep.rows,,drop = FALSE]
-    tydat <- tydat[keep.rows]
+    txdat <- .np_data_rows(txdat, keep.rows)
+    tydat <- .np_data_rows(tydat, keep.rows, frame = FALSE)
     if (no.ex && !no.ey)
-      eydat <- eydat[keep.rows]
+      eydat <- .np_data_rows(eydat, keep.rows, frame = FALSE)
     resid.response <- tydat
 
     ## no.ex = missing(exdat)
@@ -662,9 +669,9 @@ npreg.rbandwidth <-
       if (!any(keep.eval))
         stop("Evaluation data has no rows without NAs")
 
-      exdat <- exdat[keep.eval,,drop = FALSE]
+      exdat <- .np_data_rows(exdat, keep.eval)
       if (!no.ey)
-        eydat <- eydat[keep.eval]
+        eydat <- .np_data_rows(eydat, keep.eval, frame = FALSE)
     }
 
     if (identical(bws$regtype, "lp") &&
@@ -937,7 +944,8 @@ npreg.rbandwidth <-
     ev$powell.time <- if (!is.null(bws$powell.time) && is.finite(bws$powell.time)) as.double(bws$powell.time) else NA_real_
 
 
-    ev$call <- .np.context$call
+    ev$call <- if (isTRUE(.np.context$public))
+      .np_public_replay_call(.np.context$call, "npreg") else .np.context$call
     environment(ev$call) <- .np.context$caller
     return(.npreg_finish_empty_rows(ev, empty.rows, eval.rows.omit,
       defer = isTRUE(dots[[".np.defer.empty.rows", exact = TRUE]]),
@@ -999,7 +1007,13 @@ npreg.default <- function(bws, txdat, tydat, nomad = FALSE,
     fit.dots <- dots
     fit.dots$remin <- NULL
     fit.dots$.np_fit_progress_handoff <- TRUE
-    return(do.call(npreg, c(reg.args, list(se = se), fit.dots)))
+    if (!is.null(frame.state))
+      fit.dots <- .np_formula_options(fit.dots, "npreg.default")
+    ev <- do.call(npreg, c(reg.args, list(se = se), fit.dots))
+    ev$call <- .np_public_replay_call(match.call(definition = function(...) NULL,
+    call = sys.call(), expand.dots = FALSE, envir = parent.frame()), "npreg")
+    environment(ev$call) <- parent.frame()
+    return(ev)
   }
 
   ## here we check to see if the function was called with tdat =
@@ -1106,11 +1120,13 @@ npreg.default <- function(bws, txdat, tydat, nomad = FALSE,
   if (!has.explicit.bws)
     call.args$.np_fit_progress_handoff <- TRUE
   fit.dots <- if (!is.null(tbw[["formula", exact = TRUE]]))
-    .np_formula_dispatch_args(NULL, substitute(list(...))[-1L], environment())
-  else list(...)
+    .np_formula_options(.np_formula_dispatch_args(
+      NULL, substitute(list(...))[-1L], environment()), "npreg.default")
+  else .np_formula_dispatch_args(NULL, substitute(list(...))[-1L], environment(), omit.subset = FALSE)
   ev <- do.call(npreg, c(call.args, list(se = se), fit.dots))
 
-  ev$call <- match.call(expand.dots = FALSE)
+  ev$call <- .np_public_replay_call(match.call(definition = function(...) NULL,
+    call = sys.call(), expand.dots = FALSE, envir = parent.frame()), "npreg")
   environment(ev$call) <- parent.frame()
   return(ev)
 }

@@ -72,10 +72,10 @@ npcdistbw.formula <-
     dots <- list(...)
     .np_formula_frame_store(dots[[".np.formula.state", exact = TRUE]], mf)
     dots$.np.formula.state <- NULL
-    tbw <- do.call(npcdistbw, c(bw.args, dots))
+    tbw <- do.call(npcdistbw, c(bw.args, .np_formula_options(dots, "npcdistbw.formula")))
 
     ## clean up (possible) inconsistencies due to recursion ...
-    tbw$call <- .np_formula_call_public(match.call(expand.dots = FALSE))
+    tbw$call <- .np_public_replay_call(match.call(expand.dots = FALSE), "npcdistbw")
     environment(tbw$call) <- parent.frame()
     tbw$formula <- formula
     tbw$rows.omit <- as.vector(attr(mf,"na.action"))
@@ -187,7 +187,7 @@ npcdistbw.condbandwidth <-
     .np_density_bw_progress(bandwidth.compute, bwsolver, FALSE, {
 
     nomad.opts <- .np_nomad_normalize_user_opts(nomad.opts, "npcdistbw")
-    dot.args <- list(...)
+    dot.args <- .np_formula_dispatch_args(NULL, substitute(list(...))[-1L], environment(), omit.subset = FALSE)
     if (length(nomad.opts))
       dot.args$nomad.opts <- nomad.opts
     elapsed.start <- proc.time()[3]
@@ -1258,13 +1258,14 @@ npNomadNativeSearchConditionalDistribution <- function(prep,
   ncon <- length(setup[["cont_flat"]])
   if (identical(template[["type"]], "adaptive_nn"))
     return(rep.int(n - 2L, ncon))
-  if (!incumbent && identical(template[["type"]], "generalized_nn") &&
-      (!is.null(gydat) || !isTRUE(do.full.integral)) &&
+  # Non-beta GNN folds decode every coordinate on the deleted sample.
+  # Admit an original-sample incumbent, then recover in the ordinary fold domain.
+  if (identical(template[["type"]], "generalized_nn") &&
       !identical(template[["cxkertype"]], "beta") &&
       !identical(template[["cykertype"]], "beta"))
-    return(rep.int(n - 2L, ncon))
+    return(rep.int(n - if (incumbent) 1L else 2L, ncon))
   caps <- rep.int(n - 1L, ncon)
-  # Empirical response-grid CDF folds omit both response indices; X omits one.
+  # Preserve the separate beta-containing empirical-grid recovery policy.
   if (is.null(gydat) && isTRUE(do.full.integral))
     caps[seq_len(sum(template[["iycon"]]))] <- n - 2L
   caps
@@ -2588,7 +2589,7 @@ npcdistbw.NULL <-
            bws, ...){
   .np_reject_native_data(substitute(list(...))[-1L])
 
-    dots <- list(...)
+    dots <- .np_formula_dispatch_args(NULL, substitute(list(...))[-1L], environment(), omit.subset = FALSE)
     .np_nomad_native_reject_unsupported_options_from_dots(
       dots,
       "native npcdist NOMAD route"
@@ -2609,7 +2610,7 @@ npcdistbw.NULL <-
     ## clean up (possible) inconsistencies due to recursion ...
     mc <- match.call(expand.dots = FALSE)
     environment(mc) <- parent.frame()
-    tbw$call <- mc
+    tbw$call <- .np_public_replay_call(mc, "npcdistbw")
 
     tbw
   }
@@ -2830,7 +2831,7 @@ npcdistbw.default <-
                        lp = "Local-Polynomial")
 
     search.mc.names <- names(mc)
-    lp.dot.args <- list(...)
+    lp.dot.args <- .np_formula_dispatch_args(NULL, substitute(list(...))[-1L], environment(), omit.subset = FALSE)
     if (length(nomad.opts))
       lp.dot.args$nomad.opts <- nomad.opts
     .np_degree_reject_unknown_dots(
@@ -2975,8 +2976,8 @@ npcdistbw.default <-
       keep.rows <- rep_len(TRUE, NROW(xdat))
       if (length(rows.omit)) keep.rows[as.integer(rows.omit)] <- FALSE
       if (!any(keep.rows)) stop("Data has no rows without NAs")
-      search.xdat <- xdat[keep.rows, , drop = FALSE]
-      search.ydat <- ydat[keep.rows, , drop = FALSE]
+      search.xdat <- .np_data_rows(xdat, keep.rows)
+      search.ydat <- .np_data_rows(ydat, keep.rows)
       degree.search$nobs <- sum(keep.rows)
 
       eval_fun <- function(degree.vec) {
@@ -3065,7 +3066,7 @@ npcdistbw.default <-
 
     mc <- match.call(expand.dots = FALSE)
     environment(mc) <- parent.frame()
-    tbw$call <- mc
+    tbw$call <- .np_public_replay_call(mc, "npcdistbw")
     tbw <- .np_attach_nomad_shortcut(tbw, nomad.shortcut$metadata)
     if (isTRUE(lc.lp0.search.engine)) {
       tbw$regtype <- public.spec$regtype

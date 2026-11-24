@@ -296,15 +296,8 @@ nplsqregbw <-
   scale
 }
 
-.nplsqreg_describe_call <- function(call, owner) {
-  # do.call on these internal methods can store the closure as the call head.
-  # Keep a portable descriptive public call, not the package function itself.
-  if (identical(call[[1L]], nplsqregbw.default) ||
-      identical(call[[1L]], as.name("nplsqregbw.default")))
-    call[[1L]] <- as.name("nplsqregbw")
-  else if (identical(call[[1L]], nplsqreg.default) ||
-           identical(call[[1L]], as.name("nplsqreg.default")))
-    call[[1L]] <- as.name("nplsqreg")
+.nplsqreg_describe_call <- function(call, owner, generic) {
+  call <- .np_public_replay_call(call, generic, frame = parent.frame())
   environment(call) <- .np_call_owner_environment(owner)
   call
 }
@@ -1187,13 +1180,13 @@ nplsqregbw.formula <-
     train.omit <- attr(mf, "na.action")
     ydat <- model.response(mf)
     xdat <- mf[, .np_formula_term_names(attr(attr(mf, "terms"), "term.labels")), drop = FALSE]
-    out <- do.call(nplsqregbw, c(list(xdat = xdat, ydat = ydat, tau = tau), dots))
+    out <- do.call(nplsqregbw, c(list(xdat = xdat, ydat = ydat, tau = .np_formula_options(list(tau = tau), "nplsqregbw.formula")[[1L]]), .np_formula_options(dots, "nplsqregbw.formula")))
     out <- .nplsqreg_record_omit(out, attr(mf, "na.action"))
     out <- .nplsqreg_retain_formula_terms(out, bws, attr(mf, "terms"))
     out <- .nplsqreg_set_response_name(
       out, .nplsqreg_formula_response_name(bws))
     out$call <- match.call(expand.dots = FALSE)
-    out$call <- .nplsqreg_describe_call(out$call, parent.frame())
+    out$call <- .nplsqreg_describe_call(out$call, parent.frame(), "nplsqregbw")
     out
   }
 
@@ -1233,7 +1226,10 @@ nplsqregbw.lsqregressionbandwidth <- function(bws, tau = bws$tau, ...) {
 nplsqregbw.NULL <- function(...) {
   .np_reject_native_data(substitute(list(...))[-1L])
 
-  nplsqregbw.default(...)
+  out <- nplsqregbw.default(...)
+  out$call <- .nplsqreg_describe_call(match.call(expand.dots = FALSE),
+                                    parent.frame(), "nplsqregbw")
+  out
 }
 
 # Re-enter or dispatch only arguments owned by this invocation. Formal
@@ -1249,7 +1245,9 @@ nplsqregbw.NULL <- function(...) {
       substitute(quote(VALUE), list(VALUE = value)) else value)
   }
   if (materialize) {
-    dots <- lapply(eval(quote(list(...)), owner), function(value) {
+    dots <- lapply(.np_formula_dispatch_args(
+      NULL, eval(quote(substitute(list(...))), owner)[-1L], owner,
+      omit.subset = FALSE), function(value) {
       if (is.language(value)) substitute(quote(VALUE), list(VALUE = value)) else value
     })
     parts <- c(parts, dots)
@@ -1257,6 +1255,15 @@ nplsqregbw.NULL <- function(...) {
     parts <- c(parts, list(quote(...)))
   }
   as.call(parts)
+}
+
+.nplsqreg_bw_response_arg <- function(ydat, dots) {
+  # Keep executable options on the original value handoff. Ordinary options
+  # cannot rebind the producer's response before the callee forces it.
+  if (is.language(ydat) || typeof(ydat) == "bytecode" ||
+      any(vapply(dots, function(value)
+        is.language(value) || typeof(value) == "bytecode", logical(1))))
+    ydat else quote(ydat)
 }
 
 nplsqregbw.default <-
@@ -1300,7 +1307,7 @@ nplsqregbw.default <-
       )
       # Re-entry changes only evaluation ownership, not the public call.
       # This also keeps rank-local progress wrappers publication-equivalent.
-      result$call <- .nplsqreg_describe_call(public.call, parent.frame())
+      result$call <- .nplsqreg_describe_call(public.call, parent.frame(), "nplsqregbw")
       return(result)
     }
 
@@ -1326,7 +1333,7 @@ nplsqregbw.default <-
       warm.start.degree <- vector("list", length(tau.raw))
       previous.idx <- NA_integer_
       full.extra.args <- .nplsqreg_normalize_dots(
-        c(list(...), if (length(nomad.opts)) list(nomad.opts = nomad.opts) else list()),
+        c(.np_formula_dispatch_args(NULL, substitute(list(...))[-1L], environment(), omit.subset = FALSE), if (length(nomad.opts)) list(nomad.opts = nomad.opts) else list()),
         where = "nplsqregbw")
       refined.extra.args <- full.extra.args
       tau.search.controls <- NULL
@@ -1400,7 +1407,7 @@ nplsqregbw.default <-
         warm.start.degree = warm.start.degree,
         tau.search.controls = tau.search.controls,
         call = match.call(expand.dots = FALSE))
-      out$call <- .nplsqreg_describe_call(out$call, parent.frame())
+      out$call <- .nplsqreg_describe_call(out$call, parent.frame(), "nplsqregbw")
       return(out)
     }
     tau <- .nplsqreg_validate_tau(tau.raw)
@@ -1410,7 +1417,7 @@ nplsqregbw.default <-
     bandwidth.compute <- npValidateScalarLogical(bandwidth.compute,
                                                  "bandwidth.compute")
     dots <- .nplsqreg_normalize_dots(
-      c(list(...), if (length(nomad.opts)) list(nomad.opts = nomad.opts) else list()),
+      c(.np_formula_dispatch_args(NULL, substitute(list(...))[-1L], environment(), omit.subset = FALSE), if (length(nomad.opts)) list(nomad.opts = nomad.opts) else list()),
       where = "nplsqregbw")
     scalar.mc <- match.call(expand.dots = FALSE)
     scalar.mc.names <- names(scalar.mc)
@@ -1513,7 +1520,8 @@ nplsqregbw.default <-
     }
 
     if (missing(bws)) {
-      start.bws <- do.call(npregbw, c(list(xdat = xdat, ydat = ydat), reg.dots))
+      start.bws <- do.call(npregbw, c(list(xdat = xdat,
+                                           ydat = .nplsqreg_bw_response_arg(ydat, reg.dots)), reg.dots))
     } else if (isa(bws, "lsqregressionbandwidth")) {
       return(nplsqregbw.lsqregressionbandwidth(bws, tau = tau))
     } else if (isa(bws, "rbandwidth")) {
@@ -1522,7 +1530,8 @@ nplsqregbw.default <-
              call. = FALSE)
       start.bws <- bws
     } else {
-      start.bws <- do.call(npregbw, c(list(xdat = xdat, ydat = ydat,
+      start.bws <- do.call(npregbw, c(list(xdat = xdat,
+                                           ydat = .nplsqreg_bw_response_arg(ydat, c(list(bws = bws), reg.dots)),
                                            bws = bws,
                                            bandwidth.compute = FALSE), reg.dots))
     }
@@ -1574,7 +1583,8 @@ nplsqregbw.default <-
         fixed.reg.dots$regtype <- "lp"
         fixed.reg.dots$degree <- as.integer(degree.search$fixed.degree)
         fixed.reg.dots$bernstein.basis <- degree.search$bernstein.basis
-        fixed.bws <- do.call(npregbw, c(list(xdat = xdat, ydat = ydat),
+        fixed.bws <- do.call(npregbw, c(list(xdat = xdat,
+                                           ydat = .nplsqreg_bw_response_arg(ydat, fixed.reg.dots)),
                                         fixed.reg.dots))
         fixed.bws <- .nplsqreg_canonical_lp_template(
           template = fixed.bws,
@@ -1700,7 +1710,7 @@ nplsqregbw.default <-
       out,
       .nplsqreg_native_diagnostics_from_search(search.result)
     )
-    out$call <- .nplsqreg_describe_call(out$call, parent.frame())
+    out$call <- .nplsqreg_describe_call(out$call, parent.frame(), "nplsqregbw")
     out
   }
 
@@ -1785,17 +1795,17 @@ nplsqreg.formula <-
       eval.omit <- NULL
     }
 
-    bw <- do.call(nplsqregbw, c(list(xdat = xdat, ydat = ydat, tau = tau),
-                                dots))
+    bw <- do.call(nplsqregbw, c(list(xdat = xdat, ydat = ydat, tau = .np_formula_options(list(tau = tau), "nplsqreg.formula")[[1L]]),
+                                .np_formula_options(dots, "nplsqreg.formula")))
     bw <- .nplsqreg_retain_formula_terms(bw, model.formula, tt)
     fit.args <- list(bws = bw, txdat = xdat, tydat = ydat,
                      gradients = gradients, residuals = residuals,
                      gradient.order = gradient.order, se = se)
     if (has.eval)
       fit.args$exdat <- exdat
-    out <- do.call(nplsqreg, fit.args)
+    out <- do.call(nplsqreg, .np_formula_options(fit.args, "nplsqreg.formula"))
     out$call <- match.call(expand.dots = FALSE)
-    out$call <- .nplsqreg_describe_call(out$call, parent.frame())
+    out$call <- .nplsqreg_describe_call(out$call, parent.frame(), "nplsqreg")
     out <- .nplsqreg_set_response_name(out, response.name)
     out <- .nplsqreg_record_omit(out, train.omit)
     out$bws <- .nplsqreg_record_omit(out$bws, train.omit)
@@ -1837,7 +1847,7 @@ nplsqreg.lsqregressionbandwidth <-
       if (is.null(bws$tau.bws) || length(bws$tau.bws) != length(tau))
         stop("vector nplsqreg bandwidth object lacks per-tau bandwidth state",
              call. = FALSE)
-      fit.dots <- list(...)
+      fit.dots <- .np_formula_dispatch_args(NULL, substitute(list(...))[-1L], environment(), omit.subset = FALSE)
       defer.empty <- isTRUE(fit.dots[[".np.defer.empty.rows", exact = TRUE]])
       fit.dots$.np.defer.empty.rows <- TRUE
       empty.state <- new.env(hash = FALSE, parent = emptyenv())
@@ -1861,19 +1871,25 @@ nplsqreg.lsqregressionbandwidth <-
         bws = bws,
         tau.search = if (is.null(bws$tau.search)) "full" else bws$tau.search,
         call = match.call(expand.dots = FALSE))
-      out$call <- .nplsqreg_describe_call(out$call, parent.frame())
+      out$call <- .nplsqreg_describe_call(out$call, parent.frame(), "nplsqreg")
       out <- .npreg_finish_empty_rows(out, empty.state$rows, defer = defer.empty,
         owner = "nplsqreg", row.labels = row.names(out$xeval))
       return(restore(out))
     }
-    restore(nplsqreg.default(bws = bws, txdat = txdat, tydat = tydat, tau = tau,
-                             se = se, ...))
+    out <- restore(nplsqreg.default(bws = bws, txdat = txdat, tydat = tydat, tau = tau,
+                                    se = se, ...))
+    out$call <- .nplsqreg_describe_call(match.call(expand.dots = FALSE),
+                                      parent.frame(), "nplsqreg")
+    out
   }
 
 nplsqreg.NULL <- function(...) {
   .np_reject_native_data(substitute(list(...))[-1L])
 
-  nplsqreg.default(...)
+  out <- nplsqreg.default(...)
+  out$call <- .nplsqreg_describe_call(match.call(expand.dots = FALSE),
+                                    parent.frame(), "nplsqreg")
+  out
 }
 
 nplsqreg.default <-
@@ -1894,7 +1910,7 @@ nplsqreg.default <-
     gradients <- npValidateScalarLogical(gradients, "gradients")
     residuals <- npValidateScalarLogical(residuals, "residuals")
     se <- npValidateScalarLogical(se, "se")
-    dots <- list(...)
+    dots <- .np_formula_dispatch_args(NULL, substitute(list(...))[-1L], environment(), omit.subset = FALSE)
     # The LSQ owner has consumed the permitted NULL. It is not an argument to
     # the native regression leaf that fits the retained pseudo responses.
     dots$data <- NULL
@@ -2036,7 +2052,7 @@ nplsqreg.default <-
       out$eval.nobs.omit <- length(eval.omit)
       out <- .nplsqreg_pad_fit_outputs(out, eval.omit)
     }
-    out$call <- .nplsqreg_describe_call(out$call, parent.frame())
+    out$call <- .nplsqreg_describe_call(out$call, parent.frame(), "nplsqreg")
     .npreg_finish_empty_rows(out, empty.rows, omitted = eval.omit,
       defer = defer.empty, owner = "nplsqreg", row.labels = row.names(fit$eval))
   }

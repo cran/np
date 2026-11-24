@@ -45,7 +45,7 @@
       .np_plot_data_error()
 
     if (!is.null(xq))
-      stop("grid_control$xq is not applicable to a single-index plot", call. = FALSE)
+      stop("grid.control$xq is not applicable to a single-index plot", call. = FALSE)
     if (!is.null(xtrim))
       xtrim <- .np_plot_conmode_resolve_xtrim(xtrim)
 
@@ -97,13 +97,13 @@
     joint.request <- identical(error.request$method, "asymptotic") &&
       error.request$type %in% c("simultaneous", "all")
     if (!missing(gaussian.draws) && !joint.request)
-      stop("gaussian_draws requires asymptotic simultaneous or all bands", call. = FALSE)
+      stop("gaussian.draws requires asymptotic simultaneous or all bands", call. = FALSE)
     joint.eligible <- FALSE
     joint.calibration <- NULL
     if (joint.request) {
       gaussian.draws <- .np_plot_gaussian_integer(gaussian.draws, "gaussian.draws")
       joint.eligible <- bws[["type", exact = TRUE]] %in% c("fixed", "generalized_nn", "adaptive_nn") &&
-        bws$ckertype %in% c("gaussian", "epanechnikov") &&
+        .np_index_kernel(bws) %in% c("gaussian", "epanechnikov") &&
         identical(as.integer(bws$ckerorder), 2L)
     }
 
@@ -424,7 +424,7 @@
                             lwd = scalar_default(lwd, par()$lwd))
           plot.args <- .np_plot_merge_user_args(plot.args, plot.user.args)
           .np_plot_first_render_begin(first.render)
-          do.call(plot, plot.args)
+          do.call(plot, .np_plot_literal_labels(plot.args))
           .np_plot_first_render_end(first.render)
           if (overlay.ok)
             do.call(.np_plot_overlay_points_1d,
@@ -503,7 +503,7 @@
                             lwd = scalar_default(lwd, par()$lwd))
           plot.args <- .np_plot_merge_user_args(plot.args, plot.user.args)
           .np_plot_first_render_begin(first.render)
-          do.call(plot, plot.args)
+          do.call(plot, .np_plot_literal_labels(plot.args))
           .np_plot_first_render_end(first.render)
           if (overlay.ok)
             do.call(.np_plot_overlay_points_1d,
@@ -597,6 +597,7 @@
             
             plot.args <- list(x = tobj$index[i.sort],
                               y = temp.mean[i.sort] * bws$beta[i],
+                              xlim = xlim,
                               ylim = panel.ylim,
                               cex.axis = scalar_default(cex.axis, par()$cex.axis),
                               cex.lab =  scalar_default(cex.lab, par()$cex.lab),
@@ -621,7 +622,7 @@
                               lwd = scalar_default(lwd, par()$lwd))
             plot.args <- .np_plot_merge_user_args(plot.args, plot.user.args)
             .np_plot_first_render_begin(first.render)
-            do.call(plot, plot.args)
+            do.call(plot, .np_plot_literal_labels(plot.args))
             .np_plot_first_render_end(first.render)
             if (plot.rug)
               .np_plot_draw_rug_1d(train.index)

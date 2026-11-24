@@ -17,13 +17,14 @@ test_that("automatic surface boxes tolerate unavailable targets and preserve dat
     args <- list(fit, errors = errors, view = "fixed",
                  neval = neval, output = "plot-data", zlim = zlim)
     if (errors != "none") args$band <- band
-    if (band == "all" && errors != "none") args$gaussian_draws <- 99L
+    if (band == "all" && errors != "none") args$gaussian.draws <- 99L
     seed <- .Random.seed
     out <- suppressWarnings(do.call(plot, args))
     expect_identical(.Random.seed, seed)
     boxes <- Filter(Negate(is.null), lapply(grDevices::recordPlot()[[1L]], function(e) {
       z <- e[[2L]]
-      if (identical(tryCatch(z[[1L]]$name, error = function(e) ""), "C_persp"))
+      if (identical(tryCatch(z[[1L]]$name, error = function(e) ""), "C_persp") &&
+          any(is.finite(z[[4L]])))
         as.double(z[[7L]]) else NULL
     }))
     expect_length(boxes, 1L)

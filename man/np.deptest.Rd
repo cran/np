@@ -71,9 +71,11 @@ These arguments control bootstrap execution and reproducibility settings.
   greater than or equal to the observed statistic. Ties count as at least as
   extreme, giving the conservative tie convention for discrete statistics.
   This is the ordinary bootstrap proportion, without an add-one correction;
-  a reported zero is possible with a finite number of replications.
+  a zero is displayed as \samp{0 (0 of B)}, with the actual number of draws.
 }
 \value{
+  The result includes \code{total.time}, the elapsed wall-clock time in
+  seconds for the test call, displayed by \code{summary}.
   \code{npdeptest} returns an object of type \code{deptest} with the
   following components
 
@@ -193,7 +195,7 @@ y <- 1 + x + rnorm(n)
 model <- lm(y~x)
 y.fit <- fitted(model)
 
-npdeptest(y,y.fit,B=99,method="summation")
+npdeptest(y,y.fit,method="summation")
 
 if (interactive()) Sys.sleep(5)
 
@@ -206,7 +208,7 @@ y <- 1 + rnorm(n)
 model <- lm(y~x)
 y.fit <- fitted(model)
 
-npdeptest(y,y.fit,B=99,method="summation")
+npdeptest(y,y.fit,method="summation")
 
 ## Test/measure lack of fit between y and its fitted value from a
 ## regression model when x is relevant using the `integration'
@@ -218,7 +220,7 @@ y <- 1 + x + rnorm(n)
 model <- lm(y~x)
 y.fit <- fitted(model)
 
-npdeptest(y,y.fit,B=99)
+npdeptest(y,y.fit)
 
 if (interactive()) Sys.sleep(5)
 
@@ -232,7 +234,7 @@ y <- 1 + rnorm(n)
 model <- lm(y~x)
 y.fit <- fitted(model)
 
-npdeptest(y,y.fit,B=99)
+npdeptest(y,y.fit)
 } % enddontrun
 }
 \keyword{ univar }

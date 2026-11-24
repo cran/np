@@ -636,7 +636,7 @@
   # curve at fixed covariates. Preserve that renderer and its interpretation.
   if (is.factor(dat$x) && !is.ordered(dat$x) &&
       !identical(dat$view[1L], "fixed"))
-    return(do.call(.np_plot_conmode_panel, c(list(dat = dat), args)))
+    return(do.call(.np_plot_conmode_panel, .np_plot_literal_labels(c(list(dat = dat), args))))
   bands <- if(identical(band,"all")) c("bonferroni", "simultaneous", "pointwise") else band
   columns <- if(identical(band,"all")) unlist(lapply(bands, function(b) paste0(b, c(".lower", ".upper")))) else c("lower","upper")
   if (!all(columns %in% names(dat)))
@@ -649,7 +649,7 @@
   # legacy interval so it cannot overdraw one band with an ambiguous style.
   central <- dat
   central$lower <- central$upper <- NULL
-  do.call(.np_plot_conmode_panel, c(list(dat = central), args))
+  do.call(.np_plot_conmode_panel, .np_plot_literal_labels(c(list(dat = central), args)))
   x <- if (is.factor(dat$x)) as.numeric(dat$x) else dat$x
   ord <- order(x)
   colors <- .np_plot_all_band_colors()
@@ -1217,9 +1217,14 @@
   # Native owner certification uses the complete evaluation geometry. Splitting
   # it merely to inspect ownership could change large-bandwidth eligibility.
   projection <- NULL
+  captured <- NULL
+  # Beta retains its certificate-bearing branch even when hats use fitted capture.
+  lean <- !scalar && .npreghat_fitted_capture_scope(bws) &&
+    !identical(bws[["ckertype",exact=TRUE]],"beta")
   if(!scalar) {
-    projection <- .np_plot_lsq_gradient_projection(bws,x,q,ex,
-      gradient.order=derivative.order)$fit.projection
+    captured <- .np_plot_lsq_gradient_projection(bws,x,q,ex,
+      gradient.order=derivative.order,capture.gradient=lean)
+    projection <- captured$fit.projection
     if(!is.list(projection)||length(projection)!=3L||
        length(projection[[3L]])!=1L||is.na(projection[[3L]]))
       stop('missing LSQ accepted owner certificate',call.=FALSE)
@@ -1231,7 +1236,17 @@
   # Use the already implemented native derivative entry for higher orders too.
   # Public npreghat's generic higher-order dispatch is deliberately untouched.
   # Retain whole evaluation geometry; its full map is explicitly budgeted.
-  D <- if(!is.null(projection) && isTRUE(projection[[3L]])) {
+  D <- if(lean) {
+    geometry <- .np_plot_lsq_gate_geometry(bws,x,ex,max.bytes=max.bytes)
+    if(identical(bws[["type",exact=TRUE]],"fixed"))
+      attr(geometry,".np.fit.gate") <- captured$gate
+    P <- .np_plot_projection_slice(captured$gradient.projection,seq_len(m),
+      (match(coordinate,continuous)-1L)*width+seq_len(width))
+    if(!isTRUE(projection[[3L]])) attr(P,".np.fit.accepted") <- TRUE
+    weights <- if(isTRUE(projection[[3L]])) NULL else
+      .np_plot_lsq_gate_weights(bws,geometry,max.bytes=max.bytes)
+    .Call("C_np_plot_projection_apply",projection[[1L]],P,weights,PACKAGE="np")
+  } else if(!is.null(projection) && isTRUE(projection[[3L]])) {
     # Public positive-degree fixed fits force tree OFF; ALL-LARGE is fixed-only.
     # This invariant certifies native donor identity without reimplementing it.
     if(!identical(bws[["type",exact=TRUE]],"fixed") ||
@@ -1359,8 +1374,17 @@
 
 # New-request marshaler only; no protected function is rebound or rewritten.
 .np_plot_lsq_gradient_projection <- function(bws,x,q,ex,gradient.order=1L,
-                                                package='np',return.args=FALSE) {
+                                                package='np',return.args=FALSE,
+                                                capture.gradient=FALSE,allow.empty.rows=FALSE,
+                                                capture.mean.only=FALSE,training=FALSE) {
+  capture.gradient <- npValidateScalarLogical(capture.gradient, 'capture.gradient')
+  capture.mean.only <- npValidateScalarLogical(capture.mean.only, 'capture.mean.only')
+  if(capture.mean.only && !capture.gradient)
+    stop('mean-only capture requires the lean capture request',call.=FALSE)
+  training <- npValidateScalarLogical(training, 'training')
   x<-toFrame(x);ex<-toFrame(ex)
+  if(training && !identical(x,ex))
+    stop('training capture requires identical training and evaluation frames',call.=FALSE)
   if(!(x %~% ex) || nrow(x)<2L || nrow(ex)<1L || length(q)!=nrow(x) ||
      !is.numeric(q) || any(!is.finite(q)) || anyNA(x) || anyNA(ex) ||
      length(bws[['bw',exact=TRUE]])!=ncol(x))
@@ -1381,6 +1405,7 @@
   x<-adjustLevels(x,bws$xdati);ex<-adjustLevels(ex,bws$xdati,allowNewCells=TRUE)
   npKernelBoundsCheckEval(ex,bws$icon,bws$ckerlb,bws$ckerub,argprefix='cker')
   xx<-toMatrix(x);ee<-toMatrix(ex)
+  if(training) ee<-ee[FALSE,,drop=FALSE]
   npCheckRegressionDesignCondition(reg.code=reg$code,xcon=xx[,bws$icon,drop=FALSE],
     basis=spec$basis.engine,degree=spec$degree.engine,
     bernstein.basis=spec$bernstein.basis.engine,where='plot gradient projection')
@@ -1392,7 +1417,7 @@
       epanechnikov=CKER_EPAN+bws$ckerorder/2-1,uniform=CKER_UNI,beta=CKER_COORDINATE),
     ukerneval=switch(bws$ukertype,aitchisonaitken=UKER_AIT,liracine=UKER_LR),
     okerneval=switch(bws$okertype,wangvanryzin=OKER_WANG,liracine=OKER_LR,racineliyan=OKER_RLY),
-    ey_is_ty=TRUE,do_grad=TRUE,regtype=reg$code,no.ex=FALSE,
+    ey_is_ty=TRUE,do_grad=!capture.mean.only,regtype=reg$code,no.ex=training,
     mcv.numRow=attr(bws$xmcv,'num.row'),
     int_do_tree=if(beta)DO_TREE_NO else .npreg_fit_tree_code(bws,bws$ncon,bws$nuno+bws$nord),
     categorical.compress=if(beta && bws$nuno+bws$nord>0L)
@@ -1409,14 +1434,20 @@
     as.double(bws$sdev),as.integer(opt),as.integer(reg$degree),as.integer(order),
     as.integer(isTRUE(spec$bernstein.basis.engine)),as.integer(npLpBasisCode(spec$basis.engine)),
     as.integer(nrow(ex)),as.integer(ncol(x)),
-    as.integer(c(.np_regression_output_request(se=FALSE,gradients=TRUE),0L,
+    as.integer(c(.np_regression_output_request(se=FALSE,gradients=!capture.mean.only),0L,
       npLpBasisNcol(spec$basis.engine,reg$degree))),as.double(bounds$lb),as.double(bounds$ub))
+  allow.empty.rows <- npValidateScalarLogical(allow.empty.rows, 'allow.empty.rows')
+  if(allow.empty.rows && !capture.gradient)
+    stop('empty-row capture requires lean gradient capture',call.=FALSE)
+  if(allow.empty.rows) args[[22L]][2L] <- 1L
+  if(capture.gradient) attr(args, '.np.capture.gradient') <- TRUE
   if(isTRUE(return.args))return(args)
   out<-.np_with_nn_radius_context(
     .Call('C_np_plot_regression_gradient_projection',args,PACKAGE=package),
     continuous.names=bws$xnames[bws$icon],bws=bws,ntrain=nrow(x))
   reverse<-order(c(which(bws$icon),which(bws$iuno),which(bws$iord)))
-  out$gradient<-matrix(out$gradient,nrow(ex),ncol(x))[,reverse,drop=FALSE]
+  if(!capture.mean.only)
+    out$gradient<-matrix(out$gradient,nrow(ex),ncol(x))[,reverse,drop=FALSE]
   out
 }
 
@@ -1584,7 +1615,7 @@
        !is.matrix(accepted.projection)||!is.double(accepted.projection)||
        !identical(dim(accepted.projection),c(nrow(ex),w)))
       stop('invalid beta derivative replay certificate')
-    args<-c(args,list(accepted.projection=accepted.projection[index,,drop=FALSE],
+    args<-c(args,list(accepted.projection=.np_plot_projection_slice(accepted.projection,index),
       degree=as.integer(spec$degree.engine),basis.code=as.integer(npLpBasisCode(spec$basis.engine)),
       bernstein=as.integer(isTRUE(spec$bernstein.basis.engine)),
       coordinate=derivative[1]-1L,order=derivative[2]))

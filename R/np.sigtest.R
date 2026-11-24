@@ -37,6 +37,7 @@ npsigtest <-
 
 npsigtest.formula <-
   function(bws, data = NULL, ...){
+    started <- proc.time()[["elapsed"]]
     .np_reject_fit_subset(substitute(list(...))[-1L])
 
 
@@ -44,6 +45,9 @@ npsigtest.formula <-
                          names(substitute(list(...))[-1L]), nomatch = 0L)
     frame.state <- if (state.index > 0L) ...elt(state.index) else NULL
     policy.index <- match("na.action", names(substitute(list(...))[-1L]), nomatch = 0L)
+    if (policy.index > 0L &&
+        .np_na_promise_missing(paste0("..", policy.index), environment()))
+      policy.index <- 0L
     policy.override <- if (policy.index > 0L) list(na.action = ...elt(policy.index)) else list()
     tt <- terms(bws)
     m <- match(c("formula", "data", "subset", "na.action"),
@@ -62,22 +66,28 @@ npsigtest.formula <-
     ydat <- model.response(tmf)
     xdat <- tmf[, .np_formula_term_names(attr(attr(tmf, "terms"),"term.labels")), drop = FALSE]
 
-    ev <- if (is.null(frame.state)) {
+    ev <- if (is.null(frame.state) && (is.null(data) || policy.index == 0L)) {
       npsigtest(xdat = xdat, ydat = ydat, bws = bws, ...)
     } else {
-      dots <- list(...)
+      dots <- .np_formula_dispatch_args(NULL, substitute(list(...))[-1L], environment(), omit.subset = FALSE)
       dots$.np.formula.state <- NULL
-      do.call(npsigtest, c(list(xdat = xdat, ydat = ydat, bws = bws), dots))
+      # The fresh/replacement frame owner has already applied this policy.
+      # Retained training keeps its refusal; replacement without a policy
+      # keeps the original lazy forwarding path above.
+      dots$na.action <- NULL
+      do.call(npsigtest, c(list(xdat = xdat, ydat = ydat, bws = bws),
+                         .np_formula_options(dots, "npsigtest.formula")))
     }
-    ev$call <- .np_formula_call_public(match.call(expand.dots = FALSE))
+    ev$call <- .np_public_replay_call(match.call(expand.dots = FALSE), "npsigtest")
     environment(ev$call) <- parent.frame()
     ev$rows.omit <- as.vector(attr(umf,"na.action"))
     ev$nobs.omit <- length(ev$rows.omit)
-    return(ev)
+    return(.np_test_timed_result(ev, started))
   }
 
 npsigtest.call <-
   function(bws, ...) {
+    started <- proc.time()[["elapsed"]]
     .np_reject_fit_subset(substitute(list(...))[-1L])
 
   .np_reject_native_data(substitute(list(...))[-1L])
@@ -85,19 +95,20 @@ npsigtest.call <-
     ev <- npsigtest(xdat = .np_eval_bws_call_arg(bws, "xdat"),
                     ydat = .np_eval_bws_call_arg(bws, "ydat"),
                     bws = bws, ...)
-    ev$call <- match.call(expand.dots = FALSE)
+    ev$call <- .np_public_replay_call(match.call(expand.dots = FALSE), "npsigtest")
     environment(ev$call) <- parent.frame()
-    return(ev)
+    return(.np_test_timed_result(ev, started))
   }
 
 npsigtest.npregression <-
   function(bws, ...){
+    started <- proc.time()[["elapsed"]]
     .np_reject_fit_subset(substitute(list(...))[-1L])
 
     ev <- npsigtest(bws$bws, ...)
-    ev$call <- match.call(expand.dots = FALSE)
+    ev$call <- .np_public_replay_call(match.call(expand.dots = FALSE), "npsigtest")
     environment(ev$call) <- parent.frame()
-    return(ev)
+    return(.np_test_timed_result(ev, started))
   }
 
 .np_npsig_pivot_plan <- function(pivot, xdat, index, joint) {
@@ -542,6 +553,7 @@ npsigtest.rbandwidth <- function(bws,
                                  index = seq_len(ncol(xdat)),
                                  random.seed = 42,
                                  ...) {
+  started <- proc.time()[["elapsed"]]
     .np_reject_fit_subset(substitute(list(...))[-1L])
 
   .np_reject_native_data(substitute(list(...))[-1L])
@@ -581,7 +593,7 @@ npsigtest.rbandwidth <- function(bws,
   pivot <- pivot.plan$requested
   .np_npsig_validate_lp_degree(bws = bws, xdat = xdat, index = index)
 
-  extra.args <- list(...)
+  extra.args <- .np_formula_dispatch_args(NULL, substitute(list(...))[-1L], environment(), omit.subset = FALSE)
   npRejectLegacyBootstrapCount(names(extra.args), "npsigtest")
 
 
@@ -707,12 +719,13 @@ npsigtest.rbandwidth <- function(bws,
       progress <- .np_npsig_progress_complete(progress, skipped = TRUE)
       progress <- .np_progress_end(progress)
       progress.active <- FALSE
-      return(sigtest(In = In, In.bootstrap = matrix(NA_real_, B, 1L),
+      result <- sigtest(In = In, In.bootstrap = matrix(NA_real_, B, 1L),
         P = 1, bws = bws, ixvar = index, boot.method = boot.method,
         pivot = pivot, pivot.effective = pivot.plan$effective,
         joint = joint, boot.type = boot.type, boot.num = B,
         bootstrap.executed = 0L,
-        bootstrap.reason = "all observed contrasts identically zero"))
+        bootstrap.reason = "all observed contrasts identically zero")
+      return(.np_test_timed_result(result, started))
     }
 
     if(boot.method != "pairwise") {
@@ -1264,7 +1277,7 @@ npsigtest.rbandwidth <- function(bws,
 
   .np_rng_scope_restore(seed.state)
 
-  sigtest(In = In,
+  result <- sigtest(In = In,
           In.bootstrap = In.mat,
           P = P,
           bws = bws,
@@ -1277,6 +1290,7 @@ npsigtest.rbandwidth <- function(bws,
           boot.num = B,
           bootstrap.executed = bootstrap.executed,
           bootstrap.reason = bootstrap.reason)
+  .np_test_timed_result(result, started)
   }, continuous.names = names(xdat)[bws[["icon", exact = TRUE]]], context = {
     if (identical(nn.stage, "bootstrap")) {
       if (streamed.iid)
@@ -1294,8 +1308,56 @@ npsigtest.rbandwidth <- function(bws,
   "B", "boot.method", "boot.type", "pivot", "joint", "index", "random.seed"
 )
 
+# Selector arguments must consume the same promises as the later test call.
+# Keep data-mask arguments with their existing owners and never force a test
+# control merely to construct the selector call.
+.np_npsig_selector_promises <- function(call, frame, caller) {
+  tagged <- call
+  for (i in seq_along(tagged)[-1L]) tagged[[i]] <- i
+  matched <- match.call(function(bws, xdat, ydat, ...) NULL,
+                        tagged, expand.dots = FALSE)
+  indices <- matched[["..."]]
+  structural <- c("formula", "data", "subset", "na.action", "gdata",
+                  ".np.formula.state")
+  replacements <- list()
+  for (i in seq_along(indices)) {
+    index <- indices[[i]]
+    name <- names(call)[index]
+    if (length(name) && !is.na(name) &&
+        name %in% c(structural, .np_npsig_default_test_args)) next
+    expression <- call[[index]]
+    reference <- .np_formula_promise_expression(
+      substitute(...elt(I), list(I = i)), frame)
+    call[[index]] <- reference
+    replacements[[length(replacements) + 1L]] <-
+      list(reference = reference, expression = expression)
+  }
+  list(call = call, replacements = replacements)
+}
+
+.np_npsig_restore_selector_call <- function(call, replacements) {
+  if (!is.call(call) || !length(replacements)) return(call)
+  restore <- function(arguments) {
+    pairlist.input <- is.pairlist(arguments)
+    for (i in seq_along(arguments)) for (replacement in replacements) {
+      if (identical(arguments[[i]], replacement$reference)) {
+        arguments[i] <- list(replacement$expression)
+        break
+      }
+    }
+    if (pairlist.input) arguments <- as.pairlist(arguments)
+    arguments
+  }
+  call <- restore(call)
+  if (!is.null(call[["..."]])) call[["..."]] <- restore(call[["..."]])
+  call
+}
+
 npsigtest.default <- function(bws, xdat, ydat, ...){
+  started <- proc.time()[["elapsed"]]
   sc <- .np_formula_expand_call(sys.call(), parent.frame())
+  selector <- .np_npsig_selector_promises(sc, environment(), parent.frame())
+  sc <- selector$call
   sc.names <- names(sc)
 
   ## here we check to see if the function was called with tdat = if it
@@ -1350,6 +1412,10 @@ npsigtest.default <- function(bws, xdat, ydat, ...){
                         native.map = c(bws = "bws", xdat = "xdat", ydat = "ydat"), native.frame = environment(),
                          formula.value = .np_formula_value(formula.input, bws, xdat))
   
+  if (is.call(tbw[["call", exact = TRUE]]))
+    tbw[["call"]] <- .np_npsig_restore_selector_call(
+      tbw[["call", exact = TRUE]], selector$replacements)
+
   call.args <- list(bws = tbw)
   if (!is.null(frame.state))
     call.args$.np.formula.state <- frame.state
@@ -1358,13 +1424,15 @@ npsigtest.default <- function(bws, xdat, ydat, ...){
   if(!no.ydat)
     call.args$ydat <- ydat
 
-  dots <- if (is.null(frame.state)) list(...) else
+  dots <- if (is.null(frame.state)) .np_formula_dispatch_args(NULL, substitute(list(...))[-1L], environment(), omit.subset = FALSE) else
     .np_formula_dispatch_args(NULL, substitute(list(...))[-1L], environment())
   dots[c("bws", "bandwidth.compute", "formula", "data", "xdat", "ydat")] <- NULL
 
+  if (!is.null(frame.state))
+    dots <- .np_formula_options(dots, "npsigtest.default")
   ev <- do.call(npsigtest, c(call.args, dots))
 
-  ev$call <- match.call(expand.dots = FALSE)
+  ev$call <- .np_public_replay_call(match.call(expand.dots = FALSE), "npsigtest")
   environment(ev$call) <- parent.frame()
-  return(ev)
+  return(.np_test_timed_result(ev, started))
 }

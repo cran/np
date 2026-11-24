@@ -220,6 +220,8 @@ Further arguments are passed to the bandwidth-selection counterpart when bandwid
   }
 }
 \details{
+  Use \code{\link{npindextest}} to test whether the conditional mean (or binary success probability) depends on the covariates through a single linear index with unknown coefficients and link.
+
   The primary response must be a one-dimensional numeric (integer or double)
   vector. Factors and ordered factors are not accepted as primary responses,
   including retained responses used in a new fit or bandwidth search.
@@ -354,6 +356,16 @@ Further arguments are passed to the bandwidth-selection counterpart when bandwid
   expand missing settings to the same documented preset. Explicit
   incompatible settings fail fast rather than being silently rewritten.
 
+}
+
+\section{Missing-value policies with stored bandwidths}{
+An existing bandwidth object retains its training omission policy. Explicit
+\code{na.action} overrides are supported only by the formula replacement-data
+or replacement-response routes that already own that policy, and by documented
+regression and single-index prediction policies. Unsupported stored native or
+formula evaluation overrides are rejected rather than silently ignored.
+For replacement native inputs, prepare the desired complete data explicitly.
+Reusing retained training does not re-run its missing-value callback.
 }
 
 \value{
@@ -549,6 +561,7 @@ failures must be considered when experimenting with these bounds.
 }
 
 \seealso{
+  \code{\link{npindextest}},
   \code{\link{np.kernels}}, \code{\link{np.options}},
   \code{\link{plot}}, \code{\link{plot.np}}, \code{\link{npindexbw}}
 }
